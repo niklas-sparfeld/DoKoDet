@@ -9,17 +9,20 @@ lineage loading live in `useRecordingPipelineData.ts`. URL state and selection c
 into these modules.
 
 Workspace requests carry a sequence number. A response can update state only when it is still the
-newest request and its recording ID matches the current recording. Abort signals still cancel
-recording and graph requests. This also prevents an older refresh response from replacing newer
-workspace data.
+newest request and its recording ID matches the current recording. A completed workspace for one
+recording does not satisfy a same-stage request for another recording. The workspace shows its
+loading state until the new recording loads. Abort signals still cancel recording and graph
+requests. This also prevents an older refresh response from replacing newer workspace data.
 
 ## Coverage
 
-`useRecordingPipelineData.test.tsx` covers stale recording responses, stale stage responses,
-overlapping refreshes, and graph errors. The workspace suites cover deleted lineage nodes, invalid
-saved URLs, URL restoration, exact selected revisions after a selection conflict, and the composed
-workspace. The workspace tests are split into focused files; each remains within the 800-line test
-budget. The composition root and each new production module meet their line budgets.
+`useRecordingPipelineData.test.tsx` covers stale recording responses, completed-load same-stage
+recording switches, stale stage responses, overlapping refreshes, and graph errors. The workspace
+suite verifies that a recording switch shows loading instead of the prior recording. The other
+workspace suites cover deleted lineage nodes, invalid saved URLs, URL restoration, exact selected
+revisions after a selection conflict, and the composed workspace. The workspace tests are split into
+focused files; each remains within the 800-line test budget. The composition root and each new
+production module meet their line budgets.
 
 ## Checks
 
@@ -27,7 +30,7 @@ From `web/`:
 
 - `npx eslint src/pipeline/RecordingPipeline*.test.tsx src/pipeline/RecordingPipelineWorkspace.tsx src/pipeline/recordingPipelineSelection.ts src/pipeline/useRecordingPipelineData.ts src/pipeline/useRecordingPipelineSelection.ts src/pipeline/useRecordingPipelineData.test.tsx` — passed.
 - `npm run typecheck` — passed.
-- `npm test -- --run src/pipeline/RecordingPipelineWorkspace.test.tsx src/pipeline/RecordingPipelineWorkspacePresentation.test.tsx src/pipeline/RecordingPipelineWorkspaceSelection.test.tsx src/pipeline/RecordingPipelineSelectionIntegration.test.tsx src/pipeline/useRecordingPipelineData.test.tsx` — 37 tests passed.
+- `npm test -- --run src/pipeline/RecordingPipelineWorkspace.test.tsx src/pipeline/RecordingPipelineWorkspacePresentation.test.tsx src/pipeline/RecordingPipelineWorkspaceSelection.test.tsx src/pipeline/RecordingPipelineSelectionIntegration.test.tsx src/pipeline/useRecordingPipelineData.test.tsx` — 39 tests passed.
 - `npx prettier --check` on the changed workspace and test files — passed.
 
 During integration with 0113, these workspace suites mock `AutomatedPipelineControls` so they test

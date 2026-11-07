@@ -294,9 +294,11 @@ Retain a small composition integration test. No second selection authority or sh
 **Result:** Complete. Workspace and graph requests live in `useRecordingPipelineData.ts`. Pure URL
 sanitization and initial-stage choice live in `recordingPipelineSelection.ts`; URL state and
 selection commands live in `useRecordingPipelineSelection.ts`. Workspace requests ignore stale
-completion and reject a response for another recording. The 469-line composition root has no
-second selection authority or job poller. Loading, URL, selection, and composition tests pass
-(37 tests). See [`0112 M7 workspace loading and selection`](../../reports/0112-M7_Workspace_Loading_Selection.md).
+completion and reject a response for another recording. A completed workspace for one recording
+does not satisfy a same-stage request for another recording; the workspace shows its loading state
+until the new recording loads. The 469-line composition root has no second selection authority or
+job poller. Loading, URL, selection, and composition tests pass (39 tests). See
+[`0112 M7 workspace loading and selection`](../../reports/0112-M7_Workspace_Loading_Selection.md).
 
 ## M8 — Split processor launch controls from request construction
 
@@ -380,10 +382,12 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   frame-review routes in their own focused client. No API contract or response behavior changed.
 - M7 moved workspace and graph loading, abort and stale-response checks, URL selection state,
   sanitization, and generated-revision selection into focused modules. Workspace response sequence
-  checks reject older requests and responses for a different recording. Its focused tests cover
-  recording and stage switches, refresh races, and graph errors; the existing workspace suites cover
-  deleted nodes, URL restoration, exact selection, and composition. All 37 focused tests, typecheck,
-  ESLint, and Prettier checks passed. See the [M7 report](../../reports/0112-M7_Workspace_Loading_Selection.md).
+  checks reject older requests and responses for a different recording. Completed same-stage
+  recording switches start a new request, and the workspace hides the old recording until the new
+  workspace loads. Its focused tests cover recording and stage switches, refresh races, graph errors,
+  and the loading state; the other workspace suites cover deleted nodes, URL restoration, exact
+  selection, and composition. All 39 focused tests, typecheck, ESLint, and Prettier checks passed.
+  See the [M7 report](../../reports/0112-M7_Workspace_Loading_Selection.md).
 - Decisions and limits: keep one URL selection state in `useRecordingPipelineSelection.ts`; do not
   add shared polling or a second selection store. Workspace suites mock `AutomatedPipelineControls`
   to isolate loading and selection from its 0113 `JobStateProvider` dependency; its own tests keep

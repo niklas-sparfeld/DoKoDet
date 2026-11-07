@@ -154,7 +154,9 @@ export function RecordingPipelineWorkspace({
   }, [compare, recordingId, stageKey, workspace]);
 
   const workspaceReadyForStage =
-    workspace !== null && loadedStageKey === (stageKey ?? "events");
+    workspace !== null &&
+    workspace.recording_id === recordingId &&
+    loadedStageKey === (stageKey ?? "events");
   const activeWorkspace = workspaceReadyForStage ? workspace : null;
   const backendStageKey = stageKey === "virtual_scenes" ? null : stageKey;
   const stage = activeWorkspace?.stages.find(

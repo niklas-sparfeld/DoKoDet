@@ -79,7 +79,11 @@ export function useRecordingPipelineData(
   );
 
   useEffect(() => {
-    if (workspace !== null && loadedStageKey === (stageKey ?? "events")) return;
+    if (
+      workspace?.recording_id === recordingId &&
+      loadedStageKey === (stageKey ?? "events")
+    )
+      return;
     const loadIdentity = `${recordingId}:${stageKey ?? "events"}`;
     if (workspaceLoadIdentityRef.current === loadIdentity) return;
     const controller = new AbortController();

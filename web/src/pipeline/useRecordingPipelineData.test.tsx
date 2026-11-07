@@ -97,6 +97,35 @@ describe("recording pipeline workspace data", () => {
     expect(result.current.workspace?.diagnostics[0].code).toBe("new-recording");
   });
 
+  it("loads the new recording after the prior recording has completed", async () => {
+    graphFetch();
+    const first = deferred<PipelineWorkspace>();
+    const second = deferred<PipelineWorkspace>();
+    const getRecordingPipeline = vi.fn((recordingId: string) =>
+      recordingId === "first" ? first.promise : second.promise,
+    );
+    const client = { getRecordingPipeline } as never;
+    const { result, rerender } = renderHook(
+      ({ recordingId }: { recordingId: string }) =>
+        useRecordingPipelineData(recordingId, "events", null, client),
+      { initialProps: { recordingId: "first" } },
+    );
+
+    await waitFor(() => expect(getRecordingPipeline).toHaveBeenCalledTimes(1));
+    await act(async () => first.resolve(workspace("first", "first-loaded")));
+    await waitFor(() =>
+      expect(result.current.workspace?.recording_id).toBe("first"),
+    );
+
+    rerender({ recordingId: "second" });
+    await waitFor(() => expect(getRecordingPipeline).toHaveBeenCalledTimes(2));
+    expect(result.current.workspace?.recording_id).toBe("first");
+    await act(async () => second.resolve(workspace("second", "second-loaded")));
+    await waitFor(() =>
+      expect(result.current.workspace?.recording_id).toBe("second"),
+    );
+  });
+
   it("ignores a late response after switching stages", async () => {
     graphFetch();
     const events = deferred<PipelineWorkspace>();
