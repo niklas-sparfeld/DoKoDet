@@ -8,8 +8,8 @@
 - **Depends on:** [0108 M11](../5-closed/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
   must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
-- **Outcome:** M0 is complete. Six active code paths have small composition roots, explicit
-  owners, focused test entry points, and size checks. M1–M10 remain.
+- **Outcome:** M0 and M1 are complete. M1 moved visual identity crop-input freezing and source
+  validation into focused modules with a frozen result. M2–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
   complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
   candidate files remain. M0 must remap their current responsibilities before extraction.
@@ -89,7 +89,7 @@ explicit plan change before the affected milestone is marked complete.
 | Milestone | Work | State |
 | --- | --- | --- |
 | M0 | Freeze surviving owners, contracts, and verification | Complete |
-| M1 | Extract visual-identity crop-input freezing | Not started |
+| M1 | Extract visual-identity crop-input freezing | Complete |
 | M2 | Extract visual-identity crop resolution and provenance | Not started |
 | M3 | Separate identity execution and per-card classification | Not started |
 | M4 | Split surviving pipeline persistence owners | Not started |
@@ -136,6 +136,25 @@ Move the relevant crop-kind and source-validation tests into focused files.
 
 Acceptance: all supported crop kinds produce the same frozen inputs and reject mismatched sources.
 Proposed virtual cards retain the same-frame pose-to-detector mapping. No service callback cycle.
+
+**Result:** Complete. `visual_identity_crop_sources.py` owns exact node revision checks, source
+digests, completed-reference checks, reviewed virtual-card assembly, and scene-derived-view
+validation. `visual_identity_crop_inputs.py` freezes every supported crop kind into a frozen result
+that holds the exact input revision, crop items, and typed provenance. The service composes these
+modules through explicit store dependencies. The focused reviewed-scene test moved to
+  `backend/tests/test_visual_identity_crop_sources.py`; the API suite retains managed-job and
+  proposed-scene restart coverage, including same-frame pose-to-detector mapping. The source test
+  owns reviewed scene and repeated source-validation checks. Both new modules
+have no import of the service or job participant. The API service unwraps the immutable result at
+its existing request boundary.
+
+Checks passed:
+
+- `mise exec -- uv run --project backend pytest -q backend/tests/test_visual_identity_pipeline_api.py backend/tests/test_visual_identity_crop_sources.py` — 9 passed.
+- `mise exec -- uv run --project backend ruff check backend/src/dokodetector_backend/visual_identity_crop_inputs.py backend/src/dokodetector_backend/visual_identity_crop_sources.py backend/src/dokodetector_backend/visual_identity_pipeline_service.py backend/tests/test_visual_identity_crop_sources.py backend/tests/test_visual_identity_pipeline_api.py` — passed.
+- `mise exec -- uv run --project backend ruff format --check backend/src/dokodetector_backend/visual_identity_crop_inputs.py backend/src/dokodetector_backend/visual_identity_crop_sources.py backend/src/dokodetector_backend/visual_identity_pipeline_service.py backend/tests/test_visual_identity_crop_sources.py backend/tests/test_visual_identity_pipeline_api.py` — passed.
+
+The backend tests report the existing Starlette `httpx` deprecation warning.
 
 ## M2 — Extract visual-identity crop resolution and provenance
 
@@ -256,19 +275,14 @@ move it to `5-closed`, repair links, and update the board in the final milestone
 
 ## Execution handoff
 
-- M0 complete. The module map and checks are in
-  [`docs/reports/0112-M0_Module_Map.md`](../../reports/0112-M0_Module_Map.md).
-- Checks passed: five focused backend suites (45 tests); three focused web suites (45 tests),
-  web typecheck, and Prettier on the changed client test. The backend run has an existing Starlette
-  `httpx` deprecation warning.
+- Completed: M0, M1. M1 moved crop-input freezing and source validation. The focused source test is
+  in `backend/tests/test_visual_identity_crop_sources.py`; M1 checks and details are in
+  [`docs/reports/0112-M1_Crop_Input_Extraction.md`](../../reports/0112-M1_Crop_Input_Extraction.md).
+- M1 checks passed: focused backend API and crop-source suites (9 tests), Ruff lint, and Ruff format.
 - Decisions and limits: keep the retired `test_pipeline_reference.py` absent. Preserve
   `LegacyProcessorRunStore` while `lineage_migration_inventory.py` calls it. M3/M7/M9 must add or
   locate coverage for probability normalization, cancellation versus publication, and stale
   workspace responses. M5 has no active timeout-configured client call; do not invent one without
   an API contract decision.
-- Next: M1, extract visual-identity crop-input freezing. Requested 11 milestones, completed 1,
-  remaining 10. Coordinate M8 with 0113 before either launch-boundary implementation.
-- Coordinate M8 with 0113 launch integration. Do not change the same launch boundary concurrently;
-  reconcile the surviving owner and contract before starting either overlapping milestone.
-- Preserve concurrent changes. The inspection found work in visual identity, app chrome, API client,
-  and the Jobs drawer. No such implementation files belong to this planning change.
+- Next: M2, extract visual-identity crop resolution and provenance. Requested 10 milestones,
+  completed 1, remaining 9. Coordinate M8 with 0113 before either launch-boundary implementation.
