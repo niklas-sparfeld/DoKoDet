@@ -105,6 +105,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0115 — Data cleanup](2-ready/0115-Data_Cleanup.md) | 0108 and 0110 complete; coordinate storage boundaries with 0112 and performance evidence with 0114 | M0–M11 not started. Measure and reduce recovery/runtime cruft, worktree duplication, storage-format cost, and agent discovery cost. Preserve original recordings, human review work, current models, and active dependencies. Verify recovery and prevent regrowth. |
 
 
 ### In Progress
