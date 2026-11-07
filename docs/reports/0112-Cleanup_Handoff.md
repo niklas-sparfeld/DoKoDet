@@ -62,7 +62,13 @@ Three examples show the files needed for a change:
 ## Checks and results
 
 - `python scripts/check_0112_boundaries.py` — passed; every explicit path exists and meets its
-  budget, with no prohibited import direction or helper cycle.
+  budget, with no prohibited import direction or helper cycle. A post-close review found that the
+  first guard version selected files using the source directory suffix, so it did not inspect
+  backend Python modules. The corrected scanner parses backend imports and checks web `.ts` and
+  `.tsx` module paths, including adjacent `*TestFixtures` modules.
+- `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py` — 2 passed.
+  The regressions prove that a backend import from `dokodetector_backend.test_support` and a web
+  import from `./runControlsTestFixtures` are both rejected.
 - `mise exec -- uv run --project backend pytest -q backend/tests/test_visual_identity_pipeline_api.py backend/tests/test_visual_identity_approval.py backend/tests/test_visual_identity_classification.py backend/tests/test_visual_identity_crop_queries.py backend/tests/test_visual_identity_crop_resolution.py backend/tests/test_visual_identity_crop_sources.py backend/tests/test_visual_identity_job.py backend/tests/test_visual_identity_request.py backend/tests/test_pipeline_store.py backend/tests/test_pipeline_node_selection_store.py backend/tests/test_pipeline_lineage.py backend/tests/test_pipeline_node_store.py backend/tests/test_pipeline_node_transactions.py backend/tests/test_pipeline_node_uses.py backend/tests/test_job_store.py backend/tests/test_jobs_api.py backend/tests/test_job_scheduler.py backend/tests/test_job_recovery.py backend/tests/test_job_publication.py` — passed.
 - The real local fixture path passed in
   `test_visual_identity_pipeline_uses_generated_geometry_and_restarts` and

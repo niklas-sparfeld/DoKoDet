@@ -116,6 +116,7 @@ BUDGETS = {
         "web/src/pipeline/RunControlsEventAndVisibleCard.test.tsx",
         "web/src/pipeline/RunControlsVisualIdentity.test.tsx",
         "web/src/pipeline/runControlsTestFixtures.tsx",
+        "scripts/test_0112_boundaries.py",
     ],
 }
 
@@ -185,6 +186,55 @@ def import_cycles() -> list[list[str]]:
     return [list(cycle) for cycle in sorted(cycles)]
 
 
+def _python_imports_test_support(path: Path) -> bool:
+    tree = ast.parse(path.read_text(), filename=str(path))
+    modules: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                modules.append(node.module)
+            modules.extend(alias.name for alias in node.names)
+    return any(
+        segment.lower() in {"test", "tests", "test_support"}
+        for module in modules
+        for segment in module.split(".")
+    )
+
+
+_TS_IMPORT = re.compile(r"\b(?:from\s*|import\s*)[\"']([^\"']+)[\"']")
+
+
+def _typescript_imports_test_support(path: Path) -> bool:
+    for module in _TS_IMPORT.findall(path.read_text()):
+        parts = [part.lower() for part in module.split("/") if part not in {".", ".."}]
+        if any(part in {"test", "tests", "test_support"} for part in parts):
+            return True
+        if parts and re.search(r"test.?fixtures?$", parts[-1]):
+            return True
+    return False
+
+
+def production_test_support_imports(root: Path) -> list[str]:
+    """Return production source paths that import test-only support."""
+    violations: list[str] = []
+    backend_source = root / "backend/src"
+    for path in backend_source.rglob("*.py"):
+        if _python_imports_test_support(path):
+            violations.append(path.relative_to(root).as_posix())
+
+    for base in (root / "web/src/api", root / "web/src/pipeline"):
+        for path in (*base.rglob("*.ts"), *base.rglob("*.tsx")):
+            if path.name.endswith((".test.ts", ".test.tsx")):
+                continue
+            if "testfixtures" in path.name.lower():
+                continue
+            if _typescript_imports_test_support(path):
+                violations.append(path.relative_to(root).as_posix())
+    return sorted(violations)
+
+
 def main() -> int:
     failures: list[str] = []
     for budget, names in BUDGETS.items():
@@ -207,35 +257,10 @@ def main() -> int:
                 f"feature client imports aggregate root: {path.relative_to(ROOT)}"
             )
 
-    production_roots = [
-        ROOT / "backend/src",
-        ROOT / "web/src/api",
-        ROOT / "web/src/pipeline",
-    ]
-    test_import = re.compile(
-        r"(?:dokodetector_backend\.)?test_support|(?:\.\./)+tests?/"
+    failures.extend(
+        f"production imports test support: {path}"
+        for path in production_test_support_imports(ROOT)
     )
-    for base in production_roots:
-        for path in base.rglob("*.py") if base.suffix == ".py" else base.rglob("*.ts"):
-            if (
-                path.name.endswith((".test.ts", ".test.tsx"))
-                or "TestFixtures" in path.name
-            ):
-                continue
-            if test_import.search(path.read_text()):
-                failures.append(
-                    f"production imports test support: {path.relative_to(ROOT)}"
-                )
-        if base.name in {"api", "pipeline"}:
-            for path in base.rglob("*.tsx"):
-                if (
-                    not path.name.endswith(".test.tsx")
-                    and "TestFixtures" not in path.name
-                    and test_import.search(path.read_text())
-                ):
-                    failures.append(
-                        f"production imports test support: {path.relative_to(ROOT)}"
-                    )
 
     for cycle in import_cycles():
         failures.append("visual-identity import cycle: " + " -> ".join(cycle))
