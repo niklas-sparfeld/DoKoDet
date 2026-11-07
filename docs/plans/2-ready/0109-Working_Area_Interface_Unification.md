@@ -4,12 +4,13 @@
 
 - **Summary:** Use one current-frame surface across all processing steps. Extend the visible-card
   surface. Keep controls, text, crops, and result details outside the central working area.
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** Planned. M0–M10 are not started. This epic owns shared frame rendering and the
-  placement of existing inspection and editing functions. The dependencies prevent implementation.
+- **Outcome:** M0 is complete. M1–M10 are not started. The 0107 and 0108 dependencies are complete.
+  This epic owns shared frame rendering and the placement of existing inspection and editing
+  functions. See the [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md).
 
 ## Problem and inspection
 
@@ -188,7 +189,7 @@ Do not retain compatibility modes for the retired central layouts.
 Each milestone is one small implementation phase. Use local recorded fixtures and mocks. Commit
 completed milestones to main, update the board, and report one status line per milestone.
 
-### M0 — Freeze layout and capability fixtures — Not started
+### M0 — Freeze layout and capability fixtures — Complete
 
 Verify the current rendered tabs and inventory every command, diagnostic, selection, crop, and
 analysis function. Assign each to the center, inspector, or rail. Define typed surface inputs and
@@ -197,6 +198,11 @@ frame/selection invariants. Record desktop and narrow-layout examples in a short
 Acceptance: fixtures cover all six steps, comparison, empty and failed results, historical/read-only
 content, missing calibration, interval-only evidence, and untimed inferred actions. No function
 is lost merely to remove its central button or text. No application behavior changes yet.
+
+Result: the [M0 inventory](../../reports/0109-M0_Working_Area_Inventory.md) records the current
+function placement, typed frame/selection contract, fixture coverage, and desktop/narrow examples.
+Contract fixtures specify missing-calibration, interval-only, and untimed-action behavior without
+changing application behavior. Existing functions remain in place for the later surface migrations.
 
 ### M1 — Extract the common geometry surface — Not started
 
@@ -285,3 +291,13 @@ Acceptance: a browser regression scrubs and switches all six steps, checks exact
 selection and stale requests, edits regions and poses, classifies a card, inspects observation and
 analysis uncertainty, compares immutable results, and restores history. It checks the absence of
 video elements, central text, and central command controls. No hardware or model rerun is needed.
+
+## Execution handoff
+
+- Completed: M0 — freeze layout and capability fixtures.
+- Changes: added the [M0 inventory and surface contract](../../reports/0109-M0_Working_Area_Inventory.md), test-only capability fixtures, and assertions. Updated the epic and board to Ready; repaired inbound links after the move. No application behavior changed.
+- Checks: `npm run check` passed (typecheck, lint, format, generated API comparison, and 182 Vitest tests); focused Playwright lineage workspace test passed; local Markdown link check and `git diff --check` passed. New epic/report formatting passed. The broader Markdown Prettier check reports the same warnings on the board and three inbound documents at HEAD, so those historical/unrelated formats were left intact.
+- Decisions: preserve all current functions; 0108 retains exact data selection; overlays require exact frame and calibration correspondence; intervals and untimed inferred actions do not invent frame seeks.
+- Limits: no usability study or full six-step screenshot sweep. Missing-calibration behavior is a contract fixture; current components do not yet support it.
+- Next: M1 — extract the common geometry surface.
+- Run count: requested 11 milestones, completed 1, remaining 10.
