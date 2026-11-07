@@ -1,8 +1,10 @@
 import userEvent from "@testing-library/user-event";
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ResolvedTimeline } from "./AnalysisTimelinePresentation";
+import { JobStateProvider } from "../jobs/JobState";
+import type { RoundAnalysisTimeline } from "../api/analysisContracts";
 import {
   buildDisplayRows,
   formatCardIdentity,
@@ -16,16 +18,40 @@ import { resolvedTimeline } from "../test/roundAnalysisFixture";
 describe("analysis timeline presentation", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/recordings/recording-0033");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              items: [],
+              next_cursor: null,
+              groups: [],
+              queue_revision: 1,
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+      ),
+    );
   });
 
   afterEach(() => {
     window.history.pushState({}, "", "/recordings/recording-0033");
+    vi.unstubAllGlobals();
   });
+
+  function renderTimeline(timeline: RoundAnalysisTimeline) {
+    return render(
+      <JobStateProvider>
+        <ResolvedTimeline timeline={timeline} />
+      </JobStateProvider>,
+    );
+  }
 
   it("keeps row and hypothesis selection synchronized with the URL", async () => {
     const user = userEvent.setup();
 
-    render(<ResolvedTimeline timeline={resolvedTimeline} />);
+    renderTimeline(resolvedTimeline);
 
     expect(screen.getByText("Selected observation-001")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Next row →" }));
@@ -61,7 +87,7 @@ describe("analysis timeline presentation", () => {
         },
       ],
     };
-    render(<ResolvedTimeline timeline={timeline} />);
+    renderTimeline(timeline);
     await user.click(
       screen.getByRole("button", {
         name: /Evidence · observation-002/,
@@ -83,7 +109,7 @@ describe("analysis timeline presentation", () => {
       "/recordings/recording-0033?row=observation-002&hypothesis=2&t_us=2000000",
     );
 
-    render(<ResolvedTimeline timeline={resolvedTimeline} />);
+    renderTimeline(resolvedTimeline);
 
     expect(screen.getByText("Selected observation-002")).toBeInTheDocument();
     expect(screen.getByLabelText("Hypothesis")).toHaveValue("2");
@@ -95,7 +121,7 @@ describe("analysis timeline presentation", () => {
   it("keeps counterfactual inputs attached to the selected observation", async () => {
     const user = userEvent.setup();
 
-    render(<ResolvedTimeline timeline={resolvedTimeline} />);
+    renderTimeline(resolvedTimeline);
 
     const correction = screen.getByRole("combobox", {
       name: "Correct classification for observation-001-card-01",
@@ -155,7 +181,7 @@ describe("analysis timeline presentation", () => {
       ],
     };
 
-    render(<ResolvedTimeline timeline={pileTimeline} />);
+    renderTimeline(pileTimeline);
 
     expect(
       screen.getByText(

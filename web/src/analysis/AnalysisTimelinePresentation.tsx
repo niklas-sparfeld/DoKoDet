@@ -1152,6 +1152,7 @@ function CounterfactualObservationControls({
         <input
           type="checkbox"
           checked={observationExcluded}
+          disabled={counterfactual.uncertain || counterfactual.submitting}
           onChange={() => counterfactual.toggleObservation(row.observation_id)}
           aria-label={`Exclude observation ${row.observation_id}`}
         />
@@ -1180,7 +1181,11 @@ function CounterfactualObservationControls({
               <input
                 type="checkbox"
                 checked={cardExcluded}
-                disabled={observationExcluded}
+                disabled={
+                  counterfactual.uncertain ||
+                  counterfactual.submitting ||
+                  observationExcluded
+                }
                 onChange={() => counterfactual.toggleObservedCard(reference)}
                 aria-label={`Exclude observed card ${card.observed_card_id}`}
               />
@@ -1190,7 +1195,12 @@ function CounterfactualObservationControls({
               <span>Correct classification</span>
               <select
                 value={identityOverride?.card ?? ""}
-                disabled={observationExcluded || cardExcluded}
+                disabled={
+                  counterfactual.uncertain ||
+                  counterfactual.submitting ||
+                  observationExcluded ||
+                  cardExcluded
+                }
                 onChange={(event) =>
                   counterfactual.setCardIdentity(
                     row.observation_id,
@@ -1240,6 +1250,8 @@ function CounterfactualObservationControls({
                       step="0.001"
                       value={override?.probability ?? candidate.probability}
                       disabled={
+                        counterfactual.uncertain ||
+                        counterfactual.submitting ||
                         observationExcluded ||
                         cardExcluded ||
                         card.identity_candidates.length < 2 ||

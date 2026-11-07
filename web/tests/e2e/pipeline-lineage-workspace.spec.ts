@@ -1196,6 +1196,10 @@ test("round analysis uses the shared frame, rail, inspector, and saved selection
       },
     ],
   };
+  let counterfactualSubmission: {
+    body: Record<string, unknown>;
+    idempotencyKey: string | undefined;
+  } | null = null;
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -1205,6 +1209,27 @@ test("round analysis uses the shared frame, rail, inspector, and saved selection
         contentType: "application/json",
         body: JSON.stringify(value),
       });
+    if (path === "/api/jobs" && route.request().method() === "POST") {
+      counterfactualSubmission = {
+        body: route.request().postDataJSON() as Record<string, unknown>,
+        idempotencyKey: route.request().headers()["idempotency-key"],
+      };
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({ id: "counterfactual-job", state: "queued" }),
+      });
+      return;
+    }
+    if (path === "/api/jobs") {
+      await json({
+        items: [],
+        next_cursor: null,
+        groups: [],
+        queue_revision: 1,
+      });
+      return;
+    }
     if (path === `/api/recordings/${recordingId}/pipeline`) {
       await json({
         schema_version: "pipeline-workspace/v1",
@@ -1320,7 +1345,62 @@ test("round analysis uses the shared frame, rail, inspector, and saved selection
     "2",
   );
   await expect(page.getByText(/result is ambiguous/i)).toBeVisible();
-  await expect(page.getByLabel("Counterfactual analysis")).toBeVisible();
+  await expect(page.getByLabel("Counterfactual draft")).toBeVisible();
+  await page
+    .getByRole("button", { name: /Evidence · observation-001/ })
+    .click();
+  await page
+    .getByLabel("Correct classification for observation-001-card-01")
+    .selectOption("CLUBS_NINE");
+  const counterfactualAction = page.getByRole("button", {
+    name: "Calculate counterfactual…",
+  });
+  await counterfactualAction.click();
+  const launchDialog = page.getByRole("dialog");
+  await expect(launchDialog.getByText(analysisId)).toBeVisible();
+  await expect(
+    launchDialog.getByText(timeline.artifact_hashes.input_sha256),
+  ).toBeVisible();
+  await expect(
+    launchDialog.getByText(timeline.artifact_hashes.result_sha256),
+  ).toBeVisible();
+  await expect(launchDialog.getByText(/CLUBS_NINE/)).toBeVisible();
+  await expect(page.getByLabel("Selected analysis row details")).toContainText(
+    "observation-001",
+  );
+  await launchDialog.getByRole("button", { name: "Cancel" }).click();
+  expect(counterfactualSubmission).toBeNull();
+  await counterfactualAction.click();
+  await page
+    .getByRole("button", { name: "Start calculate counterfactual" })
+    .click();
+  await expect(
+    page.getByRole("link", { name: "counterfactual-job" }),
+  ).toBeVisible();
+  expect(counterfactualSubmission).not.toBeNull();
+  expect(counterfactualSubmission?.body.type).toBe("counterfactual");
+  expect(counterfactualSubmission?.body.context).toEqual({
+    analysis_id: analysisId,
+  });
+  const request = counterfactualSubmission?.body.request as Record<
+    string,
+    unknown
+  >;
+  expect(request.source_input_sha256).toBe(
+    timeline.artifact_hashes.input_sha256,
+  );
+  expect(request.source_result_sha256).toBe(
+    timeline.artifact_hashes.result_sha256,
+  );
+  expect(request.card_identity_overrides).toEqual([
+    {
+      observation_id: "observation-001",
+      observed_card_id: "observation-001-card-01",
+      card: "CLUBS_NINE",
+    },
+  ]);
+  expect(counterfactualSubmission?.idempotencyKey).toBeTruthy();
+  await expect(page).toHaveURL(/analysis=analysis-workspace-1/);
   await expect(page.locator('[data-slot="center"] button')).toHaveCount(0);
   await expect(page.locator('[data-slot="center"] video')).toHaveCount(0);
   await expect(page.locator('[data-slot="center"]')).toHaveText("");

@@ -1,13 +1,17 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useState, type ReactNode } from "react";
 
-import { ApiError } from "../api/transport";
-import { createJobsClient } from "../api/jobsClient";
 import { type RoundCounterfactualCreateRequest } from "../api/analysisContracts";
 import {
   type RoundCounterfactualResponse,
   type RoundAnalysisTimeline,
 } from "../api/analysisContracts";
 import styles from "../App.module.css";
+import { JobStartActions, type JobStartAction } from "../jobs/JobStartActions";
+import {
+  AcceptedJobReceipt,
+  useManagedJobSubmission,
+} from "../jobs/useJobSubmission";
 import {
   actionNumber,
   actionString,
@@ -330,6 +334,7 @@ export type CounterfactualController = {
   excludedObservations: ReadonlySet<string>;
   excludedCards: ReadonlySet<string>;
   submitting: boolean;
+  uncertain: boolean;
   response: RoundCounterfactualResponse | null;
   jobId: string | null;
   error: string | null;
@@ -351,7 +356,6 @@ export type CounterfactualController = {
     candidate: TimelineCandidate,
     value: string,
   ) => void;
-  runCounterfactual: () => Promise<void>;
   restoreBaseline: () => void;
 };
 
@@ -369,16 +373,35 @@ export function CounterfactualWorkbench({
   timeline: RoundAnalysisTimeline;
   children: (counterfactual: CounterfactualController) => ReactNode;
 }) {
-  const client = useMemo(() => createJobsClient(), []);
+  const submission = useManagedJobSubmission();
+  const [actionsTarget, setActionsTarget] = useState<HTMLElement | null>(null);
+  const [frozenRequest, setFrozenRequest] = useState<{
+    fingerprint: string;
+    payload: RoundCounterfactualCreateRequest;
+  } | null>(null);
   const [draft, setDraft] = useState<CounterfactualDraft>(
     EMPTY_COUNTERFACTUAL_DRAFT,
   );
   const [response, setResponse] = useState<RoundCounterfactualResponse | null>(
     null,
   );
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const submitting = submission.submitting;
+  const jobId = submission.job?.id ?? null;
+  const error = submission.error;
+  const uncertain = error?.startsWith("Acceptance is uncertain") ?? false;
+
+  useEffect(() => {
+    const findTarget = () =>
+      setActionsTarget(
+        document.querySelector<HTMLElement>(
+          '[data-analysis-inspector-slot="action"]',
+        ),
+      );
+    findTarget();
+    const observer = new MutationObserver(findTarget);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
 
   const excludedObservations = new Set(draft.excludedObservationIds);
   const excludedCards = new Set(
@@ -415,9 +438,10 @@ export function CounterfactualWorkbench({
   function updateDraft(
     updater: (current: CounterfactualDraft) => CounterfactualDraft,
   ) {
+    if (uncertain || submitting) return;
     setDraft(updater);
     setResponse(null);
-    setError(null);
+    if (frozenRequest !== null) setFrozenRequest(null);
   }
 
   function toggleObservation(observationId: string) {
@@ -528,11 +552,8 @@ export function CounterfactualWorkbench({
     });
   }
 
-  async function runCounterfactual() {
-    if (changeCount === 0 || hasInvalidOverride || allObservationsExcluded) {
-      return;
-    }
-    const payload: RoundCounterfactualCreateRequest = {
+  function buildRequest(): RoundCounterfactualCreateRequest {
+    return {
       schema_version: "round-analysis-counterfactual/v1",
       counterfactual_id: createCounterfactualId(),
       source_analysis_id: timeline.analysis_id,
@@ -543,39 +564,51 @@ export function CounterfactualWorkbench({
       card_identity_overrides: effectiveCardIdentityOverrides,
       candidate_probability_overrides: effectiveOverrides,
     };
-    setSubmitting(true);
-    setError(null);
-    setJobId(null);
-    try {
-      const job = await client.enqueueJob(
-        {
-          type: "counterfactual",
-          context: { analysis_id: timeline.analysis_id },
-          request: payload as unknown as Record<string, unknown>,
-        },
-        crypto.randomUUID(),
-      );
-      setJobId(job.id);
-    } catch (reason: unknown) {
-      setResponse(null);
-      setError(describeError(reason));
-    } finally {
-      setSubmitting(false);
+  }
+
+  async function startCounterfactual() {
+    if (changeCount === 0 || hasInvalidOverride || allObservationsExcluded)
+      return false;
+    const currentFingerprint = JSON.stringify({
+      analysisId: timeline.analysis_id,
+      inputHash: timeline.artifact_hashes.input_sha256,
+      resultHash: timeline.artifact_hashes.result_sha256,
+      excludedObservationIds: draft.excludedObservationIds,
+      excludedObservedCards: draft.excludedObservedCards,
+      cardIdentityOverrides: effectiveCardIdentityOverrides,
+      candidateProbabilityOverrides: effectiveOverrides,
+    });
+    let pending = frozenRequest;
+    if (pending === null || pending.fingerprint !== currentFingerprint) {
+      pending = {
+        fingerprint: currentFingerprint,
+        payload: buildRequest(),
+      };
+      setFrozenRequest(pending);
     }
+    const accepted = await submission.submit({
+      type: "counterfactual",
+      context: { analysis_id: timeline.analysis_id },
+      request: pending.payload as unknown as Record<string, unknown>,
+    });
+    if (accepted === null) return false;
+    setFrozenRequest(null);
+    return true;
   }
 
   function restoreBaseline() {
+    if (uncertain || submitting) return;
     setDraft(EMPTY_COUNTERFACTUAL_DRAFT);
     setResponse(null);
-    setJobId(null);
-    setError(null);
+    setFrozenRequest(null);
   }
 
-  const controller: CounterfactualController = {
+  const counterfactualState: CounterfactualController = {
     draft,
     excludedObservations,
     excludedCards,
     submitting,
+    uncertain,
     response,
     jobId,
     error,
@@ -588,20 +621,53 @@ export function CounterfactualWorkbench({
     toggleObservedCard,
     setCardIdentity,
     setCandidateProbability,
-    runCounterfactual,
     restoreBaseline,
   };
 
   return (
     <div
       className={`${styles.counterfactualWorkbench} ${
-        controller.changeCount > 0 && controller.response === null
+        changeCount > 0 && response === null
           ? styles.hasPendingCounterfactual
           : ""
       }`}
     >
-      <CounterfactualStatusBar counterfactual={controller} />
-      {children(controller)}
+      <CounterfactualStatusBar counterfactual={counterfactualState} />
+      {actionsTarget !== null
+        ? createPortal(
+            <>
+              <JobStartActions
+                actions={[
+                  buildCounterfactualAction(
+                    timeline,
+                    draft,
+                    effectiveCardIdentityOverrides,
+                    effectiveOverrides,
+                    changeCount,
+                  ),
+                ]}
+                submitting={submitting}
+                validationErrors={counterfactualErrors(
+                  changeCount,
+                  hasInvalidOverride,
+                  allObservationsExcluded,
+                  error,
+                )}
+                canSubmit={
+                  changeCount > 0 &&
+                  !hasInvalidOverride &&
+                  !allObservationsExcluded
+                }
+                onStart={startCounterfactual}
+              />
+              {submission.job ? (
+                <AcceptedJobReceipt job={submission.job} />
+              ) : null}
+            </>,
+            actionsTarget,
+          )
+        : null}
+      {children(counterfactualState)}
     </div>
   );
 }
@@ -629,20 +695,86 @@ function CounterfactualStatusBar({
           {counterfactual.changeCount === 1 ? "" : "s"}
         </strong>
       </div>
-      <button
-        type="button"
-        className={styles.primaryButton}
-        onClick={() => void counterfactual.runCounterfactual()}
-        disabled={
-          counterfactual.submitting ||
-          counterfactual.hasInvalidOverride ||
-          counterfactual.allObservationsExcluded
-        }
-      >
-        {counterfactual.submitting ? "Applying…" : "Apply now"}
-      </button>
+      <span>Start a calculation from the workspace Actions group.</span>
     </section>
   );
+}
+
+function buildCounterfactualAction(
+  timeline: RoundAnalysisTimeline,
+  draft: CounterfactualDraft,
+  effectiveCardIdentityOverrides: CounterfactualCardIdentityOverride[],
+  effectiveOverrides: CounterfactualOverride[],
+  changeCount: number,
+): JobStartAction {
+  const constraints = {
+    excluded_observation_ids: draft.excludedObservationIds,
+    excluded_observed_cards: draft.excludedObservedCards,
+    card_identity_overrides: effectiveCardIdentityOverrides,
+    candidate_probability_overrides: effectiveOverrides,
+  };
+  return {
+    id: "counterfactual",
+    label: "Calculate counterfactual",
+    description:
+      "Calculate an immutable comparison from this exact analysis and its current correction constraints. Starting the calculation does not approve the corrections or change the selected analysis.",
+    expectedOutput:
+      "One counterfactual job linked through Jobs, with a result that can be reviewed against the baseline.",
+    sections: [
+      {
+        title: "Exact analysis result",
+        content: (
+          <dl>
+            <div>
+              <dt>Analysis ID</dt>
+              <dd>{timeline.analysis_id}</dd>
+            </div>
+            <div>
+              <dt>Input SHA-256</dt>
+              <dd>{timeline.artifact_hashes.input_sha256}</dd>
+            </div>
+            <div>
+              <dt>Result SHA-256</dt>
+              <dd>{timeline.artifact_hashes.result_sha256}</dd>
+            </div>
+          </dl>
+        ),
+      },
+      {
+        title: `Correction constraints (${changeCount} changes)`,
+        content: <pre>{JSON.stringify(constraints, null, 2)}</pre>,
+      },
+      {
+        title: "Calculation settings",
+        content: (
+          <>
+            <p>
+              The calculation uses the settings frozen in the source analysis.
+            </p>
+            <pre>{JSON.stringify(timeline.search, null, 2)}</pre>
+          </>
+        ),
+      },
+    ],
+  };
+}
+
+function counterfactualErrors(
+  changeCount: number,
+  hasInvalidOverride: boolean,
+  allObservationsExcluded: boolean,
+  submissionError: string | null,
+): string[] {
+  return [
+    ...(changeCount === 0 ? ["Add at least one correction constraint."] : []),
+    ...(hasInvalidOverride
+      ? ["Candidate probabilities must be greater than 0 and at most 1."]
+      : []),
+    ...(allObservationsExcluded
+      ? ["Keep at least one observation in the analysis."]
+      : []),
+    ...(submissionError ? [submissionError] : []),
+  ];
 }
 
 export function CounterfactualRunControls({
@@ -653,12 +785,12 @@ export function CounterfactualRunControls({
   return (
     <section
       className={styles.counterfactualPanel}
-      aria-label="Counterfactual analysis"
+      aria-label="Counterfactual draft"
     >
       <div className={styles.sectionHeading}>
         <div>
-          <p className={styles.statusLabel}>Counterfactual analysis</p>
-          <h2>Counterfactual run</h2>
+          <p className={styles.statusLabel}>Counterfactual draft</p>
+          <h2>Correction constraints</h2>
         </div>
         <span className={styles.countLabel}>
           {counterfactual.changeCount} change
@@ -666,23 +798,10 @@ export function CounterfactualRunControls({
         </span>
       </div>
       <p className={styles.explanationText}>
-        Adjust an observation above, then run a comparison against the immutable
-        baseline.
+        Edit the correction constraints here. Start their calculation from the
+        workspace Actions group.
       </p>
       <div className={styles.counterfactualActions}>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          onClick={() => void counterfactual.runCounterfactual()}
-          disabled={
-            counterfactual.submitting ||
-            counterfactual.changeCount === 0 ||
-            counterfactual.hasInvalidOverride ||
-            counterfactual.allObservationsExcluded
-          }
-        >
-          {counterfactual.submitting ? "Starting…" : "Run counterfactual"}
-        </button>
         {counterfactual.jobId !== null ? (
           <p>
             Counterfactual processing was accepted.{" "}
@@ -695,7 +814,7 @@ export function CounterfactualRunControls({
           type="button"
           className={styles.secondaryButton}
           onClick={counterfactual.restoreBaseline}
-          disabled={counterfactual.submitting}
+          disabled={counterfactual.submitting || counterfactual.uncertain}
         >
           Restore baseline
         </button>
@@ -1010,9 +1129,4 @@ function createCounterfactualId(): string {
     byte.toString(16).padStart(2, "0"),
   ).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-function describeError(reason: unknown): string {
-  return reason instanceof ApiError
-    ? `The backend returned HTTP ${reason.status}.`
-    : "The backend could not be reached.";
 }

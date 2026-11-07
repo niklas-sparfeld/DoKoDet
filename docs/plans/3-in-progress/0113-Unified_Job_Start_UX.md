@@ -12,8 +12,9 @@
 - **Outcome:** M0–M7 complete. M8–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
   M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
-  pipeline launch controls remain in `RecordingWorkspaceInspector`; counterfactual controls are
-  in `web/src/analysis/CounterfactualWorkbench.tsx`. M0 inventoried registry types and callers.
+  pipeline launch controls remain in `RecordingWorkspaceInspector`; the active counterfactual
+  launch is owned by `web/src/analysis/CounterfactualWorkbench.tsx`. The M0 inventory records no
+  browser caller for `calibration_preview`.
 
 ## User outcome
 
@@ -139,7 +140,7 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 | M5        | Integrate visual identities                           | Complete    |
 | M6        | Integrate observations and round analysis             | Complete    |
 | M7        | Integrate complete-pipeline launch                    | Complete    |
-| M8        | Integrate calibration and counterfactual calculations | Not started |
+| M8        | Integrate the active counterfactual calculation launch | Complete    |
 | M9        | Remove replaced launch controls                       | Not started |
 | M10       | Verify the complete workflow and close                | Not started |
 
@@ -151,6 +152,21 @@ defaults and validation, replacement/removal owners, the sidebar/modal contract 
 the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
+
+- M8 completed. Its result and checks are in
+  [`0113-M8_Counterfactual_Launch.md`](../../reports/0113-M8_Counterfactual_Launch.md).
+- The active counterfactual launch now opens from the round-analysis inspector's Actions group.
+  The modal shows the exact source analysis hashes, frozen search settings and submitted
+  correction constraints. It uses shared idempotent submission and the shared Jobs receipt. The
+  old inline launch controls are removed; editing corrections and restoring the baseline remain
+  separate. `calibration_preview` has no browser submitter and remains available to agent tooling;
+  calibration evidence editing and the apply-validity gate are unchanged. M9 must re-audit callers
+  before removing unused client facades.
+- Checks: focused counterfactual component tests, typecheck, lint, formatting, API generation and
+  links are recorded in the M8 report.
+- Limits: no browser calibration launch was added because the inventory has no current caller.
+- Next: M9, re-audit inventory callers and remove obsolete launch paths/facades.
+- Run counts: requested 11 milestones, completed 9, remaining 2.
 
 - M7 completed. Its result and checks are in
   [`0113-M7_Complete_Pipeline_Launch.md`](../../reports/0113-M7_Complete_Pipeline_Launch.md).
@@ -168,8 +184,9 @@ the M1 desktop/narrow fixture checks.
   intercepts Vite module imports. See the M7 report.
 - Limits: model and configuration objects use JSON editors because the current API provides no
   browser inventory of supported per-stage models. Existing preflight validates availability.
-- Next: M8, integrate calibration and counterfactual calculations.
-- Run counts: requested 11 milestones, completed 8, remaining 3.
+- Next after M7: M8, move the active counterfactual launch into the analysis workspace Actions
+  group.
+- Run counts at M7: requested 11 milestones, completed 8, remaining 3.
 
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision
@@ -261,20 +278,30 @@ a new launch does not resume an earlier completed run.
 
 Complete: [M7 complete-pipeline launch](../../reports/0113-M7_Complete_Pipeline_Launch.md).
 
-## M8 — Integrate calibration and counterfactual calculations
+## M8 — Integrate the active counterfactual calculation launch
 
-Put calculation launch buttons in their workspace's right sidebar. Collect or summarize exact draft
-evidence and correction constraints in the modal. Remove replaced calculation start controls.
-Keep editing evidence/constraints and applying results as separate domain operations.
+The M0 inventory found no browser submitter for `calibration_preview`. Keep this job type registered
+for agent tooling. Do not create a calibration-preview launch UI. Keep calibration evidence editing
+and the existing apply-validity gate as separate domain operations.
 
-Acceptance: stale calibration evidence cannot be applied as current. Counterfactual requests retain
-their exact analysis and constraints. Opening/cancelling either dialog creates no calculation job.
+Move the active counterfactual launch from `CounterfactualWorkbench` to the round-analysis
+workspace's right-side Actions group. The modal shows the exact analysis result and hashes, the
+current correction constraints, and the calculation settings frozen in that analysis. Submit with
+the existing `counterfactual` job contract and shared idempotent submission and Jobs receipt. Do not
+poll for the counterfactual result from this feature. Keep correction editing and result review
+separate from launch. Starting a calculation does not accept or reject corrections, apply
+calibration, or change the selected analysis.
+
+Acceptance: opening/cancelling creates no job. Accepted requests retain the exact analysis and
+constraints. Rejected requests keep the current corrections. Uncertain acceptance retries the same
+frozen request and idempotency key.
 
 ## M9 — Remove replaced launch controls
 
-Reconcile the M0 inventory against source and rendered routes. Delete residual obsolete launch-only
-selectors, forms, dialogs, props, styles and tests. Repair active documentation and ensure job status
-still has one owner. Preserve closed epics as historical records.
+Re-audit the M0 inventory against current source and rendered routes before deleting unused client
+facades. Keep agent-only job types registered. Delete residual obsolete launch-only selectors,
+forms, dialogs, props, styles and tests. Repair active documentation and ensure job status still has
+one owner. Preserve closed epics as historical records.
 
 Acceptance: every inventoried browser start uses the sidebar/modal flow, with documented Jobs retry
 semantics. No duplicate active launch path or separate feature job poller remains. Inspection and
