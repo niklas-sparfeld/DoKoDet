@@ -50,7 +50,7 @@ explicit inventory disposition; this epic does not create a UI for agent-only to
 0107/0108 own data lineage, revisions, copy rules and review applicability. Reuse those contracts.
 This epic owns launch placement, explanations, forms, input selection and obsolete-launch cleanup.
 
-[0109](../3-in-progress/0109-Working_Area_Interface_Unification.md) owns the shared working area and inspector
+[0109](../5-closed/0109-Working_Area_Interface_Unification.md) owns the shared working area and inspector
 layout. Reuse its sidebar slots if available. It is not a completion dependency: add the smallest
 right-sidebar slot needed in the current layout if it has not started. Do not redesign the center.
 [Active module cleanup](0112-Active_Pipeline_Module_Cleanup.md) owns code extraction, including

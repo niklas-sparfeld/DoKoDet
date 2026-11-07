@@ -206,6 +206,21 @@ function graph(copyCreated: boolean) {
       from: ["revision", SCENE_NODE, "scene-r1"],
       to: ["revision", "virtual-scene-copy", "scene-r2"],
     });
+    nodes.push({
+      node_id: "visible-card-copy",
+      name: "Reviewed visible cards copy",
+      content_type: "visible_cards",
+      source: { recording_id: RECORDING_ID, video_sha256: "a".repeat(64) },
+      head_revision_id: "visible-r2",
+    });
+    revisions.push(
+      revision("visible-card-copy", "visible-r2", "2026-11-04T11:00:00Z"),
+    );
+    edges.push({
+      kind: "copied",
+      from: ["revision", VISIBLE_NODE, "visible-r1"],
+      to: ["revision", "visible-card-copy", "visible-r2"],
+    });
   }
   return {
     schema_version: "pipeline-lineage-graph/v1",
@@ -225,6 +240,7 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
   let sourceMismatch = false;
   let observationMutations = 0;
   let copiedSceneContent: Record<string, unknown> | null = null;
+  let copiedVisibleContent: Record<string, unknown> | null = null;
   await page.route("**/api/**", async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -327,6 +343,19 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
       });
       return;
     }
+    if (path === `/api/pipeline/nodes/${VISIBLE_NODE}/edit`) {
+      copied = true;
+      const body = await route.request().postDataJSON();
+      copiedVisibleContent = body.content as Record<string, unknown>;
+      await json({
+        node_id: "visible-card-copy",
+        revision_id: "visible-r2",
+        copied: true,
+        reason: "downstream_use",
+        name: "Reviewed visible cards copy",
+      });
+      return;
+    }
     if (path.includes("/pipeline/nodes/") && path.includes("/reviews/")) {
       await json({ review_id: "review-saved" });
       return;
@@ -397,6 +426,19 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
               },
             ],
           },
+        });
+        return;
+      }
+      if (nodeId === "visible-card-copy" && copiedVisibleContent !== null) {
+        await json({
+          node_id: nodeId,
+          name: "Reviewed visible cards copy",
+          content_type: "visible_cards",
+          source: { video_sha256: "a".repeat(64) },
+          head_revision_id: "visible-r2",
+          revision_id: revisionId,
+          metadata: {},
+          content: copiedVisibleContent,
         });
         return;
       }
@@ -565,6 +607,8 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
     }
     if (path.includes("/pipeline/derived-views/exact-event/")) {
       const requestedTimeUs = path.split("/").at(-1) ?? "0";
+      if (requestedTimeUs === "300000")
+        await new Promise((resolve) => setTimeout(resolve, 250));
       const frameUrl = new URL(route.request().url());
       const frameIndex =
         frameUrl.searchParams.get("frame_index") ??
@@ -617,6 +661,17 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
   await page.goto(
     `/recordings/${RECORDING_ID}/pipeline/events?lineage=${encodeURIComponent(selection)}`,
   );
+  const verifyScrubRoundTrip = async () => {
+    const playhead = page.getByLabel("Recording playhead");
+    const before = Number(await playhead.inputValue());
+    await playhead.focus();
+    await playhead.press("ArrowRight");
+    await expect(playhead).toHaveValue(String(before + 1_000));
+    await expect(page).toHaveURL(new RegExp(`t_us=${before + 1_000}(?:&|$)`));
+    await playhead.press("ArrowLeft");
+    await expect(playhead).toHaveValue(String(before));
+    await expect(page).toHaveURL(new RegExp(`t_us=${before}(?:&|$)`));
+  };
   await expect(page.getByLabel("Start (µs)")).toHaveValue("100");
   await expect(page.getByText("corrected", { exact: true })).toBeVisible();
 
@@ -672,6 +727,7 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
   expect(desktopLayout.centerButtons).toEqual([]);
   expect(desktopLayout.centerInputs).toEqual([]);
   await expect(page.getByRole("img", { name: "Source frame" })).toBeVisible();
+  await verifyScrubRoundTrip();
   await expect(
     page.getByRole("button", { name: "Add event at timeline cursor" }),
   ).toBeVisible();
@@ -706,6 +762,16 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
   ).toContainText("Requested 100 µs · exact frame 100000 µs");
   await page.getByRole("button", { name: /Next frame/ }).click();
   await expect(page).toHaveURL(/t_us=200/);
+  const delayedFrameRequest = page.waitForRequest((request) =>
+    request.url().includes("exact-event/300000"),
+  );
+  await page.getByRole("button", { name: /Next frame/ }).click();
+  await delayedFrameRequest;
+  await page.getByRole("button", { name: /Next frame/ }).click();
+  await expect(page).toHaveURL(/t_us=400/);
+  await expect(
+    page.getByRole("region", { name: "Timeline Rail" }),
+  ).toContainText("Requested 400000 µs · exact frame 400000 µs");
 
   await page.getByRole("button", { name: "Show lineage" }).click();
   const drawer = page.getByRole("region", { name: "Pipeline lineage" });
@@ -796,6 +862,7 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
     controls: 0,
     polygons: 1,
   });
+  await verifyScrubRoundTrip();
   sourceMismatch = true;
   await page.reload();
   await expect(
@@ -818,6 +885,38 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
   await expect(
     page.getByRole("region", { name: "Spatial evidence surface" }),
   ).toBeVisible();
+
+  const visibleRegions = visibleEditor.getByLabel("candidates JSON");
+  const visibleRegionDraft = JSON.parse(
+    (await visibleRegions.inputValue()) || "[]",
+  ) as unknown[];
+  await visibleRegions.fill(
+    JSON.stringify([
+      ...visibleRegionDraft,
+      {
+        card_id: "visible-region-2",
+        geometry: {
+          polygons: [
+            [
+              { x: 350, y: 100 },
+              { x: 500, y: 100 },
+              { x: 500, y: 300 },
+              { x: 350, y: 300 },
+            ],
+          ],
+        },
+      },
+    ]),
+  );
+  await visibleEditor
+    .getByRole("button", { name: "Save visible-card changes" })
+    .click();
+  await expect(page).toHaveURL(/visible-card-copy/);
+  expect(copiedVisibleContent).not.toBeNull();
+  expect(
+    (copiedVisibleContent?.outcomes as Array<{ candidates: unknown[] }>)[1]
+      ?.candidates,
+  ).toHaveLength(2);
 
   const identityLineage = JSON.parse(
     new URL(page.url()).searchParams.get("lineage") ?? "{}",
@@ -859,6 +958,7 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
     controls: 0,
     polygons: 1,
   });
+  await verifyScrubRoundTrip();
   await page.getByRole("button", { name: "Focus crop" }).click();
   await expect(
     page.getByRole("button", { name: "Show all inspector sections" }),
@@ -965,6 +1065,7 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
     controls: 0,
     polygons: 1,
   });
+  await verifyScrubRoundTrip();
   calibrationMismatch = true;
   await page.reload();
   await expect(
@@ -1046,8 +1147,12 @@ test("lineage and M4 node editors preserve exact revisions and geometry evidence
     controls: 0,
     polygons: 1,
   });
+  await verifyScrubRoundTrip();
   await expect(page.getByLabel("Selected table observation")).toContainText(
     "Exact spatial source links",
+  );
+  await expect(page.getByLabel("Selected table observation")).toContainText(
+    "unknown",
   );
   expect(observationMutations).toBe(0);
 });
@@ -1079,6 +1184,7 @@ test("round analysis uses the shared frame, rail, inspector, and saved selection
     ...resolvedTimeline,
     recording_id: recordingId,
     analysis_id: analysisId,
+    reconstruction_status: "ambiguous" as const,
     inferred_plays: [
       {
         play_index: 1,
@@ -1189,6 +1295,13 @@ test("round analysis uses the shared frame, rail, inspector, and saved selection
   await expect(
     page.locator('[data-slot="center"] img[alt="Source frame"]'),
   ).toBeVisible();
+  const playhead = page.getByLabel("Recording playhead");
+  const scrubTime = Number(await playhead.inputValue());
+  await playhead.focus();
+  await playhead.press("ArrowRight");
+  await expect(playhead).toHaveValue(String(scrubTime + 1_000));
+  await playhead.press("ArrowLeft");
+  await expect(playhead).toHaveValue(String(scrubTime));
   await expect(page.locator('[data-slot="center"] video')).toHaveCount(0);
   const evidence = page.getByRole("button", {
     name: /Evidence · observation-002/,
@@ -1204,6 +1317,7 @@ test("round analysis uses the shared frame, rail, inspector, and saved selection
   await expect(page.getByRole("combobox", { name: "Hypothesis" })).toHaveValue(
     "2",
   );
+  await expect(page.getByText(/result is ambiguous/i)).toBeVisible();
   await expect(page.getByLabel("Counterfactual analysis")).toBeVisible();
   await expect(page.locator('[data-slot="center"] button')).toHaveCount(0);
   await expect(page.locator('[data-slot="center"] video')).toHaveCount(0);

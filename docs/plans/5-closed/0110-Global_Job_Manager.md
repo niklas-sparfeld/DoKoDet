@@ -8,7 +8,7 @@
 - **Depends on:** Existing backend execution and filesystem storage. No completion gate from
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md),
   [0108](0108-Horizontal_Lineage_Workspace.md), or
-  [0109](../3-in-progress/0109-Working_Area_Interface_Unification.md).
+  [0109](0109-Working_Area_Interface_Unification.md).
 - **Outcome:** M0–M16 complete. The [execution contract](../../reports/0110-M0_Execution_Contract.md)
   freezes the inventory, recovery protocol, API, queue rules, and fixture cases.
 - **Closure reason:** All in-scope producers and UI paths use the shared Job Manager. Mixed-recording

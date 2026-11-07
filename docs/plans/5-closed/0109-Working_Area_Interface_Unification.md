@@ -4,11 +4,12 @@
 
 - **Summary:** Build one current-frame geometry surface for all processing steps. Adapt the current
   node-backed editors to use it. Keep controls, text, crops, and result details outside the center.
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0–M9 are complete. M1 adds a tested, selectable polygon surface for exact-frame
+- **Outcome:** M0–M10 are complete. M1 adds a tested, selectable polygon surface for exact-frame
   geometry. M2 adds shared still-frame loading and identity checks. Neither milestone restores or
   claims the historical editing interactions. M3 connects Events to the still-frame surface. M4
   connects Visible cards and Virtual scenes. M5 connects Visual identities and the frozen crop
@@ -17,10 +18,11 @@
   hypotheses into the rail and inspector. M8 moves exact comparison onto the shared still-frame
   surface and keeps counterfactual and comparison details outside the center. M9 adds keyboard and
   focus checks, layer line patterns, outer frame-state messages, crop layout verification, and
-  removes the unused Events video surface and caches. M10 remains. See the
-  [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md), the
-  [M6 integration report](../../reports/0109-M6_Table_Observation_Integration.md), and the execution
-  handoff below.
+  removes the unused Events video surface and caches. M10 verifies all six steps, exact comparison,
+  and history restoration. See the [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md),
+  the [M6 integration report](../../reports/0109-M6_Table_Observation_Integration.md), the
+  [M10 verification and closure report](../../reports/0109-M10_All_Steps_Verification_and_Closure.md),
+  and the execution handoff below.
 
 ## Problem and inspection
 
@@ -353,7 +355,7 @@ appear in the inspector. The unused Events video surface, its caches, tests, and
 Browser checks confirm that crop focus does not cover the source at desktop and narrow widths. See
 the [M9 report](../../reports/0109-M9_Accessibility_and_Layout_Cleanup.md).
 
-### M10 — Verify all steps and close — Not started
+### M10 — Verify all steps and close — Complete
 
 Run focused frontend tests, browser regression, type/build/lint/format checks, API checks if changed,
 and relevant frame-service backend checks. Check local Markdown links. Publish commands and any
@@ -364,23 +366,31 @@ selection and stale requests, edits regions and poses, classifies a card, inspec
 analysis uncertainty, compares immutable results, and restores history. It checks the absence of
 video elements, central text, and central command controls. No hardware or model rerun is needed.
 
+Result: the all-step browser regression covers exact and stale frame requests, direct region and pose
+edits, keyboard identity classification, unknown observation identity, ambiguous analysis hypotheses,
+immutable comparison, and read-only history restoration. The center remains free of video, text, and
+commands. See the [M10 report](../../reports/0109-M10_All_Steps_Verification_and_Closure.md).
+
 ## Execution handoff
 
-- Completed: M0 — freeze the layout and capability fixtures; M1 — add the shared geometry surface;
-  M2 — add still-frame loading and identity state; M3 — connect Events; M4 — connect Visible cards
-  and Virtual scenes; M5 — connect Visual identities; M6 — connect Table observations; M7 —
-  integrate analysis evidence and hypotheses; M8 — relocate counterfactual and comparison functions;
-  M9 — complete accessibility and layout cleanup.
-- Changes: M9 adds visible keyboard focus and line patterns for geometry layers, moves observation
-  and analysis frame states outside the center, verifies crop focus at desktop and narrow layouts,
-  and removes the unused Events video surface and caches. See the [M9 report](../../reports/0109-M9_Accessibility_and_Layout_Cleanup.md).
-- Checks: `cd web && npm run check` passed, including 187 frontend tests and generated API comparison.
-  `cd web && npm run build` passed with the existing 518 kB bundle warning. The pipeline workspace
-  Playwright suite passed (3 tests), including center-content, crop-focus, and narrow-layout checks.
-- Decisions: Keep the step navigation horizontally scrollable on narrow screens. Keep exact source
-  explanations in the inspector while the center shows only source frames and geometry.
-- Limits: No full assistive-technology audit was run. API generation logged that the temporary
-  processor-run catalog root was unavailable, but the generated API comparison passed. M10 owns the
-  all-step browser regression and closeout checks.
-- Next: M10 — verify all steps and close.
-- Run: requested 2 milestones, completed 1, remaining 1.
+- Completed: M0–M10. M10 verifies all six steps, comparison, and history restoration.
+- Changes: Expanded the pipeline workspace browser regression to scrub each step, race exact-frame
+  requests, edit visible regions and poses, classify a card, inspect observation and analysis
+  uncertainty, compare immutable results, and restore historical read-only content. See the
+  [M10 report](../../reports/0109-M10_All_Steps_Verification_and_Closure.md).
+- Checks: The focused frame-loader tests passed (3). `cd web && npm run check` passed, including 187
+  frontend tests, lint, format, type check, and generated API comparison. The production build passed
+  with its existing 518.09 kB bundle warning. The pipeline workspace Playwright suite passed (3).
+  The frame-service backend test passed (1, 15 deselected). Updated local Markdown links passed.
+- Decisions: Keep sampled analysis frames read-only and preserve ambiguity in observation and
+  reconstruction details. No API or backend implementation change was needed.
+- Limits: No hardware or model rerun was needed. No full assistive-technology audit was run. OpenAPI
+  export logged the unavailable temporary processor-run catalog root while the generated comparison
+  passed. The frame-service test reports the existing Starlette/httpx deprecation warning.
+- Next: None. Epic 0109 is closed.
+- Run: requested 2 milestones, completed 2, remaining 0.
+
+## Closure reason
+
+Complete. M0–M10 deliver and verify the shared still-frame working area across all six steps,
+comparison, and history.
