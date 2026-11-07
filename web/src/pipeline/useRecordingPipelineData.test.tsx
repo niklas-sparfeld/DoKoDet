@@ -75,10 +75,11 @@ describe("recording pipeline workspace data", () => {
     async (outcome) => {
       vi.useFakeTimers();
       graphFetch();
+      const initialA = deferred<PipelineWorkspace>();
       const conflictReload = deferred<PipelineWorkspace>();
       const getRecordingPipeline = vi
         .fn()
-        .mockResolvedValueOnce(workspace("A", "initial-A"))
+        .mockReturnValueOnce(initialA.promise)
         .mockReturnValueOnce(conflictReload.promise)
         .mockResolvedValueOnce(workspace("B", "new-B"));
       const updatePipelineSelection = vi.fn(() =>
@@ -99,7 +100,11 @@ describe("recording pipeline workspace data", () => {
             stageKey: "events",
             compare: false,
             backendStageKey: "events",
-            stage: data.workspace?.stages[0],
+            stage: {
+              key: "events",
+              selection_revision: 1,
+              input_options: [],
+            } as never,
             setWorkspace: data.setWorkspace,
             loadWorkspace: data.loadWorkspace,
             client,
@@ -114,12 +119,9 @@ describe("recording pipeline workspace data", () => {
 
       await act(async () => {
         vi.runOnlyPendingTimers();
-        await Promise.resolve();
-        await Promise.resolve();
       });
-      expect(result.current.data.workspace?.diagnostics[0].code).toBe(
-        "initial-A",
-      );
+      expect(result.current.data.loading).toBe(true);
+      expect(getRecordingPipeline).toHaveBeenCalledTimes(1);
 
       let conflictAttempt!: Promise<void>;
       act(() => {
@@ -143,9 +145,8 @@ describe("recording pipeline workspace data", () => {
       }
       await act(async () => conflictAttempt);
 
-      expect(result.current.data.workspace?.diagnostics[0].code).toBe(
-        "initial-A",
-      );
+      expect(result.current.data.workspace).toBeNull();
+      expect(result.current.data.loading).toBe(true);
       expect(result.current.data.error).toBeNull();
       expect(setNotice).not.toHaveBeenCalled();
 

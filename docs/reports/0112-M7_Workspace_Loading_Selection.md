@@ -58,4 +58,4 @@ workspace loading and selection without the shared `JobStateProvider` required b
 controls. The launch controls keep their own provider-wrapped tests.
 
 No API or persisted-data contract changed. Initial M7 checks passed at `10eab971`. Owner-invalidation
-correction checks passed at revision `5a29f034`.
+correction checks passed at `5a29f034`; pending-load regressions passed at revision `64525a06`.
