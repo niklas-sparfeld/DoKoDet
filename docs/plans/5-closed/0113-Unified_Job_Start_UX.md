@@ -57,7 +57,7 @@ This epic owns launch placement, explanations, forms, input selection and obsole
 [0109](../5-closed/0109-Working_Area_Interface_Unification.md) owns the shared working area and inspector
 layout. Reuse its sidebar slots if available. It is not a completion dependency: add the smallest
 right-sidebar slot needed in the current layout if it has not started. Do not redesign the center.
-[Active module cleanup](../3-in-progress/0112-Active_Pipeline_Module_Cleanup.md) owns code extraction, including
+[Active module cleanup](0112-Active_Pipeline_Module_Cleanup.md) owns code extraction, including
 launch request construction. M3 and M4 integrate 0113 callers first; 0112 M8 later extracts the
 request builders and callers adapt to them. Keep modal form state and shared submission in each
 caller. Neither epic blocks the other. Do not restore removed modules.

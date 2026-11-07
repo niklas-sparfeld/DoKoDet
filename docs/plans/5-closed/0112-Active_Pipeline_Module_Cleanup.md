@@ -4,17 +4,18 @@
 
 - **Summary:** Split large, frequently changed pipeline modules by responsibility. Move focused
   tests with each owner. Reduce the source and test context needed for a normal change.
-- **Status:** In Progress
-- **Depends on:** [0108 M11](../5-closed/0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
-  must finish removing replaced runtime storage and adapters. [0110 M15](../5-closed/0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Depends on:** [0108 M11](0108-Horizontal_Lineage_Workspace.md#m11--delete-replaced-architecture--complete)
+  must finish removing replaced runtime storage and adapters. [0110 M15](0110-Global_Job_Manager.md#m15--remove-duplicate-ui-and-execution-contracts--complete)
   must finish removing duplicate execution and browser lifecycle code.
-- **Outcome:** M0–M9 are complete. M1 moved visual identity crop-input freezing and source
+- **Outcome:** M0–M10 are complete. M1 moved visual identity crop-input freezing and source
   validation into focused modules. M2 moved crop provenance checks and exact-geometry resolution
   into focused modules. M3 moved identity classification, execution, request construction, crop
   queries, recording-source access, and approval planning into focused modules. M5 moved shared API
   transport and feature contract types into focused modules. M6 split API methods and URL builders
   by feature. M7 separated workspace loading and selection. M8 split launch request construction,
-  stage forms, and retained run presentation from the submission composition root. M10 remains.
+  stage forms, and retained run presentation from the submission composition root. M10 enforced budgets and import directions, verified the fixture workflow, and closed the epic.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11 and 0110 M15 are
   complete in their closed plans and Git history (`767a966f54` and `ee10f1e5bd`). All six
   candidate files remain. M0 must remap their current responsibilities before extraction.
@@ -103,7 +104,7 @@ explicit plan change before the affected milestone is marked complete.
 | M7 | Extract workspace loading and selection state | Complete |
 | M8 | Split processor launch controls from request construction | Complete |
 | M9 | Split job models and recovery from lifecycle management | Complete |
-| M10 | Enforce boundaries and verify the complete fixture workflow | Not started |
+| M10 | Enforce boundaries and verify the complete fixture workflow | Complete |
 
 ## M0 — Freeze surviving owners, contracts, and verification
 
@@ -392,6 +393,14 @@ Acceptance: every surviving target meets its budget, focused tests belong to the
 and the fixture workflow passes. All prerequisite behavior gates remain covered. Close the epic,
 move it to `5-closed`, repair links, and update the board in the final milestone commit.
 
+**Result:** Complete. `scripts/check_0112_boundaries.py` enforces the explicit source/test budgets and
+import directions. The 1,301-line launch suite is split into event/visible-card and visual-identity
+suites (548 and 665 lines), with 89 shared fixture lines. The local identity fixture selects exact
+node input, runs managed processing, verifies publication, restarts the app, and inspects retained
+results. Focused backend, web, static, generated API, and browser checks passed. See the
+[cleanup handoff](../../reports/0112-Cleanup_Handoff.md) for before/after sizes, owner map, exact
+commands, results, and limits. No speed or production claim is made.
+
 ## Execution handoff
 
 - Completed: M0, M1, M2, M3, M4, M5, M6. M1 moved crop-input freezing and source validation. The focused
@@ -460,8 +469,13 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   submitted payloads, and job navigation passed in the focused UI suite. See the
   [M8 report](../../reports/0112-M8_Launch_Request_Extraction.md).
 - Decisions and limits: the pre-existing `RunControls.test.tsx` suite was 1,301 lines at commit
-  `39212aee1`. This is the scoped M8 exception recorded above. M10 must split it by stage, retain
-  its launch and run-history assertions, and reduce every focused test file to 800 lines or fewer.
+  `39212aee1`. This was the scoped M8 exception recorded above. M10 split it by stage, retained its launch and
+  run-history assertions, and reduced every focused test file to 800 lines or fewer.
 - M9 split job records into `job_models.py`, durable operations into `job_persistence.py`, and intent replay/reconciliation into `job_recovery.py`. `JobManager` is 499 lines. Recovery uses explicit persistence callbacks and checks manager ownership before it reads or writes. `FakeParticipant` is in test support, with no production imports. The focused recovery and publication suites are separate from lifecycle and scheduler tests. See the [M9 report](../../reports/0112-M9_Job_Recovery_Extraction.md).
 - Decisions and limits: keep one manager ownership lock, one intent journal, and the existing durable schemas. `register_fake` now receives its test participant from test setup. No durable migration or API schema change was made.
-- Current run: requested 4 milestones, completed 3 (M7–M9), remaining 1 (M10). M6 predates this run. The next milestone is M10. Tests passed: 44 focused job tests and 45 job-consumer tests; Ruff, formatting, compileall, and diff checks passed. The Starlette `httpx` deprecation warning remains.
+- M10 completed the final milestone. Its implementation, size/import guard, local fixture workflow,
+  focused browser checks, and full named verification are recorded in the
+  [cleanup handoff](../../reports/0112-Cleanup_Handoff.md). The existing Starlette `httpx`
+  deprecation warning remains.
+- Current run: requested 4 milestones, completed 4 (M7–M10), remaining 0. M6 predates this run.
+  The epic is closed; there is no next milestone.
