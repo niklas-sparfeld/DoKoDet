@@ -99,6 +99,34 @@ If history dominates the remaining cost, record a separate concrete proposal and
 Moving data to an archive is relocation, not reclaimed disk space on the same volume. A quarantine
 must have an expiry and cannot become a permanent second corpus.
 
+## Explicit cache and old training-input scope
+
+Inventory caches as a separate class: decoded frames, crops, thumbnails, derived views, provider
+responses, model-download caches, and project-local test/tool caches. Include external cache roots
+used by this repository; shared tool caches need separate ownership checks. Report current bytes,
+regeneration cost, active users, cache keys, and proposed size/expiry limits per family. A cache
+label does not prove that its contents are reproducible or unused.
+
+Inventory processed inputs to old training runs explicitly: extracted frames, resized images,
+identity crops, masks and labels, synthetic scenes, assembled training/validation views, tensor or
+feature caches, and copied input datasets. Follow their manifests and actual readers to distinguish
+original source/review authority from disposable materializations. Include abandoned and failed
+runs. Preserve split membership, source/review revision IDs, preprocessing configuration, code/model
+versions, hashes, and useful metrics as compact provenance when retiring bulky input copies.
+
+A historical provenance reference does not by itself require keeping every materialized training
+input on disk. Distinguish a runtime or active-work dependency from a record of what a completed
+training run consumed. A retained model bundle does not automatically pin its full training working
+directory. Retain required source/review authority and compact provenance; remove reproducible
+processed copies after checking active users and regeneration feasibility. Record whether exact
+input bytes can be reconstructed. Do not claim full run reproducibility when they cannot. Required
+unique evaluation evidence and active frozen inputs remain protected under the retention policy.
+
+M0 must rank both classes. M4 must explicitly account for old processed training inputs, including
+retained reasons for candidates it does not remove. M9 must cover cache eviction and the lifecycle
+of newly created training materializations. Preserve caches needed by 0114 qualification until a
+verified replacement exists; do not evict a shared asset merely because one run has ended.
+
 ## Execution and acceptance contract
 
 Each milestone has one focused implementation-and-plan commit. Before implementation, freeze its
