@@ -9,7 +9,7 @@
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** M0–M4 complete. M5–M10 remain.
+- **Outcome:** M0–M5 complete. M6–M10 remain.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
   M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
   pipeline launch controls remain in `RecordingWorkspaceInspector`; counterfactual controls are
@@ -136,7 +136,7 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 | M2        | Add exact input selection and submission handling     | Complete    |
 | M3        | Integrate event processing                            | Complete    |
 | M4        | Integrate visible-card processing                     | Complete    |
-| M5        | Integrate visual identities                           | Not started |
+| M5        | Integrate visual identities                           | Complete    |
 | M6        | Integrate observations and round analysis             | Not started |
 | M7        | Integrate complete-pipeline launch                    | Not started |
 | M8        | Integrate calibration and counterfactual calculations | Not started |
@@ -152,27 +152,25 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M4 completed. Its result and focused checks are in
-  [`0113-M4_Visible_Card_Launch.md`](../../reports/0113-M4_Visible_Card_Launch.md).
-- Decisions: M0 found no browser caller for `proposed_card_scene_creation`. Keep virtual scene
-  review and editing, retain the scene API and agent capability, and add no scene launch action.
-  M4 moves the active visible-card detection action into the shared modal. Its caller owns exact
-  request construction and uses the shared idempotent submission behavior. The modal shows the exact
-  event branch, detector/model, implementation, configuration, extraction policy, and server-reported
-  blockers. Missing or incompatible inputs leave the action visible and block submission. The
-  visible-card detection request has no calibration field; calibration belongs to the scene API, which
-  has no browser caller. M9 must repeat the caller audit before removing its unused client facade.
-- 0112 coordination: M8 remains unstarted and owns later extraction of processor launch request
-  construction from `RunControls`. M3 and M4 callers own modal form state, request construction, and
-  shared submission. When 0112 M8 lands, keep those forms and submit paths in their callers and have
-  each caller use the extracted request builder. Do not restore inline launch UI. M4 leaves the 0112
-  plan and source unchanged; this sequence supersedes only the stale M0 coordination wording about
-  agreeing before the first launch integration.
-- Limits: `event_import` and `proposed_card_scene_creation` have no surviving browser submitter.
-  Keep both registered for agent/import use. M9 repeats the caller audit before removing any unused
-  client facade or changing registry support. Existing results, scene editing, and review decisions
-  remain in their existing owners.
-- Next: M5, integrate visual identities. Requested 11 milestones, completed 5, remaining 6.
+- M5 completed. Its result and checks are in
+  [`0113-M5_Visual_Identity_Launch.md`](../../reports/0113-M5_Visual_Identity_Launch.md).
+- Changes: visual identity classification now opens from the Actions modal. It shows exact supported
+  crop revisions, provider and service-selected model, availability behavior, compatible crop
+  policies, processing settings and blockers. It keeps the existing visual identity route and request
+  contract. Proposal-derived virtual cards force the local classifier. Classification does not write
+  a review decision. The shared modal refreshes action content when inputs change while it is open.
+- M4 history and decisions are in
+  [`0113-M4_Visible_Card_Launch.md`](../../reports/0113-M4_Visible_Card_Launch.md). M0 found no
+  browser caller for `event_import` or `proposed_card_scene_creation`; retain agent/API support and
+  add no launch action. Keep virtual scene editing and identity review decisions in their owners.
+- 0112 coordination: M8 remains unstarted and owns later extraction of processor request construction
+  from `RunControls`. Callers own modal state, request construction and submission. Adapt callers to
+  the extracted builders when M8 lands. This milestone did not edit 0112-owned files.
+- Limits: model availability is not returned by the current browser API. The modal shows the local
+  default and provider choices; the service validates availability on acceptance and returns an
+  actionable error without closing the form. No browser caller starts classification inside approval.
+- Next: M6, integrate observations and round analysis. Requested 11 milestones, completed 6,
+  remaining 5.
 
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision
@@ -230,11 +228,17 @@ Complete: [M4 visible-card launch](../../reports/0113-M4_Visible_Card_Launch.md)
 
 ## M5 — Integrate visual identities
 
-Move crop-input, provider/model, crop-policy and processing choices into the modal. Handle any
-surviving conditional classification start identified in M0. Remove replaced identity launch controls.
+Move exact crop geometry, provider/model, crop policy and processing context into the shared modal.
+Keep proposal-derived inputs on the local classifier. Provider/model availability is checked by the
+existing visual identity service. Classification produces processor outcomes and does not accept or
+reject identities. Keep the editor and review controls in place.
 
-Acceptance: fixtures distinguish supported geometry sources, invalidate incompatible crop/model
-choices, and preserve exact crop lineage. Starting classification makes no human approval decision.
+Acceptance: component fixtures distinguish generated polygon, generated RF-DETR, proposed virtual
+card and reviewed geometry sources; invalidate crop-policy choices when geometry changes; retain exact
+node and revision references; and make no review API call. Keep the current visual identity route and
+request contract.
+
+Complete: [M5 visual identity launch](../../reports/0113-M5_Visual_Identity_Launch.md).
 
 ## M6 — Integrate observations and round analysis
 

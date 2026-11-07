@@ -123,14 +123,21 @@ export function RunControls({
   const [inputOrigin, setInputOrigin] = useState<InputOrigin>(() =>
     reviewedRevisionId === null ? "generated" : "reviewed",
   );
-  const [processorOrigin, setProcessorOrigin] =
-    useState<ProcessorOrigin>("cloud");
+  const processorOrigin: ProcessorOrigin = "cloud";
+  const [identityProviderState, setIdentityProviderState] = useState<{
+    recordingId: string;
+    provider: ProcessorOrigin;
+  }>({ recordingId, provider: "local" });
   const [visibleCardModelVariant, setVisibleCardModelVariant] =
     useState<VisibleCardModelVariant>(() =>
       initialVisibleCardModelVariant(stage.runs[0]),
     );
   const [historicalRevisionId, setHistoricalRevisionId] = useState<string>("");
   const [cropInputSelection, setCropInputSelection] = useState("");
+  const [identityCropPolicyState, setIdentityCropPolicyState] = useState<{
+    recordingId: string;
+    policy: string;
+  }>({ recordingId, policy: "" });
   const [proposedCropInputs, setProposedCropInputs] = useState<
     Array<{
       node_id: string;
@@ -173,7 +180,11 @@ export function RunControls({
         setProposedCropInputsLoadedFor(recordingId);
       })
       .catch((reason: unknown) => {
-        if (!controller.signal.aborted) setMessage(describeRunError(reason));
+        if (!controller.signal.aborted) {
+          setProposedCropInputs([]);
+          setMessage(describeRunError(reason));
+          setProposedCropInputsLoadedFor(recordingId);
+        }
       });
     return () => controller.abort();
   }, [client, recordingId, runStage]);
@@ -181,7 +192,10 @@ export function RunControls({
     runStage === "visual_identities" && upstreamStage !== undefined
       ? [
           ...buildCropInputOptions(upstreamStage),
-          ...proposedCropInputs.map((input) => ({
+          ...(proposedCropInputsLoadedFor === recordingId
+            ? proposedCropInputs
+            : []
+          ).map((input) => ({
             kind: "proposed_virtual_cards" as const,
             revisionId: input.revision_id,
             nodeRef: {
@@ -195,12 +209,32 @@ export function RunControls({
       : [];
   const selectedCropInput =
     cropInputOptions.find(
-      (option) => cropInputKey(option) === cropInputSelection,
+      (option) =>
+        cropInputKey(option) ===
+        (cropInputSelection.startsWith(`${recordingId}::`)
+          ? cropInputSelection.slice(recordingId.length + 2)
+          : ""),
     ) ?? (cropInputOptions.length === 1 ? cropInputOptions[0] : null);
   const selectedProcessorOrigin =
     selectedCropInput?.kind === "proposed_virtual_cards"
       ? "local"
-      : processorOrigin;
+      : runStage === "visual_identities"
+        ? identityProviderState.recordingId === recordingId
+          ? identityProviderState.provider
+          : "local"
+        : processorOrigin;
+  const identityCropPolicy =
+    identityCropPolicyState.recordingId === recordingId
+      ? identityCropPolicyState.policy
+      : "";
+  const identityCropPolicyOptions = selectedCropInput
+    ? cropPolicyOptions(selectedCropInput.kind)
+    : [];
+  const selectedIdentityCropPolicy = identityCropPolicyOptions.some(
+    (policy) => policy.value === identityCropPolicy,
+  )
+    ? identityCropPolicy
+    : (identityCropPolicyOptions[0]?.value ?? "");
   const selectedRevisionId =
     runStage === "visual_identities"
       ? (selectedCropInput?.revisionId ?? null)
@@ -231,7 +265,7 @@ export function RunControls({
   );
   const latestRun = stage.runs[0] ?? null;
 
-  const startRun = async () => {
+  const startRun = async (): Promise<boolean> => {
     if (
       runStage !== "visual_identities" ||
       selectedRevisionId === null ||
@@ -240,7 +274,7 @@ export function RunControls({
       setMessage(
         "Select a compatible crop input before starting the processor.",
       );
-      return;
+      return false;
     }
     setBusy(true);
     setMessage(null);
@@ -262,13 +296,18 @@ export function RunControls({
           historicalRevisionId !== "" || inputOrigin === "reviewed"
             ? "historical"
             : "current_head",
+          selectedIdentityCropPolicy,
         ),
       );
       setLiveRun(response);
       setTrackedRunId(response.run_id);
-      await onRefresh();
+      void onRefresh().catch((reason: unknown) => {
+        setMessage(describeRunError(reason));
+      });
+      return true;
     } catch (reason: unknown) {
       setMessage(describeRunError(reason));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -285,7 +324,6 @@ export function RunControls({
       !/^Select a complete events revision first\.$/i.test(blocker),
   );
   const canStart =
-    stage.can_run &&
     runStage === "visual_identities" &&
     selectedRevisionId !== null &&
     (runStage !== "visual_identities" ||
@@ -485,6 +523,194 @@ export function RunControls({
     ],
   };
 
+  const visualIdentityRunRequest = buildRunRequest(
+    "visual_identities",
+    "preview",
+    selectedRevisionId,
+    latestRun,
+    inputOrigin,
+    selectedProcessorOrigin,
+    visibleCardModelVariant,
+    selectedCropInput?.kind ?? null,
+    null,
+    selectedCropInput?.nodeRef ?? null,
+    selectedCropInput?.nodeRef.revision_policy ?? "historical",
+    selectedIdentityCropPolicy,
+  ).request;
+
+  const identityAction = {
+    id: "visual-identity-classification",
+    label: "Classify visual identities",
+    description:
+      "Create a fresh visual identity result from one exact crop geometry revision. Classification creates processor outcomes; a person reviews and accepts or rejects identities separately.",
+    expectedOutput:
+      "A new visual identity data revision with the exact crop input and crop policy retained in its lineage.",
+    sections: [
+      {
+        title: "Crop geometry input",
+        content: (
+          <>
+            <label className={styles.pipelineRunSelector}>
+              <span>Exact crop geometry revision</span>
+              <select
+                aria-label="Exact crop geometry revision"
+                value={selectedCropInput ? cropInputKey(selectedCropInput) : ""}
+                disabled={busy || proposedCropInputsLoadedFor !== recordingId}
+                onChange={(event) => {
+                  setCropInputSelection(
+                    `${recordingId}::${event.target.value}`,
+                  );
+                  setIdentityCropPolicyState({ recordingId, policy: "" });
+                  setMessage(null);
+                }}
+              >
+                {cropInputOptions.length !== 1 ? (
+                  <option value="">Select one exact crop input</option>
+                ) : null}
+                {cropInputOptions.map((option) => (
+                  <option
+                    key={cropInputKey(option)}
+                    value={cropInputKey(option)}
+                  >
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedCropInput ? (
+              <p className={styles.pipelineRunInputValue}>
+                Source node {selectedCropInput.nodeRef.node_id} · revision{" "}
+                {selectedCropInput.nodeRef.revision_id} ·{" "}
+                {selectedCropInput.nodeRef.revision_policy}
+              </p>
+            ) : (
+              <p className={styles.pipelineRunInputValue}>
+                {proposedCropInputsLoadedFor !== recordingId
+                  ? "Loading exact proposed scene revisions…"
+                  : cropInputOptions.length === 0
+                    ? "No compatible crop geometry inputs are available."
+                    : "Choose an exact crop geometry input. Multiple inputs require an explicit choice."}
+              </p>
+            )}
+            {selectedCropInput?.kind === "proposed_virtual_cards" ? (
+              <p className={styles.pipelineRunInputValue}>
+                Proposal-derived virtual cards use the local classifier. This
+                geometry is not reviewed evidence and creates no review
+                decision.
+              </p>
+            ) : null}
+            {reviewedRevisionId === null ? (
+              <p className={styles.pipelineRunInputValue}>
+                Reviewed virtual-card input unavailable: complete a maintained
+                visible-card reference.
+              </p>
+            ) : !reviewedInputListed ? (
+              <p className={styles.pipelineRunInputValue}>
+                Reviewed virtual-card input unavailable: the completed reference
+                revision is not present in the workspace inputs.
+              </p>
+            ) : null}
+            {stage.run_blockers.map((blocker) => (
+              <p className={styles.detailBlocker} key={blocker} role="alert">
+                {blocker}
+              </p>
+            ))}
+          </>
+        ),
+      },
+      {
+        title: "Provider and model",
+        content: (
+          <>
+            <label className={styles.pipelineRunSelector}>
+              <span>Classifier provider</span>
+              <select
+                aria-label="Classifier provider"
+                value={selectedProcessorOrigin}
+                disabled={
+                  busy || selectedCropInput?.kind === "proposed_virtual_cards"
+                }
+                onChange={(event) => {
+                  setIdentityProviderState({
+                    recordingId,
+                    provider: event.target.value as ProcessorOrigin,
+                  });
+                  setMessage(null);
+                }}
+              >
+                <option value="local">Local · configured classifier</option>
+                <option value="cloud">Cloud · Gemini</option>
+              </select>
+            </label>
+            <p>
+              Default: local classifier. The service checks provider and model
+              availability before it accepts the run; an unavailable choice
+              returns an error and keeps this form open.
+            </p>
+            <dl>
+              <div>
+                <dt>Implementation</dt>
+                <dd>
+                  {visualIdentityRunRequest.implementation?.name} ·{" "}
+                  {visualIdentityRunRequest.implementation?.version}
+                </dd>
+              </div>
+              <div>
+                <dt>Model</dt>
+                <dd>
+                  Selected by the configured classifier for{" "}
+                  {selectedProcessorOrigin === "cloud" ? "Gemini" : "local"}.
+                </dd>
+              </div>
+              <div>
+                <dt>Processing configuration</dt>
+                <dd>{formatValue(visualIdentityRunRequest.configuration)}</dd>
+              </div>
+              <div>
+                <dt>Extraction policy</dt>
+                <dd>
+                  {formatValue(visualIdentityRunRequest.extraction_policy)}
+                </dd>
+              </div>
+            </dl>
+          </>
+        ),
+      },
+      {
+        title: "Crop policy",
+        content: (
+          <>
+            <label className={styles.pipelineRunSelector}>
+              <span>Crop policy</span>
+              <select
+                aria-label="Crop policy"
+                value={selectedIdentityCropPolicy}
+                disabled={busy || identityCropPolicyOptions.length === 0}
+                onChange={(event) =>
+                  setIdentityCropPolicyState({
+                    recordingId,
+                    policy: event.target.value,
+                  })
+                }
+              >
+                {identityCropPolicyOptions.map((policy) => (
+                  <option key={policy.value} value={policy.value}>
+                    {policy.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p>Crop output encoding: PPM.</p>
+            <p>
+              The policy is limited to choices supported by this exact geometry
+              source. It does not change or review that geometry.
+            </p>
+          </>
+        ),
+      },
+    ],
+  };
+
   return (
     <section
       className={`${styles.pipelineRunControls} ${compact ? styles.pipelineRunControlsCompact : ""}`}
@@ -504,7 +730,8 @@ export function RunControls({
 
       {stage.run_blockers.length > 0 &&
       runStage !== "events" &&
-      runStage !== "visible_cards" ? (
+      runStage !== "visible_cards" &&
+      runStage !== "visual_identities" ? (
         <p className={styles.detailBlocker}>{stage.run_blockers[0]}</p>
       ) : (
         <>
@@ -599,128 +826,39 @@ export function RunControls({
                 return true;
               }}
             />
-          ) : (
-            <div className={styles.pipelineRunForm}>
-              <div>
-                <span className={styles.statusLabel}>
-                  Input used by the next run
-                </span>
-                <label className={styles.pipelineRunSelector}>
-                  <span>Crop geometry input</span>
-                  <select
-                    aria-label="Crop geometry input"
-                    value={
-                      selectedCropInput ? cropInputKey(selectedCropInput) : ""
-                    }
-                    disabled={busy || cropInputOptions.length === 0}
-                    onChange={(event) => {
-                      setCropInputSelection(event.target.value);
-                      setMessage(null);
-                    }}
-                  >
-                    {cropInputOptions.length !== 1 ? (
-                      <option value="">Select one exact crop input</option>
-                    ) : null}
-                    {cropInputOptions.map((option) => (
-                      <option
-                        key={cropInputKey(option)}
-                        value={cropInputKey(option)}
-                      >
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {selectedCropInput !== null ? (
-                  <p className={styles.pipelineRunInputValue}>
-                    Exact source revision · {selectedCropInput.revisionId}
-                  </p>
-                ) : (
-                  <p className={styles.pipelineRunInputValue}>
-                    {proposedCropInputsLoadedFor !== recordingId
-                      ? "Loading proposed scene revisions…"
-                      : cropInputOptions.length === 0
-                        ? "No compatible crop inputs are available."
-                        : "Choose an input. Multiple crop inputs are available; none is selected automatically."}
-                  </p>
-                )}
-                {selectedCropInput?.kind === "proposed_virtual_cards" ? (
-                  <p className={styles.pipelineRunInputValue}>
-                    Uses the local classifier. The crop geometry is
-                    proposal-derived, not reviewed ground truth or training
-                    authority.
-                  </p>
-                ) : null}
-                {reviewedRevisionId === null ? (
-                  <p className={styles.pipelineRunInputValue}>
-                    Reviewed virtual-card input unavailable: complete a
-                    maintained visible-card reference.
-                  </p>
-                ) : !reviewedInputListed ? (
-                  <p className={styles.pipelineRunInputValue}>
-                    Reviewed virtual-card input unavailable: the completed
-                    reference revision is not present in the workspace inputs.
-                  </p>
-                ) : null}
-              </div>
-              <div className={styles.pipelineRunProcessorChoice}>
-                <span className={styles.statusLabel}>
-                  Processor used by the next run
-                </span>
-                <div
-                  className={styles.pipelineToggleGroup}
-                  role="group"
-                  aria-label="Processor provider"
-                >
-                  <button
-                    className={
-                      selectedProcessorOrigin === "cloud"
-                        ? styles.pipelineToggleActive
-                        : styles.pipelineToggle
-                    }
-                    type="button"
-                    aria-pressed={selectedProcessorOrigin === "cloud"}
-                    disabled={
-                      busy ||
-                      selectedCropInput?.kind === "proposed_virtual_cards"
-                    }
-                    onClick={() => setProcessorOrigin("cloud")}
-                  >
-                    Cloud
-                  </button>
-                  <button
-                    className={
-                      selectedProcessorOrigin === "local"
-                        ? styles.pipelineToggleActive
-                        : styles.pipelineToggle
-                    }
-                    type="button"
-                    aria-pressed={selectedProcessorOrigin === "local"}
-                    disabled={busy}
-                    onClick={() => setProcessorOrigin("local")}
-                  >
-                    Local
-                  </button>
-                </div>
-              </div>
-              <button
-                className={styles.primaryButton}
-                type="button"
-                disabled={!canStart || busy}
-                onClick={() => void startRun()}
-              >
-                {busy
-                  ? "Starting…"
-                  : latestRun === null
-                    ? "Run processor"
-                    : "Run again"}
-              </button>
-            </div>
-          )}
+          ) : runStage === "visual_identities" ? (
+            <JobStartActions
+              key={recordingId}
+              actions={[identityAction]}
+              loading={proposedCropInputsLoadedFor !== recordingId}
+              submitting={busy}
+              validationErrors={[
+                ...(message === null ? [] : [message]),
+                ...stage.run_blockers,
+                ...(selectedCropInput === null
+                  ? [
+                      cropInputOptions.length === 0
+                        ? "No compatible crop geometry input is available."
+                        : "Select an exact crop geometry input before starting.",
+                    ]
+                  : []),
+                ...(selectedIdentityCropPolicy === ""
+                  ? ["Select a crop policy supported by this geometry input."]
+                  : []),
+              ]}
+              canSubmit={
+                canStart && stage.can_run && stage.run_blockers.length === 0
+              }
+              onStart={async () => {
+                if (selectedCropInput === null) return false;
+                return startRun();
+              }}
+            />
+          ) : null}
         </>
       )}
 
-      {message !== null ? (
+      {message !== null && runStage !== "visual_identities" ? (
         <p className={styles.pipelineRunMessage} role="alert">
           {message}
         </p>
@@ -949,6 +1087,7 @@ function buildRunRequest(
   eventOption: PipelineWorkspaceStage["input_options"][number] | null = null,
   cropInputRef: CropInputOption["nodeRef"] | null = null,
   eventRevisionPolicy: "current_head" | "historical" = "current_head",
+  identityCropPolicyId: string | null = null,
 ): PipelineRunStartRequest {
   const request = latestRun?.request ?? {};
   const implementation =
@@ -975,15 +1114,19 @@ function buildRunRequest(
     stage === "visual_identities"
       ? {
           policy_id:
-            cropInputKind === "reviewed_virtual_card" ||
+            identityCropPolicyId ||
+            (cropInputKind === "reviewed_virtual_card" ||
             cropInputKind === "reviewed_visible_card" ||
             (cropInputKind === null && inputOrigin === "reviewed")
               ? "oracle_visible_region"
-              : "predicted_visible_region",
+              : "predicted_visible_region"),
           output_encoding: "ppm",
         }
       : null;
-  const model = latestRun?.model ?? readRecord(request.model) ?? undefined;
+  const model =
+    stage === "visual_identities"
+      ? undefined
+      : (latestRun?.model ?? readRecord(request.model) ?? undefined);
   return {
     request: {
       run_id: runId,
@@ -1084,6 +1227,23 @@ function buildCropInputOptions(
 
 function cropInputKey(option: CropInputOption): string {
   return `${option.kind}:${option.revisionId}`;
+}
+
+function cropPolicyOptions(kind: CropInputKind) {
+  if (kind === "reviewed_virtual_card" || kind === "reviewed_visible_card") {
+    return [
+      { value: "oracle_visible_region", label: "Reviewed visible region" },
+      { value: "raw_rectangular", label: "Raw rectangular crop" },
+    ];
+  }
+  return [
+    { value: "predicted_visible_region", label: "Predicted visible region" },
+    {
+      value: "predicted_region_with_other_exclusion",
+      label: "Predicted region with other-card exclusion",
+    },
+    { value: "raw_rectangular", label: "Raw rectangular crop" },
+  ];
 }
 
 function formatCropInputKind(kind: CropInputKind): string {

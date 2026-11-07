@@ -340,12 +340,15 @@ describe("RunControls", () => {
     );
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Classify visual identities…" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start classify visual identities" }),
     );
 
     expect(
-      await screen.findByText(
-        /Select Cloud to continue, or configure a current Local bundle/,
+      await within(screen.getByRole("dialog")).findByText(
+        /configured DINOv3 bundle uses an obsolete uncalibrated smoke format/,
       ),
     ).toBeInTheDocument();
   });
@@ -680,12 +683,27 @@ describe("RunControls", () => {
       />,
     );
 
+    await userEvent.click(
+      screen.getByRole("button", { name: "Classify visual identities…" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", { name: "Exact crop geometry revision" }),
+      ).toBeEnabled(),
+    );
     await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Crop geometry input" }),
+      screen.getByRole("combobox", { name: "Exact crop geometry revision" }),
       "reviewed_virtual_card:node-revision-visible-reviewed",
     );
+    expect(
+      screen.queryByRole("option", { name: "Predicted visible region" }),
+    ).not.toBeInTheDocument();
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Crop policy" }),
+      "raw_rectangular",
+    );
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Start classify visual identities" }),
     );
 
     await waitFor(() =>
@@ -705,18 +723,26 @@ describe("RunControls", () => {
         },
         crop_input_kind: "reviewed_virtual_card",
         crop_policy: {
-          policy_id: "oracle_visible_region",
+          policy_id: "raw_rectangular",
           output_encoding: "ppm",
         },
       },
     });
 
+    await userEvent.click(
+      screen.getByRole("button", { name: "Classify visual identities…" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", { name: "Exact crop geometry revision" }),
+      ).toBeEnabled(),
+    );
     await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Crop geometry input" }),
+      screen.getByRole("combobox", { name: "Exact crop geometry revision" }),
       "gemini_polygon:node-revision-visible-generated",
     );
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Start classify visual identities" }),
     );
 
     await waitFor(() =>
@@ -735,7 +761,7 @@ describe("RunControls", () => {
           revision_policy: "current_head",
         },
         crop_input_kind: "gemini_polygon",
-        configuration: { provider: "gemini" },
+        configuration: { provider: "local" },
         crop_policy: {
           policy_id: "predicted_visible_region",
           output_encoding: "ppm",
@@ -805,8 +831,16 @@ describe("RunControls", () => {
       />,
     );
 
+    await userEvent.click(
+      screen.getByRole("button", { name: "Classify visual identities…" }),
+    );
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        /classification creates processor outcomes; a person reviews and accepts or rejects identities separately/i,
+      ),
+    ).toBeInTheDocument();
     const selector = screen.getByRole("combobox", {
-      name: "Crop geometry input",
+      name: "Exact crop geometry revision",
     });
     await waitFor(() =>
       expect(
@@ -815,14 +849,14 @@ describe("RunControls", () => {
     );
     expect(selector).toHaveValue("");
     expect(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Start classify visual identities" }),
     ).toBeDisabled();
     await userEvent.selectOptions(
       selector,
       "proposed_virtual_cards:proposal-two",
     );
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Start classify visual identities" }),
     );
 
     await waitFor(() =>
@@ -852,6 +886,107 @@ describe("RunControls", () => {
       },
     });
     expect(body.request.visible_card_revision_id).toBeUndefined();
+    const postCalls = fetchMock.mock.calls.filter(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(postCalls.map(([input]) => String(input))).toEqual([
+      "/api/recordings/recording-run-controls/pipeline/visual-identities",
+    ]);
+  });
+
+  it("invalidates a crop policy when the selected geometry source changes", async () => {
+    const fetchMock = vi.fn<typeof fetch>((input, init) =>
+      Promise.resolve(
+        new Response(JSON.stringify(runResponse("identity-geometry")), {
+          status: init?.method === "POST" ? 202 : 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const visible = stage("visible_cards", {
+      selected_completed_reference_revision_id: "visible-reviewed",
+      input_options: [
+        {
+          ...option("visible-generated"),
+          content_type: "visible_cards",
+          producer: { kind: "processor", run_id: "gemini-run" },
+        },
+        {
+          ...option("visible-reviewed"),
+          content_type: "visible_cards",
+          origin: "manual",
+          producer: { kind: "human" },
+        },
+      ],
+      runs: [
+        {
+          run_id: "gemini-run",
+          output_revision_ids: ["node-revision-visible-generated"],
+          configuration: { provider: "gemini" },
+          request: { configuration: { provider: "gemini" } },
+        },
+      ],
+    });
+    const identities = stage("visual_identities");
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={identities}
+        stages={[visible, identities]}
+        onRefresh={async () => undefined}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Classify visual identities…" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", { name: "Exact crop geometry revision" }),
+      ).toBeEnabled(),
+    );
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Exact crop geometry revision" }),
+      "reviewed_virtual_card:node-revision-visible-reviewed",
+    );
+    expect(screen.getByRole("combobox", { name: "Crop policy" })).toHaveValue(
+      "oracle_visible_region",
+    );
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Exact crop geometry revision" }),
+      "gemini_polygon:node-revision-visible-generated",
+    );
+    expect(screen.getByRole("combobox", { name: "Crop policy" })).toHaveValue(
+      "predicted_visible_region",
+    );
+    expect(
+      screen.queryByRole("option", { name: "Reviewed visible region" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Classifier provider" }),
+    ).toHaveValue("local");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start classify visual identities" }),
+    );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([, init]) => init?.method === "POST"),
+      ).toBe(true),
+    );
+    const postCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      request: {
+        input_node_ref: {
+          node_id: "node-visible-generated",
+          revision_id: "node-revision-visible-generated",
+        },
+        crop_input_kind: "gemini_polygon",
+        crop_policy: { policy_id: "predicted_visible_region" },
+        configuration: { provider: "local" },
+      },
+    });
   });
 
   it("preselects one crop input and requires an explicit choice when several exist", async () => {
@@ -890,8 +1025,11 @@ describe("RunControls", () => {
         onRefresh={async () => undefined}
       />,
     );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Classify visual identities…" }),
+    );
     expect(
-      screen.getByRole("combobox", { name: "Crop geometry input" }),
+      screen.getByRole("combobox", { name: "Exact crop geometry revision" }),
     ).toHaveValue("gemini_polygon:node-revision-gemini-only");
 
     const twoInputs = stage("visible_cards", {
@@ -922,17 +1060,17 @@ describe("RunControls", () => {
       />,
     );
     expect(
-      screen.getByRole("combobox", { name: "Crop geometry input" }),
+      screen.getByRole("combobox", { name: "Exact crop geometry revision" }),
     ).toHaveValue("");
     expect(
       screen.getByRole("option", { name: /Generated · RF-DETR/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Start classify visual identities" }),
     ).toBeDisabled();
     await waitFor(() =>
       expect(
-        screen.getByText(/none is selected automatically/i),
+        screen.getByText(/multiple inputs require an explicit choice/i),
       ).toBeInTheDocument(),
     );
   });
@@ -973,9 +1111,15 @@ describe("RunControls", () => {
         onRefresh={async () => undefined}
       />,
     );
-    await userEvent.click(screen.getByRole("button", { name: "Local" }));
     await userEvent.click(
-      screen.getByRole("button", { name: "Run processor" }),
+      screen.getByRole("button", { name: "Classify visual identities…" }),
+    );
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Classifier provider" }),
+      "local",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start classify visual identities" }),
     );
     await waitFor(() =>
       expect(
@@ -1002,7 +1146,7 @@ describe("RunControls", () => {
     });
   });
 
-  it("explains why reviewed virtual-card input is unavailable", () => {
+  it("explains why reviewed virtual-card input is unavailable", async () => {
     const visible = stage("visible_cards", {
       input_options: [
         {
@@ -1028,6 +1172,9 @@ describe("RunControls", () => {
         stages={[visible, identities]}
         onRefresh={async () => undefined}
       />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Classify visual identities…" }),
     );
     expect(
       screen.getByText(

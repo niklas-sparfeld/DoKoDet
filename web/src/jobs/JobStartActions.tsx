@@ -39,6 +39,9 @@ export function JobStartActions({
   onStart,
 }: Props) {
   const [active, setActive] = useState<JobStartAction | null>(null);
+  const currentActive = active
+    ? (actions.find((action) => action.id === active.id) ?? null)
+    : null;
   const opener = useRef<HTMLElement | null>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
@@ -95,7 +98,7 @@ export function JobStartActions({
           </button>
         ))}
       </section>
-      {active ? (
+      {currentActive ? (
         <div
           className={styles.backdrop}
           onMouseDown={(event) => {
@@ -115,7 +118,7 @@ export function JobStartActions({
               onSubmit={(event) => {
                 event.preventDefault();
                 if (!submitting && canSubmit) {
-                  void Promise.resolve(onStart?.(active, event)).then(
+                  void Promise.resolve(onStart?.(currentActive, event)).then(
                     (accepted) => {
                       if (accepted === true) setActive(null);
                     },
@@ -126,7 +129,7 @@ export function JobStartActions({
               <header className={styles.header}>
                 <div>
                   <p className={styles.eyebrow}>Start work</p>
-                  <h2 id="job-start-title">{active.label}</h2>
+                  <h2 id="job-start-title">{currentActive.label}</h2>
                 </div>
                 <button
                   ref={closeButton}
@@ -138,7 +141,7 @@ export function JobStartActions({
                   Close
                 </button>
               </header>
-              <p id="job-start-description">{active.description}</p>
+              <p id="job-start-description">{currentActive.description}</p>
               <div className={styles.body}>
                 {validationErrors.length ? (
                   <section
@@ -158,7 +161,7 @@ export function JobStartActions({
                 {loading ? (
                   <p role="status">Loading available choices…</p>
                 ) : null}
-                {active.sections.map((section) => (
+                {currentActive.sections.map((section) => (
                   <section
                     className={styles.section}
                     aria-label={section.title}
@@ -173,11 +176,13 @@ export function JobStartActions({
                   aria-label="Expected output"
                 >
                   <h3>Expected output</h3>
-                  <p>{active.expectedOutput}</p>
+                  <p>{currentActive.expectedOutput}</p>
                 </section>
               </div>
               {submitting ? (
-                <p role="status">Starting {active.label.toLowerCase()}…</p>
+                <p role="status">
+                  Starting {currentActive.label.toLowerCase()}…
+                </p>
               ) : null}
               <footer className={styles.footer}>
                 <button type="button" disabled={submitting} onClick={close}>
@@ -189,7 +194,7 @@ export function JobStartActions({
                 >
                   {submitting
                     ? "Starting…"
-                    : `Start ${active.label.toLowerCase()}`}
+                    : `Start ${currentActive.label.toLowerCase()}`}
                 </button>
               </footer>
             </form>
