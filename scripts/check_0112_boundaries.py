@@ -203,21 +203,180 @@ def _python_imports_test_support(path: Path) -> bool:
     )
 
 
-_TS_TOKEN = re.compile(
-    r"(?P<comment>//[^\n]*|/\*[\s\S]*?\*/)|"
-    r"(?P<string>'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\")|"
-    r"(?P<template>`(?:\\.|[^`\\])*`)|"
-    r"(?P<identifier>[A-Za-z_$][\w$]*)|(?P<punct>[^\s])|(?P<space>\s+)"
-)
+_TS_IDENTIFIER = re.compile(r"[A-Za-z_$][\w$]*")
+_TS_NUMBER = re.compile(r"(?:0[xX][\da-fA-F]+|\d+(?:\.\d*)?)(?:[eE][+-]?\d+)?")
+_TS_REGEX_PREFIXES = {
+    "(",
+    "[",
+    "{",
+    ",",
+    ";",
+    ":",
+    "=",
+    "!",
+    "?",
+    "&",
+    "|",
+    "+",
+    "-",
+    "*",
+    "%",
+    "^",
+    "~",
+    "<",
+    ">",
+    "=>",
+    "return",
+    "case",
+    "throw",
+    "else",
+    "do",
+    "yield",
+    "await",
+    "typeof",
+    "void",
+    "delete",
+    "in",
+    "of",
+}
+
+
+def _typescript_tokens(source: str) -> list[tuple[str, str]]:
+    """Tokenize executable code, skipping comments, regexes, and template text."""
+    tokens: list[tuple[str, str]] = []
+
+    def scan_code(position: int, stop_at_brace: bool = False) -> int:
+        brace_depth = 0
+        while position < len(source):
+            char = source[position]
+            if char.isspace():
+                position += 1
+                continue
+            if source.startswith("//", position):
+                newline = source.find("\n", position + 2)
+                position = len(source) if newline == -1 else newline + 1
+                continue
+            if source.startswith("/*", position):
+                end = source.find("*/", position + 2)
+                position = len(source) if end == -1 else end + 2
+                continue
+            if stop_at_brace and char == "}":
+                if brace_depth == 0:
+                    return position + 1
+                brace_depth -= 1
+            elif char == "{":
+                brace_depth += 1
+
+            if char in "'\"":
+                quote = char
+                end = position + 1
+                value: list[str] = []
+                while end < len(source):
+                    current = source[end]
+                    if current == "\\" and end + 1 < len(source):
+                        value.extend((current, source[end + 1]))
+                        end += 2
+                        continue
+                    if current == quote:
+                        end += 1
+                        break
+                    value.append(current)
+                    end += 1
+                tokens.append(("string", "".join(value)))
+                position = end
+                continue
+
+            if char == "`":
+                end = position + 1
+                value: list[str] = []
+                has_interpolation = False
+                while end < len(source):
+                    current = source[end]
+                    if current == "\\" and end + 1 < len(source):
+                        value.extend((current, source[end + 1]))
+                        end += 2
+                        continue
+                    if current == "`":
+                        end += 1
+                        break
+                    if source.startswith("${", end):
+                        has_interpolation = True
+                        end = scan_code(end + 2, stop_at_brace=True)
+                        continue
+                    value.append(current)
+                    end += 1
+                # Keep a static template as a module literal. Its executable
+                # interpolations were already tokenized by scan_code.
+                if not has_interpolation:
+                    tokens.append(("template", "".join(value)))
+                else:
+                    tokens.append(("expression", "template"))
+                position = end
+                continue
+
+            if char == "/" and _can_start_typescript_regex(tokens):
+                end = position + 1
+                in_character_class = False
+                while end < len(source) and source[end] not in "\r\n":
+                    current = source[end]
+                    if current == "\\":
+                        end += 2
+                        continue
+                    if current == "[":
+                        in_character_class = True
+                    elif current == "]":
+                        in_character_class = False
+                    elif current == "/" and not in_character_class:
+                        end += 1
+                        while end < len(source) and source[end].isalpha():
+                            end += 1
+                        break
+                    end += 1
+                tokens.append(("expression", "regex"))
+                position = end
+                continue
+
+            identifier = _TS_IDENTIFIER.match(source, position)
+            if identifier:
+                tokens.append(("identifier", identifier.group()))
+                position = identifier.end()
+                continue
+            number = _TS_NUMBER.match(source, position)
+            if number:
+                tokens.append(("expression", "number"))
+                position = number.end()
+                continue
+
+            operator = next(
+                (
+                    item
+                    for item in ("=>", "?.", "==", "!=", "<=", ">=", "&&", "||", "??")
+                    if source.startswith(item, position)
+                ),
+                char,
+            )
+            tokens.append(("punct", operator))
+            position += len(operator)
+        return position
+
+    scan_code(0)
+    return tokens
+
+
+def _can_start_typescript_regex(tokens: list[tuple[str, str]]) -> bool:
+    if not tokens:
+        return True
+    kind, token = tokens[-1]
+    return (
+        kind == "punct"
+        and token in _TS_REGEX_PREFIXES
+        or (kind == "identifier" and token in _TS_REGEX_PREFIXES)
+    )
 
 
 def _typescript_import_modules(source: str) -> list[str]:
     """Return statically named TypeScript imports without scanning comments or strings."""
-    tokens = [
-        (match.lastgroup, match.group())
-        for match in _TS_TOKEN.finditer(source)
-        if match.lastgroup not in {"comment", "space"}
-    ]
+    tokens = _typescript_tokens(source)
     modules: list[str] = []
 
     def module_at(index: int) -> str | None:
@@ -225,9 +384,9 @@ def _typescript_import_modules(source: str) -> list[str]:
             return None
         kind, token = tokens[index]
         if kind == "string":
-            return token[1:-1]
-        if kind == "template" and "${" not in token:
-            return token[1:-1]
+            return token
+        if kind == "template":
+            return token
         return None
 
     for index, (kind, token) in enumerate(tokens):

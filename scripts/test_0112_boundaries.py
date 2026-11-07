@@ -90,6 +90,13 @@ class ProductionImportGuardTests(unittest.TestCase):
                     ["web/src/pipeline/consumer.tsx"],
                 )
 
+    def test_rejects_imports_inside_template_interpolations(self) -> None:
+        source = "const sample = `${import('./__tests__/fixture')}`;\n"
+        self.assertEqual(
+            self._scan_web_import(source),
+            ["web/src/pipeline/consumer.tsx"],
+        )
+
     def test_rejects_imports_from_tests_directories(self) -> None:
         for statement in (
             'import { fixture } from "./__tests__/fixtures";\n',
@@ -125,6 +132,7 @@ class ProductionImportGuardTests(unittest.TestCase):
 /* export { fixture } from "./__tests__/fixtures"; */
 const example = 'import("./runControlsTestFixtures.tsx")';
 const template = `import("./__tests__/fixtures")`;
+const pattern = /import("runControlsTestFixtures.ts")/;
 """
         self.assertEqual(self._scan_web_import(source), [])
 
