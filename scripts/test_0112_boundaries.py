@@ -104,6 +104,16 @@ class ProductionImportGuardTests(unittest.TestCase):
             ["web/src/pipeline/consumer.tsx"],
         )
 
+    def test_parses_ts_angle_assertions_without_hiding_later_imports(self) -> None:
+        source = "const x = <Foo>bar;\nimport x from './__tests__/fixture';\n"
+        self.assertEqual(
+            self._scan_web_import(source, "web/src/pipeline/consumer.ts"),
+            ["web/src/pipeline/consumer.ts"],
+        )
+
+    def test_ignores_zero_argument_require(self) -> None:
+        self.assertEqual(self._scan_web_import("require();\n"), [])
+
     def test_rejects_imports_from_tests_directories(self) -> None:
         for statement in (
             'import { fixture } from "./__tests__/fixtures";\n',

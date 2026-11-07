@@ -211,12 +211,13 @@ def _typescript_import_modules(sources: dict[str, str]) -> dict[str, list[str]]:
 const ts = require("./web/node_modules/typescript");
 const sources = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
 const modules = node => {
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))) return node.text;
   return undefined;
 };
 const result = {};
 for (const [name, source] of Object.entries(sources)) {
-  const file = ts.createSourceFile(name, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const scriptKind = name.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const file = ts.createSourceFile(name, source, ts.ScriptTarget.Latest, true, scriptKind);
   const found = [];
   const visit = node => {
     if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier) {

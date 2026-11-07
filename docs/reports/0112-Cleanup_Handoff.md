@@ -127,6 +127,8 @@ production behavior or demonstrate speed gains.
 The guard uses the TypeScript compiler parser already declared by the web project to find static
 imports, re-exports, dynamic imports, and `require` calls. The parser distinguishes regex literals
 from executable code, including after an `if` condition, and visits nested template interpolations.
+It selects TypeScript or TSX parsing from each file extension and handles a `require()` call with
+no arguments safely.
 Focused tests cover fixture imports, valid production imports, regex literals, and test-only files.
 The new false-positive regression and repository-wide guard pass. Ruff checks pass.
 
@@ -136,10 +138,12 @@ The TypeScript parser no longer reports the regex in
 `if (ready) /import("runControlsTestFixtures.ts")/.test(value);` as an import. Parser-backed
 regressions also confirm that actual static and dynamic imports remain detectable, including
 imports inside nested template interpolations. The focused checks pass on this source revision.
+Regression coverage also confirms that a TypeScript angle assertion does not hide a following
+fixture import and that a zero-argument `require()` does not raise a parser error.
 
 Checks on this correction:
 
-- `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py` — 12 passed.
+- `mise exec -- uv run --project backend pytest -q scripts/test_0112_boundaries.py` — 14 passed.
 - `python scripts/check_0112_boundaries.py` — passed explicit budgets and import directions.
 - `mise exec -- uv run --project backend ruff check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py` — passed.
 - `mise exec -- uv run --project backend ruff format --check scripts/check_0112_boundaries.py scripts/test_0112_boundaries.py` — passed.
