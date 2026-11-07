@@ -9,7 +9,7 @@
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** M0 complete. M1–M10 are not started.
+- **Outcome:** M0–M1 complete. M2–M10 are not started.
 - **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
   M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
   pipeline launch controls remain in `RecordingWorkspaceInspector`; counterfactual controls are
@@ -132,7 +132,7 @@ have no surviving caller. Do not keep duplicate launch paths or compatibility fa
 | Milestone | Work | State |
 | --- | --- | --- |
 | M0 | Freeze launch inventory and interaction contract | Complete |
-| M1 | Build shared sidebar action and modal shell | Not started |
+| M1 | Build shared sidebar action and modal shell | Complete |
 | M2 | Add exact input selection and submission handling | Not started |
 | M3 | Integrate event processing and import | Not started |
 | M4 | Integrate visible-card and scene processing | Not started |
@@ -152,20 +152,22 @@ the M1 desktop/narrow fixture checks.
 
 ## Execution handoff
 
-- M0 complete at `8b54f6a91`. The inventory and current interaction contract are in
+- M1 completed at the commit recorded by the M1 implementation. Its result is in
+  [`0113-M1_Actions_Shell.md`](../../reports/0113-M1_Actions_Shell.md). M0's launch inventory is in
   [`0113-M0_Launch_Inventory.md`](../../reports/0113-M0_Launch_Inventory.md).
-- Checks passed: registry/caller source inventory; desktop inspector and local workspace fixture
-  inspection; responsive CSS review at 900 px and 600 px; local Markdown links in the changed plan,
-  board and report; and `git diff --check`. No current fixture exercises viewport breakpoints.
-- Decisions: no browser caller exists for `event_import`, `proposed_card_scene_creation`, or
-  `calibration_preview`; retain their backend registrations and do not add UI without a caller.
-  Jobs retry remains owned by 0110. Human review and calibration apply stay separate. 0112 remains
-  In Progress; coordinate its unstarted M8 launch-request extraction with 0113 M4/M5 before either
-  implementation crosses that boundary.
-- Limits: M0 is inventory only. It adds no UI or request implementation. Add viewport and focus
-  behavior evidence in M1.
-- Next: M1, build the shared sidebar Actions group and modal shell. Requested 11 milestones,
-  completed 1, remaining 10.
+- Checks passed: focused Vitest component tests (3); `npm run typecheck`; `npm run lint
+  -- --no-warn-ignored`; local Playwright fixture tests for desktop/narrow layouts, keyboard focus,
+  long forms, lineage and Jobs drawer controls (2); production build; Prettier; and `git diff
+  --check`. Build emitted a chunk-size advisory. The local browser fixture tests drawer controls,
+  not the production drawer implementations.
+- Decisions: the Actions group accepts caller-provided action content. M1 does not mount feature
+  launches, submit jobs, or change request/API contracts. No job starts on open or cancel. The
+  center remains usable after dismissal. 0112 M8 remains unstarted; coordinate its surviving
+  request owner with 0113 M4/M5 before crossing that boundary.
+- Limits: exact input selection and shared acceptance handling are not implemented. Feature actions
+  are not mounted in the production inspector; later milestones own those integrations.
+- Next: M2, add exact input selection and submission handling. Requested 11 milestones, completed
+  2, remaining 9.
 
 Acceptance: every current browser job start has an owner and migration milestone. All required
 request fields have a visible input or explained fixed context. No unresolved product decision

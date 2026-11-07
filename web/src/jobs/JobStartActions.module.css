@@ -1,0 +1,161 @@
+.actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.actions h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.actionButton {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--panel-raised);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.actionButton:focus-visible,
+.dialog button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(8 12 18 / 62%);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(42rem, 100%);
+  max-height: min(52rem, calc(100dvh - 2rem));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 35%);
+}
+
+.dialog form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header,
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.header h2,
+.header p,
+.dialog > p,
+.section h3,
+.section p,
+.errors h3 {
+  margin: 0;
+}
+
+.eyebrow {
+  color: var(--muted-ink);
+  font-size: 0.75rem;
+}
+
+.dialog form > p {
+  margin: 0;
+  padding: 0.9rem 1.25rem 0;
+  color: var(--muted-ink);
+}
+
+.body {
+  display: grid;
+  gap: 1rem;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1rem 1.25rem;
+}
+
+.section {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.section h3,
+.errors h3 {
+  font-size: 0.9rem;
+}
+
+.errors {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--danger, #a22);
+  border-radius: 0.5rem;
+}
+
+.errors ul {
+  margin-bottom: 0;
+}
+
+.footer {
+  justify-content: end;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+}
+
+.dialog button {
+  min-height: 2.5rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: var(--panel-raised);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dialog button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+@media (max-width: 600px) {
+  .backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .dialog {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 0.85rem 0.85rem 0 0;
+  }
+
+  .header,
+  .footer {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+}
