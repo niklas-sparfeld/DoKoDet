@@ -1,0 +1,21 @@
+2026-11-07T09:55:25.493Z WARNING __main__ bonjour_disabled
+2026-11-07T09:55:25.493Z INFO __main__ backend_http_starting host=127.0.0.1 port=58332
+2026-11-07T09:55:25.924Z WARNING dokodetector_backend.pipeline_store processor_run_catalog_skipped path=/Users/niklas.sparfeld/Developer/doko_detector/docs/reports/0114-M2_Hard_Startup_Samples.artifacts/hard_populated/f2535161/trial-02/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [32785]
+INFO:     Waiting for application startup.
+2026-11-07T09:55:25.938Z INFO dokodetector_backend.app backend_started host=127.0.0.1 port=58332
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:58332 (Press CTRL+C to quit)
+INFO:     127.0.0.1:58339 - "GET /health/live HTTP/1.1" 200 OK
+2026-11-07T09:55:26.043Z INFO dokodetector_backend.app backend_ready request_id=7966dca8d5204a20886c4a58832cf6f8
+INFO:     127.0.0.1:58340 - "GET /health/ready HTTP/1.1" 200 OK
+2026-11-07T09:55:29.081Z WARNING dokodetector_backend.pipeline_store processor_run_catalog_skipped path=/Users/niklas.sparfeld/Developer/doko_detector/docs/reports/0114-M2_Hard_Startup_Samples.artifacts/hard_populated/f2535161/trial-02/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     127.0.0.1:58341 - "GET /v1/recordings HTTP/1.1" 200 OK
+2026-11-07T09:55:33.546Z WARNING dokodetector_backend.pipeline_store processor_run_catalog_skipped path=/Users/niklas.sparfeld/Developer/doko_detector/docs/reports/0114-M2_Hard_Startup_Samples.artifacts/hard_populated/f2535161/trial-02/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     127.0.0.1:58342 - "GET /api/recordings/cardeventnet-IMG_0650/pipeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58346 - "GET /api/jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58347 - "GET /v1/repository-bundles/cardeventnet-IMG_0650/video HTTP/1.1" 206 Partial Content
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [32785]

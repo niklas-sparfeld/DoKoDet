@@ -8,11 +8,13 @@ import asyncio
 import csv
 import hashlib
 import json
+import math
 import os
 import platform
 import shutil
 import signal
 import socket
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -32,8 +34,10 @@ FIXTURE_SCRIPT = ROOT / "backend/scripts/materialize_interactive_ui_performance_
 FIXTURE_MANIFEST = ROOT / "backend/fixtures/interactive-ui-performance/v1/manifest.json"
 MAX_MEDIA_BYTES = 64 * 1024
 DEFAULT_TIMEOUT_SECONDS = 30.0
-DEFAULT_WARMUPS = 1
-DEFAULT_REPEATS = 5
+DEFAULT_WARMUPS = 5
+DEFAULT_REPEATS = 30
+DEFAULT_BATCHES = 3
+DEFAULT_STARTUP_PROCESSES = 10
 
 
 @dataclass(frozen=True)
@@ -46,6 +50,10 @@ class Sample:
     ok: bool
     error: str | None = None
     iteration: int = 0
+    batch: int = 0
+    warmup: bool = False
+    first_byte_ns: int | None = None
+    completion_ns: int | None = None
 
 
 def machine_metadata() -> dict[str, Any]:
@@ -115,7 +123,8 @@ def compare_results(baseline: dict[str, Any], candidate: dict[str, Any]) -> list
         if not isinstance(sample, dict) or validate_sample(sample):
             errors.append("baseline contains invalid response sample")
             continue
-        by_case.setdefault(str(sample["case"]), []).append(sample)
+        if not sample.get("warmup", False):
+            by_case.setdefault(str(sample["case"]), []).append(sample)
     for sample in next_samples:
         if not isinstance(sample, dict):
             errors.append("candidate contains malformed sample")
@@ -124,40 +133,14 @@ def compare_results(baseline: dict[str, Any], candidate: dict[str, Any]) -> list
         if invalid:
             errors.append(f"{sample.get('case', 'unknown')}: {invalid}")
             continue
+        if sample.get("warmup", False):
+            continue
         peers = by_case.get(str(sample["case"]), [])
         if peers:
             reference = sorted(item["duration_ns"] for item in peers)[len(peers) // 2]
             if sample["duration_ns"] > reference * 1.2:
                 errors.append(f"{sample['case']}: slowdown exceeds 20% advisory tolerance")
     return errors
-
-
-def _http_sample(client: httpx.Client, case: str, url: str, timeout: float) -> Sample:
-    start = time.perf_counter_ns()
-    try:
-        response = client.get(url, timeout=timeout)
-        duration = time.perf_counter_ns() - start
-        body = response.content
-        ok = 200 <= response.status_code < 300
-        return Sample(
-            case,
-            duration,
-            response.status_code,
-            len(body),
-            hashlib.sha256(body).hexdigest(),
-            ok,
-            None if ok else f"HTTP {response.status_code}",
-        )
-    except (httpx.HTTPError, TimeoutError, OSError) as error:
-        return Sample(
-            case,
-            time.perf_counter_ns() - start,
-            0,
-            0,
-            hashlib.sha256(b"").hexdigest(),
-            False,
-            str(error),
-        )
 
 
 async def _async_http_sample(
@@ -181,6 +164,7 @@ async def _async_http_sample(
             hashlib.sha256(body).hexdigest(),
             ok,
             None if ok else f"HTTP {response.status_code}",
+            completion_ns=time.perf_counter_ns() - start,
         )
     except (httpx.HTTPError, TimeoutError, OSError) as error:
         return Sample(
@@ -198,6 +182,7 @@ def run_controlled_http(
     *,
     repeats: int = DEFAULT_REPEATS,
     warmups: int = DEFAULT_WARMUPS,
+    batches: int = DEFAULT_BATCHES,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     hard_cache: Path | None = None,
 ) -> dict[str, Any]:
@@ -223,61 +208,77 @@ def run_controlled_http(
             recording_id = source_manifest["examples"][0]["recording_id"]
         else:
             recording_id = ""
-        settings = Settings(
-            repository_root=fixture_root,
-            evidence_root=sandbox / ".runtime",
-            operations_root=sandbox / "data/operations",
-            repository_intake_root=fixture_root / "data/intake/recordings",
-            evidence_package_intake_root=fixture_root / "data/intake/evidence-packages",
-            pending_video_root=fixture_root / "data/incoming/videos",
-            bonjour_enabled=False,
-        )
-        app = create_app(settings)
         samples: list[Sample] = []
+        for batch in range(batches):
+            settings = Settings(
+                repository_root=fixture_root,
+                evidence_root=sandbox / f"batch-{batch}" / ".runtime",
+                operations_root=sandbox / f"batch-{batch}" / "data/operations",
+                repository_intake_root=fixture_root / "data/intake/recordings",
+                evidence_package_intake_root=fixture_root / "data/intake/evidence-packages",
+                pending_video_root=fixture_root / "data/incoming/videos",
+                bonjour_enabled=False,
+            )
+            app = create_app(settings)
+            media_url = f"/v1/repository-bundles/{recording_id}/video" if recording_id else None
 
-        async def measure() -> None:
-            async with app.router.lifespan_context(app):
-                transport = httpx.ASGITransport(app=app)
-                async with httpx.AsyncClient(
-                    transport=transport, base_url="http://controlled.local", timeout=timeout
-                ) as client:
-                    media_url = (
-                        f"/v1/repository-bundles/{recording_id}/video" if recording_id else None
-                    )
-                    for index in range(warmups + repeats):
-                        # Warmups prime app caches; timed samples reuse the same app instance.
-                        sample = await _async_http_sample(client, "jobs_json", "/api/jobs", timeout)
-                        if index >= warmups:
-                            samples.append(
-                                Sample(**{**asdict(sample), "iteration": index - warmups})
-                            )
-                        if media_url:
-                            sample = await _async_http_sample(
-                                client,
-                                "video_range",
-                                media_url,
-                                timeout,
-                                headers={"Range": f"bytes=0-{MAX_MEDIA_BYTES - 1}"},
-                            )
-                            if sample.ok and (
-                                sample.status_code != 206 or sample.response_bytes > MAX_MEDIA_BYTES
-                            ):
-                                sample = Sample(
-                                    **{
-                                        **asdict(sample),
-                                        "ok": False,
-                                        "error": (
-                                            f"expected 206 and <= {MAX_MEDIA_BYTES} bytes, "
-                                            f"got {sample.status_code}/{sample.response_bytes}"
-                                        ),
-                                    }
+            async def measure_batch(
+                batch_app: Any, batch_media_url: str | None, batch_index: int
+            ) -> None:
+                async with batch_app.router.lifespan_context(batch_app):
+                    transport = httpx.ASGITransport(app=batch_app)
+                    async with httpx.AsyncClient(
+                        transport=transport,
+                        base_url="http://controlled.local",
+                        timeout=timeout,
+                    ) as client:
+                        cases = [("jobs_json", "/api/jobs", None)]
+                        if batch_media_url:
+                            cases.append(
+                                (
+                                    "video_range",
+                                    batch_media_url,
+                                    {"Range": f"bytes=0-{MAX_MEDIA_BYTES - 1}"},
                                 )
-                            if index >= warmups:
-                                samples.append(
-                                    Sample(**{**asdict(sample), "iteration": index - warmups})
-                                )
+                            )
+                        for warmup in (True, False):
+                            count = warmups if warmup else repeats
+                            for iteration in range(count):
+                                for case, url, headers in cases:
+                                    sample = await _async_http_sample(
+                                        client, case, url, timeout, headers=headers
+                                    )
+                                    if (
+                                        sample.ok
+                                        and case == "video_range"
+                                        and (
+                                            sample.status_code != 206
+                                            or sample.response_bytes > MAX_MEDIA_BYTES
+                                        )
+                                    ):
+                                        sample = Sample(
+                                            **{
+                                                **asdict(sample),
+                                                "ok": False,
+                                                "error": (
+                                                    f"expected 206 and <= {MAX_MEDIA_BYTES} bytes, "
+                                                    f"got {sample.status_code}/"
+                                                    f"{sample.response_bytes}"
+                                                ),
+                                            }
+                                        )
+                                    samples.append(
+                                        Sample(
+                                            **{
+                                                **asdict(sample),
+                                                "iteration": iteration,
+                                                "batch": batch_index,
+                                                "warmup": warmup,
+                                            }
+                                        )
+                                    )
 
-        asyncio.run(measure())
+            asyncio.run(measure_batch(app, media_url, batch))
         fixture = fixture_metadata(None)
         if hard_cache is not None:
             fixture = {
@@ -291,9 +292,11 @@ def run_controlled_http(
             protocol={
                 "warmups": warmups,
                 "repeats": repeats,
+                "batches": batches,
+                "measured_requests_per_case": repeats * batches,
                 "timeout_seconds": timeout,
                 "cache_reset": (
-                    "fresh isolated app per invocation; in-app caches persist across samples"
+                    "fresh isolated app and operations root per batch; app caches persist in batch"
                 ),
                 "media_max_bytes": MAX_MEDIA_BYTES,
             },
@@ -377,6 +380,7 @@ def run_startup_profile(
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     command: list[str] | None = None,
     hard_cache: Path | None = None,
+    hard_cache_validated: bool = False,
 ) -> dict[str, Any]:
     """Launch one isolated loopback backend and time readiness through useful responses."""
     root = root.resolve()
@@ -388,7 +392,8 @@ def run_startup_profile(
         sys.path.insert(0, str(FIXTURE_SCRIPT.parent))
         import materialize_interactive_ui_performance_fixtures as fixtures
 
-        fixtures.validate_hard_snapshot(hard_cache)
+        if not hard_cache_validated:
+            fixtures.validate_hard_snapshot(hard_cache)
         source_manifest = json.loads(FIXTURE_MANIFEST.read_text())
         recording_id = next(
             item["recording_id"]
@@ -495,8 +500,22 @@ def run_startup_profile(
                         "interrupted recovery profile did not recover the seeded running job"
                     )
             duration = time.perf_counter_ns() - started
-            with httpx.Client(base_url=base, timeout=timeout) as client:
-                samples.append(_http_sample(client, "jobs_json", "/api/jobs", timeout))
+            samples.append(
+                _loopback_sample(
+                    "jobs_json", base + "/api/jobs", timeout=timeout, max_bytes=64 * 1024 * 1024
+                )
+            )
+            if recording_id:
+                media = _loopback_sample(
+                    "video_range",
+                    base + f"/v1/repository-bundles/{recording_id}/video",
+                    timeout=timeout,
+                    headers={"Range": f"bytes=0-{MAX_MEDIA_BYTES - 1}"},
+                    max_bytes=MAX_MEDIA_BYTES,
+                )
+                if media.ok and media.status_code != 206:
+                    media = Sample(**{**asdict(media), "ok": False, "error": "expected HTTP 206"})
+                samples.append(media)
             result = _result(
                 "loopback_startup",
                 startup_fixture_metadata(profile),
@@ -561,6 +580,78 @@ def _raw_sample(case: str, duration_ns: int, status: int, body: bytes) -> Sample
     )
 
 
+def _loopback_sample(
+    case: str,
+    url: str,
+    *,
+    timeout: float,
+    headers: dict[str, str] | None = None,
+    max_bytes: int,
+) -> Sample:
+    """Read the entire response and retain first-byte and completion timings."""
+    started = time.perf_counter_ns()
+    deadline = time.monotonic() + timeout
+    digest = hashlib.sha256()
+    response_bytes = 0
+    first_byte_ns: int | None = None
+    status = 0
+    request = urllib.request.Request(url, headers=headers or {})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            status = response.status
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(f"response exceeded {timeout:.3f}s")
+                read_size = 1 if first_byte_ns is None else min(
+                    64 * 1024, max_bytes + 1 - response_bytes
+                )
+                chunk = response.read(read_size)
+                if not chunk:
+                    break
+                if first_byte_ns is None:
+                    first_byte_ns = time.perf_counter_ns() - started
+                response_bytes += len(chunk)
+                digest.update(chunk)
+                if response_bytes > max_bytes:
+                    return Sample(
+                        case,
+                        time.perf_counter_ns() - started,
+                        status,
+                        response_bytes,
+                        digest.hexdigest(),
+                        False,
+                        f"response exceeded {max_bytes} bytes before completion",
+                        first_byte_ns=first_byte_ns,
+                    )
+        completion = time.perf_counter_ns() - started
+        ok = 200 <= status < 300
+        return Sample(
+            case,
+            completion,
+            status,
+            response_bytes,
+            digest.hexdigest(),
+            ok,
+            None if ok else f"HTTP {status}",
+            first_byte_ns=first_byte_ns,
+            completion_ns=completion,
+        )
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        completion = time.perf_counter_ns() - started
+        return Sample(
+            case,
+            completion,
+            status,
+            response_bytes,
+            digest.hexdigest(),
+            False,
+            str(error),
+            first_byte_ns=first_byte_ns,
+            completion_ns=completion,
+        )
+
+
 def _result(
     kind: str,
     fixture: dict[str, Any],
@@ -569,6 +660,7 @@ def _result(
     protocol: dict[str, Any],
     artifacts: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    raw_samples = [asdict(sample) for sample in samples]
     return {
         "schema_version": "interactive-ui-performance-result/v1",
         "run_id": str(uuid.uuid4()),
@@ -576,8 +668,45 @@ def _result(
         "kind": kind,
         "metadata": {"fixture": fixture, "machine": machine_metadata()},
         "protocol": protocol,
-        "samples": [asdict(sample) for sample in samples],
+        "samples": raw_samples,
+        "distributions": _sample_distributions(raw_samples),
         "artifacts": artifacts or {},
+    }
+
+
+def _sample_distributions(samples: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    groups: dict[tuple[str, int], list[dict[str, Any]]] = {}
+    for sample in samples:
+        if sample.get("warmup"):
+            continue
+        groups.setdefault((str(sample["case"]), int(sample.get("batch", 0))), []).append(sample)
+    summaries = []
+    for (case, batch), group in sorted(groups.items()):
+        durations = sorted(int(item["duration_ns"]) for item in group)
+        first_bytes = sorted(
+            int(item["first_byte_ns"]) for item in group if item.get("first_byte_ns") is not None
+        )
+        summaries.append(_distribution(case, batch, durations, first_bytes))
+    return summaries
+
+
+def _distribution(
+    case: str, batch: int, durations: list[int], first_bytes: list[int]
+) -> dict[str, Any]:
+    durations.sort()
+    first_bytes.sort()
+    return {
+        "case": case,
+        "batch": batch,
+        "samples": len(durations),
+        "min_completion_ns": durations[0],
+        "median_completion_ns": int(statistics.median(durations)),
+        "p90_completion_ns": durations[max(0, math.ceil(0.9 * len(durations)) - 1)],
+        "max_completion_ns": durations[-1],
+        "median_first_byte_ns": int(statistics.median(first_bytes)) if first_bytes else None,
+        "p90_first_byte_ns": (
+            first_bytes[max(0, math.ceil(0.9 * len(first_bytes)) - 1)] if first_bytes else None
+        ),
     }
 
 
@@ -585,18 +714,26 @@ def run_startup_trials(
     profile: str,
     root: Path,
     *,
-    repeats: int = DEFAULT_REPEATS,
+    repeats: int = DEFAULT_STARTUP_PROCESSES,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     hard_cache: Path | None = None,
 ) -> dict[str, Any]:
     """Run fresh, isolated processes for each cold startup trial."""
     trial_root = root / uuid.uuid4().hex[:8]
+    if profile == "hard_populated":
+        if hard_cache is None:
+            raise ValueError("hard_populated startup requires the verified --hard-cache")
+        sys.path.insert(0, str(FIXTURE_SCRIPT.parent))
+        import materialize_interactive_ui_performance_fixtures as fixtures
+
+        fixtures.validate_hard_snapshot(hard_cache)
     runs = [
         run_startup_profile(
             profile,
             trial_root / f"trial-{index:02d}",
             timeout=timeout,
             hard_cache=hard_cache,
+            hard_cache_validated=profile == "hard_populated",
         )
         for index in range(repeats)
     ]
@@ -609,6 +746,7 @@ def run_startup_trials(
         [Sample(**sample) for sample in samples],
         protocol={
             "repeats": repeats,
+            "fresh_processes": repeats,
             "warmups": 0,
             "cache_reset": "fresh process and temporary roots for every cold trial",
             "timeout_seconds_per_trial": timeout,
@@ -616,6 +754,15 @@ def run_startup_trials(
         },
         artifacts={"trial_logs": [run["artifacts"]["log"] for run in runs]},
     )
+    startup_durations = [
+        int(run["protocol"]["startup_to_useful_ns"])
+        for run in runs
+        if "startup_to_useful_ns" in run["protocol"]
+    ]
+    if startup_durations:
+        result["distributions"].append(
+            _distribution("startup_to_useful_response", 0, startup_durations, [])
+        )
     result["runs"] = [run["run_id"] for run in runs]
     return result
 
@@ -632,6 +779,17 @@ def export_result(result: dict[str, Any], output: Path) -> None:
         )
         writer.writeheader()
         writer.writerows(result["samples"])
+    summary_path = output.with_suffix(".summary.csv")
+    summaries = result["distributions"]
+    with summary_path.open("w", newline="") as stream:
+        writer = csv.DictWriter(
+            stream,
+            fieldnames=list(summaries[0]) if summaries else [],
+            lineterminator="\n",
+        )
+        if summaries:
+            writer.writeheader()
+            writer.writerows(summaries)
 
 
 def main() -> int:
@@ -649,14 +807,23 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
     parser.add_argument("--warmups", type=int, default=DEFAULT_WARMUPS)
+    parser.add_argument("--batches", type=int, default=DEFAULT_BATCHES)
+    parser.add_argument("--startup-processes", type=int, default=DEFAULT_STARTUP_PROCESSES)
     parser.add_argument("--compare", type=Path)
     args = parser.parse_args()
-    if args.timeout <= 0 or args.repeats < 1 or args.warmups < 0:
-        parser.error("timeout must be positive, repeats at least one, and warmups nonnegative")
+    if (
+        args.timeout <= 0
+        or args.repeats < 1
+        or args.warmups < 0
+        or args.batches < 1
+        or args.startup_processes < 1
+    ):
+        parser.error("timeout, repeats, batches, and startup processes must be positive")
     if args.mode == "http":
         result = run_controlled_http(
             repeats=args.repeats,
             warmups=args.warmups,
+            batches=args.batches,
             timeout=args.timeout,
             hard_cache=args.hard_cache if args.profile == "hard_populated" else None,
         )
@@ -666,7 +833,7 @@ def main() -> int:
         result = run_startup_trials(
             args.profile,
             artifact_root / args.profile,
-            repeats=args.repeats,
+            repeats=args.startup_processes,
             timeout=args.timeout,
             hard_cache=args.hard_cache if args.profile == "hard_populated" else None,
         )
@@ -676,7 +843,10 @@ def main() -> int:
         print(
             "Comparison: " + ("; ".join(errors) if errors else "compatible; no advisory regression")
         )
-    print(f"Wrote raw samples to {args.output} and {args.output.with_suffix('.csv')}")
+    print(
+        f"Wrote raw samples and distributions to {args.output}, "
+        f"{args.output.with_suffix('.csv')}, and {args.output.with_suffix('.summary.csv')}"
+    )
     return 0 if all(sample["ok"] for sample in result["samples"]) else 1
 
 

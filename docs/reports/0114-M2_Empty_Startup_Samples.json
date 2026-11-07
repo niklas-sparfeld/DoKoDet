@@ -1,12 +1,76 @@
 {
   "artifacts": {
     "trial_logs": [
-      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/4fd3c45b/trial-00/backend-output.log",
-      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/4fd3c45b/trial-01/backend-output.log",
-      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/4fd3c45b/trial-02/backend-output.log"
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-00/backend-output.log",
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-01/backend-output.log",
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-02/backend-output.log",
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-03/backend-output.log",
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-04/backend-output.log",
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-05/backend-output.log",
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-06/backend-output.log",
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-07/backend-output.log",
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-08/backend-output.log",
+      "docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-09/backend-output.log"
     ]
   },
-  "created_at": "2026-11-07T09:34:40.586544+00:00",
+  "created_at": "2026-11-07T09:54:14.901052+00:00",
+  "distributions": [
+    {
+      "batch": 0,
+      "case": "health_live",
+      "max_completion_ns": 698055958,
+      "median_completion_ns": 585589562,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 571996250,
+      "p90_completion_ns": 697838166,
+      "p90_first_byte_ns": null,
+      "samples": 10
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "max_completion_ns": 4365584,
+      "median_completion_ns": 3845604,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 3595250,
+      "p90_completion_ns": 4360417,
+      "p90_first_byte_ns": null,
+      "samples": 10
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "max_completion_ns": 1018375,
+      "median_completion_ns": 956562,
+      "median_first_byte_ns": 945521,
+      "min_completion_ns": 928416,
+      "p90_completion_ns": 994625,
+      "p90_first_byte_ns": 980708,
+      "samples": 10
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "max_completion_ns": 1109750,
+      "median_completion_ns": 1051416,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 980500,
+      "p90_completion_ns": 1081042,
+      "p90_first_byte_ns": null,
+      "samples": 10
+    },
+    {
+      "batch": 0,
+      "case": "startup_to_useful_response",
+      "max_completion_ns": 703298375,
+      "median_completion_ns": 590493020,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 576868750,
+      "p90_completion_ns": 703243291,
+      "p90_first_byte_ns": null,
+      "samples": 10
+    }
+  ],
   "kind": "loopback_startup",
   "metadata": {
     "fixture": {
@@ -23,6 +87,7 @@
   },
   "protocol": {
     "cache_reset": "fresh process and temporary roots for every cold trial",
+    "fresh_processes": 10,
     "process_runs": [
       {
         "environment": "isolated temporary roots",
@@ -39,8 +104,8 @@
         "process_cleanup": "SIGTERM; process group exited",
         "process_exit_code": -15,
         "process_group_cleanup_timeout_seconds": 30,
-        "startup_to_useful_ns": 587283167,
-        "timeout_seconds": 20.0
+        "startup_to_useful_ns": 594372875,
+        "timeout_seconds": 30.0
       },
       {
         "environment": "isolated temporary roots",
@@ -57,8 +122,8 @@
         "process_cleanup": "SIGTERM; process group exited",
         "process_exit_code": -15,
         "process_group_cleanup_timeout_seconds": 30,
-        "startup_to_useful_ns": 701272917,
-        "timeout_seconds": 20.0
+        "startup_to_useful_ns": 584396250,
+        "timeout_seconds": 30.0
       },
       {
         "environment": "isolated temporary roots",
@@ -75,140 +140,713 @@
         "process_cleanup": "SIGTERM; process group exited",
         "process_exit_code": -15,
         "process_group_cleanup_timeout_seconds": 30,
-        "startup_to_useful_ns": 692185208,
-        "timeout_seconds": 20.0
+        "startup_to_useful_ns": 703298375,
+        "timeout_seconds": 30.0
+      },
+      {
+        "environment": "isolated temporary roots",
+        "launch_command": [
+          "/Users/niklas.sparfeld/Developer/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "startup_to_useful_ns": 586613166,
+        "timeout_seconds": 30.0
+      },
+      {
+        "environment": "isolated temporary roots",
+        "launch_command": [
+          "/Users/niklas.sparfeld/Developer/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "startup_to_useful_ns": 703243291,
+        "timeout_seconds": 30.0
+      },
+      {
+        "environment": "isolated temporary roots",
+        "launch_command": [
+          "/Users/niklas.sparfeld/Developer/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "startup_to_useful_ns": 695962750,
+        "timeout_seconds": 30.0
+      },
+      {
+        "environment": "isolated temporary roots",
+        "launch_command": [
+          "/Users/niklas.sparfeld/Developer/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "startup_to_useful_ns": 700981666,
+        "timeout_seconds": 30.0
+      },
+      {
+        "environment": "isolated temporary roots",
+        "launch_command": [
+          "/Users/niklas.sparfeld/Developer/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "startup_to_useful_ns": 578944334,
+        "timeout_seconds": 30.0
+      },
+      {
+        "environment": "isolated temporary roots",
+        "launch_command": [
+          "/Users/niklas.sparfeld/Developer/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "startup_to_useful_ns": 586341792,
+        "timeout_seconds": 30.0
+      },
+      {
+        "environment": "isolated temporary roots",
+        "launch_command": [
+          "/Users/niklas.sparfeld/Developer/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "startup_to_useful_ns": 576868750,
+        "timeout_seconds": 30.0
       }
     ],
-    "repeats": 3,
-    "timeout_seconds_per_trial": 20.0,
+    "repeats": 10,
+    "timeout_seconds_per_trial": 30.0,
     "warmups": 0
   },
-  "run_id": "8bbbde2e-48bc-458e-8b0e-ae05cfb7f230",
+  "run_id": "b4fa5291-f2c2-444c-9bb5-b60be7ac951e",
   "runs": [
-    "cccfb518-6bf5-4dac-bdc7-e2b1ff74e8b9",
-    "0fb2f9f3-1069-4662-b604-5793dfe167b6",
-    "55abd995-a84c-485a-9eda-7018a720ec07"
+    "86c6f188-a01d-4eec-9e30-4070690e417e",
+    "9406d23f-b85c-492c-92f8-d3d5b023ae90",
+    "bb2193a3-5eff-451a-82d9-6d6541489819",
+    "91a98576-86b2-44df-b86a-32717367d0ed",
+    "435badec-b92f-4543-81d9-bf38cbcd59f0",
+    "10480286-1a68-4921-93b9-d94c6a5733e6",
+    "716c24a2-3e65-4455-9a37-909938e5fb93",
+    "583e5845-cff8-45db-96a9-aa15a1ec28fd",
+    "7e737785-9052-48cf-93ef-7de814ce1622",
+    "2af6135e-2f56-4df8-bf6f-b6f4b89e9052"
   ],
   "samples": [
     {
+      "batch": 0,
       "case": "health_live",
-      "duration_ns": 582502375,
+      "completion_ns": null,
+      "duration_ns": 589528000,
       "error": null,
+      "first_byte_ns": null,
       "iteration": 0,
       "ok": true,
       "response_bytes": 15,
       "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "health_ready",
-      "duration_ns": 3719875,
+      "completion_ns": null,
+      "duration_ns": 3736750,
       "error": null,
+      "first_byte_ns": null,
       "iteration": 0,
       "ok": true,
       "response_bytes": 15,
       "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "recordings_first_use",
-      "duration_ns": 1022917,
+      "completion_ns": null,
+      "duration_ns": 1070792,
       "error": null,
+      "first_byte_ns": null,
       "iteration": 0,
       "ok": true,
       "response_bytes": 17,
       "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "jobs_json",
-      "duration_ns": 1511125,
+      "completion_ns": 944667,
+      "duration_ns": 944667,
       "error": null,
+      "first_byte_ns": 932417,
       "iteration": 0,
       "ok": true,
       "response_bytes": 62,
       "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "health_live",
-      "duration_ns": 695844125,
+      "completion_ns": null,
+      "duration_ns": 579686916,
       "error": null,
+      "first_byte_ns": null,
       "iteration": 1,
       "ok": true,
       "response_bytes": 15,
       "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "health_ready",
-      "duration_ns": 4275875,
+      "completion_ns": null,
+      "duration_ns": 3595250,
       "error": null,
+      "first_byte_ns": null,
       "iteration": 1,
       "ok": true,
       "response_bytes": 15,
       "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "recordings_first_use",
-      "duration_ns": 1109833,
+      "completion_ns": null,
+      "duration_ns": 1081042,
       "error": null,
+      "first_byte_ns": null,
       "iteration": 1,
       "ok": true,
       "response_bytes": 17,
       "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "jobs_json",
-      "duration_ns": 1519083,
+      "completion_ns": 932583,
+      "duration_ns": 932583,
       "error": null,
+      "first_byte_ns": 921583,
       "iteration": 1,
       "ok": true,
       "response_bytes": 62,
       "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "health_live",
-      "duration_ns": 686849333,
+      "completion_ns": null,
+      "duration_ns": 697838166,
       "error": null,
+      "first_byte_ns": null,
       "iteration": 2,
       "ok": true,
       "response_bytes": 15,
       "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "health_ready",
-      "duration_ns": 4211584,
+      "completion_ns": null,
+      "duration_ns": 4365584,
       "error": null,
+      "first_byte_ns": null,
       "iteration": 2,
       "ok": true,
       "response_bytes": 15,
       "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "recordings_first_use",
-      "duration_ns": 1075959,
+      "completion_ns": null,
+      "duration_ns": 1057250,
       "error": null,
+      "first_byte_ns": null,
       "iteration": 2,
       "ok": true,
       "response_bytes": 17,
       "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
     },
     {
+      "batch": 0,
       "case": "jobs_json",
-      "duration_ns": 1695334,
+      "completion_ns": 943708,
+      "duration_ns": 943708,
       "error": null,
+      "first_byte_ns": 927750,
       "iteration": 2,
       "ok": true,
       "response_bytes": 62,
       "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
-      "status_code": 200
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 581651125,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 3,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 3883667,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 3,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 1045583,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 3,
+      "ok": true,
+      "response_bytes": 17,
+      "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 955667,
+      "duration_ns": 955667,
+      "error": null,
+      "first_byte_ns": 944875,
+      "iteration": 3,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 698055958,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 4,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 4111625,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 4,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 1039000,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 4,
+      "ok": true,
+      "response_bytes": 17,
+      "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 957458,
+      "duration_ns": 957458,
+      "error": null,
+      "first_byte_ns": 946167,
+      "iteration": 4,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 690669167,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 5,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 4147792,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 5,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 1109750,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 5,
+      "ok": true,
+      "response_bytes": 17,
+      "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 1018375,
+      "duration_ns": 1018375,
+      "error": null,
+      "first_byte_ns": 1004875,
+      "iteration": 5,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 695593291,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 6,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 4360417,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 6,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 980500,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 6,
+      "ok": true,
+      "response_bytes": 17,
+      "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 928416,
+      "duration_ns": 928416,
+      "error": null,
+      "first_byte_ns": 917541,
+      "iteration": 6,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 574082042,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 7,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 3758625,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 7,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 1069709,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 7,
+      "ok": true,
+      "response_bytes": 17,
+      "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 964417,
+      "duration_ns": 964417,
+      "error": null,
+      "first_byte_ns": 953250,
+      "iteration": 7,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 581627333,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 8,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 3650834,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 8,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 1030250,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 8,
+      "ok": true,
+      "response_bytes": 17,
+      "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 965542,
+      "duration_ns": 965542,
+      "error": null,
+      "first_byte_ns": 953083,
+      "iteration": 8,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 571996250,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 9,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 3807541,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 9,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 1031958,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 9,
+      "ok": true,
+      "response_bytes": 17,
+      "response_sha256": "f33a6af83c402b05e546195c2bfb6c6572b4a36fc46d05e6739ca1d4df613fcb",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 994625,
+      "duration_ns": 994625,
+      "error": null,
+      "first_byte_ns": 980708,
+      "iteration": 9,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
     }
   ],
   "schema_version": "interactive-ui-performance-result/v1"

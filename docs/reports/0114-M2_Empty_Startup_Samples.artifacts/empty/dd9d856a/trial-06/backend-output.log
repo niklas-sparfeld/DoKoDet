@@ -1,0 +1,17 @@
+2026-11-07T09:54:11.784Z WARNING __main__ bonjour_disabled
+2026-11-07T09:54:11.784Z INFO __main__ backend_http_starting host=127.0.0.1 port=58124
+2026-11-07T09:54:12.164Z WARNING dokodetector_backend.pipeline_store processor_run_catalog_skipped path=/Users/niklas.sparfeld/Developer/doko_detector/docs/reports/0114-M2_Empty_Startup_Samples.artifacts/empty/dd9d856a/trial-06/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [31472]
+INFO:     Waiting for application startup.
+2026-11-07T09:54:12.177Z INFO dokodetector_backend.app backend_started host=127.0.0.1 port=58124
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:58124 (Press CTRL+C to quit)
+INFO:     127.0.0.1:58131 - "GET /health/live HTTP/1.1" 200 OK
+2026-11-07T09:54:12.330Z INFO dokodetector_backend.app backend_ready request_id=e932d42a9b034793b9263440c36d2031
+INFO:     127.0.0.1:58132 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58133 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58134 - "GET /api/jobs HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [31472]

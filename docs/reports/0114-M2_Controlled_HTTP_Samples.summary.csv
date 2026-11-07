@@ -1,0 +1,7 @@
+case,batch,samples,min_completion_ns,median_completion_ns,p90_completion_ns,max_completion_ns,median_first_byte_ns,p90_first_byte_ns
+jobs_json,0,30,586708,618979,651084,792333,,
+jobs_json,1,30,576084,615062,639833,659625,,
+jobs_json,2,30,581042,620250,647917,671292,,
+video_range,0,30,459501500,463675792,465678292,468453166,,
+video_range,1,30,462760666,463733687,465013667,467184708,,
+video_range,2,30,462835042,464135937,465595208,468406750,,

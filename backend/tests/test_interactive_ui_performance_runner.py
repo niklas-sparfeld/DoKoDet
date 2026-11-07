@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 SCRIPTS = Path(__file__).parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from run_interactive_ui_performance import (  # noqa: E402
+    _loopback_sample,
     compare_results,
     run_controlled_http,
     run_startup_profile,
@@ -57,11 +61,14 @@ def test_comparator_rejects_invalid_response() -> None:
 
 
 def test_controlled_http_reads_real_json_endpoint() -> None:
-    result = run_controlled_http(repeats=1, warmups=0)
+    result = run_controlled_http(repeats=2, warmups=1, batches=2)
     sample = result["samples"][0]
     assert sample["case"] == "jobs_json"
     assert sample["ok"] is True
     assert sample["status_code"] == 200
+    assert sum(not item["warmup"] for item in result["samples"]) == 4
+    assert sum(item["warmup"] for item in result["samples"]) == 2
+    assert [item["samples"] for item in result["distributions"]] == [2, 2]
 
 
 def test_loopback_runner_reaches_useful_response_and_cleans_up(tmp_path: Path) -> None:
@@ -74,6 +81,10 @@ def test_loopback_runner_reaches_useful_response_and_cleans_up(tmp_path: Path) -
     ]
     assert all(sample["ok"] for sample in result["samples"])
     assert result["protocol"]["startup_to_useful_ns"] > 0
+    endpoint = next(sample for sample in result["samples"] if sample["case"] == "jobs_json")
+    assert endpoint["response_bytes"] > 0
+    assert endpoint["first_byte_ns"] > 0
+    assert endpoint["completion_ns"] == endpoint["duration_ns"]
 
 
 def test_loopback_runner_cleans_up_after_timeout(tmp_path: Path) -> None:
@@ -101,3 +112,40 @@ def test_startup_trials_use_fresh_roots_on_repeated_invocation(tmp_path: Path) -
     second = run_startup_trials("interrupted_recovery", tmp_path / "runs", repeats=1)
     assert all(sample["ok"] for sample in first["samples"] + second["samples"])
     assert first["artifacts"]["trial_logs"] != second["artifacts"]["trial_logs"]
+    assert any(
+        item["case"] == "startup_to_useful_response" and item["samples"] == 1
+        for item in first["distributions"]
+    )
+
+
+def test_loopback_sample_reads_full_body_and_times_first_byte() -> None:
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(206)
+            self.send_header("Content-Length", "6")
+            self.end_headers()
+            self.wfile.write(b"abc")
+            self.wfile.flush()
+            time.sleep(0.01)
+            self.wfile.write(b"def")
+
+        def log_message(self, *_args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    try:
+        sample = _loopback_sample(
+            "media", f"http://127.0.0.1:{server.server_port}/video", timeout=2, max_bytes=10
+        )
+    finally:
+        server.shutdown()
+        worker.join()
+        server.server_close()
+    assert sample.ok is True
+    assert sample.status_code == 206
+    assert sample.response_bytes == 6
+    assert sample.first_byte_ns is not None
+    assert sample.completion_ns is not None
+    assert sample.completion_ns > sample.first_byte_ns

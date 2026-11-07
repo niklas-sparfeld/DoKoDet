@@ -1,0 +1,7 @@
+batch,case,max_completion_ns,median_completion_ns,median_first_byte_ns,min_completion_ns,p90_completion_ns,p90_first_byte_ns,samples
+0,health_live,696791166,585021312,,578057709,687357583,,10
+0,health_ready,4162916,3600375,,3156500,4021209,,10
+0,interrupted_job_recovery,1064584,955563,,844792,1010625,,10
+0,jobs_json,1122458,1042938,1030896,993917,1087458,1075791,10
+0,recordings_first_use,1122250,1020000,,979750,1091458,,10
+0,startup_to_useful_response,702913708,590628833,,583360000,693276041,,10

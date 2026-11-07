@@ -197,10 +197,14 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 - Add controlled HTTP and isolated loopback runners with raw result export and process startup
   profiles. Record measurement metadata, warmup policy, cache resets, and finite timeouts.
-- Exercise one JSON read, one bounded media response, and startup through first useful response.
-- Acceptance: repeated runs follow the protocol; process cleanup works after errors/timeouts;
-  startup and deferred first-use costs are visible. Comparator tests detect injected slowdown,
-  incompatible fixture/machine profiles, and invalid responses. No baseline gate is enabled yet.
+- For each controlled HTTP case, run five warmups and 30 measured requests in each of three
+  isolated batches. For each startup profile, run ten fresh backend processes. Record a full JSON
+  response and, for hard storage, a bounded media range with loopback first-byte and completion
+  timings.
+- Acceptance: repeated runs follow this protocol; process cleanup works after errors/timeouts;
+  startup and deferred first-use costs are visible. Export raw samples and per-batch distributions.
+  Comparator tests detect injected slowdown, incompatible fixture/machine profiles, and invalid
+  responses. No baseline gate is enabled yet.
 
 ## M3 — Cover UI reads and polling
 
@@ -325,20 +329,21 @@ Deferring startup cost to the first UI request is not an improvement unless both
 
 - Changes: added `backend/scripts/run_interactive_ui_performance.py` with controlled ASGI HTTP,
   isolated loopback process profiles (`empty`, `hard_populated`, and `interrupted_recovery`), raw
-  JSON/CSV export, machine and fixture metadata, bounded video ranges, and an advisory result
-  comparator. The hard process profile reaches both recordings and workspace responses. The
+  samples, per-batch distributions, machine and fixture metadata, bounded video ranges, and an
+  advisory result comparator. The hard process profile reaches recordings and workspace responses,
+  then measures full JSON and media-range responses with first-byte and completion timings. The
   recovery profile creates a valid running job and checks that startup marks it interrupted.
   Detailed protocol and measured examples are in
   `docs/reports/0114-M2_Endpoint_and_Startup_Timing_Harness.md`; raw exports are beside it.
-- Checks: seven focused pytest cases pass; scoped Ruff and formatting pass. Three repeated empty
-  startup and interrupted recovery runs pass. Three controlled JSON and 64 KiB media samples pass.
-  One hard startup run passes and records 3.03 s to recordings and 4.76 s to workspace. Timeout
-  cleanup is covered by a process test. Comparator tests catch slowdown, incompatible profiles,
-  and invalid responses.
+- Checks: eight focused pytest cases pass; scoped Ruff and formatting pass. The controlled suite
+  passes five warmups and 30 measured requests per case in each of three batches. Ten fresh startup
+  processes pass for each profile. Ten hard loopback media responses each return 65,536 bytes and
+  record first-byte and completion times. Timeout cleanup is covered by a process test. Comparator
+  tests catch slowdown, incompatible profiles, and invalid responses.
 - Decisions and limits: the controlled runner uses an in-process ASGI transport so it can isolate
   app storage and cache policy. The startup runner uses real loopback HTTP. The comparator remains
-  advisory; no baseline or regression gate is enabled. The hard startup measurement is one sample,
-  not a stable baseline.
+  advisory; no baseline or regression gate is enabled. These results describe one local machine,
+  not a multi-machine baseline.
 - Next: M3 executable coverage for inventoried UI JSON reads and polling.
 - Run count: requested 11 milestones; completed 3; remaining 8.
 
