@@ -423,6 +423,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/pipeline/calibrations/{calibration_revision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Published Calibration
+         * @description Read one exact published calibration without selecting or changing it.
+         */
+        get: operations["get_published_calibration_api_recordings__recording_id__pipeline_calibrations__calibration_revision_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/pipeline/comparisons": {
         parameters: {
             query?: never;
@@ -3669,6 +3689,53 @@ export interface components {
             status: "observed" | "insufficient_evidence";
         };
         /**
+         * TablePlaneCalibrationResponse
+         * @description One exact immutable published table-plane calibration.
+         */
+        TablePlaneCalibrationResponse: {
+            /** Algorithm Version */
+            algorithm_version: string;
+            /** Angle Convention */
+            angle_convention: string;
+            /** Calibration Digest */
+            calibration_digest: string;
+            /** Calibration Revision Id */
+            calibration_revision_id: string;
+            /** Candidate Receipt Digests */
+            candidate_receipt_digests: string[];
+            /** Card Aspect Ratio */
+            card_aspect_ratio: number;
+            /** Card Long Size */
+            card_long_size: number;
+            /** Card Short Size */
+            card_short_size: number;
+            /** Coordinate System */
+            coordinate_system: string;
+            /** Corner Order */
+            corner_order: string;
+            /** Diagnostics */
+            diagnostics: {
+                [key: string]: unknown;
+            };
+            /** Frame Height */
+            frame_height: number;
+            /** Frame Width */
+            frame_width: number;
+            /** Image To Table */
+            image_to_table: number[][];
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: "table-plane-calibration/v1";
+            /** Source Revision */
+            source_revision: string;
+            /** Table To Image */
+            table_to_image: number[][];
+        };
+        /**
          * TimelineArtifactHashes
          * @description Artifact identities recorded with one timeline projection.
          */
@@ -4806,6 +4873,38 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_published_calibration_api_recordings__recording_id__pipeline_calibrations__calibration_revision_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                calibration_revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TablePlaneCalibrationResponse"];
                 };
             };
             /** @description Validation Error */

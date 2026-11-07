@@ -166,6 +166,9 @@ export type CalibrationRefinementApplyResponse = {
   receipt: Record<string, unknown>;
   visible_card_node_ref: { node_id: string; revision_id: string };
 };
+export type PipelineCalibration = JsonResponse<
+  paths["/api/recordings/{recording_id}/pipeline/calibrations/{calibration_revision_id}"]["get"]["responses"][200]
+>;
 export type RoundAnalysisCreateRequest =
   components["schemas"]["RoundAnalysisCreateRequest"];
 export type PipelineComparisonRequest =
@@ -342,6 +345,11 @@ export interface DokoDetectorClient {
     draftId?: string,
     init?: RequestInit,
   ): Promise<CalibrationRefinementResponse>;
+  getPipelineCalibration(
+    recordingId: string,
+    calibrationRevisionId: string,
+    init?: RequestInit,
+  ): Promise<PipelineCalibration>;
   updateCalibrationRefinement(
     recordingId: string,
     proposalRevisionId: string,
@@ -672,6 +680,12 @@ export function createDokoDetectorClient(
         ),
         init,
       ),
+    getPipelineCalibration: (recordingId, calibrationRevisionId, init) =>
+      requestJson<PipelineCalibration>(
+        fetchImplementation,
+        pipelineCalibrationPath(recordingId, calibrationRevisionId),
+        init,
+      ),
     updateCalibrationRefinement: (
       recordingId,
       proposalRevisionId,
@@ -893,6 +907,13 @@ export function pipelineProposedCardSceneResultPath(
 
 export function pipelineCalibrationRefinementPath(recordingId: string): string {
   return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/calibration-refinement`;
+}
+
+export function pipelineCalibrationPath(
+  recordingId: string,
+  calibrationRevisionId: string,
+): string {
+  return `/api/recordings/${encodeURIComponent(recordingId)}/pipeline/calibrations/${encodeURIComponent(calibrationRevisionId)}`;
 }
 
 export function pipelineCalibrationRefinementReadPath(

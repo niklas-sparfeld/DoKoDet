@@ -101,7 +101,11 @@ describe("PipelineNodeVirtualSceneEditor", () => {
                   frame_id: "frame-1",
                   frame_identity: {},
                   calibration: { revision_id: "cal-1", digest: "a".repeat(64) },
-                  scene: { poses: [] },
+                  scene: {
+                    calibration_revision_id: "cal-1",
+                    calibration_digest: "a".repeat(64),
+                    poses: [],
+                  },
                   pile_regions: [],
                   ignore_regions: [],
                 },

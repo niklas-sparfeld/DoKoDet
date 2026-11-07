@@ -14,6 +14,7 @@ from typing import Any
 from uuid import uuid4
 
 from app_factory import create_test_app
+from doko_operations.card_plane_calibration import CalibrationRun, TablePlaneCalibration
 from doko_operations.pipeline_data import CARD_STATE_CHANGED_EVENT_TYPE
 from fastapi.testclient import TestClient
 
@@ -102,6 +103,48 @@ def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Pat
         assert (
             app.state.pipeline_workspace_service.recording_source_provider.__self__
             is app.state.event_pipeline_service
+        )
+
+
+def test_exact_published_calibration_read_returns_authoritative_transform(
+    tmp_path: Path,
+) -> None:
+    app = create_test_app(_settings(tmp_path))
+    calibration = TablePlaneCalibration.create(
+        calibration_revision_id="calibration-exact-1",
+        recording_id=RECORDING_ID,
+        source_revision="visible-cards-r1",
+        frame_width=640,
+        frame_height=480,
+        image_to_table=[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+        table_to_image=[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+        card_short_size=1.0,
+        card_long_size=91.0 / 59.0,
+        candidate_receipt_digests=[],
+        diagnostics={"fit": "reviewed-fixture"},
+    )
+    run = CalibrationRun(
+        recording_id=RECORDING_ID,
+        source_revision="visible-cards-r1",
+        status="published",
+        candidate_receipts=(),
+        diagnostics={},
+        calibration=calibration,
+        calibration_fit_candidate=None,
+        failure=None,
+        run_digest="",
+    )
+    app.state.calibration_refinement_service.calibration_store.publish(run)
+
+    with TestClient(app) as client:
+        response = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/calibrations/calibration-exact-1"
+        )
+        assert response.status_code == 200
+        assert response.json() == calibration.to_mapping()
+        assert (
+            client.get(f"/api/recordings/{RECORDING_ID}/pipeline/calibrations/missing").status_code
+            == 404
         )
 
 

@@ -34,6 +34,7 @@ type Props = {
   calibration?: GeometryCalibrationIdentity | null;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
+  onDrag?: (id: string, x: number, y: number) => void;
   viewport?: { zoom: number; x: number; y: number };
   viewpoint?: "source" | "rectified";
 };
@@ -85,6 +86,7 @@ export function GeometrySurface({
   calibration = null,
   selectedId = null,
   onSelect,
+  onDrag,
   viewport = { zoom: 1, x: 0, y: 0 },
   viewpoint = "source",
 }: Props) {
@@ -117,6 +119,7 @@ export function GeometrySurface({
         >
           {visibleOverlays.map((overlay) => {
             const selectable = onSelect !== undefined;
+            const draggable = onDrag !== undefined;
             const selected = overlay.id === selectedId;
             return (
               <polygon
@@ -130,6 +133,54 @@ export function GeometrySurface({
                 aria-label={overlay.label}
                 aria-pressed={selectable ? selected : undefined}
                 onClick={selectable ? () => onSelect(overlay.id) : undefined}
+                onPointerDown={
+                  draggable
+                    ? (event) => {
+                        event.preventDefault();
+                        onSelect?.(overlay.id);
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                      }
+                    : undefined
+                }
+                onPointerMove={
+                  draggable
+                    ? (event) => {
+                        if (
+                          !event.currentTarget.hasPointerCapture(
+                            event.pointerId,
+                          )
+                        )
+                          return;
+                        const svg = event.currentTarget.ownerSVGElement;
+                        const transform = svg?.getScreenCTM();
+                        if (
+                          svg === null ||
+                          transform === null ||
+                          transform === undefined
+                        )
+                          return;
+                        const point = svg.createSVGPoint();
+                        point.x = event.clientX;
+                        point.y = event.clientY;
+                        const local = point.matrixTransform(
+                          transform.inverse(),
+                        );
+                        onDrag(overlay.id, local.x, local.y);
+                      }
+                    : undefined
+                }
+                onPointerUp={
+                  draggable
+                    ? (event) => {
+                        if (
+                          event.currentTarget.hasPointerCapture(event.pointerId)
+                        )
+                          event.currentTarget.releasePointerCapture(
+                            event.pointerId,
+                          );
+                      }
+                    : undefined
+                }
                 onKeyDown={
                   selectable
                     ? (event) => {

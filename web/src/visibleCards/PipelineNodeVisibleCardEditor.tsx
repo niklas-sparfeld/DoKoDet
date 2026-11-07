@@ -174,12 +174,26 @@ export function PipelineNodeVisibleCardEditor({
   });
   const frameMatches =
     portalTargets.center === null ||
-    (selected?.frame_identity !== null &&
+    (selected !== undefined &&
+      selected.frame_identity !== null &&
       selected?.frame_identity.source_video_sha256 === sourceSha256 &&
-      typeof selected?.frame_identity.requested_time_us === "number" &&
+      typeof selected.frame_identity.requested_time_us === "number" &&
+      typeof selected.frame_identity.frame_index === "number" &&
+      typeof selected.frame_identity.presentation_timestamp_us === "number" &&
+      typeof selected.frame_identity.width === "number" &&
+      typeof selected.frame_identity.height === "number" &&
+      typeof selected.frame_identity.image_sha256 === "string" &&
       frameState.state === "ready" &&
       frameState.frame.requestedTimeUs ===
-        selected.frame_identity.requested_time_us);
+        selected.frame_identity.requested_time_us &&
+      frameState.frame.identity.frameId ===
+        `${selected.frame_identity.frame_index}@${selected.frame_identity.presentation_timestamp_us}` &&
+      frameState.frame.resolvedTimeUs ===
+        selected.frame_identity.presentation_timestamp_us &&
+      frameState.frame.identity.width === selected.frame_identity.width &&
+      frameState.frame.identity.height === selected.frame_identity.height &&
+      frameState.frame.identity.contentSha256 ===
+        selected.frame_identity.image_sha256);
   const overlays = useMemo(
     () =>
       selected === undefined
@@ -204,7 +218,8 @@ export function PipelineNodeVisibleCardEditor({
       content === null ||
       revision === null ||
       selected === undefined ||
-      readOnly
+      readOnly ||
+      !frameMatches
     )
       return;
     if (reviewerId === "") {
@@ -297,6 +312,10 @@ export function PipelineNodeVisibleCardEditor({
     kind: "accept" | "reject" | "coverage" | "overall",
   ) => {
     if (revision === null || selected === undefined) return;
+    if (!frameMatches) {
+      setMessage("The exact source frame does not match. Review is blocked.");
+      return;
+    }
     if (reviewerId === "") {
       setError("Set a profile name before reviewing visible cards.");
       return;
@@ -511,7 +530,7 @@ export function PipelineNodeVisibleCardEditor({
             <pre>{JSON.stringify(selected.frame_identity, null, 2)}</pre>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || readOnly || !frameMatches}
               onClick={() =>
                 setInspected((current) =>
                   new Set(current).add(selected.event_id),
@@ -533,7 +552,7 @@ export function PipelineNodeVisibleCardEditor({
                   <textarea
                     aria-label={`${field} JSON`}
                     spellCheck={false}
-                    readOnly={readOnly}
+                    readOnly={readOnly || !frameMatches}
                     rows={Math.min(
                       14,
                       Math.max(
@@ -572,57 +591,61 @@ export function PipelineNodeVisibleCardEditor({
             >
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || readOnly || !frameMatches}
                 onClick={() => void submitReview("accept")}
               >
                 Accept outcome
               </button>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || readOnly || !frameMatches}
                 onClick={() => void submitReview("reject")}
               >
                 Reject outcome
               </button>
               <button
                 type="button"
-                disabled={busy || inspected.size < outcomes.length}
+                disabled={
+                  busy ||
+                  readOnly ||
+                  !frameMatches ||
+                  inspected.size < outcomes.length
+                }
                 onClick={() => void submitReview("coverage")}
               >
                 Accept full-recording coverage
               </button>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || readOnly || !frameMatches}
                 onClick={() => void submitReview("overall")}
               >
                 Accept visible-card content
               </button>
             </div>
           </article>
-          {portalTargets.rail === null ? (
-            <div
-              className={styles.navigation}
-              data-visible-card-frame-navigation
-            >
-              <OutcomeNavigation
-                outcomes={outcomes}
-                selectedId={selected.event_id}
-                onSelect={choose}
-              />
-            </div>
-          ) : (
-            createPortal(
-              <OutcomeNavigation
-                outcomes={outcomes}
-                selectedId={selected.event_id}
-                onSelect={choose}
-              />,
-              portalTargets.rail,
-            )
-          )}
         </>
       )}
+      {outcomes.length > 0 ? (
+        portalTargets.rail === null ? (
+          <div className={styles.navigation} data-visible-card-frame-navigation>
+            <OutcomeNavigation
+              outcomes={outcomes}
+              selectedId={selectedId}
+              onSelect={choose}
+            />
+          </div>
+        ) : (
+          createPortal(
+            <OutcomeNavigation
+              outcomes={outcomes}
+              selectedId={selectedId}
+              onSelect={choose}
+            />,
+            portalTargets.rail,
+          )
+        )
+      ) : null}
       <section aria-label="Revision-bound visible-card reviews">
         <h3>Reviews for this revision</h3>
         {reviews.length === 0 ? (
@@ -652,7 +675,7 @@ function OutcomeNavigation({
   onSelect,
 }: {
   outcomes: Outcome[];
-  selectedId: string;
+  selectedId: string | null;
   onSelect: (outcome: Outcome) => void;
 }) {
   return (

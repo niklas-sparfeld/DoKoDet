@@ -2,24 +2,67 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Request
+from pydantic import Field
 
 from dokodetector_backend.calibration_refinement_service import (
     CalibrationRefinementConflict,
     CalibrationRefinementInputError,
     CalibrationRefinementNotFound,
 )
+from dokodetector_backend.contract import ContractModel
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.pipeline_api_contracts import validate_recording_id
 
 router = APIRouter()
 BASE = "/api/recordings/{recording_id}/pipeline/calibration-refinement"
+CALIBRATION_BASE = "/api/recordings/{recording_id}/pipeline/calibrations/{calibration_revision_id}"
+
+
+class TablePlaneCalibrationResponse(ContractModel):
+    """One exact immutable published table-plane calibration."""
+
+    schema_version: Literal["table-plane-calibration/v1"]
+    calibration_revision_id: str
+    recording_id: str
+    source_revision: str
+    frame_width: int = Field(gt=0)
+    frame_height: int = Field(gt=0)
+    image_to_table: list[list[float]]
+    table_to_image: list[list[float]]
+    card_short_size: float = Field(gt=0)
+    card_long_size: float = Field(gt=0)
+    card_aspect_ratio: float = Field(gt=0)
+    candidate_receipt_digests: list[str]
+    algorithm_version: str
+    coordinate_system: str
+    corner_order: str
+    angle_convention: str
+    diagnostics: dict[str, Any]
+    calibration_digest: str
 
 
 def _service(request: Request) -> Any:
     return request.app.state.calibration_refinement_service
+
+
+@router.get(CALIBRATION_BASE, response_model=TablePlaneCalibrationResponse)
+def get_published_calibration(
+    recording_id: str, calibration_revision_id: str, request: Request
+) -> dict[str, Any]:
+    """Read one exact published calibration without selecting or changing it."""
+
+    validate_recording_id(recording_id)
+    try:
+        return _service(request).read_published_calibration(recording_id, calibration_revision_id)
+    except CalibrationRefinementNotFound as error:
+        raise ContractError(
+            "calibration_revision_not_found", str(error), status_code=404
+        ) from error
+    except CalibrationRefinementInputError as error:
+        raise ContractError("invalid_calibration_revision", str(error), status_code=422) from error
 
 
 @router.post(BASE, status_code=201)

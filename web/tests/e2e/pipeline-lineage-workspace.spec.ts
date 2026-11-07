@@ -8,6 +8,27 @@ const FRAME_BYTES = Buffer.from(
 const EVENT_NODE = "events-first-pass";
 const OBSERVATION_NODE = "observations-assembly";
 const ANALYSIS_ID = "analysis-all-sources";
+const VISIBLE_NODE = "visible-card-review";
+const SCENE_NODE = "virtual-scene-review";
+const CALIBRATION_ID = "calibration-r1";
+
+function exactFrameIdentity() {
+  return {
+    schema_version: "exact-event/v1",
+    source_video_sha256: "a".repeat(64),
+    requested_time_us: 250000,
+    frame_index: 3,
+    presentation_timestamp_us: 300000,
+    width: 640,
+    height: 360,
+    decoder_version: "fixture-decoder/v1",
+    transform_version: "fixture-transform/v1",
+    output_encoding: "jpeg",
+    content_type: "image/jpeg",
+    image_sha256: "b".repeat(64),
+    policy: "exact-event/v1",
+  };
+}
 
 const eventContent = (startUs = 100) => ({
   schema_version: "event-data/v1",
@@ -82,11 +103,27 @@ function graph(copyCreated: boolean) {
       source: { recording_id: RECORDING_ID },
       head_revision_id: "observations-r1",
     },
+    {
+      node_id: VISIBLE_NODE,
+      name: "Reviewed visible cards",
+      content_type: "visible_cards",
+      source: { recording_id: RECORDING_ID, video_sha256: "a".repeat(64) },
+      head_revision_id: "visible-r1",
+    },
+    {
+      node_id: SCENE_NODE,
+      name: "Reviewed virtual scenes",
+      content_type: "virtual_scenes",
+      source: { recording_id: RECORDING_ID, video_sha256: "a".repeat(64) },
+      head_revision_id: "scene-r1",
+    },
   ];
   const revisions = [
     revision(EVENT_NODE, "events-r1", "2026-11-01T10:00:00Z"),
     revision(EVENT_NODE, "events-r2", "2026-11-02T10:00:00Z"),
     revision(OBSERVATION_NODE, "observations-r1", "2026-11-03T10:00:00Z"),
+    revision(VISIBLE_NODE, "visible-r1", "2026-11-03T11:00:00Z"),
+    revision(SCENE_NODE, "scene-r1", "2026-11-03T12:00:00Z"),
   ];
   const edges = [
     {
@@ -123,6 +160,21 @@ function graph(copyCreated: boolean) {
       from: ["revision", EVENT_NODE, "events-r2"],
       to: ["revision", "events-copy", "events-copy-r1"],
     });
+    nodes.push({
+      node_id: "virtual-scene-copy",
+      name: "Reviewed virtual scenes copy",
+      content_type: "virtual_scenes",
+      source: { recording_id: RECORDING_ID, video_sha256: "a".repeat(64) },
+      head_revision_id: "scene-r2",
+    });
+    revisions.push(
+      revision("virtual-scene-copy", "scene-r2", "2026-11-04T12:00:00Z"),
+    );
+    edges.push({
+      kind: "copied",
+      from: ["revision", SCENE_NODE, "scene-r1"],
+      to: ["revision", "virtual-scene-copy", "scene-r2"],
+    });
   }
   return {
     schema_version: "pipeline-lineage-graph/v1",
@@ -134,10 +186,13 @@ function graph(copyCreated: boolean) {
   };
 }
 
-test("lineage drawer preserves exact revisions, reviews, and all analysis sources", async ({
+test("lineage and M4 node editors preserve exact revisions and geometry evidence", async ({
   page,
 }, testInfo) => {
   let copied = false;
+  let calibrationMismatch = false;
+  let sourceMismatch = false;
+  let copiedSceneContent: Record<string, unknown> | null = null;
   await page.route("**/api/**", async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -175,6 +230,42 @@ test("lineage drawer preserves exact revisions, reviews, and all analysis source
       await json(graph(copied));
       return;
     }
+    if (
+      path ===
+      `/api/recordings/${RECORDING_ID}/pipeline/calibrations/${CALIBRATION_ID}`
+    ) {
+      await json({
+        schema_version: "table-plane-calibration/v1",
+        calibration_revision_id: CALIBRATION_ID,
+        recording_id: RECORDING_ID,
+        source_revision: "visible-r1",
+        frame_width: 640,
+        frame_height: 360,
+        image_to_table: [
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, 1],
+        ],
+        table_to_image: [
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, 1],
+        ],
+        card_short_size: 80,
+        card_long_size: 120,
+        card_aspect_ratio: 1.5,
+        candidate_receipt_digests: [],
+        algorithm_version: "fixture/v1",
+        coordinate_system: "fixture",
+        corner_order: "fixture",
+        angle_convention: "fixture",
+        diagnostics: { fit: "recorded fixture" },
+        calibration_digest: calibrationMismatch
+          ? "e".repeat(64)
+          : "c".repeat(64),
+      });
+      return;
+    }
     if (path.endsWith("/pipeline/nodes/events-first-pass/edit")) {
       copied = true;
       await json({
@@ -186,11 +277,122 @@ test("lineage drawer preserves exact revisions, reviews, and all analysis source
       });
       return;
     }
+    if (path === `/api/pipeline/nodes/${SCENE_NODE}/edit`) {
+      copied = true;
+      const body = await route.request().postDataJSON();
+      copiedSceneContent = body.content as Record<string, unknown>;
+      await json({
+        node_id: "virtual-scene-copy",
+        revision_id: "scene-r2",
+        copied: true,
+        reason: "downstream_use",
+        name: "Reviewed virtual scenes copy",
+      });
+      return;
+    }
+    if (path.includes("/pipeline/nodes/") && path.includes("/reviews/")) {
+      await json({ review_id: "review-saved" });
+      return;
+    }
     const revisionMatch = path.match(
       /\/pipeline\/nodes\/([^/]+)\/revisions\/([^/]+)$/,
     );
     if (revisionMatch) {
       const [, nodeId, revisionId] = revisionMatch;
+      if (nodeId === VISIBLE_NODE) {
+        await json({
+          node_id: nodeId,
+          name: "Reviewed visible cards",
+          content_type: "visible_cards",
+          source: { video_sha256: "a".repeat(64) },
+          head_revision_id: "visible-r1",
+          revision_id: revisionId,
+          metadata: {},
+          content: {
+            schema_version: "visible-card-data/v2",
+            outcomes: [
+              {
+                event_id: "visible-frame-1",
+                frame_identity: exactFrameIdentity(),
+                status: "detected",
+                candidates: [
+                  {
+                    card_id: "visible-region-1",
+                    geometry: {
+                      polygons: [
+                        [
+                          { x: 100, y: 100 },
+                          { x: 300, y: 100 },
+                          { x: 300, y: 400 },
+                          { x: 100, y: 400 },
+                        ],
+                      ],
+                    },
+                  },
+                ],
+                pile_regions: [],
+                ignored_regions: [],
+                pile_detection_status: "supported",
+                error: null,
+              },
+            ],
+          },
+        });
+        return;
+      }
+      if (nodeId === SCENE_NODE || nodeId === "virtual-scene-copy") {
+        const sceneContent =
+          nodeId === "virtual-scene-copy" && copiedSceneContent !== null
+            ? copiedSceneContent
+            : {
+                schema_version: "virtual-scene-data/v1",
+                frames: [
+                  {
+                    frame_id: "scene-frame-1",
+                    frame_identity: exactFrameIdentity(),
+                    calibration: {
+                      revision_id: CALIBRATION_ID,
+                      digest: "c".repeat(64),
+                    },
+                    scene: {
+                      source_frame_id: "scene-frame-1",
+                      source_frame_width: 640,
+                      source_frame_height: 360,
+                      calibration_revision_id: CALIBRATION_ID,
+                      calibration_digest: "c".repeat(64),
+                      poses: [
+                        {
+                          card_id: "pose-1",
+                          center: [320, 180],
+                          rotation_degrees: 0,
+                        },
+                      ],
+                      stacking_order: {
+                        card_ids: ["pose-1"],
+                        uncertain_edges: [],
+                        contradictions: [],
+                      },
+                    },
+                    pile_regions: [],
+                    ignore_regions: [],
+                  },
+                ],
+              };
+        await json({
+          node_id: nodeId,
+          name:
+            nodeId === SCENE_NODE
+              ? "Reviewed virtual scenes"
+              : "Reviewed virtual scenes copy",
+          content_type: "virtual_scenes",
+          source: { video_sha256: "a".repeat(64) },
+          head_revision_id: nodeId === SCENE_NODE ? "scene-r1" : "scene-r2",
+          revision_id: revisionId,
+          metadata: {},
+          content: sceneContent,
+        });
+        return;
+      }
       const name = nodeId === "events-copy" ? "First pass copy" : "First pass";
       await json({
         node_id: nodeId,
@@ -228,7 +430,9 @@ test("lineage drawer preserves exact revisions, reviews, and all analysis source
         body: FRAME_BYTES,
         headers: {
           ETag: `"${"b".repeat(64)}"`,
-          "X-DokoDetector-Source-Sha256": "a".repeat(64),
+          "X-DokoDetector-Source-Sha256": sourceMismatch
+            ? "b".repeat(64)
+            : "a".repeat(64),
           "X-DokoDetector-Frame-Index": frameIndex,
           "X-DokoDetector-Frame-Width": "640",
           "X-DokoDetector-Frame-Height": "360",
@@ -401,4 +605,156 @@ test("lineage drawer preserves exact revisions, reviews, and all analysis source
 
   await page.reload();
   await expect(page.getByLabel("Start (µs)")).toHaveValue("150");
+
+  await page.getByRole("link", { name: "Visible cards" }).click();
+  await page.getByRole("button", { name: "Show lineage" }).click();
+  await page.getByRole("button", { name: "r visible-r1" }).click();
+  const visibleEditor = page.getByRole("region", {
+    name: "Visible-card lineage editor",
+  });
+  await expect(
+    visibleEditor.getByRole("heading", { name: "Visible cards" }),
+  ).toBeVisible();
+  const visibleSelection = new URL(page.url());
+  visibleSelection.searchParams.set("item", "visible-frame-1");
+  visibleSelection.searchParams.set("t_us", "250000");
+  await page.goto(`${visibleSelection.pathname}${visibleSelection.search}`);
+  await expect(visibleEditor.getByText(/Frame visible-frame-1/)).toBeVisible();
+  await expect(page.getByRole("img", { name: "Source frame" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Visible region 1" }),
+  ).toHaveCount(0);
+  await expect(visibleEditor.getByLabel("candidates JSON")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Pan left/ })).toBeVisible();
+  await expect(page.getByLabel("View zoom")).toBeVisible();
+  const visibleCenter = await page
+    .getByRole("region", { name: "Spatial evidence surface" })
+    .evaluate((element) => ({
+      video: element.querySelector("video") !== null,
+      text: element.textContent?.trim() ?? "",
+      controls: element.querySelectorAll("button, input, textarea, select")
+        .length,
+      polygons: element.querySelectorAll("svg polygon").length,
+    }));
+  expect(visibleCenter).toEqual({
+    video: false,
+    text: "",
+    controls: 0,
+    polygons: 1,
+  });
+  sourceMismatch = true;
+  await page.reload();
+  await expect(
+    visibleEditor.getByText(
+      "The recording source changed while loading this frame.",
+    ),
+  ).toBeVisible();
+  await expect(visibleEditor.getByLabel("candidates JSON")).toHaveAttribute(
+    "readonly",
+    "",
+  );
+  await expect(
+    visibleEditor.getByRole("button", { name: "Accept outcome" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("region", { name: "Spatial evidence surface" }),
+  ).toHaveCount(0);
+  sourceMismatch = false;
+  await page.reload();
+  await expect(
+    page.getByRole("region", { name: "Spatial evidence surface" }),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Virtual scenes" }).click();
+  await page.getByRole("button", { name: "Show lineage" }).click();
+  await page.getByRole("button", { name: "r scene-r1" }).click();
+  const sceneEditor = page.getByRole("region", {
+    name: "Virtual-scene editor",
+  });
+  await expect(
+    sceneEditor.getByRole("heading", { name: "Virtual scenes" }),
+  ).toBeVisible();
+  const sceneSelection = new URL(page.url());
+  sceneSelection.searchParams.set("item", "scene-frame-1");
+  sceneSelection.searchParams.set("t_us", "250000");
+  await page.goto(`${sceneSelection.pathname}${sceneSelection.search}`);
+  await expect(
+    page.getByRole("button", { name: "Card pose pose-1" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Card pose pose-1" }).click();
+  await expect(page.getByLabel("Table center X")).toHaveValue("320");
+  await page.getByText("Calibration diagnostics").click();
+  await expect(page.getByText(/recorded fixture/)).toBeVisible();
+  await expect(page.getByLabel("Viewpoint")).toHaveValue("source");
+  await page.getByLabel("Viewpoint").selectOption("rectified");
+  await expect(
+    page.locator('[data-slot="center"] [data-viewpoint="rectified"]'),
+  ).toBeVisible();
+  await expect(page.getByRole("img", { name: "Source frame" })).toHaveAttribute(
+    "src",
+    /^data:image\/png/,
+  );
+  const poseOutline = page.getByRole("button", { name: "Card pose pose-1" });
+  const poseBox = await poseOutline.boundingBox();
+  expect(poseBox).not.toBeNull();
+  await page.mouse.move(
+    poseBox!.x + poseBox!.width / 2,
+    poseBox!.y + poseBox!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    poseBox!.x + poseBox!.width / 2 + 16,
+    poseBox!.y + poseBox!.height / 2,
+    { steps: 2 },
+  );
+  await page.mouse.up();
+  await expect(page.getByLabel("Table center X")).not.toHaveValue("320");
+  const sceneCenter = await page
+    .getByRole("region", { name: "Spatial evidence surface" })
+    .evaluate((element) => ({
+      video: element.querySelector("video") !== null,
+      text: element.textContent?.trim() ?? "",
+      controls: element.querySelectorAll("button, input, textarea, select")
+        .length,
+      polygons: element.querySelectorAll("svg polygon").length,
+    }));
+  expect(sceneCenter).toEqual({
+    video: false,
+    text: "",
+    controls: 0,
+    polygons: 1,
+  });
+  calibrationMismatch = true;
+  await page.reload();
+  await expect(
+    page.getByText(
+      "The calibration response does not match this scene revision.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save scene" })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Accept frame" }),
+  ).toBeDisabled();
+  await expect(
+    page
+      .getByRole("region", { name: "Spatial evidence surface" })
+      .locator("svg polygon"),
+  ).toHaveCount(0);
+  calibrationMismatch = false;
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Card pose pose-1" }),
+  ).toBeVisible();
+  await page.getByLabel("Viewpoint").selectOption("rectified");
+  await expect(
+    page.locator('[data-slot="center"] [data-viewpoint="rectified"]'),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Accept frame" }).click();
+  await expect(
+    page.getByText("Review decision saved for this exact revision."),
+  ).toBeVisible();
+  await page.getByLabel("Table center X").fill("330");
+  await page.getByRole("button", { name: "Save scene" }).click();
+  await expect(page).toHaveURL(/virtual-scene-copy/);
+  await expect(page.getByLabel("Table center X")).toHaveValue("330");
 });

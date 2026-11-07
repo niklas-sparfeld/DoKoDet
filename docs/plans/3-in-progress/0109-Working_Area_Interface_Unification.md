@@ -8,10 +8,10 @@
 - **Depends on:** [0107 — Unified pipeline data lineage](../5-closed/0107-Unified_Pipeline_Data_Lineage.md)
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md), including its
   separate Virtual scenes step and exact lineage selection.
-- **Outcome:** M0–M3 are complete. M1 adds a tested, selectable polygon surface for exact-frame
+- **Outcome:** M0–M4 are complete. M1 adds a tested, selectable polygon surface for exact-frame
   geometry. M2 adds shared still-frame loading and identity checks. Neither milestone restores or
-  claims the historical editing interactions. M3 connects Events to the still-frame surface. M4–M10
-  are not started. See the
+  claims the historical editing interactions. M3 connects Events to the still-frame surface. M4
+  connects Visible cards and Virtual scenes. M5–M10 are not started. See the
   [M0 inventory and contract](../../reports/0109-M0_Working_Area_Inventory.md) and the execution
   handoff below.
 
@@ -255,7 +255,7 @@ The rail owns event jumps, the time cursor, and previous/next frame controls. Fr
 the requested frame index through the local frame service. Events has no video element, playback
 toggle, or media clock.
 
-### M4 — Connect Visible cards and Virtual scenes — Blocked
+### M4 — Connect Visible cards and Virtual scenes — Complete
 
 Connect the separate node-backed steps to the common still-frame surface. Move editing and review
 controls into the inspector and navigation into the rail. Preserve region, pile, ignore, pose,
@@ -264,10 +264,12 @@ stacking, and calibration operations. Offer other exact-source geometry as read-
 Acceptance: each step edits only its own content; source/calibration mismatch blocks edits. Pan,
 zoom, viewpoint, review, copy-on-change, and calibration diagnostics remain available.
 
-Result: exact still frames, visible-card source overlays, inspector controls, rail frame selection,
-review, and copy-on-change save paths are connected. M4 remains blocked. The virtual-scene node
-contract contains only calibration identity, not the homography or card dimensions needed to draw
-or edit table-plane poses and provide a rectified viewpoint. See the
+Result: both steps use exact still frames and keep their controls in the inspector and frame
+selection in the Timeline Rail. Visible cards draws source geometry and keeps region, pile, ignore,
+review, and copy-on-change operations. Virtual scenes reads the exact published calibration, draws
+calibrated pose outlines, supports source and rectified views, and keeps pose, stacking, review, and
+copy-on-change operations. A source, frame, dimension, or calibration mismatch suppresses geometry
+and blocks edits and frame review. See the
 [M4 integration report](../../reports/0109-M4_Node_Steps_Surface_Integration.md).
 
 ### M5 — Integrate selected crops and Visual identities — Not started
@@ -327,23 +329,23 @@ video elements, central text, and central command controls. No hardware or model
 
 - Completed: M0 — freeze layout and capability fixtures; M1 — add the common exact-frame geometry
   surface foundation; M2 — add shared still-frame loading and source/frame identity state; M3 —
-  connect Events to the exact still-frame surface. M4 is partially implemented and blocked.
-- Changes: Visible cards and Virtual scenes use the shared exact still-frame loader. Visible-card
-  polygons render over the source frame. Both editors place controls in the inspector and frame
-  navigation in the rail. Region, pile, ignore, pose, stacking, review, and copy-on-change paths
-  remain in the step editors. Pan and zoom are available. The rectified viewpoint and calibrated
-  pose outlines are not available because the current node contract has no homography or card
-  dimensions. Details are in the [M4 integration report](../../reports/0109-M4_Node_Steps_Surface_Integration.md).
-- Checks: `npm run check` passed (typecheck, lint, Prettier, generated API comparison, and 189
-  frontend tests). `npx playwright test tests/e2e/pipeline-lineage-workspace.spec.ts --reporter=line`
-  passed at 1440 × 900 and 390 × 844 for Events. It does not verify M4 browser behavior. API
-  generation passed; no API changes were made. Local Markdown link check remains to be run after
-  this update.
-- Decisions: newer node-backed revisions remain authoritative. Exact frame loads use accepted
-  source SHA and requested time. Mismatched source or calibration identity blocks editing. Do not
-  infer a calibration transform from its revision ID or digest.
-- Limits: M4 acceptance is incomplete. The workspace needs a read contract for an exact published
-  calibration transform and card dimensions before it can draw or edit calibrated poses or show a
-  rectified viewpoint. Add browser tests for both steps after that contract is available.
-- Next: complete the calibration-read contract and the remaining M4 acceptance items.
-- Run: requested 11 milestones, completed 4, remaining 7.
+  connect Events to the exact still-frame surface; M4 — connect Visible cards and Virtual scenes.
+- Changes: Visible-card polygons render over exact source frames. Both editors place controls in the
+  inspector and frame navigation in the rail. Virtual scenes reads the requested published
+  calibration revision and checks its digest and frame dimensions before drawing or editing poses.
+  The rectified view uses that homography to warp source pixels. Pose, stacking, review, and
+  copy-on-change controls remain in the inspector. Details are in the
+  [M4 integration report](../../reports/0109-M4_Node_Steps_Surface_Integration.md).
+- Checks: `cd web && npm run check` passed (typecheck, lint, Prettier, generated API comparison,
+  and 189 frontend tests). `cd web && npm run build` passed. The M4 browser regression passed at
+  desktop and narrow sizes. It covered exact frame selection, both surfaces, calibration mismatch
+  blocking, rectified view, review, and copy-on-change. The focused published-calibration API test,
+  Ruff lint, Ruff format, and local Markdown link check passed. Evidence is in the M4 report.
+- Decisions: node-backed revisions remain authoritative. The calibration endpoint reads one exact
+  published revision from the existing immutable calibration store. It does not select or modify
+  calibration. The editor checks source SHA, requested time, frame index, presentation time,
+  dimensions, image digest, calibration revision ID, and calibration digest.
+- Limits: pose edits use center dragging plus inspector fields and stacking controls. Rotation
+  has no center handle; use its typed inspector field.
+- Next: M5 — Integrate selected crops and Visual identities.
+- Run: requested 11 milestones, completed 5, remaining 6.

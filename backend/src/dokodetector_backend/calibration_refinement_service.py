@@ -100,6 +100,24 @@ class CalibrationRefinementService:
         self.calibration_store = CalibrationRevisionStore(settings.operations_root)
         self.receipt_store = CalibrationReflowReceiptStore(settings.operations_root)
 
+    def read_published_calibration(
+        self, recording_id: str, calibration_revision_id: str
+    ) -> dict[str, Any]:
+        """Return one exact immutable calibration revision from its authoritative store."""
+
+        try:
+            run = self.calibration_store.load(recording_id, calibration_revision_id)
+        except (OSError, ValueError) as error:
+            raise CalibrationRefinementNotFound(
+                "the exact table-plane calibration revision was not found"
+            ) from error
+        calibration = run.calibration
+        if run.status != "published" or calibration is None:
+            raise CalibrationRefinementNotFound(
+                "the exact table-plane calibration revision is not published"
+            )
+        return calibration.to_mapping()
+
     def _publish_node_reflow(
         self,
         recording_id: str,
