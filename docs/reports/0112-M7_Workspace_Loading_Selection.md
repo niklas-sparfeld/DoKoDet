@@ -53,9 +53,17 @@ From `web/`:
 - `npx prettier --check src/pipeline/RecordingPipeline*.test.tsx src/pipeline/RecordingPipelineWorkspace.tsx src/pipeline/recordingPipelineSelection.ts src/pipeline/useRecordingPipelineData.ts src/pipeline/useRecordingPipelineSelection.ts src/pipeline/useRecordingPipelineData.test.tsx src/pipeline/useRecordingPipelineSelection.test.tsx` — passed.
 - Line budgets: workspace composition 476/500; workspace data and selection modules 272/700 and 246/700; largest workspace test 727/800.
 
+Final combined verification ran on integrated revision `2b27d09d`:
+
+- The six-file `npm test -- --run` command above — 48 tests passed.
+- `npm run typecheck` — passed.
+- The ESLint command above — passed.
+- The Prettier command above — passed.
+
 During integration with 0113, these workspace suites mock `AutomatedPipelineControls` so they test
 workspace loading and selection without the shared `JobStateProvider` required by the launch
 controls. The launch controls keep their own provider-wrapped tests.
 
 No API or persisted-data contract changed. Initial M7 checks passed at `10eab971`. Owner-invalidation
-correction checks passed at `5a29f034`; pending-load regressions passed at revision `64525a06`.
+correction checks passed at `5a29f034`; pending-load regressions passed at `64525a06`. Final combined
+verification passed at integrated revision `2b27d09d`.

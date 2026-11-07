@@ -418,8 +418,8 @@ move it to `5-closed`, repair links, and update the board in the final milestone
   ownership, invalidates active loads on recording or stage changes, and scopes selection completion
   to the current recording and request. Regression tests cover A → B → A, failed-load retry,
   conflict-reload success and failure before the new load timer, and delayed selection success,
-  error, and 409 responses. All 48 focused tests, typecheck, ESLint, and Prettier checks passed; the
-  report records both verification runs.
+  error, and 409 responses. The final combined run on integrated revision `2b27d09d` passed all 48
+  focused tests, typecheck, ESLint, and Prettier. The M7 report lists the exact commands and results.
   See the [M7 report](../../reports/0112-M7_Workspace_Loading_Selection.md).
 - Decisions and limits: keep one URL selection state in `useRecordingPipelineSelection.ts`; do not
   add shared polling or a second selection store. Workspace suites mock `AutomatedPipelineControls`
