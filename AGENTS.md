@@ -34,8 +34,8 @@ Use trunk-based development.
 
 ### Integrate worktree commits
 
-When you finish work in a secondary worktree, integrate its completed commits into the main
-worktree:
+After each work commit in a secondary worktree, integrate it into the main worktree, then merge
+the latest `main` back into the secondary worktree before starting more work:
 
 1. Commit the work on the secondary worktree's detached `HEAD`.
 2. Use `git worktree list` to find the worktree that has `main` checked out.
@@ -51,6 +51,15 @@ worktree:
    the checks pass.
 7. Confirm that `main` contains the commits and that all pre-existing tracked and untracked changes
    remain intact.
+8. Inspect the secondary worktree status and confirm that no Git operation is in progress there.
+   Compare its uncommitted paths with the paths that the merge will change. Preserve unrelated
+   changes and stop if they overlap or safe integration is unclear.
+9. Run `git -C <secondary-worktree-path> merge main` to include the latest local `main`. Resolve
+   conflicts with the same rules as above and run checks for the combined behavior. Confirm that
+   the secondary worktree contains the merged `main` revision and all pre-existing local changes.
+
+This synchronization includes completed parallel work from `main` in the next work package.
+A merge commit created only to synchronize `main` does not trigger another integration cycle.
 
 Do not use push and pull to move commits between local worktrees. Do not update the `main` ref
 directly. Only one agent can run a Git integration operation in the main worktree at a time. Work
