@@ -2,7 +2,9 @@
 
 ## Plan status
 
-- **Status:** Blocked
+- **Status:** Closed
+- **Closure reason:** Won't Do
+- **Closure note:** The new Luna loop supersedes this proof of concept.
 - **Depends on:** A verified supported connection to the desktop app-owned server and a connected iOS Remote client for the live trial.
 - **Outcome:** A local script can continue a selected app chat through a bounded sequence of
   milestones, with compaction and no supervising agent. The trial records whether desktop and

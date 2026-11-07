@@ -4,14 +4,16 @@
 
 - **Summary:** Give all long-running actions one start flow: a consistent button in the right
   sidebar opens a modal that explains the work and collects its required inputs.
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** [0110 — Global Job Manager](../5-closed/0110-Global_Job_Manager.md), complete,
   and [0108 — Horizontal lineage workspace](../5-closed/0108-Horizontal_Lineage_Workspace.md),
   including runtime cleanup and final verification. The lineage foundation in
   [0107](../5-closed/0107-Unified_Pipeline_Data_Lineage.md) is complete.
-- **Outcome:** Planned. M0–M10 are not started. Implementation waits for 0108 completion.
-- **Readiness gate:** Verify prerequisite closure and the current launch paths. Then move this
-  epic to Ready and update the board. Planning does not authorize implementation.
+- **Outcome:** Planned. M0–M10 are not started.
+- **Readiness gate:** Passed on 2026-11-07 at `2cf915b83`. 0108 M11–M12 and 0110
+  M15–M16 are complete; both epics are closed. Current processor, observation, analysis and
+  pipeline launch controls remain in `RecordingWorkspaceInspector`; counterfactual controls are
+  in `web/src/analysis/CounterfactualWorkbench.tsx`. M0 must inventory all job types and callers.
 
 ## User outcome
 
@@ -55,7 +57,8 @@ layout. Reuse its sidebar slots if available. It is not a completion dependency:
 right-sidebar slot needed in the current layout if it has not started. Do not redesign the center.
 [Active module cleanup](0112-Active_Pipeline_Module_Cleanup.md) owns code extraction, including
 launch request construction. Use its surviving owners if it lands first. Neither epic blocks the
-other. Do not restore extracted or removed modules to follow the source pointers below.
+other. Sequence 0112 M8 and overlapping 0113 launch integration; reconcile the surviving launch
+owner and contract before either overlapping milestone. Do not restore removed modules.
 
 ## Launch interaction
 
@@ -257,6 +260,5 @@ and feature-owned forms are sufficient. Do not turn this work into a generic wor
 ## Execution handoff
 
 - Planning only. No implementation milestone has started.
-- Job Manager 0110 is closed. Lineage workspace 0108 still has incomplete cleanup and verification.
-- Next: confirm 0108 closure, pass the readiness gate, then implement M0 when instructed.
+- The readiness gate passed. Next: implement M0 when instructed.
 - No milestone execution count was requested.
