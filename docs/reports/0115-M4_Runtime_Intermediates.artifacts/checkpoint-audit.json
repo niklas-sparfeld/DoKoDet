@@ -1,0 +1,49 @@
+{
+  "bundle_digest": "0508e31529f42c3bdebb6a6d86ac08f0fe6e011c3645b5a6120f71e578403151",
+  "checkpoints": [
+    {
+      "bytes": 141824771,
+      "path": "rfdetr/last_ema.pth",
+      "same_as_bundle": false,
+      "sha256": "38a921ce62598e491987f649cf3cad06f46668567861d20441b41f4c15a48a90"
+    },
+    {
+      "bytes": 283525416,
+      "path": "rfdetr/checkpoint_best_regular.pth",
+      "same_as_bundle": false,
+      "sha256": "77aa02e9f297361f4e124c08c53d3fe50f79af860b5c17e94c8e312b19395400"
+    },
+    {
+      "bytes": 141830939,
+      "path": "rfdetr/checkpoint_best_ema.pth",
+      "same_as_bundle": false,
+      "sha256": "9dc4a1fdd78431368cac3a79172f724d35000c4a6d756c3a6df6de375c697678"
+    },
+    {
+      "bytes": 141824923,
+      "path": "rfdetr/checkpoint_best_total.pth",
+      "same_as_bundle": true,
+      "sha256": "1a8fec23b95cbe907f6b987f1fbfcd5567afe2855dc3aadac587811f85b57cbc"
+    },
+    {
+      "bytes": 567008423,
+      "path": "rfdetr/checkpoint_9.ckpt",
+      "same_as_bundle": false,
+      "sha256": "9fa4c3d3dedb51622593d6c6025a747609db33a1f8f0b6a8909c2232371745a8"
+    },
+    {
+      "bytes": 567008551,
+      "path": "rfdetr/last.ckpt",
+      "same_as_bundle": false,
+      "sha256": "7b0b29da1c763044bfc51910b984b0757185b8bf373f7ef68cec623e96e11e11"
+    },
+    {
+      "bytes": 141824923,
+      "path": "bundle/checkpoint_best_total.pth",
+      "same_as_bundle": true,
+      "sha256": "1a8fec23b95cbe907f6b987f1fbfcd5567afe2855dc3aadac587811f85b57cbc"
+    }
+  ],
+  "root": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-all-recordings-training-v2",
+  "schema_version": "0115-m4-checkpoint-audit/v1"
+}

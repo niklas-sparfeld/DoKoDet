@@ -157,7 +157,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 | M1 | Tested recovery of retained authority and an exact cleanup manifest | Complete |
 | M2 | Bounded cleanup planner and apply mechanism | Complete |
 | M3 | Retire verified redundant migration and recovery trees | Complete |
-| M4 | Remove one ranked family of unused runtime intermediates | Not started |
+| M4 | Remove one ranked family of unused runtime intermediates | Complete |
 | M5 | Specify and prove isolated worktree data access | Not started |
 | M6 | Cut over Git tracking and development setup to the verified layout | Not started |
 | M7 | Measure compact storage candidates and select one bounded format change | Not started |
@@ -168,7 +168,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 
 ## Execution handoff
 
-- **Run:** requested 11 milestones; completed 3; remaining 8.
+- **Run:** requested 11 milestones; completed 4; remaining 7.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -220,9 +220,33 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   These are measured values; no savings are predicted. The full copied-store drill
   remained too slow because of deep JSON serialization, so it was stopped in temporary storage.
   Unknown histories and unrelated uncertainty remain retained.
-- **Next:** M4 — remove one ranked family of unused runtime intermediates.
-- **Commit boundary:** M2 tool correction, focused regression tests, M3 report and artifacts, epic,
-  board, and handoff in one focused milestone commit.
+- **M3 next at that time:** M4 — remove one ranked family of unused runtime intermediates.
+- **M3 commit boundary:** M2 tool correction, focused regression tests, M3 report and artifacts,
+  epic, board, and handoff in one focused milestone commit.
+
+- **M4:** Complete. The [M4 report](../../reports/0115-M4_Runtime_Intermediates.md) records the
+  exact 0070 run and processed-input dependency audit, provenance, guarded apply, retained bundle
+  probes, and postflight manifest.
+- **Changes:** Retired only the two unused train/validation COCO annotation manifests from the
+  highest-ranked unused processed-input family, totaling 3,171,322 bytes. Kept the split manifest,
+  all 718 symlinks and their training-view targets, every checkpoint, the selected bundle, run and
+  training configuration, metrics, and memory log. The provenance artifact retains split
+  membership, source/review revisions, preprocessing configuration, versions, hashes, and metrics.
+- **Checks:** The M2 dry-run permitted exactly two frozen paths; its apply receipt records both
+  removals. No writer or open file was found. The exact retained-root manifest matched before and
+  after. The 0070 training-view verifier passed after apply. The retained 0070 and configured 0092
+  bundles loaded; each passed two matching deterministic CPU probes. No training or provider call
+  ran.
+- **Decisions and limits:** The retained training view and recorded code identify the COCO input
+  generation path, but byte-for-byte reconstruction was not verified. The 0070 run root remains about
+  1.9 GiB because its checkpoints are distinct training states; only its selected checkpoint is
+  duplicated exactly in the retained bundle. The M4 change reclaimed 3,171,322 logical bytes and
+  measured 3,096 KiB less `du` allocation after the tool's plan, receipt, and lock files were
+  written. This is not a volume free-space claim. The larger 50/50 experiment, active caches,
+  provider responses, and 0114 fixtures remain protected for their recorded reasons.
+- **Next:** M5 — specify and prove isolated worktree data access.
+- **Commit boundary:** M4 report and provenance / before-after artifacts, this epic, and board
+  update in one focused milestone commit.
 
 ## M0 — Inventory and rank
 

@@ -1,0 +1,57 @@
+{
+  "action": "unlink exact regular files",
+  "candidates": [
+    {
+      "expected_bytes": 2648785,
+      "expected_sha256": "33dcd06af3a846ed07e2c1fbc9b0037a078d8494df3bd4adf3ba7ae35722b8b8",
+      "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/campaign-dataset/train/_annotations.coco.json",
+      "planned_identity": [
+        16777233,
+        6507148,
+        33188,
+        1,
+        2648785,
+        1789830872283507400,
+        1789830872283680359
+      ],
+      "status": "removed"
+    },
+    {
+      "expected_bytes": 522537,
+      "expected_sha256": "75f291f89ee00edfebe85ea31a787ebeefafe6cbcb4807ff3560e9cf3b4cc7ab",
+      "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/campaign-dataset/valid/_annotations.coco.json",
+      "planned_identity": [
+        16777233,
+        6507294,
+        33188,
+        1,
+        522537,
+        1789830872296434885,
+        1789830872296548177
+      ],
+      "status": "removed"
+    }
+  ],
+  "cleanup_root": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2",
+  "observed": [
+    {
+      "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/campaign-dataset/train/_annotations.coco.json",
+      "result": "removed"
+    },
+    {
+      "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/campaign-dataset/valid/_annotations.coco.json",
+      "result": "removed"
+    }
+  ],
+  "plan_sha256": "6de82e6dcad435c892a8ac4e683e752b5fd837e3ecba8496bed560dab5f3dc63",
+  "retained_roots": [
+    ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/bundle",
+    ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/run.json",
+    ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/campaign-dataset/subset.json",
+    ".runtime/synthetic-visible-region-0070-all-recordings-training-view"
+  ],
+  "schema_version": "0115-cleanup-receipt/v1",
+  "source_manifest_sha256": "17d102835d943b9783714c9d4dd88caadf96d602c28475a75b8381c4c4127868",
+  "source_revision": "edfc0882c9be34faf25aae0afce4ee49ffa24747",
+  "status": "complete"
+}

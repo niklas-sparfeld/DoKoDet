@@ -1,0 +1,33 @@
+{
+  "schema_version": "0115-m4-postflight-probes/v1",
+  "training_view": {
+    "reused": true,
+    "materialization_digest": "db1f43ae99d07d00896a9d5668b84f01bc93d5b3dbf4b935f00382065efdc709"
+  },
+  "input": {
+    "kind": "constant RGB gray image encoded as PNG",
+    "shape": [432, 432, 3],
+    "value": 127,
+    "device": "cpu"
+  },
+  "models": [
+    {
+      "name": "0070-retained",
+      "bundle_digest": "0508e31529f42c3bdebb6a6d86ac08f0fe6e011c3645b5a6120f71e578403151",
+      "status": "ok",
+      "proposals": 0,
+      "pile_proposals": 0,
+      "repeat_output_equal": true,
+      "result_sha256": "546fcc16c725b24794cd3835ba641abdff773083d503abb00d97c4ba93e698b3"
+    },
+    {
+      "name": "0092-configured",
+      "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+      "status": "ok",
+      "proposals": 0,
+      "pile_proposals": 0,
+      "repeat_output_equal": true,
+      "result_sha256": "546fcc16c725b24794cd3835ba641abdff773083d503abb00d97c4ba93e698b3"
+    }
+  ]
+}
