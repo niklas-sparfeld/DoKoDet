@@ -652,6 +652,39 @@ Checks: deterministic budget/expiry tests, pinned entries, missing cache regener
 active readers/writers, and crash recovery separately. Measure hot/cold application behavior with
 0114; moving all latency to cache misses is not sufficient. The result must bound new growth.
 
+### M13 execution packages
+
+The acceptance above remains the M13 acceptance. Its ranked paths have independent writers and
+retention behavior, so implementation is split into sequential packages. A package is not a new
+milestone and does not change the authorized M12–M15 run limit. M13 stays incomplete until every
+package is complete and the combined checks pass.
+
+1. **Derived-view cache lifecycle (current package).** Own only
+   `.runtime/pipeline/derived-views`, through `operations/src/doko_operations/derived_view.py` and
+   its backend readers and writers. Freeze exact-key regeneration, bounded idle expiry and total
+   size, safe eviction with concurrent readers/writers, crash recovery, and behavior after source
+   revisions change. Keep `~/.cache/doko-detector` and all source, review, and model roots outside
+   this writer. Check deterministic expiry/budget, active readers/writers, interruption/restart,
+   missing-entry regeneration, stale revision behavior, and hot/cold 0114 cases. Commit the cache
+   contract, implementation, tests, evidence report, and updated handoff together.
+2. **Provider-response cache.** Own only `.runtime/gemini-cache` and its `gemini_analyzer.py`
+   construction and cache API. First identify replay/cost behavior and exact readers. Freeze its
+   own expiry and budget before implementation; do not share derived-view eviction code without a
+   verified contract. Check deterministic expiry, active requests, restart, and replay behavior.
+3. **Operational logs.** Select and name one writer family, starting with per-job `logs.json` in
+   `backend/src/dokodetector_backend/job_persistence.py` if its M0 rank and current size justify
+   bounds. Preserve active-job logs and any records required for recovery. Check bounded writes,
+   concurrent append/read, and restart separately. Campaign command/output logs need their own
+   owner and retention decision before they enter this package.
+4. **Recovery copies and campaign intermediates.** Inventory one exact retained backup or campaign
+   family at a time. Record its writer, pin/dependency roots, reconstructability, expiry condition,
+   and recovery procedure. Never apply cache expiry to these paths. Check interrupted creation,
+   recovery, and exact retained human work before any expiry or cleanup.
+
+The [M13 growth-bounds report](../../reports/0115-M13_Growth_Bounds.md) records the package
+inventory and current phase boundary. A completed package can update its own checks and evidence,
+but cannot mark M13 complete while later packages remain.
+
 ## M14 — Agent discovery and authority
 
 Add a compact maintained storage map with authority, schema, owner, lookup command, retention class,
