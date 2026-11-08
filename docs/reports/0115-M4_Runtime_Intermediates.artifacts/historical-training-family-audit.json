@@ -1,0 +1,358 @@
+{
+  "comparison_decision": {
+    "m6_annotation_effort": {
+      "decision": {
+        "final_reference_authority": "human",
+        "outcome": "retain_as_experiment",
+        "provider_promoted": false,
+        "rationale": "The synthetic candidate improved the frozen real validation metrics, but the frozen corpus has no source group outside training, validation, or sealed test. No legal M6 development batch exists, so human correction timing and proposal actions were not measured. Keep the candidate available for a later development-only pilot; do not use it as an annotation prefill and do not change a runtime default.",
+        "runtime_default_changed": false,
+        "synthetic_contributors_counted_as_real_coverage": false
+      },
+      "development_batch": {
+        "excluded_recordings": {
+          "sealed_test": [
+            "cardeventnet-IMG_0646",
+            "cardeventnet-IMG_0648",
+            "cardeventnet-IMG_0649"
+          ],
+          "train": [
+            "cardeventnet-IMG_0092",
+            "cardeventnet-IMG_0095",
+            "cardeventnet-IMG_0096",
+            "cardeventnet-IMG_0097",
+            "cardeventnet-IMG_0635",
+            "cardeventnet-IMG_0636",
+            "cardeventnet-IMG_0637",
+            "cardeventnet-IMG_0638",
+            "cardeventnet-IMG_0639",
+            "cardeventnet-IMG_0640",
+            "cardeventnet-IMG_0641",
+            "cardeventnet-IMG_0643",
+            "cardeventnet-IMG_0655",
+            "cardeventnet-IMG_0669",
+            "cardeventnet-IMG_0674"
+          ],
+          "validation": [
+            "cardeventnet-IMG_0090",
+            "cardeventnet-IMG_0091",
+            "cardeventnet-IMG_0642",
+            "cardeventnet-IMG_0644",
+            "cardeventnet-IMG_0645",
+            "cardeventnet-IMG_0661"
+          ]
+        },
+        "frame_count": 0,
+        "reason": "All frozen 0068 source groups are already assigned to training, validation, or sealed test. Reusing any of them would violate the M6 development-frame gate.",
+        "source_group_count": 0,
+        "source_group_ids": [],
+        "status": "unavailable"
+      },
+      "freeze_state": "complete_with_declared_gap",
+      "input_refs": {
+        "m4_comparison": {
+          "manifest_digest": "03963a7378c166502409e10abe79988b41989d08968b28e78a28419f5d6459e9",
+          "path": "data/operations/synthetic-visible-region-0070-m4-50-50-training-comparison.json",
+          "sha256": "1d1017f8f7f96caecd98bce41f4d472dcfee6d7cf165b2460d8d01bcd1bc2bdc"
+        },
+        "m5_recording_audit": {
+          "manifest_digest": "b31c1483c007591451b58bca48e44889bba0dee430ff5426f6f0d2cb661b24f4",
+          "path": "data/operations/synthetic-visible-region-0070-all-recordings.json",
+          "sha256": "df7827d40ca0d7bb31c1b9d05624ccb1467a28efedb9cc3b3ae89dbdf7ab03c9"
+        },
+        "source_manifest": {
+          "manifest_digest": "c057bacd2d62dc2f4473b2a31e821e8a268ba2b6834f34790a5dd6624c54022e",
+          "path": "data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json",
+          "sha256": "73d6d7070843fdd1cf5e16c5be58cb3944718cc8097471ea62d73758488590e3"
+        }
+      },
+      "path": "data/operations-recovery/0108-m10-20261105/operations/synthetic-visible-region-0070-m6-annotation-effort.json",
+      "sha256": "f82b0a60de8354a0d2bcfca7b5a69a7c969217c271cf3664a4517adfa71620c5",
+      "status": "complete_with_declared_gap"
+    }
+  },
+  "families": [
+    {
+      "allocated_kib": 3632944,
+      "interrupted_attempts": [
+        {
+          "bytes": 925,
+          "last_checkpoint": {
+            "bytes": 567065511,
+            "path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/last.ckpt",
+            "sha256": "aafd68044da37fc0f4f2daa6a2df5f50eeba087050d68390007d064800f680fa"
+          },
+          "last_training_row": {
+            "epoch": "5",
+            "step": "1099"
+          },
+          "path": ".runtime/rfdetr-segmentation-0092-m4/interrupted-attempt-2.json",
+          "recorded_at": "2026-10-15T06:04:58.899107+00:00",
+          "resumption": "resume same M4 output from last.ckpt",
+          "sha256": "7f64362289638d22246ab2dbe65dac95888ca66bb38a742ad053087590b515e2",
+          "status": "interrupted_without_run_receipt"
+        },
+        {
+          "bytes": 527,
+          "last_checkpoint": {
+            "bytes": 567065511,
+            "path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/last.ckpt",
+            "sha256": "aafd68044da37fc0f4f2daa6a2df5f50eeba087050d68390007d064800f680fa"
+          },
+          "last_training_row": {
+            "epoch": "5",
+            "step": "1299"
+          },
+          "path": ".runtime/rfdetr-segmentation-0092-m4/interrupted-attempt.json",
+          "recorded_at": "2026-10-15T04:52:29.914007+00:00",
+          "resumption": "same M4 output resumed from last.ckpt",
+          "sha256": "f9656caee94a21b9e47dfe82193d7db70fce13fe2a4d25a97d7e1f121c388166",
+          "status": "interrupted_without_run_receipt"
+        }
+      ],
+      "largest_regular_files": [
+        {
+          "bytes": 567065639,
+          "path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_9.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_39.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_19.ckpt"
+        },
+        {
+          "bytes": 567065639,
+          "path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_29.ckpt"
+        },
+        {
+          "bytes": 283554088,
+          "path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_best_regular.pth"
+        },
+        {
+          "bytes": 141845275,
+          "path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/checkpoint_best_ema.pth"
+        },
+        {
+          "bytes": 141839323,
+          "path": ".runtime/rfdetr-segmentation-0092-m4/bundle/checkpoint_best_total.pth"
+        }
+      ],
+      "path": ".runtime/rfdetr-segmentation-0092-m4",
+      "regular_file_count": 29,
+      "regular_logical_bytes": 3720076995,
+      "run_records": [
+        {
+          "bundle_digest": "05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c",
+          "bundle_manifest_sha256": "826ccba533531c62a2059be5889b9c48aa44800df5d216997575a238c37f5816",
+          "campaign_id": "0092-m0-expanded-reviewed-rfdetr-campaign",
+          "campaign_manifest_digest": "bd452cc3f904007ed481af1f13b56e3910374c0d9392dfbf42de900379e741fa",
+          "campaign_manifest_path": "/Users/niklas.sparfeld/Developer/doko_detector/docs/reports/0092-M0_Expanded_Reviewed_RF_DETR_Campaign_Manifest.json",
+          "campaign_manifest_sha256": "418cc1488056b38fbafe69fdee30ddf5225b2e8a06b258f9eec6cac1536479cb",
+          "code_revision": "d867c1e0b5e5b6406f3815d3fb12b665c544a4ce",
+          "dataset_dir": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4-view",
+          "dependency_versions": null,
+          "finished_at": "2026-10-16T19:29:01.619540+00:00",
+          "materialization_digest": "af5d8feb6487169484ab9c821b2c0ac8f43f55dd584c9b2a06b16991982e93b9",
+          "metrics_path": ".runtime/rfdetr-segmentation-0092-m4/rfdetr/metrics.csv",
+          "metrics_sha256": "488ab9f71887646c9d52977909bf896e78e10b3026cea09e7b2d61fbfaa337c8",
+          "resumable_next_stage": null,
+          "run_id": "rfdetr-segmentation-m3-training-1792096060",
+          "run_path": ".runtime/rfdetr-segmentation-0092-m4/run.json",
+          "run_sha256": "95d13bbee3df41e4937281df1ebeb988ad46db43437e9611800cb51262c7cce9",
+          "seed": 6701,
+          "selected_checkpoint_sha256": "80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e",
+          "started_at": "2026-10-15T20:27:40.012515+00:00",
+          "status": "completed",
+          "subset_digest": "7ff2ebbdcfab4be8aa337e3cf5ea11e6f7c935327a6092dd2d32a0e5613f249e",
+          "train_image_count": 874,
+          "training_output": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0092-m4",
+          "validation_image_count": 874
+        }
+      ],
+      "symlink_count": 1748,
+      "symlink_targets_existing": 1748
+    },
+    {
+      "allocated_kib": 1938492,
+      "interrupted_attempts": [],
+      "largest_regular_files": [
+        {
+          "bytes": 567008551,
+          "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567008423,
+          "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/checkpoint_9.ckpt"
+        },
+        {
+          "bytes": 283525416,
+          "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/checkpoint_best_regular.pth"
+        },
+        {
+          "bytes": 141830939,
+          "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/checkpoint_best_ema.pth"
+        },
+        {
+          "bytes": 141824923,
+          "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/bundle/checkpoint_best_total.pth"
+        },
+        {
+          "bytes": 141824923,
+          "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/checkpoint_best_total.pth"
+        },
+        {
+          "bytes": 141824771,
+          "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/last_ema.pth"
+        },
+        {
+          "bytes": 52174,
+          "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/run.json"
+        }
+      ],
+      "path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2",
+      "regular_file_count": 13,
+      "regular_logical_bytes": 1984971167,
+      "run_records": [
+        {
+          "bundle_digest": "0508e31529f42c3bdebb6a6d86ac08f0fe6e011c3645b5a6120f71e578403151",
+          "bundle_manifest_sha256": "81592d0ce2be45ab9c20e1711c93fbdbaceeece29fdd2ec372703a4e964fb729",
+          "campaign_id": "0068-m0-reviewed-rfdetr-local-visible-card-detector",
+          "campaign_manifest_digest": "c057bacd2d62dc2f4473b2a31e821e8a268ba2b6834f34790a5dd6624c54022e",
+          "campaign_manifest_path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json",
+          "campaign_manifest_sha256": "73d6d7070843fdd1cf5e16c5be58cb3944718cc8097471ea62d73758488590e3",
+          "code_revision": "2009f52efc22a7391705678f3d06520b8bb81b1f",
+          "dataset_dir": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-all-recordings-training-view",
+          "dependency_versions": null,
+          "finished_at": "2026-09-19T17:17:53.110601+00:00",
+          "materialization_digest": "db1f43ae99d07d00896a9d5668b84f01bc93d5b3dbf4b935f00382065efdc709",
+          "metrics_path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/rfdetr/metrics.csv",
+          "metrics_sha256": "6123101192beb7ed67ad694d611aaaa312208d2bf2c2ef242482b16406e6cdb4",
+          "resumable_next_stage": null,
+          "run_id": "rfdetr-visible-card-detector-m2-training-1789830871",
+          "run_path": ".runtime/synthetic-visible-region-0070-all-recordings-training-v2/run.json",
+          "run_sha256": "1d201ed42b5a02ad871582d778ddb24c0d1cf5e74b708c7bf1a84bdbcbdca44d",
+          "seed": 7001,
+          "selected_checkpoint_sha256": "1a8fec23b95cbe907f6b987f1fbfcd5567afe2855dc3aadac587811f85b57cbc",
+          "started_at": "2026-09-19T15:14:31.178059+00:00",
+          "status": "completed",
+          "subset_digest": "162bf72989772be8bb050b6b8de7e189e61ff64ea6a80ed317ba4a8aae864d38",
+          "train_image_count": 575,
+          "training_output": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-all-recordings-training-v2",
+          "validation_image_count": 143
+        }
+      ],
+      "symlink_count": 718,
+      "symlink_targets_existing": 718
+    },
+    {
+      "allocated_kib": 3919360,
+      "interrupted_attempts": [],
+      "largest_regular_files": [
+        {
+          "bytes": 567008615,
+          "path": ".runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567008551,
+          "path": ".runtime/synthetic-visible-region-0070-m4-50-50/control/rfdetr/last.ckpt"
+        },
+        {
+          "bytes": 567008487,
+          "path": ".runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/rfdetr/checkpoint_9.ckpt"
+        },
+        {
+          "bytes": 567008359,
+          "path": ".runtime/synthetic-visible-region-0070-m4-50-50/control/rfdetr/checkpoint_9.ckpt"
+        },
+        {
+          "bytes": 283525544,
+          "path": ".runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/rfdetr/checkpoint_best_regular.pth"
+        },
+        {
+          "bytes": 283525352,
+          "path": ".runtime/synthetic-visible-region-0070-m4-50-50/control/rfdetr/checkpoint_best_regular.pth"
+        },
+        {
+          "bytes": 141831067,
+          "path": ".runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/rfdetr/checkpoint_best_ema.pth"
+        },
+        {
+          "bytes": 141830811,
+          "path": ".runtime/synthetic-visible-region-0070-m4-50-50/control/rfdetr/checkpoint_best_ema.pth"
+        }
+      ],
+      "path": ".runtime/synthetic-visible-region-0070-m4-50-50",
+      "regular_file_count": 48,
+      "regular_logical_bytes": 4013318184,
+      "run_records": [
+        {
+          "bundle_digest": "504b41a34056108df5882fcd334de6d894fbc02a5eda63b101e545d41779cd49",
+          "bundle_manifest_sha256": "691df8b923b7ad24a74a8f038fe81038bed631e1226a3362b13fed6afb0fe8db",
+          "campaign_id": "0068-m0-reviewed-rfdetr-local-visible-card-detector",
+          "campaign_manifest_digest": "c057bacd2d62dc2f4473b2a31e821e8a268ba2b6834f34790a5dd6624c54022e",
+          "campaign_manifest_path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json",
+          "campaign_manifest_sha256": "73d6d7070843fdd1cf5e16c5be58cb3944718cc8097471ea62d73758488590e3",
+          "code_revision": "9823874d43dffea787c18500fc34b5d2b2277cb0",
+          "dataset_dir": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/rfdetr-segmentation-0068",
+          "dependency_versions": null,
+          "finished_at": "2026-09-20T01:23:33.121294+00:00",
+          "materialization_digest": "77917cb543dc6de02277219c970b2d529dfad4dfc8197944b7d4e514912839a0",
+          "metrics_path": ".runtime/synthetic-visible-region-0070-m4-50-50/control/rfdetr/metrics.csv",
+          "metrics_sha256": "a3d857b41e82c0fe87976c594e3092a821274f9db38fb6245a2a7283bf577127",
+          "resumable_next_stage": null,
+          "run_id": "rfdetr-visible-card-detector-m2-training-1789859828",
+          "run_path": ".runtime/synthetic-visible-region-0070-m4-50-50/control/run.json",
+          "run_sha256": "8bee9349af95359562b9dd5361264064182b5e1c72b10b901a0efe2c31d5b24f",
+          "seed": 7001,
+          "selected_checkpoint_sha256": "4274a4e8cb79d186adf91b60a0b870d59e3e9100f9129d40d5561625a3fba088",
+          "started_at": "2026-09-19T23:17:08.285042+00:00",
+          "status": "completed",
+          "subset_digest": "34cd8c4c3e2a99e49b6cd9d0074ebf676fa414d014e22c20cad4a34ca3eee2ca",
+          "train_image_count": 537,
+          "training_output": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-m4-50-50/control",
+          "validation_image_count": 143
+        },
+        {
+          "bundle_digest": "089169e22aa1ce588971ac48b36f299a2b47162d53a6d2b59aeb87dd3f8e841e",
+          "bundle_manifest_sha256": "34f05ee095fffdd81d4f00aacfe559b1f15a0f4a4d77c925e8d34ab555daa288",
+          "campaign_id": "0068-m0-reviewed-rfdetr-local-visible-card-detector",
+          "campaign_manifest_digest": "c057bacd2d62dc2f4473b2a31e821e8a268ba2b6834f34790a5dd6624c54022e",
+          "campaign_manifest_path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json",
+          "campaign_manifest_sha256": "73d6d7070843fdd1cf5e16c5be58cb3944718cc8097471ea62d73758488590e3",
+          "code_revision": "b6d363b36a3a0bab480e959ed1d511068c82e483",
+          "dataset_dir": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-m4-50-50/synthetic-candidate-view",
+          "dependency_versions": null,
+          "finished_at": "2026-09-20T11:25:31.565590+00:00",
+          "materialization_digest": "7613694041f9cbcf00dc2a992c28ef1cb6b923c9866ffbe28acd82b4688eef24",
+          "metrics_path": ".runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/rfdetr/metrics.csv",
+          "metrics_sha256": "3d7c0e219e1b8fdc954d26ac94e3b76342c5267128c740c28063011e9170d2d6",
+          "resumable_next_stage": null,
+          "run_id": "rfdetr-visible-card-detector-m2-training-1789893357",
+          "run_path": ".runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition/run.json",
+          "run_sha256": "829a9145eb87ea6a99efea1275303762582c2db89dd0aca80f37cecb1fd12c12",
+          "seed": 7001,
+          "selected_checkpoint_sha256": "60f65bd6c72a359216650ef8031172a1d7b60264ede799046173e69348a4fa6b",
+          "started_at": "2026-09-20T08:35:57.450313+00:00",
+          "status": "completed",
+          "subset_digest": "099b3b9a9ecb7644434f47f70852c82118f18033fbcb3867c92780bd5b99195c",
+          "train_image_count": 1074,
+          "training_output": "/Users/niklas.sparfeld/Developer/doko_detector/.runtime/synthetic-visible-region-0070-m4-50-50/synthetic-addition",
+          "validation_image_count": 143
+        }
+      ],
+      "symlink_count": 1907,
+      "symlink_targets_existing": 1907
+    }
+  ],
+  "measured_at": "2026-11-08",
+  "schema_version": "0115-m4-ranked-training-family-audit/v1",
+  "scope": "M0-ranked training and intermediate families only. No deletion was performed in this supplemental audit.",
+  "source_revision": "6109c5b0b"
+}

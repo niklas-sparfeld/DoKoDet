@@ -103,6 +103,34 @@ training run or claim its 1.9 GiB as savings.
 | 0114 hard-fixture assets (1.84 GiB external cache) | Retain until M11 completes exact fixture qualification. |
 
 M0 did not rank an abandoned or failed training run above these candidates. M4 did not delete other
-historical failed or exploratory runtime outputs; their exact input and reader dependencies remain
-unclassified follow-ups. No statement here treats their directory name or age as proof that they
-are disposable.
+historical runtime outputs. The ranked families have these exact completion and retention facts:
+
+- `rfdetr-segmentation-0092-m4` measured 3,632,944 KiB, 29 regular files, and 1,748 symlinks.
+  Its `run.json` records completed run `rfdetr-segmentation-m3-training-1792096060`, campaign
+  manifest digest `bd452cc3…`, code revision `d867c1e0…`, materialization digest `af5d8feb…`,
+  subset digest `7ff2ebbd…`, and 874 train plus 874 validation images. Its selected bundle digest
+  `05fa6d14…` is referenced by the active 0096 M4 path. Two earlier attempt receipts say
+  `interrupted_without_run_receipt`; both resumed the same output from the exact same `last.ckpt`
+  digest `aafd6804…` at epochs 5 / steps 1299 and 1099. The final run completed and has no next
+  stage. Keep the final bundle, exact run and split provenance, and interruption receipts because
+  the bundle is active and the attempt lineage explains how it was produced. See the
+  [ranked-family audit](0115-M4_Runtime_Intermediates.artifacts/historical-training-family-audit.json).
+- The 0070 all-recordings run measured 1,938,492 KiB after M4, 13 data files, and 718 symlinks.
+  Run and bundle manifests record its completed status, input digests, split, code, versions, and
+  metrics. The COCO files were the only removed inputs. The selected bundle is marked unreviewed;
+  no promotion or candidate-retirement decision exists. Retain its distinct checkpoint states and
+  model output until a bounded model-candidate disposition exists.
+- The 0070 50/50 root measured 3,919,360 KiB, 48 regular files, and 1,907 symlinks. Its control
+  and synthetic-addition runs both completed with distinct run, materialization, subset, checkpoint,
+  and bundle digests (`504b41a3…` and `089169e2…`). The synthetic candidate view is an input to the
+  current cluster-crop materializer. The retained M6 annotation-effort decision says
+  `retain_as_experiment`, does not promote a provider or change runtime defaults, and records that
+  no legal development batch exists. Keep both experiment outputs, their input views, metrics, and
+  split facts for that frozen comparison decision. The ranked-family audit stores each exact run,
+  bundle, dataset digest, and measured path.
+
+The two interrupted 0092 attempts are not separate failed experiments: both receipts point to one
+completed 0092 output and one resumed checkpoint. The control and synthetic-addition 0070 runs are
+separate completed experiments; neither is an abandoned run. This M4 inventory covers the three
+training families ranked by M0. Other historical runtime folders outside those M0 candidates were
+not selected or removed in this bounded milestone.

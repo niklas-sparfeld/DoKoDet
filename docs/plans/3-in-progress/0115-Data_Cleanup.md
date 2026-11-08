@@ -232,6 +232,8 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   all 718 symlinks and their training-view targets, every checkpoint, the selected bundle, run and
   training configuration, metrics, and memory log. The provenance artifact retains split
   membership, source/review revisions, preprocessing configuration, versions, hashes, and metrics.
+  The supplemental [ranked-family audit](../../reports/0115-M4_Runtime_Intermediates.artifacts/historical-training-family-audit.json)
+  classifies the resumed 0092 attempts and both completed 0070 50/50 experiments.
 - **Checks:** The M2 dry-run permitted exactly two frozen paths; its apply receipt records both
   removals. No writer or open file was found. The exact retained-root manifest matched before and
   after. The 0070 training-view verifier passed after apply. The retained 0070 and configured 0092
@@ -243,7 +245,11 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   duplicated exactly in the retained bundle. The M4 change reclaimed 3,171,322 logical bytes and
   measured 3,096 KiB less `du` allocation after the tool's plan, receipt, and lock files were
   written. This is not a volume free-space claim. The larger 50/50 experiment, active caches,
-  provider responses, and 0114 fixtures remain protected for their recorded reasons.
+  provider responses, and 0114 fixtures remain protected for their recorded reasons. The 0092
+  output remains because 0096 uses its selected bundle; its two interrupted attempts resumed the
+  same run from the same checkpoint. The 50/50 control and synthetic runs remain separate completed
+  experiments under an explicit `retain_as_experiment` decision. Other M0-ranked candidates and
+  their retention reasons are classified in the M4 report.
 - **Next:** M5 — specify and prove isolated worktree data access.
 - **Commit boundary:** M4 report and provenance / before-after artifacts, this epic, and board
   update in one focused milestone commit.
