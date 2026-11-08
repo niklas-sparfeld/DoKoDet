@@ -54,7 +54,7 @@ operator must consult the manifest to inspect it today; gzip adds one decode ste
 inspection.
 
 Level 1 adds about 3.0 ms per entry over current storage in the full-family write. Level 6 adds
-about 4.4 ms per entry. Level 1 wrote all entries in 28.35 s, compared with 2.91 s for current
+about 4.3 ms per entry. Level 1 wrote all entries in 28.35 s, compared with 2.91 s for current
 storage. This is a one-time bulk conversion cost plus the ongoing compression cost. It does not
 include video decoding. The [format benchmark](0115-M11_Format_Experiment.artifacts/format-benchmark.json)
 records all measurements. The sanitized [application counters](0115-M11_Format_Experiment.artifacts/application-io-summary.json)
