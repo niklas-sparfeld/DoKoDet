@@ -39,28 +39,30 @@ checkout path and that source fixture bytes remain unchanged.
 
 ## Exact qualification record
 
-Code revision: `12bd999eca41688d8b6cc19a0f4481a9f501cb76`.
+Code revision: `15d7d105253baa000fa983ebd80a0d2d48e92c63`.
 
 Two disposable detached worktrees used this revision:
 
 | Worktree | Storage root | Root files / bytes | Canonical root manifest SHA-256 |
 | --- | --- | ---: | --- |
-| `/private/tmp/doko-0115-m7-final-a` | `/private/tmp/doko-0115-m7-final-state-a` | 13 / 6,560 | `104b039e76d4cf5a625b2158777cfe6cba14b77fadcbe9edee940d590598f699` |
-| `/private/tmp/doko-0115-m7-final-b` | `/private/tmp/doko-0115-m7-final-state-b` | 13 / 6,560 | `8ffd74f0f83d0623368d6ab73381f7bbc316089a383367608b42f8d2e1b1096b` |
+| `/private/tmp/doko-0115-m7-r1-a` | `/private/tmp/doko-0115-m7-r1-state-a` | 13 / 6,560 | `9f871eb9d2d49179ab464c8bff1af72dae10e71392252d9128f84c30e96415b8` |
+| `/private/tmp/doko-0115-m7-r1-b` | `/private/tmp/doko-0115-m7-r1-state-b` | 13 / 6,560 | `d29196075c0ff82dd9c96f2e1be812b3a09d094eadf58d593abd7d32f4f185e2` |
 
 Each manifest hashes sorted relative paths, byte counts, and file SHA-256 values in canonical JSON.
 Both roots had `fixture-events` and the imported recording bundle. The distinct state roots were
-never shared. Re-running the workflow in worktree A against a third root produced manifest
-`21712d024441a91bbbf93ba6da4578072d9213ddf4312eaf2a01dc5aa2e4cddd`; worktree B's manifest
-stayed `8ffd74f0f83d0623368d6ab73381f7bbc316089a383367608b42f8d2e1b1096b`. This checks cross-
-worktree write isolation. Both worktrees had no `data/operations/pipeline-nodes/fixture-events`
+never shared. A further API run in worktree A used `/private/tmp/doko-0115-m7-r1-state-a3` while
+worktree B's state-root manifest was measured before and after. Both measurements were
+`d29196075c0ff82dd9c96f2e1be812b3a09d094eadf58d593abd7d32f4f185e2`. The additional A root
+manifest was `8f6f9bef577ce851d279caf83f7ab8b55a603eb301059c1f2e1fc0fa6e4b1388`. This checks
+cross-worktree write isolation. Both worktrees had no
+`data/operations/pipeline-nodes/fixture-events`
 path, so the old mutable path remained unused. The fixture video and event digests are the exact
 values above and match their checked-in sources.
 
 The M6 frozen setup sequence passed in both worktrees:
 
 ```sh
-git worktree add --detach "$WORKTREE" 12bd999eca41688d8b6cc19a0f4481a9f501cb76
+git worktree add --detach "$WORKTREE" 15d7d105253baa000fa983ebd80a0d2d48e92c63
 cd "$WORKTREE" && mise install
 cd "$WORKTREE" && mise exec -- uv sync --project backend
 cd "$WORKTREE/web" && mise exec -- npm ci

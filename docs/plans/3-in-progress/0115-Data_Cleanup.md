@@ -314,12 +314,13 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 - **Changes:** CardEventNet cache writes now use `Settings.evidence_root`; backend setup docs name
   every mutable root and provide clean-checkout, run, operator-import, and missing-asset behavior.
   No tracked data, tracking, or data authority changed.
-- **Checks:** The M6 clean setup passed in two disposable worktrees at `12bd999ec`: tool install,
+- **Checks:** The M6 clean setup passed in two disposable worktrees at `15d7d105`: tool install,
   backend sync, frontend install/build, app initialization, and three API fixture tests per
-  worktree. A third isolated API run left worktree B's manifest unchanged. Each API run edited,
-  read, and re-read after restart; no old node path appeared. The M7 report records fixture and root
-  digests and exact commands. Ruff, format, Markdown links, and `git diff --check` passed. The known
-  M6 interrupted-round-analysis test still returns `queued` instead of `failed`.
+  worktree. A further isolated API run left worktree B's root manifest unchanged before and after
+  (`d2919607…f4f185e2`). Each API run edited, read, and re-read after restart; no old node path
+  appeared. The M7 report records fixture and root digests and exact commands. Ruff, format,
+  Markdown links, and `git diff --check` passed. The known M6 interrupted-round-analysis test still
+  returns `queued` instead of `failed`.
 - **Decisions and limits:** The operator corpus and model bundles stay at their declared paths.
   Opening operator data requires an explicit validated copy. Missing source and model assets fail
   visibly; no implicit fetch or fabricated asset is used. No M8 or M9 tracked family changed.
