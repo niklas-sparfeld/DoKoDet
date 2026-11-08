@@ -23,7 +23,7 @@ operational logs, recovery copies, and campaign intermediates moves to [Epic 011
 | --- | --- | --- |
 | Conditional recovery-tree candidate: 24.1 GiB and 142,746 files | **Unmet; superseded by dependency evidence.** | M3 removed only 51 exact duplicate recovery videos (14,516,434,567 logical bytes). The recovery tree was not safe to remove wholesale. Its directory allocation fell by 14,176,268 KiB. The measured free-space samples fell by 1,488 KiB immediately and 14,740 KiB at the later sample; they do not prove physical space reclaimed. |
 | Fresh worktree ready within 30 seconds and at most 2 GiB allocated | **Met by the post-cutover M9 measurement.** | Two clean worktrees took 16.85 s and 15.71 s. Each used 1,693,696 KiB including its explicit state root, 403,456 KiB below the target. These are path allocations; shared `.git` and APFS clone accounting are separate. M15 did not repeat this successful setup measurement. |
-| Frozen application I/O ceilings and exact 0114 fixture behavior | **Met by M11/M12 evidence.** | Four frozen M0 cases met their read/parse ceilings with zero live-root reads. M12 ran 35 hard pipeline cases / 70 samples with exact response tuples, then passed the 0114 qualifier on a temporary path-rebased corpus copy: 179 case budgets and 70 UI routes. M15 did not repeat these broad checks because the code and fixture set did not change. |
+| Frozen application I/O ceilings and exact 0114 fixture behavior | **Met by M11/M12 evidence at those recorded revisions.** | Four frozen M0 cases met their read/parse ceilings with zero live-root reads. M12 ran 35 hard pipeline cases / 70 samples with exact response tuples, then passed the 0114 qualifier on a temporary path-rebased corpus copy: 179 case budgets and 70 UI routes. M13 and M15 ran focused checks for the cache paths changed in those milestones. M15 did not rerun the broad 0114 checks under the revised closure scope. |
 | Four exact agent lookups within 10 lines and 764 output bytes | **Not remeasured after M14.** | M0 recorded 4/4 exact results at the frozen limit. M14 added exact lookup commands to the storage map; it did not measure new agent output or token cost. |
 
 The 24.1 GiB figure was a conditional upper bound for dependency review, not a promised saving or
@@ -31,8 +31,9 @@ an approval to delete the root. The later audit established a much smaller safe 
 that original bound unmet does not weaken the M3 deletion safeguards or turn the remaining tree
 into a cleanup target.
 
-The read/parse ceilings establish no-regression behavior for the named cases. They do not measure
-an application speedup. The lookup baseline does not measure lower agent context or token use.
+The read/parse ceilings establish no-regression behavior for the named cases at their recorded
+revisions. They do not measure an application speedup. The lookup baseline does not measure lower
+agent context or token use.
 
 ## Measured storage effects
 
