@@ -554,7 +554,8 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   roots, ignored local data, external shared assets, and the same-volume recovery limit. No index,
   runtime contract, inventory, or data changed.
 - **Checks:** Verified every Markdown path and anchor in the map and board update. Confirmed each
-  lookup command against its named repository path or the existing report and verifier. The map
+  exact lookup command against its named repository path or report; ignored data lookups use
+  `--no-ignore`. The recovery verifier is identified as a recursive whole-root check. The map
   distinguishes durable authority, derived caches, shared assets, ignored local data, and recovery
   copies. `git diff --check` passed.
 - **Decisions and limits:** The map reuses historical reports; it is not a current inventory or a

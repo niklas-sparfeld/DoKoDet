@@ -4,15 +4,17 @@ Date: 2026-11-08
 
 This map points to existing evidence and current repository paths. It is not a new inventory. The
 sizes in the linked reports are dated measurements, not current totals or unique physical space.
-Use `DOKO_STORAGE_ROOT` for a worktree's mutable state. The examples below assume the repository
-root and use exact recording, node, revision, or report identities when those are known.
+Update this map when a listed root, owner, retention policy, or recovery status changes. Check its
+links and lookup commands as part of that update. Use `DOKO_STORAGE_ROOT` for a worktree's mutable
+state. The examples below assume the repository root and use exact recording, node, revision, or
+report identities when those are known.
 
 ## Storage families
 
 | Family and current path | Authority, owner, and lookup | Retention and recovery |
 | --- | --- | --- |
 | Original recordings: `data/intake/recordings/<recording-id>/` (ignored local data) | Source asset authority. `RecordingBundleStore` and recording APIs read bundles; `operator_corpus_import.py` copies selected bundles into a worktree root. See [M5](0115-M5_Worktree_Storage_Contract.md), [M8](0115-M8_Intake_Cutover.md). | Preserve. Main checkout keeps the corpus locally. M8 verified all 239 remote Git blobs, 43 sibling raw videos, 15 remote LFS videos, and two bundle restores. No new worktree receives the corpus implicitly. |
-| Current pipeline nodes, revisions, reviews, calibrations, and operation state: `data/operations/pipeline-nodes/` (ignored local data; use `$DOKO_STORAGE_ROOT/data/operations/pipeline-nodes/` for isolated work) | Current durable authority. `PipelineNodeStore` owns node manifests, heads, and immutable revisions; review and calibration stores own their records. For one exact node: `rg -n '"schema_version"|"node_id"' data/operations/pipeline-nodes/<node-id>/manifest.json`; for one revision: `rg --files data/operations/pipeline-nodes/<node-id>/revisions/<revision-id>`. See [M1](0115-M1_Recovery_and_Cleanup_Plan.md), [M6](0115-M6_Cutover_Inventory.md), [M9](0115-M9_Pipeline_Cutover.md). | Preserve human work and active dependencies. M1/M9 verified selected content and restart workflows. The accepted-loss recovery package is local to the same source volume; it is not off-volume disaster recovery. |
+| Current pipeline nodes, revisions, reviews, calibrations, and operation state: `data/operations/pipeline-nodes/` (ignored local data; use `$DOKO_STORAGE_ROOT/data/operations/pipeline-nodes/` for isolated work) | Current durable authority. `PipelineNodeStore` owns node manifests, heads, and immutable revisions; review and calibration stores own their records. For one exact node: `rg --no-ignore -n '"schema_version"|"node_id"' data/operations/pipeline-nodes/<node-id>/manifest.json`; for one revision: `rg --files --no-ignore data/operations/pipeline-nodes/<node-id>/revisions/<revision-id>`. See [M1](0115-M1_Recovery_and_Cleanup_Plan.md), [M6](0115-M6_Cutover_Inventory.md), [M9](0115-M9_Pipeline_Cutover.md). | Preserve human work and active dependencies. M1/M9 verified selected content and restart workflows. The accepted-loss recovery package is local to the same source volume; it is not off-volume disaster recovery. |
 | Legacy pipeline revisions, runs, and selections: `data/operations/pipeline/{revisions,runs,selections}/` (ignored local data) | Retained historical representation; explicit migration, inventory, and repair tools may read it. Exact root and readers are in [M6](0115-M6_Cutover_Inventory.md). | Preserve while referenced. M9 verified all 31,521 files against both its activation snapshot and the recovery package. The package is same-volume; a shallow remote clone also restored these exact files. Fifteen `automated-runs/**` records remain tracked and separate. |
 | Accepted-loss migration and recovery stage: `data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/` (ignored recovery copy) | Recovery authority for the recorded 0108 package. Inspect its `migration.json` and package files; verify with the [recovery verifier](../../scripts/verify_0115_recovery.py). See [M1](0115-M1_Recovery_and_Cleanup_Plan.md) and [M3](0115-M3_Recovery_Tree_Retirement.md). | Retain as recovery evidence. It shares the source volume. Full-root physical allocation and off-volume recovery remain unknown. M3 removed only the 51 verified duplicate recovery videos. |
 | Model source and runtime assets: `data/models/` and selected `.runtime/` campaign bundles (ignored local data) | Immutable model inputs. The DINOv3 source is under `data/models/dinov3-vits16-pretrain-lvd1689m`; active RF-DETR 0092 bundle is `.runtime/rfdetr-segmentation-0092-m4/bundle`. Providers and preflight read exact configured paths. See [M1](0115-M1_Recovery_and_Cleanup_Plan.md), [M4](0115-M4_Runtime_Intermediates.md), [M6](0115-M6_Cutover_Inventory.md). | Preserve current bundles and active dependencies. M1 verified local clone digests and offline DINOv3 loading. Restore availability differs by asset; do not infer an independent backup from ignored status or a model bundle's presence. |
@@ -23,22 +25,25 @@ root and use exact recording, node, revision, or report identities when those ar
 
 ## Bounded exact lookups
 
-These commands inspect only named resources or metadata. Replace placeholders with IDs from an
+The lookup commands inspect named resources or metadata. Replace placeholders with IDs from an
 existing report, API response, or manifest; do not scan generated roots to discover candidates.
+The final recovery verifier is different: it recursively validates and hashes the specified
+recovery package, active node tree, and representative recording and model paths under the roots
+passed to it. Use it for that whole-root verification, not as an exact-resource lookup.
 
 ```sh
 # One known recording bundle
-rg --files data/intake/recordings/cardeventnet-IMG_0637
+rg --files --no-ignore data/intake/recordings/cardeventnet-IMG_0637
 
 # One known pipeline node and immutable revision
-rg -n '"schema_version"|"node_id"' \
+rg --no-ignore -n '"schema_version"|"node_id"' \
   data/operations/pipeline-nodes/<node-id>/manifest.json
-rg --files data/operations/pipeline-nodes/<node-id>/revisions/<revision-id>
+rg --files --no-ignore data/operations/pipeline-nodes/<node-id>/revisions/<revision-id>
 
 # One report or artifact with an exact known name
 rg --files docs/reports | rg '0115-M13_Growth_Bounds(\.artifacts/provider-cache-pins\.json)?$'
 
-# Verify a recovery package using the existing bounded verifier
+# Recursively verify the recovery package and named retained roots
 mise exec -- uv run --project backend python scripts/verify_0115_recovery.py \
   --data-root data --runtime-root .runtime --output /tmp/0115-recovery-check.json
 ```
