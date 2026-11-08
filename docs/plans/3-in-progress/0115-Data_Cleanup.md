@@ -161,7 +161,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M5 | Specify and prove isolated worktree data access | Complete |
 | M6 | Freeze cutover inventory, replacement owners, recovery evidence, and test-failure disposition | Complete |
 | M7 | Make isolated development storage and setup the normal path | Complete |
-| M8 | Cut over tracked intake after proving source access and recovery | In progress |
+| M8 | Cut over tracked intake after proving source access and recovery | Complete |
 | M9 | Cut over the selected tracked pipeline family after dependency and recovery checks | Not started |
 | M10 | Evaluate safe Git and LFS maintenance and record history costs | Not started |
 | M11 | Measure compact storage candidates and select at most one bounded format change | Not started |
@@ -172,9 +172,8 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 
 ## Execution handoff
 
-- **Run:** M8 is blocked and incomplete in this 8-milestone run. Requested: 8. Completed: 0.
-  Remaining: 8. M9–M15 remain unauthorized until the next requested run starts at the next
-  incomplete milestone. The previous run completed M7; its separate count is in the M7 record.
+- **Run:** M8 completed in this 8-milestone run. Requested: 8. Completed: 1. Remaining: 7.
+  M9 is next; do not exceed the run limit. The previous run completed M7; its separate count is in the M7 record.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -328,44 +327,35 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 - **Commit boundary:** M7 backend cache-root change and regression test, setup documentation, report,
   epic, board, and handoff in one focused commit.
 
-- **M8:** In progress; no intake tracking changed. The [M8 assessment](../../reports/0115-M8_Intake_Cutover.md)
-  records the activation inventory at `969d9a6159dbdc412de8b605c12d7fdf06ff626c`. Its index digest is
-  `23eabc8abbb482fbe8565cc7a7b48614b9b2a5ec687e9f885b1ef262b7f18d8f` for 239 entries. All 239
-  Git blobs match remote `origin/main` at `21a1146b0e7ca3bcbc702dc358437b6609ecf482`. The 43 sibling
-  raw videos and 15 remote LFS videos match their manifest sizes and hashes. One remote-only bundle,
-  including a proposal file, restored through the existing importer and real APIs before and after
-  restart. A disposable merge rehearsal preserved an unrelated staged deletion and untracked file,
-  and restored the selected video from an exact backup. See
-  [M8 evidence](../../reports/0115-M8_Intake_Cutover.artifacts/remote-and-rehearsal.json).
-- **Checks:** `git lfs fsck --objects` passed locally. The M5 fixture selector passed (3 tests). Main
-  intake checkout is about 15 GiB; shared `.git` about 31 GiB, `.git/lfs` about 17 GiB. The main,
-  first iOS, and `.codex/worktrees/6203` checkouts have no intake changes. The second iOS checkout is
-  locked initializing, has `index.lock`, all 239 candidate paths staged deleted, and 226 untracked
-  candidate files. Its selected video remains present with the exact digest. `git count-objects -vH`
-  reports 11.35 GiB packed objects and 2.65 GiB temporary garbage; M10 owns Git/LFS maintenance.
-- **Decisions and limits:** Keep all 239 candidate paths tracked. Independent media and metadata
-  restore sources are verified. No new API or storage schema is needed for a bounded cutover using
-  the existing importer. The disposable backup/merge/restore procedure passed, but no live checkout
-  was changed. The initializing iOS worktree has an index lock and overlapping staged and untracked
-  intake changes. The lock does not establish whether a Git operation is live, but the checkout's
-  state is unresolved and blocks all-worktree protection. No activation, history rewrite, or cleanup
-  occurred.
-- **Next:** Wait for evidence that the Git operation ended or that the lock is stale. Do not remove
-  the lock or alter that checkout on current evidence. Then verify its candidate status and retained
-  copies, protect retained files in every existing checkout with the tested backup/merge/restore
-  procedure, and only then reconsider tracking.
-- **Commit boundary:** M8 assessment and activation inventory, epic, board, and handoff only; no
-  tracking or data changes.
-- **Current run result:** M8 remains incomplete. A fresh read-only check on 2026-11-08 found the
-  registered `ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4` checkout still marked locked, with
-  `.git/index.lock`, all 239 intake paths staged for deletion, and 226 candidate paths untracked.
-  These facts do not establish whether a Git operation is live. No lock owner was exposed by `lsof`,
-  and no owner/status channel is available in this run.
-  Because the M8 pre-integration gate requires protecting retained files in every existing
-  checkout, this unresolved checkout state blocks all-worktree protection. The checkout was not
-  changed. Do not weaken the gate or alter the checkout. First obtain evidence that the operation
-  ended or the lock is stale; then verify candidate status and protect retained copies before any
-  tracking change. This run therefore completed 0 of 8 requested milestones; 8 remain.
+- **M8:** Complete. The [M8 assessment](../../reports/0115-M8_Intake_Cutover.md) records the
+  239-path activation snapshot at `c2307415300696b5c50164facaefc6b6a84c613e`. Before cutover,
+  all three currently registered worktrees held the exact 239 files: 181 metadata blobs and 58
+  original videos. The former initializing checkout is no longer registered and its checkout
+  directory is absent; its disappearance is not counted as recovery evidence. All 43 sibling raw
+  videos, 15 remote LFS videos, and 239 independent remote Git blobs were verified. The remote-only
+  bundle restore and real API readback across restart remain verified. A disposable merge rehearsal
+  preserved unrelated staged and untracked work and restored an exact backed-up video.
+- **Changes:** Removed the 239 candidate paths from the main Git index and added an ignore rule.
+  The main operator corpus remains present and ignored. The two other registered worktrees were not
+  updated; their tracked copies remain exact. No pipeline path or source bytes changed. The activation
+  inventory and current recovery/worktree audit are in the M8 report artifacts.
+- **Checks:** All three pre-cutover worktrees had exact candidate files, metadata blob IDs, and video
+  sizes and SHA-256 values. The sibling raw and remote LFS source audits passed; all remote Git
+  candidate blobs match. After cutover, `git ls-files` lists zero intake paths and the main files
+  remain present. The focused M5 worktree storage and operator corpus importer tests pass (3 tests)
+  with a fresh `DOKO_STORAGE_ROOT`. The disposable merge/restore rehearsal, remote bundle API
+  restore/readback across restart, `git lfs fsck --objects`, and `git diff --check` pass. An initial
+  test attempt used a non-empty temporary root and hit the expected existing-node conflict; rerunning
+  with a fresh root passed.
+- **Decisions and limits:** The old worktree removal is not used as backup proof. The main checkout
+  still has the full operator corpus, so M8 changes Git tracking but does not reclaim its local file
+  bytes or rewrite history. The other registered worktrees remain at their original revisions.
+- **Next:** M9 — cut over the selected tracked pipeline family after dependency and recovery checks.
+- **Commit boundary:** Intake index removal, ignore rule, updated M8 inventory and assessment, epic,
+  board, and handoff in one focused milestone commit. No pipeline tracking, source bytes, history, or
+  Git/LFS object maintenance changed.
+- **Current run result:** M8 complete; this run has completed 1 of 8 requested milestones and has 7
+  remaining.
 
 ## M0 — Inventory and rank
 

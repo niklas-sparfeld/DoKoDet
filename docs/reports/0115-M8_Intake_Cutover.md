@@ -2,12 +2,12 @@
 
 Date: 2026-11-08
 
-Activation revision: `969d9a6159dbdc412de8b605c12d7fdf06ff626c`
-Result: **M8 incomplete. Tracking is unchanged.**
+Activation snapshot revision: `c2307415300696b5c50164facaefc6b6a84c613e` (pre-cutover)
+Result: **M8 cutover completed on main.** The 239 paths are untracked and ignored in main; the operator corpus remains in place. The two other registered checkouts retain their original 239-file trees and were not updated.
 
 ## Activation snapshot
 
-The frozen candidate remains `data/intake/recordings/**`. The activation inventory in
+The frozen candidate was `data/intake/recordings/**`. The activation inventory in
 [`activation-inventory.json`](0115-M8_Intake_Cutover.artifacts/activation-inventory.json) records
 all 239 index entries, their Git blob IDs, current byte sizes, and the current index digest
 `23eabc8abbb482fbe8565cc7a7b48614b9b2a5ec687e9f885b1ef262b7f18d8f`. It also records all 58
@@ -99,24 +99,20 @@ claims.
 - `DOKO_STORAGE_ROOT=/private/tmp/doko-0115-m8-state mise exec -- uv run --project backend pytest backend/tests/test_worktree_storage_contract.py backend/tests/test_operator_corpus_import.py -q`: 3 passed. This exercises fixture import and API read/write/restart with the old mutable path disabled; it does not read the 43 operator recordings.
 - No live checkout or merge was performed. The procedure is proven in a disposable repository, but applying it to all registered checkouts is blocked by the locked iOS worktree's staged changes and `index.lock`.
 
-## Decision and next step
+## Prior decision (superseded by current recheck)
 
-Keep all 239 intake paths tracked for now. Independent backup identities match the full candidate,
-and API restore/readback passed on two representative bundles. The existing importer and canonical
-bundle schema support the bounded restore without a new storage contract. Do not change tracking
-while the initializing iOS worktree has an index lock and staged intake deletions. These facts do not
-establish whether a Git operation is live. Wait for evidence that the operation ended or the lock is
-stale. Do not remove the lock or alter that checkout on current evidence. Then verify its candidate
-status and retained copies, and apply the tested backup/merge/restore procedure to each checkout that
-must retain local copies. No main operator data or existing worktree state was changed.
+The earlier assessment kept all 239 intake paths tracked while the initializing iOS worktree had an index lock and staged intake deletions. It did not modify or clean that checkout. The current recheck below establishes that the checkout is no longer registered and its checkout directory is absent. This removal is not used as recovery evidence.
 
-## Current run recheck
+## Prior run recheck (superseded)
 
-On 2026-11-08, read-only inspection found the registered
-`ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4` checkout still marked `locked`. Its `.git/index.lock`
-exists, all 239 `data/intake/recordings/**` entries are staged for deletion, and 226 candidate paths
-are present as untracked files. `lsof` returned no lock owner. No owner/status channel is available
-in this run. This does not prove whether a Git operation is live. The checkout was not modified.
-M8's all-worktree protection gate remains unmet, so this run leaves all intake paths tracked and M8
-incomplete. Resume after evidence shows the operation ended or the lock is stale; then verify the
-checkout's candidate status and retained copies before cutover.
+This prior run found the registered checkout marked `locked`, with an index lock and staged intake deletions. It did not modify the checkout. The lock state did not prove whether a Git operation was live. This conclusion was superseded after the checkout disappeared from the registered worktree list; current recovery proof does not rely on that disappearance.
+
+## Cutover recheck and result
+
+On 2026-11-08, the former `ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4` worktree is absent from `git worktree list`; its former checkout directory is also absent and its parent is empty. I did not prune or alter it. I treated that as a changed checkout inventory, not proof that its staged or untracked files were recovered. The three currently registered worktrees are main, `ios-clean`, and `codex-6203`. Each has all 239 candidate files, unchanged candidate status, all 181 metadata files matching the frozen Git blob IDs, and all 58 videos matching their recorded byte lengths and SHA-256 values.
+
+The independent recovery audit passed again. All 43 sibling raw videos match their exact manifest identities. All 15 remaining original videos match the verified remote LFS objects retained by the disposable remote clone. All 239 metadata and media Git blobs match the remote Git tree at `21a1146b0e7ca3bcbc702dc358437b6609ecf482`. The remote-only bundle restore and real API readback across restart remain as recorded above. This proves a complete independent restore source for the candidate; the former worktree's disappearance is not part of that proof.
+
+The cutover removed the 239 candidate paths from the main index and added `/data/intake/recordings/**` to `.gitignore`. It did not remove or rewrite any working files. The main corpus remains byte-for-byte present and ignored. The two other registered worktrees were not merged or checked out to the new main revision; their tracked copies remain byte-for-byte intact at their existing revisions. A disposable merge rehearsal had already shown the exact-backup and post-merge restore procedure, while preserving unrelated staged and untracked work. No pipeline tracking changed. The main commit does not claim reclaimed disk space: local file bytes remain present, and `.git` history and LFS are unchanged.
+
+The activation inventory records revision `c2307415300696b5c50164facaefc6b6a84c613e`, the 239-entry index digest, and exact source identities. The updated checkout and recovery audit is in [`remote-and-rehearsal.json`](0115-M8_Intake_Cutover.artifacts/remote-and-rehearsal.json). Checks after cutover: all 239 candidate paths are absent from `git ls-files`, the main files still match the frozen identities, `git check-ignore` covers all candidate paths, the focused M5 importer/storage API tests pass, and Markdown links and `git diff --check` pass.

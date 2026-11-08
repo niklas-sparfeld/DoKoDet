@@ -50,3 +50,6 @@
 /data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/*
 !/data/model-campaigns/cardeventnet-0063-m9-hard-negative-ablation/runs/candidate-hard-negative-v1/best.pt
 /game_engine/build
+
+# Operator source recordings stay local; restore from the verified intake sources when needed.
+/data/intake/recordings/**

@@ -1,648 +1,706 @@
 {
-  "activation_revision": "969d9a6159dbdc412de8b605c12d7fdf06ff626c",
+  "activation_revision": "c2307415300696b5c50164facaefc6b6a84c613e",
   "candidate_root": "data/intake/recordings",
-  "decision": "No tracking change. Keep all candidate paths tracked until metadata and unresolved original sources have usable independent restore paths, and the source is accessible through the supported workflow.",
+  "decision": "Cut over tracking for the exact 239-path candidate. Preserve the main operator corpus in place and ignored; all 239 Git blobs, all 58 original videos, and all three currently registered worktree copies were verified before changing the index.",
   "independent_source_file_count": 43,
   "independent_source_root": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw",
-  "metadata_restore_verified_count": 0,
+  "metadata_restore_verified_count": 181,
   "recordings": [
     {
       "expected_bytes": 70586153,
       "expected_sha256": "12b6ee3404ec5bd3c14fabddc397f763ac0800ab3e1a8b354a8435b27cece807",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "video-34d4d5ba-90de-4a94-b4aa-1ce98a29c592.mov",
       "recording_id": "34d4d5ba-90de-4a94-b4aa-1ce98a29c592",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 70586153,
+      "source_path": "origin/main LFS object 12b6ee3404ec5bd3c14fabddc397f763ac0800ab3e1a8b354a8435b27cece807",
+      "source_sha256": "12b6ee3404ec5bd3c14fabddc397f763ac0800ab3e1a8b354a8435b27cece807",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 158918571,
       "expected_sha256": "c49c88d598a6a49e2faba4e7f931ea1cbb990837ee5e8f9e71cce61636c998b2",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "video-4a26f9f6-18db-4328-9fc8-64e1ed6bfbeb.mov",
       "recording_id": "4a26f9f6-18db-4328-9fc8-64e1ed6bfbeb",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 158918571,
+      "source_path": "origin/main LFS object c49c88d598a6a49e2faba4e7f931ea1cbb990837ee5e8f9e71cce61636c998b2",
+      "source_sha256": "c49c88d598a6a49e2faba4e7f931ea1cbb990837ee5e8f9e71cce61636c998b2",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 478743464,
       "expected_sha256": "6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "video-5a1f4037-d8ad-48da-9950-2ed2272811a5.mov",
       "recording_id": "5a1f4037-d8ad-48da-9950-2ed2272811a5",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 478743464,
+      "source_path": "origin/main LFS object 6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a",
+      "source_sha256": "6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 75653516,
       "expected_sha256": "143980518cf0aae5837d83ef2c08f83eea8d39b3bdbda806ed4b42935d220451",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "video-6afd91fd-42a5-423c-acd9-eae8059aea0f.mov",
       "recording_id": "6afd91fd-42a5-423c-acd9-eae8059aea0f",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 75653516,
+      "source_path": "origin/main LFS object 143980518cf0aae5837d83ef2c08f83eea8d39b3bdbda806ed4b42935d220451",
+      "source_sha256": "143980518cf0aae5837d83ef2c08f83eea8d39b3bdbda806ed4b42935d220451",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 35568670,
       "expected_sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "video-94bf648d-9f13-43e4-977a-700b64b67b90.mov",
       "recording_id": "94bf648d-9f13-43e4-977a-700b64b67b90",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 35568670,
+      "source_path": "origin/main LFS object 2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
+      "source_sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 44773760,
       "expected_sha256": "21b6b0076042cdec14bc07cd0c143baf64a3854fc65ee891718b9c31da82a7c0",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "video-9bd59673-da9e-40b7-8ffd-5feaf15b3fe2.mov",
       "recording_id": "9bd59673-da9e-40b7-8ffd-5feaf15b3fe2",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 44773760,
+      "source_path": "origin/main LFS object 21b6b0076042cdec14bc07cd0c143baf64a3854fc65ee891718b9c31da82a7c0",
+      "source_sha256": "21b6b0076042cdec14bc07cd0c143baf64a3854fc65ee891718b9c31da82a7c0",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 149163581,
       "expected_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0090.mov",
       "recording_id": "cardeventnet-IMG_0090",
       "source_bytes": 149163581,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0090.mov",
       "source_sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 134705169,
       "expected_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0091.mov",
       "recording_id": "cardeventnet-IMG_0091",
       "source_bytes": 134705169,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0091.mov",
       "source_sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 126875766,
       "expected_sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0092.mov",
       "recording_id": "cardeventnet-IMG_0092",
       "source_bytes": 126875766,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0092.mov",
       "source_sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 334940123,
       "expected_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0095.mov",
       "recording_id": "cardeventnet-IMG_0095",
       "source_bytes": 334940123,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0095.mov",
       "source_sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 321820778,
       "expected_sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0096.mov",
       "recording_id": "cardeventnet-IMG_0096",
       "source_bytes": 321820778,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0096.mov",
       "source_sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 302191126,
       "expected_sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0097.mov",
       "recording_id": "cardeventnet-IMG_0097",
       "source_bytes": 302191126,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0097.mov",
       "source_sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 329117529,
       "expected_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0635.MOV",
       "recording_id": "cardeventnet-IMG_0635",
       "source_bytes": 329117529,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0635.MOV",
       "source_sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 265216840,
       "expected_sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0636.MOV",
       "recording_id": "cardeventnet-IMG_0636",
       "source_bytes": 265216840,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0636.MOV",
       "source_sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 129432156,
       "expected_sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0637.MOV",
       "recording_id": "cardeventnet-IMG_0637",
       "source_bytes": 129432156,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0637.MOV",
       "source_sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 161154751,
       "expected_sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0638.MOV",
       "recording_id": "cardeventnet-IMG_0638",
       "source_bytes": 161154751,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0638.MOV",
       "source_sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 132769108,
       "expected_sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0639.MOV",
       "recording_id": "cardeventnet-IMG_0639",
       "source_bytes": 132769108,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0639.MOV",
       "source_sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 149142154,
       "expected_sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0640.MOV",
       "recording_id": "cardeventnet-IMG_0640",
       "source_bytes": 149142154,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0640.MOV",
       "source_sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 159644121,
       "expected_sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0641.MOV",
       "recording_id": "cardeventnet-IMG_0641",
       "source_bytes": 159644121,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0641.MOV",
       "source_sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 158996461,
       "expected_sha256": "bed363c2d52f6c141f8ddcac09a20ec42328834dbd635e9c0922ac1cf52f821c",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0642.MOV",
       "recording_id": "cardeventnet-IMG_0642",
       "source_bytes": 158996461,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0642.MOV",
       "source_sha256": "bed363c2d52f6c141f8ddcac09a20ec42328834dbd635e9c0922ac1cf52f821c",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 166119136,
       "expected_sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0643.MOV",
       "recording_id": "cardeventnet-IMG_0643",
       "source_bytes": 166119136,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0643.MOV",
       "source_sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 252227791,
       "expected_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0644.MOV",
       "recording_id": "cardeventnet-IMG_0644",
       "source_bytes": 252227791,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0644.MOV",
       "source_sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 259520711,
       "expected_sha256": "47707b79140338f5393b59c52ab7c0078b23ed889fc7da01423b7734f3ac15f8",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0645.MOV",
       "recording_id": "cardeventnet-IMG_0645",
       "source_bytes": 259520711,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0645.MOV",
       "source_sha256": "47707b79140338f5393b59c52ab7c0078b23ed889fc7da01423b7734f3ac15f8",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 307897642,
       "expected_sha256": "232c707df9474ceae51c581ec55ae274f12e09e871e5a5867cab1ea75d73c033",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0646.MOV",
       "recording_id": "cardeventnet-IMG_0646",
       "source_bytes": 307897642,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0646.MOV",
       "source_sha256": "232c707df9474ceae51c581ec55ae274f12e09e871e5a5867cab1ea75d73c033",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 172686963,
       "expected_sha256": "6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0648.MOV",
       "recording_id": "cardeventnet-IMG_0648",
       "source_bytes": 172686963,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0648.MOV",
       "source_sha256": "6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 183090255,
       "expected_sha256": "5b48dcad8a7faa34748ac2631f55352ea8219c6c5b54474bd887fed93b62f6ed",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0649.MOV",
       "recording_id": "cardeventnet-IMG_0649",
       "source_bytes": 183090255,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0649.MOV",
       "source_sha256": "5b48dcad8a7faa34748ac2631f55352ea8219c6c5b54474bd887fed93b62f6ed",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 127322550,
       "expected_sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0650.MOV",
       "recording_id": "cardeventnet-IMG_0650",
       "source_bytes": 127322550,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0650.MOV",
       "source_sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 159476349,
       "expected_sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0651.MOV",
       "recording_id": "cardeventnet-IMG_0651",
       "source_bytes": 159476349,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0651.MOV",
       "source_sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 130173534,
       "expected_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0652.MOV",
       "recording_id": "cardeventnet-IMG_0652",
       "source_bytes": 130173534,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0652.MOV",
       "source_sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 164793007,
       "expected_sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0653.MOV",
       "recording_id": "cardeventnet-IMG_0653",
       "source_bytes": 164793007,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0653.MOV",
       "source_sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 135762950,
       "expected_sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0654.MOV",
       "recording_id": "cardeventnet-IMG_0654",
       "source_bytes": 135762950,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0654.MOV",
       "source_sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 147455393,
       "expected_sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0655.MOV",
       "recording_id": "cardeventnet-IMG_0655",
       "source_bytes": 147455393,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0655.MOV",
       "source_sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 142891847,
       "expected_sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0656.MOV",
       "recording_id": "cardeventnet-IMG_0656",
       "source_bytes": 142891847,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0656.MOV",
       "source_sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 149744950,
       "expected_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0657.MOV",
       "recording_id": "cardeventnet-IMG_0657",
       "source_bytes": 149744950,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0657.MOV",
       "source_sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 131761671,
       "expected_sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0658.MOV",
       "recording_id": "cardeventnet-IMG_0658",
       "source_bytes": 131761671,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0658.MOV",
       "source_sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 138300811,
       "expected_sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0659.MOV",
       "recording_id": "cardeventnet-IMG_0659",
       "source_bytes": 138300811,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0659.MOV",
       "source_sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 139254088,
       "expected_sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0660.MOV",
       "recording_id": "cardeventnet-IMG_0660",
       "source_bytes": 139254088,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0660.MOV",
       "source_sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 151493812,
       "expected_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0661.MOV",
       "recording_id": "cardeventnet-IMG_0661",
       "source_bytes": 151493812,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0661.MOV",
       "source_sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 158680194,
       "expected_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0662.MOV",
       "recording_id": "cardeventnet-IMG_0662",
       "source_bytes": 158680194,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0662.MOV",
       "source_sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 708244420,
       "expected_sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0669.MOV",
       "recording_id": "cardeventnet-IMG_0669",
       "source_bytes": 708244420,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0669.MOV",
       "source_sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 869798284,
       "expected_sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0670.MOV",
       "recording_id": "cardeventnet-IMG_0670",
       "source_bytes": 869798284,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0670.MOV",
       "source_sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 678222998,
       "expected_sha256": "43685d181346b93cc865b5ece77702081c75091771b01f5972f7ee0f1883fa69",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0671.MOV",
       "recording_id": "cardeventnet-IMG_0671",
       "source_bytes": 678222998,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0671.MOV",
       "source_sha256": "43685d181346b93cc865b5ece77702081c75091771b01f5972f7ee0f1883fa69",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 515588593,
       "expected_sha256": "3b8aa89940cb14af8383da13b18fc9dbe2c1dc593e8b088e33a6b47119c01ce3",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0673.MOV",
       "recording_id": "cardeventnet-IMG_0673",
       "source_bytes": 515588593,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0673.MOV",
       "source_sha256": "3b8aa89940cb14af8383da13b18fc9dbe2c1dc593e8b088e33a6b47119c01ce3",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 418502146,
       "expected_sha256": "26fb63d873129ab65988a3bba3ca0546b690f66556cefeab291f1c4ec0f3dc14",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_0674.MOV",
       "recording_id": "cardeventnet-IMG_0674",
       "source_bytes": 418502146,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0674.MOV",
       "source_sha256": "26fb63d873129ab65988a3bba3ca0546b690f66556cefeab291f1c4ec0f3dc14",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 420346149,
       "expected_sha256": "ccb1c0ca78558691af4a37c18eaac76a64d782aadc105cd0c779a5296e311e81",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_2777.m4v",
       "recording_id": "cardeventnet-IMG_2777",
       "source_bytes": 420346149,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_2777.m4v",
       "source_sha256": "ccb1c0ca78558691af4a37c18eaac76a64d782aadc105cd0c779a5296e311e81",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 347808185,
       "expected_sha256": "9a9ccbdf365bd2addd919617fb28513e9700395b83b0b8b913713cb21da4a029",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_2778.m4v",
       "recording_id": "cardeventnet-IMG_2778",
       "source_bytes": 347808185,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_2778.m4v",
       "source_sha256": "9a9ccbdf365bd2addd919617fb28513e9700395b83b0b8b913713cb21da4a029",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 390784854,
       "expected_sha256": "3c4e2da8d5381aa5648e832ebc31efea09e20008cd7f72fc9b4e33a719660f93",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_2779.m4v",
       "recording_id": "cardeventnet-IMG_2779",
       "source_bytes": 390784854,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_2779.m4v",
       "source_sha256": "3c4e2da8d5381aa5648e832ebc31efea09e20008cd7f72fc9b4e33a719660f93",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 499382267,
       "expected_sha256": "1c801078b400622dd91d43fd57f209ab5f364169dd07b0b6d4487d71dab9f046",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_2780.m4v",
       "recording_id": "cardeventnet-IMG_2780",
       "source_bytes": 499382267,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_2780.m4v",
       "source_sha256": "1c801078b400622dd91d43fd57f209ab5f364169dd07b0b6d4487d71dab9f046",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 244885260,
       "expected_sha256": "d851b5dd347ec9b91adefac2a641b27a3f8c80d308de8e320ad93f927ed458ee",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "IMG_2781.m4v",
       "recording_id": "cardeventnet-IMG_2781",
       "source_bytes": 244885260,
       "source_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_2781.m4v",
       "source_sha256": "d851b5dd347ec9b91adefac2a641b27a3f8c80d308de8e320ad93f927ed458ee",
-      "video_restore_verified": true
+      "video_restore_verified": true,
+      "source_kind": "sibling_raw"
     },
     {
       "expected_bytes": 94150530,
       "expected_sha256": "e5784ee2fe4728181dcf6c3f27843399089135b13eeee6c43ae07b5c02f1ff66",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "video-de976d1f-dad0-4ca5-b220-dcc9240be2f4.mov",
       "recording_id": "de976d1f-dad0-4ca5-b220-dcc9240be2f4",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 94150530,
+      "source_path": "origin/main LFS object e5784ee2fe4728181dcf6c3f27843399089135b13eeee6c43ae07b5c02f1ff66",
+      "source_sha256": "e5784ee2fe4728181dcf6c3f27843399089135b13eeee6c43ae07b5c02f1ff66",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 557067308,
       "expected_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "game-2026-08-20-01-001-video.mov",
       "recording_id": "game-2026-08-20-01-001",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 557067308,
+      "source_path": "origin/main LFS object 2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+      "source_sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 625609570,
       "expected_sha256": "5e8018e24a1328e796d1546dc9a9b05f157007a727c831383d38676e640feb88",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "game-2026-08-20-01-002-video.mov",
       "recording_id": "game-2026-08-20-01-002",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 625609570,
+      "source_path": "origin/main LFS object 5e8018e24a1328e796d1546dc9a9b05f157007a727c831383d38676e640feb88",
+      "source_sha256": "5e8018e24a1328e796d1546dc9a9b05f157007a727c831383d38676e640feb88",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 459868428,
       "expected_sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "game-2026-08-20-01-003-video.mov",
       "recording_id": "game-2026-08-20-01-003",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 459868428,
+      "source_path": "origin/main LFS object 4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8",
+      "source_sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 637371800,
       "expected_sha256": "617e48224c72568d2d36526022a8da1562e1744cbd378593a0ac87d25a35d29d",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "game-2026-08-20-01-004-video.mov",
       "recording_id": "game-2026-08-20-01-004",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 637371800,
+      "source_path": "origin/main LFS object 617e48224c72568d2d36526022a8da1562e1744cbd378593a0ac87d25a35d29d",
+      "source_sha256": "617e48224c72568d2d36526022a8da1562e1744cbd378593a0ac87d25a35d29d",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 1061930405,
       "expected_sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "game-2026-08-20-01-005-video.mov",
       "recording_id": "game-2026-08-20-01-005",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 1061930405,
+      "source_path": "origin/main LFS object b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73",
+      "source_sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 63211536,
       "expected_sha256": "a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "game-2026-09-18-01-001-video.mov",
       "recording_id": "game-2026-09-18-01-001",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 63211536,
+      "source_path": "origin/main LFS object a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789",
+      "source_sha256": "a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 54234848,
       "expected_sha256": "bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "game-2026-09-18-01-002-video.mov",
       "recording_id": "game-2026-09-18-01-002",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 54234848,
+      "source_path": "origin/main LFS object bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65",
+      "source_sha256": "bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     },
     {
       "expected_bytes": 48382535,
       "expected_sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada",
-      "metadata_external_restore_verified": false,
+      "metadata_external_restore_verified": true,
       "original_filename": "game-2026-09-18-01-003-video.mov",
       "recording_id": "game-2026-09-18-01-003",
-      "source_bytes": null,
-      "source_path": null,
-      "source_sha256": null,
-      "video_restore_verified": false
+      "source_bytes": 48382535,
+      "source_path": "origin/main LFS object d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada",
+      "source_sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada",
+      "video_restore_verified": true,
+      "source_kind": "remote_lfs"
     }
   ],
   "schema_version": "0115-m8-activation-inventory/v1",
@@ -2340,5 +2398,5 @@
     "game-2026-09-18-01-002",
     "game-2026-09-18-01-003"
   ],
-  "video_restore_verified_count": 43
+  "video_restore_verified_count": 58
 }
