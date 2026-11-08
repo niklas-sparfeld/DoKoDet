@@ -69,7 +69,7 @@ large payloads, exact lineage fixtures, and an external content-addressed asset 
 2. Make a new development worktree cheap and usable. Keep ordinary tests local and self-contained.
    Make required source/model material available without copying the full developer corpus.
 3. Reduce application reads, parsing, warning volume, and startup cost caused by irrelevant data.
-   Reuse [0114](../3-in-progress/0114-Interactive_UI_Performance.md) for HTTP/browser timing and
+   Reuse [0114](../5-closed/0114-Interactive_UI_Performance.md) for HTTP/browser timing and
    startup qualification. Keep generic endpoint optimization in that epic.
 4. Reduce agent search output and ambiguity about authoritative data, current schemas, and useful
    examples. Provide bounded entry points that do not require reading large generated trees.

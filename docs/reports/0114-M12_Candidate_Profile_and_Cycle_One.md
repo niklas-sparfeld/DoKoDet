@@ -1,7 +1,7 @@
 # Epic 0114 M12: profile and cycle one
 
 Date: 2026-11-08
-Status: In progress
+Status: Complete
 
 ## Profile and ranked candidates
 

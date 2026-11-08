@@ -2,11 +2,14 @@
 
 ## Plan status
 
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** Existing local backend, web UI, and filesystem storage. No unmet epic dependency.
-- **Outcome:** Every endpoint used by the interactive UI has repeatable speed coverage. Backend
-  startup has repeatable process measurements. A frozen hard-data corpus, baseline, regression
-  gates, and two bounded improvement cycles make later performance changes measurable.
+- **Outcome:** M0–M13 complete. Every interactive UI endpoint has repeatable speed coverage, and
+  the local backend has startup, regression, and browser qualification.
+- **Closure reason:** Complete. The final qualification verified current startup and browser flows,
+  the affected hard pipeline routes, route coverage, and both fixture tiers. Cycle two stopped
+  after profiling found no validation-preserving bounded change. Remaining debt and a pre-existing
+  UI test follow-up are recorded in the [M13 report](../../reports/0114-M13_Final_Qualification_and_Closure.md).
 
 ## Problem and evidence
 
@@ -178,7 +181,9 @@ Deferring startup cost to the first UI request is not an improvement unless both
   one-request history lookup reduced hard-route cold and warm measurements by about 51%, while
   the reserved workspace, startup probes, and real-process lineage browser scenario passed. See
   the [M12 report](../../reports/0114-M12_Candidate_Profile_and_Cycle_One.md).
-- **M13:** Not started — implement candidate cycle two, qualify the full suite, and close the epic.
+- **M13:** Complete — profile and stop cycle two on measured evidence; qualify the retained endpoint
+  suite, fresh startup profiles, current browser/load workflows, and generated fixture tier. Close
+  with [the final report](../../reports/0114-M13_Final_Qualification_and_Closure.md).
 
 ## M0 — Inventory routes and startup phases
 
@@ -364,102 +369,19 @@ generated, so these samples do not replace M11's full-corpus runs or enable a ba
 
 ## Execution handoff
 
-### Current state — M12 complete; M13 next
+### Final state — M13 complete; epic closed
 
-- M0–M12 are complete. Their reports and evidence remain linked in the board and prior milestone
-  reports.
-- M11 retained 6,456 raw response and action samples on Mac14,10. Warm endpoints ran in three
-  independent batches; the single-run and browser families ran in three sequential sessions.
-  The hard fixture validator passed all 57 assets. The baseline defines 179 case budgets and 70 UI
-  route keys. Qualification verifies exact cases and sample counts, responses, machine profile,
-  fixtures, startup logs, and route links before it compares timings.
-- The qualification command passed the full retained corpus in 24.5 seconds after the capture.
-  The collection envelope was 5 hours 15 minutes. A 10× slowdown in the hard workspace case failed
-  through the qualification CLI. See `docs/reports/0114-M11_Baseline_and_Gates.md` and
-  `docs/reports/0114-M11_Performance_Baseline.json`.
-- M6 adds focused read samples in
-  `backend/scripts/run_interactive_ui_job_read_performance.py` and coverage checks in
-  `backend/tests/test_interactive_ui_read_performance.py`. It covers job history, job detail/status,
-  log pages, missing detail/log records, and calibration-preview reads for a valid preview job and
-  a wrong job type. Reads use real HTTP handlers and valid production `Job` and `Intent` models in
-  disposable storage. Fixture setup creates the successful preview before timing; timed reads do
-  not write job state or simulate contention.
-- History pagination is checked at 12 and 300 total jobs, with the same six target-recording jobs.
-  Both sizes return the exact newest-first ID sequence across two pages, without overlap, and the
-  final page has no next cursor. The timing runner retains 15 full-response samples; all status,
-  JSON, and page checks pass. M6 samples are preliminary and are not a baseline.
-- Checks: focused pytest (4 tests), Ruff check and formatting, inventory coverage check (76
-  registered operations classified; one documented UI URL gap), and the 15-sample M6 runner passed.
-  See `docs/reports/0114-M6_Job_History_and_Polling_Reads.md` and
-  `docs/reports/0114-M6_Job_Read_Samples.json`.
-- Decision: compare the same filtered target jobs against 12 and 300 unrelated-history sizes.
-  This verifies page and cursor correctness as unrelated records grow; no latency claim beyond
-  these preliminary samples is made.
-- Known limit: the successful calibration preview uses a small deterministic fixture and does not
-  represent a hard calibration payload. M11 repeats this job-read family in three sessions, while
-  the fixture size and preview work remain specific to this case.
-- Decisions: M7 covers measured durable write/control families and the unregistered video URL
-  not-found boundary. M8 completes named real-backend scenarios for the five residual stage
-  submissions, both round-analysis intake routes, and calibration apply. The revised sequence keeps
-  M9 on media API timing and cache invalidation; M10 on six real-process Playwright workflows and
-  bounded controlled load; M11 on three endpoint batches, three repeated M6–M10 sessions, and baseline gates; M12
-  on profiling and candidate cycle one; and M13 on candidate cycle two and final qualification.
-  The `/api/recordings/{recording_id}/video` URL remains an explicit unregistered 404 boundary.
-  It is not a media timing case.
-- M7 retains 36 passing response samples and 14 matching durable-effect comparisons for pipeline
-  node edit/copy/restore/reviews, four selection families, pipeline-run submission, job controls,
-  frame-review save, and calibration draft start/update/discard. The unregistered video URL returns
-  the measured 404 boundary response. See `docs/reports/0114-M7_Interactive_Writes_and_Controls.md`
-  and `docs/reports/0114-M7_Interactive_Writes_and_Controls_Samples.json`.
-- M7 checks: focused pytest, Ruff check and format, the 36-sample runner, inventory coverage check,
-  API generation, and API verification passed. The restore request model now declares optional
-  `base_pointers`, which its production handler already reads.
-- M8 checks: the combined residual-write pytest passed (2 tests, 8 named responses), Ruff and
-  format checks passed, and inventory coverage reports no missing write scenario. Calibration
-  apply persisted its exact published calibration revision, reflow proposal, and visible-card node
-  revision. The real endpoint test also exposed and fixed calibration snapshot revision lookup and
-  published-run schema errors.
-- See `docs/reports/0114-M8_Residual_Writes.md` and
-  `docs/reports/0114-M8_Residual_Write_Samples.json`. M8 samples are preliminary, one response per
-  case, and are not a baseline.
-- M9 completed named real-backend API cases for evidence frame and snippet, recording video and
-  bounded range, thumbnail, derived event frame, and identity crop. Cold/warm responses retained
-  exact bytes and identity. A persisted new identity revision was read through its own crop path;
-  a saved review did not alter that immutable crop; and the saved crop remained readable after app
-  restart. The unregistered UI video URL remains a 404 boundary. These are preliminary samples, not
-  a baseline. See `docs/reports/0114-M9_Media_Routes_and_Cache.md` and
-  `docs/reports/0114-M9_Media_Samples.json`.
-- M9 uses the real route and cache handlers with a deterministic thumbnail renderer stub because
-  the small local source recording is not decodable. Its range response is 55 bytes, below the
-  65,536-byte cap. M11 adds the frozen hard-video range budget through the M2 loopback runner.
-- M10 passed seven scenarios in 70 fresh contexts: the six browser workflows and controlled load.
-  It retained all request waterfalls, exact recording/revision/review/job identities, request counts,
-  browser cache events, derived-media ETags/cache-control, and actual 206 video-range bodies. Ten
-  fresh backend processes passed liveness, readiness, catalog, and exact workspace checks. See
-  `docs/reports/0114-M10_Real_Process_Browser_and_Load.md` and
-  `docs/reports/0114-M10_Real_Process_Browser_Samples.json`.
-- M10 used an isolated generated 64×64 recording with four identity outcomes, two identity
-  revisions, deterministic local processors, the production FastAPI app, real Uvicorn, and real
-  Vite. Its samples are preliminary. They do not qualify the frozen hard-data corpus or establish
-  hard-data browser timing. The hard asset returned a 1,554-byte range in this fixture; M2 measures
-  the frozen hard video range separately.
-- M10 checks: the 7-scenario/70-context browser run and 10-process startup suite passed. Web
-  TypeScript, targeted Prettier, backend Ruff check, and backend Ruff format checks passed. HTTP
-  errors, failed requests, timeouts, incorrect identities, and invalid range responses fail the
-  runner. Intentional navigation cancellations are retained separately from request errors.
-- M12 profiled hard lineage, workspace, and startup cases on the M11 Mac14,10 fixture. Ten lineage
-  history traversals accounted for 28.723 s of a 28.876 s measured hard request; workspace had five
-  traversals accounting for 14.325 s of a 20.351 s request. The process reached `backend_started`
-  in 0.39 s, while first useful startup probes dominated the 8.040 s startup-to-useful result.
-- M12 froze a 20% lineage target before implementation: cold median <=23.538 s and warm p95
-  <=23.655 s. The history lookup change measured 14.451 s cold median and 14.520 s maximum across
-  nine warm samples. The untouched full-workspace case, all ten hard startup trials, and the
-  real-process lineage revision-switch browser scenario passed. No baseline values changed. See
-  `docs/reports/0114-M12_Candidate_Profile_and_Cycle_One.md` and its sample files.
-- Cycle two selection: profile full-workspace revision-history parsing for a safe candidate that
-  preserves content validation; freeze its numeric target before any implementation. If the profile
-  does not support a safe bounded change, record the reason and run final qualification.
-- Next milestone: M13. Implement the next safe ranked candidate only after profiling and freezing a
-  numeric target, then run full qualification and close the epic.
-- Run authorization: 9 milestones requested, 8 completed, 1 remaining (M13). This fixed run
-  limit does not authorize adding milestones.
+- Run authorization: 9 milestones requested, 9 completed, 0 remaining. M0–M13 are complete.
+- Cycle two was profiled and stopped without a code change because the available reduction would
+  bypass required full-history validation or change workspace content. See the [M13 final report](../../reports/0114-M13_Final_Qualification_and_Closure.md).
+- M11's 6,456-sample raw corpus remains the immutable baseline. It covers 179 case budgets and 70
+  route keys. M13 adds 24 current hard-pipeline samples, 30 fresh startup processes, and 70 current
+  real-process browser/load samples. The full qualifier and route inventory both pass.
+- Current evidence: 57 hard assets validated; generated representative tier materialized and
+  validated with seed 11401; 76 registered API operations classified; one documented UI URL gap.
+  Backend checks and current browser qualification pass. The web suite retains two pre-existing
+  App-test fixture failures documented in M13; typecheck, lint, formatting, API verification, and
+  all seven real-process browser scenarios pass.
+- Remaining debt: about 30 M11 slow-debt case groups remain above their planning targets. The two
+  launch-modal UI test fixtures and a validation-preserving workspace candidate are follow-ups.
+- Next milestone: none. The epic is closed.
