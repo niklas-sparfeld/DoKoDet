@@ -2,9 +2,14 @@
 
 ## Plan status
 
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0108, 0110, 0112, and 0114 complete. Use the final 0112 storage boundaries and
   0114 qualification evidence. No unmet dependency for M6.
+- **Closure reason:** Complete
+- **Closure note:** The revised cleanup and selected cache-policy scope is complete. M15 records
+  both the verified changes and the unmet or unmeasured original goals. Operational-log,
+  recovery-copy, and campaign-intermediate lifecycle work continues in Epic 0118; bounded workspace
+  and startup work continues in Epic 0117.
 - **Outcome:** Reduce retained disk bytes, worktree cost, application overhead from data growth,
   and agent discovery cost. Preserve useful source material and human work. Bound the selected
   cache lifecycles and report unresolved growth risks for separate follow-up.
@@ -170,12 +175,12 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M12 | Implement and convert the selected format family, if justified | Complete |
 | M13 | Complete provider-cache recovery and concurrency evidence; run combined checks for implemented cache policies | Complete |
 | M14 | Add a small maintained storage map from existing evidence | Complete |
-| M15 | Run essential integrated checks and publish an honest closure report | Not started |
+| M15 | Run essential integrated checks and publish an honest closure report | Complete |
 
 ## Execution handoff
 
-- **Run:** The approved replan starts at M13. Requested: 3. Completed: 2. Remaining: 1.
-  M15 remains authorized. M14 and earlier are complete; see their reports.
+- **Run:** The approved replan started at M13. Requested: 3. Completed: 3. Remaining: 0.
+  M13–M15 are complete; this epic is closed. See the reports listed below.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -539,7 +544,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   attempt handshake and sustained lock interval. Combined checks cover cache budgets, expiry, pins,
   regeneration, stale identities, restart, interrupted pruning, and 0114 media behavior.
 - **Scope decision:** The independent operational-log, recovery-copy, and campaign-intermediate
-  lifecycle work is deferred to [Epic 0118](../4-blocked/0118-Operational_and_Recovery_Lifecycle.md).
+  lifecycle work is deferred to [Epic 0118](../2-ready/0118-Operational_and_Recovery_Lifecycle.md).
   Preserve active-job logs, recovery evidence, pinned cache entries, human data, and model assets.
   Retention and growth risks remain open until 0118 selects exact families and proves their
   dependencies and recovery paths.
@@ -561,9 +566,30 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 - **Decisions and limits:** The map reuses historical reports; it is not a current inventory or a
   physical-space, unique-allocation, or complete-backup claim. Log, recovery-copy, and campaign
   lifecycle remain deferred to Epic 0118.
-- **Next:** M15 — run essential integrated checks and publish an honest closure report.
+- **Next at that point:** M15 — completed below.
 - **Commit boundary:** The storage map, this epic and handoff update, and the board entry form one
   focused M14 commit.
+
+- **M15:** Complete. The [qualification and closure report](../../reports/0115-M15_Qualification_and_Closure.md)
+  records integrated cache checks, the maintained map review, a recovery verification against the
+  current retained local roots, and outcomes for the frozen M0 targets.
+- **Changes:** Closed only the revised 0115 scope. M3/M4 removals, tracking changes, isolated M12
+  compression results, and unchanged Git/LFS are reported separately. The 24.1 GiB recovery-tree
+  figure is recorded as an unmet, superseded conditional bound, not an accepted deletion target.
+  Epic 0117 and 0118 now have their completed prerequisites and are Ready.
+- **Checks:** The derived-view/conversion tests, provider-cache tests, backend media/API tests,
+  focused Ruff/format checks, exact retained-data recovery verifier, nine mapped local-root checks,
+  Markdown links and anchors, and `git diff --check` passed. The verifier summary is retained with
+  the M15 report. Existing baseline follow-ups are named in that report.
+- **Decisions and limits:** No positive physical-space reclamation is established. Historical
+  worktree, application-counter, and performance evidence is reported as measured at its recorded
+  revision, not as a fresh M15 measurement. Operational logs, recovery-copy expiry, campaign
+  intermediates, Git/LFS ownership, off-volume recovery, and some non-reconstructable training
+  inputs remain outside the closed scope.
+- **Next:** None within 0115. Continue operational lifecycle work in 0118 and bounded workspace
+  performance work in 0117.
+- **Commit boundary:** The M15 report and verification summary, closure and handoff update, board
+  entry, and dependent-plan status/link updates form one focused closure commit.
 
 ## M0 — Inventory and rank
 

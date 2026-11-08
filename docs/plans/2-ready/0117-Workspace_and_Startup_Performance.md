@@ -2,9 +2,9 @@
 
 ## Plan status
 
-- **Status:** Blocked
-- **Depends on:** 0114 complete. Wait for [0115](../3-in-progress/0115-Data_Cleanup.md)
-  M15 qualification and its final storage map before M0. Stabilize any remaining changes to node
+- **Status:** Ready
+- **Depends on:** 0114 complete; [0115](../5-closed/0115-Data_Cleanup.md) M15 qualification and
+  final storage map complete. Stabilize any remaining changes to node
   storage, transactions, and isolated storage before implementation. The separate
   [0118 lifecycle follow-up](0118-Operational_and_Recovery_Lifecycle.md) is not a
   prerequisite unless M0 finds a direct storage-contract conflict.
@@ -37,7 +37,7 @@ The hypothesis is that normal reads reconstruct more state than the operator nee
 measure history size, unrelated-data scans, repeated validation, and payload parsing separately.
 Adding HEAD without removing these paths would not satisfy this epic.
 
-[0115](../3-in-progress/0115-Data_Cleanup.md) owns cleanup and its selected storage-format change.
+[0115](../5-closed/0115-Data_Cleanup.md) owns cleanup and its selected storage-format change.
 This epic owns the current-state read boundary and its publication contract. Compare versions on
 identical retained inputs. Report cleanup gains separately from runtime gains. Keep closed epics
 and original performance evidence unchanged.

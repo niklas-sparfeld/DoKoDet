@@ -2,8 +2,9 @@
 
 ## Plan status
 
-- **Status:** Blocked
-- **Depends on:** Epic 0115 M15 storage map and closure evidence. Start M0 after that dependency is complete.
+- **Status:** Ready
+- **Depends on:** [Epic 0115 closure](../5-closed/0115-Data_Cleanup.md), its [M14 storage map](../../reports/0115-M14_Maintained_Storage_Map.md), and the
+  [M15 closure report](../../reports/0115-M15_Qualification_and_Closure.md) complete.
 - **Outcome:** Define safe, evidence-based retention and growth controls for selected operational
   logs, recovery copies, and campaign intermediates. Preserve active work, recovery evidence, and
   exact dependencies.

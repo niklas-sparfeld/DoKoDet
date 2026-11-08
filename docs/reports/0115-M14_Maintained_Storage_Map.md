@@ -55,4 +55,4 @@ reclaimed-space, or complete-backup claim. The accepted-loss stage is on the sou
 training inputs have provenance but cannot be reconstructed byte for byte. The shared Git/LFS
 object ownership question remains open. Cache budgets exclude pins or metadata as stated above.
 Operational logs, recovery-copy expiry, and campaign-intermediate lifecycle decisions are deferred
-to [Epic 0118](../plans/4-blocked/0118-Operational_and_Recovery_Lifecycle.md).
+to [Epic 0118](../plans/2-ready/0118-Operational_and_Recovery_Lifecycle.md).

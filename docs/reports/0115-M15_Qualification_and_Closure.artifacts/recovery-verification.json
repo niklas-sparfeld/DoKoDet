@@ -1,0 +1,40 @@
+{
+  "active_pipeline_nodes": {
+    "bytes": 1700808685,
+    "files": 27654,
+    "manifest_sha256": "7152b452c98bec2b0e512f8a5e5a9126f861566107fe242b635cfc01989100c7"
+  },
+  "migration_package": {
+    "activation_ready": true,
+    "files": 34414,
+    "resources": 2086
+  },
+  "plan_sha256": "9bf7bd2979ff3d20026e8509ed6f41b172e1fba8c4aab1002e395fd0bb68febc",
+  "raw_model_source": {
+    "bytes": 86430287,
+    "files": 8,
+    "manifest_sha256": "5b2f89c99fcc904a55e13941f5a10b6fa4fba5bbb56c450f2f5aa295416ca018"
+  },
+  "representative_recording": {
+    "bytes": 129435020,
+    "files": 4,
+    "manifest_sha256": "5790726918641f8b1134e061770f2e2f7645fc500035ad96ea6a1112e45d08ac"
+  },
+  "retained_records": {
+    "embedded_bytes": 145675545,
+    "files_exact": 441,
+    "resource_total": 150,
+    "resources": {
+      "calibration_draft": 13,
+      "independent_review": 11,
+      "maintained_draft": 126
+    }
+  },
+  "runtime_model_bundle": {
+    "bytes": 172911952,
+    "files": 8,
+    "manifest_sha256": "dc016eef9926eaaa61f79d5ad9da245b1f3f1fbaeb45764b2d7724b4ad94e092"
+  },
+  "schema_version": "0115-recovery-validation/v1",
+  "snapshot_sha256": "c8979c9a53956abd749e638466e1f88009f2e0ce8e725d674bf26ff0335ed430"
+}
