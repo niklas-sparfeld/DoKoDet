@@ -28,6 +28,7 @@ from PIL import Image, UnidentifiedImageError
 
 from .cards import CARD_IDENTITIES
 from .gemini_concurrency import GeminiRequestLimiter, get_shared_gemini_request_limiter
+from .provider_response_cache import ProviderResponseCacheLifecycle
 from .table_observation import IdentityCandidate
 from .visible_cards import (
     DEFAULT_MAX_RETRIES,
@@ -379,9 +380,16 @@ class GeminiCardClassifier:
 class CachedCardClassifier:
     """Cache Gemini classification results by their full transformed-crop request."""
 
-    def __init__(self, classifier: GeminiCardClassifier, cache_dir: str | Path) -> None:
+    def __init__(
+        self,
+        classifier: GeminiCardClassifier,
+        cache_dir: str | Path,
+        *,
+        lifecycle: ProviderResponseCacheLifecycle | None = None,
+    ) -> None:
         self.classifier = classifier
         self.cache_dir = Path(cache_dir)
+        self.lifecycle = lifecycle
         self.name = classifier.name
         self.version = classifier.version
         self.calibration = classifier.calibration
@@ -390,11 +398,20 @@ class CachedCardClassifier:
     def classify_ppm(self, crop_bytes: bytes) -> CardClassificationResult:
         request = CardClassificationRequest(crop_bytes=crop_bytes, model=self.classifier.model)
         path = self.cache_dir / request.request_key[:2] / f"{request.request_key}.json"
-        cached = self._load(path, request)
+        cached = (
+            self.lifecycle.load(path, lambda: self._load(path, request))
+            if self.lifecycle is not None
+            else self._load(path, request)
+        )
         if cached is not None:
             return replace(cached, cache_hit=True)
         result = self.classifier.classify(request)
-        self._store(path, request, result)
+        if self.lifecycle is None:
+            self._store(path, request, result)
+        else:
+            with self.lifecycle.access():
+                self._store(path, request, result)
+            self.lifecycle.stored()
         return result
 
     def _load(

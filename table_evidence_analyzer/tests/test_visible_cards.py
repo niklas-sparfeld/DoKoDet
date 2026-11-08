@@ -1,8 +1,14 @@
 import json
+import os
+import threading
 from pathlib import Path
 
 import pytest
 
+from table_evidence_analyzer.provider_response_cache import (
+    ProviderResponseCacheLifecycle,
+    ProviderResponseCacheRetention,
+)
 from table_evidence_analyzer.visible_cards import (
     CACHE_SCHEMA_VERSION,
     DEFAULT_MODEL,
@@ -303,6 +309,99 @@ def test_fresh_cached_provider_run_bypasses_and_refreshes_response_cache(
     assert fresh.cache_hit is False
     assert underlying.calls == 2
     assert cached.propose(request).cache_hit is True
+
+
+def test_bounded_provider_cache_replays_after_restart_without_provider_call(tmp_path: Path) -> None:
+    request = _request()
+    cache_root = tmp_path / "cache"
+    lifecycle = ProviderResponseCacheLifecycle(cache_root, ProviderResponseCacheRetention())
+    first = CachedVisibleCardProvider(
+        FakeVisibleCardProvider({request.image_sha256: _prediction()}),
+        cache_root / "visible-cards",
+        lifecycle=lifecycle,
+    )
+    original = first.propose(request)
+
+    class _NoProviderCall:
+        name = "fake"
+        version = "fake-v1"
+
+        def propose(self, _request: VisibleCardRequest) -> ProviderResult:
+            raise AssertionError("a replayed cache request called the provider")
+
+    restarted = CachedVisibleCardProvider(
+        _NoProviderCall(),
+        cache_root / "visible-cards",
+        lifecycle=ProviderResponseCacheLifecycle(cache_root, ProviderResponseCacheRetention()),
+    )
+    replay = restarted.propose(request)
+
+    assert original.status == "ok"
+    assert replay.cache_hit is True
+    assert replay.proposals == original.proposals
+
+
+def test_provider_cache_expiry_and_budget_preserve_pins(tmp_path: Path) -> None:
+    now = [1_000_000.0]
+    root = tmp_path / "cache"
+    retention = ProviderResponseCacheRetention(
+        max_bytes=8,
+        idle_seconds=100,
+        clock=lambda: now[0],
+        sweep_interval_seconds=10,
+    )
+    lifecycle = ProviderResponseCacheLifecycle(root, retention)
+    older = root / "visible-cards" / "aa" / "older.json"
+    newer = root / "card-classification" / "bb" / "newer.json"
+    pinned = root / "visible-cards" / "cc" / "pinned.json"
+    for path in (older, newer, pinned):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("1234", encoding="utf-8")
+    os.utime(older, (now[0] - 3, now[0] - 3))
+    os.utime(newer, (now[0] - 2, now[0] - 2))
+    os.utime(pinned, (now[0] - 1, now[0] - 1))
+    pinned.with_name("pinned.json.pin").write_text("pinned\n", encoding="utf-8")
+
+    lifecycle.stored()
+    assert not older.exists()
+    assert newer.exists()
+    assert pinned.exists()
+
+    now[0] += 101
+    assert lifecycle.load(pinned, lambda: pinned.read_text(encoding="utf-8")) == "1234"
+    assert pinned.exists()
+
+    stale = root / "visible-cards" / "dd" / "stale.json"
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text("stale", encoding="utf-8")
+    os.utime(stale, (now[0] - 101, now[0] - 101))
+    stale_value = lifecycle.load(
+        stale,
+        lambda: stale.read_text(encoding="utf-8") if stale.exists() else None,
+    )
+    assert stale_value is None
+    assert not stale.exists()
+
+
+def test_provider_cache_lifecycle_waits_for_active_cache_access(tmp_path: Path) -> None:
+    root = tmp_path / "cache"
+    lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
+    attempted = threading.Event()
+    finished = threading.Event()
+
+    def store() -> None:
+        attempted.set()
+        lifecycle.stored()
+        finished.set()
+
+    with lifecycle.access():
+        worker = threading.Thread(target=store)
+        worker.start()
+        assert attempted.wait(timeout=2)
+        assert not finished.is_set()
+
+    worker.join(timeout=2)
+    assert finished.is_set()
 
 
 class _FakeHTTPResponse:

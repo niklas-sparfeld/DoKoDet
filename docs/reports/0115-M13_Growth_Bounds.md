@@ -1,7 +1,7 @@
 # Epic 0115 M13: growth bounds package plan
 
 Date: 2026-11-08
-Status: Packages 1 and 2 complete; M13 remains in progress
+Status: Packages 1, 2, and 3 complete; M13 remains in progress
 Planning revision: `84a8835c`
 
 ## Why M13 has separate packages
@@ -147,13 +147,67 @@ Package 2 commit boundary: sampled-frame retention, backend wiring, focused test
 this report, epic, and handoff. M13 remains incomplete until the later writer packages and combined
 checks pass.
 
+## Package 3: provider-response cache
+
+The active backend construction in `backend/src/dokodetector_backend/gemini_analyzer.py` writes
+visible-card responses (Gemini or selected local provider) under `.runtime/gemini-cache/visible-cards`
+and Gemini identity responses under
+`.runtime/gemini-cache/card-classification`. Both entries bind the complete request key and
+provider or classifier version. They retain raw provider JSON, normalized output, usage, and the
+estimated receipt cost. A valid cache hit sets `cache_hit` and skips the provider request. The
+backend API is the active writer. The cache-only `operations/scripts/run_0088_m2_reference_comparison.py`
+is an exact identity-cache reader; its checked-in report records 209 cache hits, zero new requests,
+and USD 0.19358325 in historical estimated receipt costs. It blocks live Gemini calls. The cache is
+replay data, not the durable M2 report or saved pipeline/review output.
+
+The runtime cache had 18,655 JSON files and 2,896,399,193 logical bytes (2.697 GiB) at this
+package's measurement. Entry ages ranged from 3.21 to 70.02 days, so none exceeded the selected
+idle limit. The policy gives this cache root a 180-day idle expiry and a 4 GiB logical-byte budget
+across both subdirectories. The budget adds 1,398,568,103 bytes of headroom over the measured
+contents. When a write pushes the root over budget, the policy removes least-recently-used
+unpinned JSON entries first. A cache hit refreshes its idle timestamp. Expiry runs on access; a
+whole-root sweep runs at most hourly, and writes enforce the budget. There is no background task.
+Lock and sweep-marker files are outside the byte count.
+
+The lifecycle lock protects entry reads, writes, and pruning across threads and processes. Provider
+requests run outside the lock; their request and response remain in memory while in flight. Writes
+retain the cache API's atomic file replacement. The next access can repeat interrupted pruning.
+Files can be protected by a sibling `.json.pin` marker. Pinned entries are excluded from expiry and
+budget eviction. The exact 209 response files used by the 0088 M2 cache-only replay were checked
+against the report's request keys, crop digests, classifier version, status, and receipt costs, then
+pinned. They total 632,958 bytes. The [pin manifest](0115-M13_Growth_Bounds.artifacts/provider-cache-pins.json)
+records each response digest and the source report digest. Other provider cache entries remain
+regenerable by the current request path, at the possible cost of another Gemini request.
+
+Three focused lifecycle tests cover deterministic idle expiry, oldest-first budget eviction with
+pin preservation, and waiting for an active cache access. A cache replay test creates a new cache
+wrapper over the stored response and confirms it returns the same output without invoking its
+provider. Backend integration checks confirm the cache wrappers use the configured runtime root
+and policy. These tests use fake providers; no paid provider request was made.
+
+Checks: 26 provider and classifier tests passed; 16 backend construction and integration tests
+passed; Ruff check, Ruff format check, and `git diff --check` passed. The full
+`backend/tests/test_app.py` run had one unrelated failure in
+`test_factory_converts_interrupted_round_analysis_to_failed`: it observed `queued` instead of
+`failed`. A focused repeat also failed. The test and changed files concern separate round-analysis
+state handling; this remains a follow-up for that subsystem. This package did not rerun the 0114
+media qualifier.
+
+Limits: the 4 GiB budget excludes pinned responses, lock/sweep files, and filesystem overhead. It
+can therefore be exceeded if more evidence is pinned. TTL and budget maintenance occur on access
+or write, not in the background. Provider cache eviction can cause a new paid request when a caller
+repeats an uncached request. The 0088 M2 output remains the durable result; its exact raw receipts
+are separately pinned for cache-only replay.
+
+Package 3 commit boundary: shared cache lifecycle, Gemini backend wiring, focused tests, the exact
+M2 replay pin manifest, this report, epic, and handoff form one focused package commit. M13 remains
+incomplete until packages 4 and 5 and the combined M13 checks pass.
+
 ## Remaining M13 packages
 
-1. Provider-response cache: confirm the active request/cache readers and replay/cost behavior before
-   setting its own budget and expiry.
-2. Operational logs: select one ranked writer family. Preserve active-job logs and recovery
+1. Operational logs: select one ranked writer family. Preserve active-job logs and recovery
    evidence; campaign logs need a separate retention decision.
-3. Recovery copies and campaign intermediates: select one exact family at a time and prove its
+2. Recovery copies and campaign intermediates: select one exact family at a time and prove its
    pins, dependencies, reconstruction or restore path, and expiry condition before cleanup.
 
 These packages remain part of M13 and do not add to the four-milestone run limit. Package 1 bounds
@@ -164,7 +218,7 @@ the authorized run.
 ## Run handoff
 
 The active run requested four milestones (M12–M15). M12 is complete. M13 is the current milestone,
-so the run has completed 1/4 and has 3/4 remaining. M13 packages 1 and 2 are complete. The
-provider-response cache, one selected operational-log writer, and exact recovery or campaign
-families remain future M13 packages. M14 and M15 remain within this run's limit; these packages do
-not add milestones or authorize work past M15.
+so the run has completed 1/4 and has 3/4 remaining. M13 packages 1, 2, and 3 are complete. One
+selected operational-log writer and exact recovery or campaign families remain M13 packages. M14
+and M15 remain within this run's limit; these packages do not add milestones or authorize work past
+M15.

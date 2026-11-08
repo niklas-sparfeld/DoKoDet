@@ -1,0 +1,1684 @@
+{
+  "cache_root": ".runtime/gemini-cache",
+  "entries": [
+    {
+      "cache_relative_path": "card-classification/01/018f1f3ba9221a0b03fc82b9559776202a3384a31fef6fe05f376a2ae5bfce71.json",
+      "crop_sha256": "5c30751ade1cb421b765e4e776bbf9199d6fe86d1e64ee97f85320a03b5f1bc2",
+      "estimated_receipt_cost_usd": 0.000927,
+      "request_key": "018f1f3ba9221a0b03fc82b9559776202a3384a31fef6fe05f376a2ae5bfce71",
+      "response_sha256": "9ce4f10758a0304ee76f94287af190b9c430912de75e360ca985dd15b9749f65",
+      "size_bytes": 3742
+    },
+    {
+      "cache_relative_path": "card-classification/03/031b97ee38290cd83b22f1695a65e5db7361cd32ac0ca149d4b0807f61bf91ac.json",
+      "crop_sha256": "b6d60d4120e741d9caa322e3994fbed9c2794fd675ddd8af3aa834b51d8b31d9",
+      "estimated_receipt_cost_usd": 0.00094425,
+      "request_key": "031b97ee38290cd83b22f1695a65e5db7361cd32ac0ca149d4b0807f61bf91ac",
+      "response_sha256": "d541a0f4227cbf53e1a17778e521d5dbc6767c3a185a62289e45b2bd0d8fccc2",
+      "size_bytes": 2627
+    },
+    {
+      "cache_relative_path": "card-classification/03/032fc751085b9888cf5b615c7b5027eb78f1d15d88336194d8fac7b912ea6406.json",
+      "crop_sha256": "1c41697452ee10cba0f2e1b1dba6ab1ab1a0d6a5a64d2eb9428d991e44635e5b",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "032fc751085b9888cf5b615c7b5027eb78f1d15d88336194d8fac7b912ea6406",
+      "response_sha256": "a0072bd01b8d628afe636a6fba7ab9ba458adc0ce6a46bd27fbb72429312a50a",
+      "size_bytes": 2642
+    },
+    {
+      "cache_relative_path": "card-classification/06/06316474a5919a0628c1f54fb0400898413db4f7522a6c7a5312b39160425057.json",
+      "crop_sha256": "329676e9812fbd180f1dc96f1fcb29719e84ea4c994a2a3eb68efac4844cc41c",
+      "estimated_receipt_cost_usd": 0.00091875,
+      "request_key": "06316474a5919a0628c1f54fb0400898413db4f7522a6c7a5312b39160425057",
+      "response_sha256": "c2d7d98439308999e7ab4b92ff616536dbf5bb86d29e3a5e53d9fde0ad74823b",
+      "size_bytes": 2659
+    },
+    {
+      "cache_relative_path": "card-classification/08/086b9641fffc9dfad4618d93c5facddc0026760537dca83c1e4455c48d8918ed.json",
+      "crop_sha256": "cfa83549ae7f2a4941debdf3394c627fae0ee1e5e81677a319490b958f19418a",
+      "estimated_receipt_cost_usd": 0.00094425,
+      "request_key": "086b9641fffc9dfad4618d93c5facddc0026760537dca83c1e4455c48d8918ed",
+      "response_sha256": "74cba85ddacbf160a6ec10d049e716b29dc4cb5f77939e9c42bb365f12e29359",
+      "size_bytes": 2635
+    },
+    {
+      "cache_relative_path": "card-classification/09/090310415770502ef9f78b1d985def77e7c6cf5dac5cedfb9afe23345c43d697.json",
+      "crop_sha256": "d595e63ebd807a7ff9d827c269ca6b5f9eed8b857d73a59a3f62e1cfde6867d1",
+      "estimated_receipt_cost_usd": 0.00092475,
+      "request_key": "090310415770502ef9f78b1d985def77e7c6cf5dac5cedfb9afe23345c43d697",
+      "response_sha256": "523c25fa8e1c54489c53436dd1b7e9b1a471d43367d6355e5b7d364b1d5235b2",
+      "size_bytes": 2777
+    },
+    {
+      "cache_relative_path": "card-classification/09/098606a7b8a9067cf63f95428a66cdc7cf24fb6ea8395899b9f8e2a7b79d66af.json",
+      "crop_sha256": "4cc5e0b81a175d7d711f29f2bc56dc7deffdf38ddcb4dbc266db1a8a7c049a25",
+      "estimated_receipt_cost_usd": 0.00093825,
+      "request_key": "098606a7b8a9067cf63f95428a66cdc7cf24fb6ea8395899b9f8e2a7b79d66af",
+      "response_sha256": "7844ff155251224da7dd982797e5f26029bd255d66122bb3db850135c1bbe662",
+      "size_bytes": 2707
+    },
+    {
+      "cache_relative_path": "card-classification/0a/0a400adc9457c435fca2c5466a1b9c38b605f2e4c2ed9f6497cf339f7a9739fd.json",
+      "crop_sha256": "eff7320a9f587b2132d3715ecb1324ce99b12ebf41f7e693859efe481d646ab6",
+      "estimated_receipt_cost_usd": 0.000924,
+      "request_key": "0a400adc9457c435fca2c5466a1b9c38b605f2e4c2ed9f6497cf339f7a9739fd",
+      "response_sha256": "945d9c2e01372f6a8d69a4a8ce746aab0f34502eda6855380190f3b757bb7724",
+      "size_bytes": 2692
+    },
+    {
+      "cache_relative_path": "card-classification/0b/0becddf3752b4e52e8da97647ee17bfb610527bc57b2091f869d2ff3527d5698.json",
+      "crop_sha256": "712eb2ced6228e3bd689b09595467823d4548833dd3c22703b45dabb90e29373",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "0becddf3752b4e52e8da97647ee17bfb610527bc57b2091f869d2ff3527d5698",
+      "response_sha256": "7d98e0a921ee2a35133e741e08e3bca6cefd3701fe5b6464cb3704cad1419237",
+      "size_bytes": 2579
+    },
+    {
+      "cache_relative_path": "card-classification/0d/0d9fd67b01d3a8dbad4abfef410f057ebdfed1cd1207c6511be5fd91171ebf99.json",
+      "crop_sha256": "b56e3eecd65af19220a873e8ea88d25916f82d7efb2b4f6f2d7bba2af4d57368",
+      "estimated_receipt_cost_usd": 0.00094875,
+      "request_key": "0d9fd67b01d3a8dbad4abfef410f057ebdfed1cd1207c6511be5fd91171ebf99",
+      "response_sha256": "2208ed083944e5454cf536683223f8b9b2eebf7306c60c6cdf460fcf899bfbd4",
+      "size_bytes": 2618
+    },
+    {
+      "cache_relative_path": "card-classification/0e/0e56d2adc86eb89336a4694c285a34ec863b879b4a85c14494d1cb7ab516ff61.json",
+      "crop_sha256": "f46f161d0e3d9ef41c16a16b471c5b9c99ebdf59c8c5e825b65290af4942d902",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "0e56d2adc86eb89336a4694c285a34ec863b879b4a85c14494d1cb7ab516ff61",
+      "response_sha256": "c73114d986e39ad53ec516574bb6e89f7485e7c312436b9a062aa017e74c713e",
+      "size_bytes": 2621
+    },
+    {
+      "cache_relative_path": "card-classification/0e/0e87c745f5c0efa4613e9a6b59745011735f0ec90bd005bf11599edadea766fa.json",
+      "crop_sha256": "c6c67343291ef737e7c189d5fe1625531eafe0640849e904163f818b43c7d587",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "0e87c745f5c0efa4613e9a6b59745011735f0ec90bd005bf11599edadea766fa",
+      "response_sha256": "9fe88b9833606cf8cb83da84de67f4a9fd7774f7593fd044cbe8a647b015f6bb",
+      "size_bytes": 2722
+    },
+    {
+      "cache_relative_path": "card-classification/11/1169657216af1f8b658a292646234106f92151b6725b513277b2efeb05eb9be1.json",
+      "crop_sha256": "96b5e0e6099b5de2c4c038d3b45766a5facaeef89fa83c6c42ff67c66dd5f26e",
+      "estimated_receipt_cost_usd": 0.00093825,
+      "request_key": "1169657216af1f8b658a292646234106f92151b6725b513277b2efeb05eb9be1",
+      "response_sha256": "051290d0f3c0f49d32c18704ca31d25c61fdc83e649dc467b81bb9f43e18d83f",
+      "size_bytes": 8678
+    },
+    {
+      "cache_relative_path": "card-classification/12/12717bcfab2a12ca40a50b3119e4c11eb8b54311cd109e40f8a350643b5ed2ec.json",
+      "crop_sha256": "fa63138ba0e1fde536b56b0b85306c87bacbe64500250b73556c5260dbbc5480",
+      "estimated_receipt_cost_usd": 0.00090975,
+      "request_key": "12717bcfab2a12ca40a50b3119e4c11eb8b54311cd109e40f8a350643b5ed2ec",
+      "response_sha256": "7913660f730ce6d741bd6779b5e822d46ba559a792eca5c58b330104e7f8a1e1",
+      "size_bytes": 2683
+    },
+    {
+      "cache_relative_path": "card-classification/15/15d8259e44b1cab7f312ed2550324e2e13b9d36c9955bb73b45f64ffd6ac850f.json",
+      "crop_sha256": "bec7bb642bf2eb8111e7a851b9cfedf4ff6985b96c6d030ff8871deeea56a29a",
+      "estimated_receipt_cost_usd": 0.0009135,
+      "request_key": "15d8259e44b1cab7f312ed2550324e2e13b9d36c9955bb73b45f64ffd6ac850f",
+      "response_sha256": "546cb362ed5fe1c4029a9655dec2f1d67391d9d4fe1f7a4b5de79078a3b5f327",
+      "size_bytes": 2733
+    },
+    {
+      "cache_relative_path": "card-classification/16/161681b152a94d288ffcfc613893439ac7fb81963175c32c133332e7461e8f1a.json",
+      "crop_sha256": "2170970f5e2f40ec9589283a64cbd71c69b60f700114676f45ce793e0e8a7e20",
+      "estimated_receipt_cost_usd": 0.000921,
+      "request_key": "161681b152a94d288ffcfc613893439ac7fb81963175c32c133332e7461e8f1a",
+      "response_sha256": "2b5248df94dd85285e8b05aeb8b8f67fda0b069e2c7f088e6e7769890de4c50e",
+      "size_bytes": 2677
+    },
+    {
+      "cache_relative_path": "card-classification/16/165f632ad3c231275fc5d1ef2d5febcd93af74f8a6ad1dcf29f3ab89daa0f354.json",
+      "crop_sha256": "607250ae78bb58d87c691770f463c2621b056829df23b963ec1d0f4827a222b3",
+      "estimated_receipt_cost_usd": 0.0009105,
+      "request_key": "165f632ad3c231275fc5d1ef2d5febcd93af74f8a6ad1dcf29f3ab89daa0f354",
+      "response_sha256": "4fcd60343ebf4bc34f67d5c53fd82d1efbbb90432c03a6562b05640285970013",
+      "size_bytes": 5611
+    },
+    {
+      "cache_relative_path": "card-classification/16/16815c074fc13e02beb20ef498193005e93bbb945f1d5a6034b890285a83497a.json",
+      "crop_sha256": "656dbf5adc3d34b1ed4daf8d3281cda6d4750c93a4b7921773a3af007f14fb53",
+      "estimated_receipt_cost_usd": 0.00091725,
+      "request_key": "16815c074fc13e02beb20ef498193005e93bbb945f1d5a6034b890285a83497a",
+      "response_sha256": "49809a49ed3a03691d6eaacd560e879a9893b064c48f5ed838fa825067d65870",
+      "size_bytes": 2708
+    },
+    {
+      "cache_relative_path": "card-classification/17/17b26ffd6e445602378834d5256e5c379ba059d5e2dc45f4feb3b14c0911b4b7.json",
+      "crop_sha256": "0946429d23829cf8600e91beb80453a532adb55898209b00d46f9f9de8d58f5a",
+      "estimated_receipt_cost_usd": 0.00094575,
+      "request_key": "17b26ffd6e445602378834d5256e5c379ba059d5e2dc45f4feb3b14c0911b4b7",
+      "response_sha256": "8c67e6afae4f1ad9143d17ce2a6fa7c5dd24ed86ed8cacecd74c0d2b398346e7",
+      "size_bytes": 2681
+    },
+    {
+      "cache_relative_path": "card-classification/18/1811e0c217b5938f62a2ff5762f98ce0a99add6beb8b0fa5e962ef94e0a548ea.json",
+      "crop_sha256": "71193c4f9b8b9a819e66124ef4d1be9a26b2fa1e7ab3a44ba9b381e89c309f54",
+      "estimated_receipt_cost_usd": 0.00094125,
+      "request_key": "1811e0c217b5938f62a2ff5762f98ce0a99add6beb8b0fa5e962ef94e0a548ea",
+      "response_sha256": "4b8be7132f8fe949d52e32c744ee4b534dba55d996e0005b57eccdd49fedd6c3",
+      "size_bytes": 13440
+    },
+    {
+      "cache_relative_path": "card-classification/18/18a8677f23de33ba95ccfe92d376e9ce8982ca25aeeccd215c6f67d4ae2e4381.json",
+      "crop_sha256": "dbf477b95f3f5e0e5a9b8cf564bca778275450c89da96c79c562426d6c41da47",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "18a8677f23de33ba95ccfe92d376e9ce8982ca25aeeccd215c6f67d4ae2e4381",
+      "response_sha256": "f8005c6a559fcc1f107cced20d8d0756b3a1710416643f70c2e7347c169cde31",
+      "size_bytes": 2730
+    },
+    {
+      "cache_relative_path": "card-classification/19/1936dd50d90a9009e16294d9fc86d2fdb89d97981f14ef3c321e199627d18693.json",
+      "crop_sha256": "58d49a551d24b9ea63157c0ee0ef8928bfbd622bad28d6d31bc0276c39927d5d",
+      "estimated_receipt_cost_usd": 0.0009465,
+      "request_key": "1936dd50d90a9009e16294d9fc86d2fdb89d97981f14ef3c321e199627d18693",
+      "response_sha256": "55272e3eacbc38205ff34b980ca9c8200146ae9bc28561c27bfa9895bdc1802f",
+      "size_bytes": 2713
+    },
+    {
+      "cache_relative_path": "card-classification/19/19374844158ca1e25aba761c21f18a156895cbb273a09c7641626f48e531576e.json",
+      "crop_sha256": "0fa518418272f3aad16e73e17f9af0a4bc5ff2330822dce45a7b5a0455c2d112",
+      "estimated_receipt_cost_usd": 0.00091275,
+      "request_key": "19374844158ca1e25aba761c21f18a156895cbb273a09c7641626f48e531576e",
+      "response_sha256": "09c9475074bef6a1754ada23af95bdee4e60ff05927248ba0281b74bf94d61d2",
+      "size_bytes": 2780
+    },
+    {
+      "cache_relative_path": "card-classification/19/1941e4b9177c0e7949f00e145035309318bd5130a383b7917331b3be193eec20.json",
+      "crop_sha256": "39b1dc46459c1b104393f222d711e38d39a032c3ae99747638801194b22914ad",
+      "estimated_receipt_cost_usd": 0.000897,
+      "request_key": "1941e4b9177c0e7949f00e145035309318bd5130a383b7917331b3be193eec20",
+      "response_sha256": "322527eb0aa4857c561f6aa682b2a16756ba9d7537f6c1c24ee0a06c05bdab1b",
+      "size_bytes": 2596
+    },
+    {
+      "cache_relative_path": "card-classification/1a/1ab3e8f5ac877750ea6f47315619f9f40f7751d34e5f0e61e22bc03696459d3c.json",
+      "crop_sha256": "5f125762be40c1b56058f6f304caa0ed05b4af8668a404f5563fbfdacda2d879",
+      "estimated_receipt_cost_usd": 0.00094275,
+      "request_key": "1ab3e8f5ac877750ea6f47315619f9f40f7751d34e5f0e61e22bc03696459d3c",
+      "response_sha256": "e16c76b4b51ac88bc917afee8e6a6572b1ff69f80775d5834270502e19040107",
+      "size_bytes": 2694
+    },
+    {
+      "cache_relative_path": "card-classification/1c/1cba4d06df18e0c5cf2865affab63d0493edacd8d45037148a3c91978eb5b0c2.json",
+      "crop_sha256": "2cbac4415a1bb5269673fc78f03095bdd3b6250d463ddbbf05e80cb270081df6",
+      "estimated_receipt_cost_usd": 0.0009405,
+      "request_key": "1cba4d06df18e0c5cf2865affab63d0493edacd8d45037148a3c91978eb5b0c2",
+      "response_sha256": "951c9c95550bc10cc94fe46998b8b0c9901ea615c1e4db0caffd9bdccf966fcc",
+      "size_bytes": 2634
+    },
+    {
+      "cache_relative_path": "card-classification/1c/1cf0383cf49f24236b397e688f8066ba3ee0c98e234790b74d5f28c57625fe61.json",
+      "crop_sha256": "5770ac9bffa8cccf4409c3455e5840ef755f517b2a8ee44a8beeb9cf430d66e8",
+      "estimated_receipt_cost_usd": 0.000948,
+      "request_key": "1cf0383cf49f24236b397e688f8066ba3ee0c98e234790b74d5f28c57625fe61",
+      "response_sha256": "281fdbc24c25abd4bbc8204375c08d4f54d9b80734799afcd9c6ec46abeeff70",
+      "size_bytes": 2704
+    },
+    {
+      "cache_relative_path": "card-classification/1e/1ef3d4556837931a3827ebaec654f4bda8887fe161ce9d067ec44a8366edfa49.json",
+      "crop_sha256": "1cdba40d80978a1bf682960e741cdc17b3697569465df2280781e178f05dd0f1",
+      "estimated_receipt_cost_usd": 0.000924,
+      "request_key": "1ef3d4556837931a3827ebaec654f4bda8887fe161ce9d067ec44a8366edfa49",
+      "response_sha256": "d776fea64437e63e61cfaa3501fbdc1485638312191287d83794b867da43ddff",
+      "size_bytes": 2945
+    },
+    {
+      "cache_relative_path": "card-classification/1f/1f54c3145beed3ac1ba646a508efad93da159023470ca561022f09c618d4737e.json",
+      "crop_sha256": "5d6e179a7487544336a04fd596bbbd95102d7ad46c50d0ce694d75021e190a27",
+      "estimated_receipt_cost_usd": 0.0009135,
+      "request_key": "1f54c3145beed3ac1ba646a508efad93da159023470ca561022f09c618d4737e",
+      "response_sha256": "2d558d60c267be57cc54a400b1e7925de1c8cf9489afae65d6cfc7a954adbb6c",
+      "size_bytes": 2638
+    },
+    {
+      "cache_relative_path": "card-classification/21/21798514b0aab9311c3d3aadff220a64fb49dc0543895ef115504223cb5663ee.json",
+      "crop_sha256": "6dddb20a1ed65cd52f3acc3054c9a1d89adc171b5cb72a1057e94c2c5ea33deb",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "21798514b0aab9311c3d3aadff220a64fb49dc0543895ef115504223cb5663ee",
+      "response_sha256": "043bcfbbaf273610535e549b55a39687e49877fa0630df6170b66ed465eacd1f",
+      "size_bytes": 3502
+    },
+    {
+      "cache_relative_path": "card-classification/21/21a4b68f0005f90bbf64ee85767ecbc29c1190a29ebe26dd9809ff46db1bd97f.json",
+      "crop_sha256": "f8fbb75a11ca14dbf224b8ba224d0c5725b7a04aa0df7685d2857f37f7f96930",
+      "estimated_receipt_cost_usd": 0.000933,
+      "request_key": "21a4b68f0005f90bbf64ee85767ecbc29c1190a29ebe26dd9809ff46db1bd97f",
+      "response_sha256": "efe3e3b9c55dc79ca0d4e8a3a861360926baf141016f59265ad453a54bb04dc8",
+      "size_bytes": 2791
+    },
+    {
+      "cache_relative_path": "card-classification/21/21d3ca473216d3619510ee3d104290c9614fc4d4563ee19a685c96812687440f.json",
+      "crop_sha256": "4eb9a6d8ef04e6a49bfa0c8223d31b2e18cd122c6ebf781bf07445ce5f9d820a",
+      "estimated_receipt_cost_usd": 0.00090975,
+      "request_key": "21d3ca473216d3619510ee3d104290c9614fc4d4563ee19a685c96812687440f",
+      "response_sha256": "7d2e500e1bb3aa99891fe5382e4880536777d137a15e6c8e0bea2b2537103c2c",
+      "size_bytes": 3118
+    },
+    {
+      "cache_relative_path": "card-classification/23/23ed6e92dbb6c5d6a7cbe3504533039956cf30d818e58afa6e1e14a6e167f622.json",
+      "crop_sha256": "b704e425fde24f350decd30ac2de1352881442c1f38028fe47f7f48656d7d690",
+      "estimated_receipt_cost_usd": 0.000924,
+      "request_key": "23ed6e92dbb6c5d6a7cbe3504533039956cf30d818e58afa6e1e14a6e167f622",
+      "response_sha256": "0ccda584a8e7d5445eb283b086de5240d159672f11570689e7f6bf9b35a4691b",
+      "size_bytes": 2869
+    },
+    {
+      "cache_relative_path": "card-classification/24/24326d2af86af73e21fe6de0016f2318835c3aaec26749f4b3da7b0be0063440.json",
+      "crop_sha256": "bf1a8904368cc2a38246beb79d75e6e98bb574ec44acdaf8da3482016302aa9a",
+      "estimated_receipt_cost_usd": 0.000909,
+      "request_key": "24326d2af86af73e21fe6de0016f2318835c3aaec26749f4b3da7b0be0063440",
+      "response_sha256": "0321f1f25aa48e39a276256ae4f302956866a7275c1b85b63bf4f774fd461975",
+      "size_bytes": 2841
+    },
+    {
+      "cache_relative_path": "card-classification/25/253cbd1bb92597557dbfc11a5a5bb718a5ab150c17378e39d3a0d953adf57e55.json",
+      "crop_sha256": "31629928c324dfe32dbc77829d075e1e699c808d78de0a6734c9d54d01cb7582",
+      "estimated_receipt_cost_usd": 0.00092475,
+      "request_key": "253cbd1bb92597557dbfc11a5a5bb718a5ab150c17378e39d3a0d953adf57e55",
+      "response_sha256": "d36549625849a3b7d43fb590eb4ec05a4e3cb3253fedab83e5c8bcf225572af4",
+      "size_bytes": 2581
+    },
+    {
+      "cache_relative_path": "card-classification/26/2611b35fca4db51dad9a3273ed832ef053d0adec760c543bc2507d90d6cf66be.json",
+      "crop_sha256": "7cb17d829ee8eb5ba6a821b14321659510db2cc8f6a372ce2e86f041d4b0f1e6",
+      "estimated_receipt_cost_usd": 0.000894,
+      "request_key": "2611b35fca4db51dad9a3273ed832ef053d0adec760c543bc2507d90d6cf66be",
+      "response_sha256": "d84d50d64314c907c93dc5f3af754892565f0e0326d427d559f6f40fc6405eed",
+      "size_bytes": 3327
+    },
+    {
+      "cache_relative_path": "card-classification/26/2645d391f16ab39868d1a96bc5dffd2f4aedceec89b0f49b43b82d1e87003301.json",
+      "crop_sha256": "23e0cd0e5c06a7b16828f0df1b6ed8ffcd9eff2d7c63eac7e32b920e54f4bf58",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "2645d391f16ab39868d1a96bc5dffd2f4aedceec89b0f49b43b82d1e87003301",
+      "response_sha256": "c0f71ad5ab1ea600f401a9dc4cdf24b0bf471bd89f5efa224347ab4ce6d6dbc8",
+      "size_bytes": 2623
+    },
+    {
+      "cache_relative_path": "card-classification/27/270905b1d9a262b22074d2a9548579e9b21ddd9f7fbe9d8e9b27d2c2f3750b17.json",
+      "crop_sha256": "ad6ff8f577f9ef4a9a419cc5468ecb722a4dfb5254047090edd59e5de4c51547",
+      "estimated_receipt_cost_usd": 0.000921,
+      "request_key": "270905b1d9a262b22074d2a9548579e9b21ddd9f7fbe9d8e9b27d2c2f3750b17",
+      "response_sha256": "bc094d8708994dfdff20963891d1a927a8a716ed22652bfb40e3fb6c43cf29a2",
+      "size_bytes": 2749
+    },
+    {
+      "cache_relative_path": "card-classification/27/2751f8a5c7028eed2668aedb5c16c432888e8ad8ffb2c99c547e9e67e18af160.json",
+      "crop_sha256": "25f5811f202f80afc3d18b068e430c5d2bdb47fad722ea37c794a4888f025fa9",
+      "estimated_receipt_cost_usd": 0.000942,
+      "request_key": "2751f8a5c7028eed2668aedb5c16c432888e8ad8ffb2c99c547e9e67e18af160",
+      "response_sha256": "9edfd3f4753fe866ff98fca5df33fff5f9f9c872767ed5d75ebe505992b6f95e",
+      "size_bytes": 2646
+    },
+    {
+      "cache_relative_path": "card-classification/28/28991ee8d84882fa1a42fd965f1a41fb5462a5adfa011c50f5a3bc2d8fb5058f.json",
+      "crop_sha256": "226413bd1b16c7681da9d923521ab384b9869c688cf6cbcbfc8a00a4807ff262",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "28991ee8d84882fa1a42fd965f1a41fb5462a5adfa011c50f5a3bc2d8fb5058f",
+      "response_sha256": "703c791d97a29392b6fada257351868b61c55b6c417312b659996f53a87df55c",
+      "size_bytes": 2585
+    },
+    {
+      "cache_relative_path": "card-classification/29/293c68df0295738db2e2e57268c6f17a9cb90a8fa3dc73a0f4014dd3479ad563.json",
+      "crop_sha256": "cf85cca39fcc8ce249483299c82d7e9534a2f5b9b9a9bfb92aaf5891ed7aa48a",
+      "estimated_receipt_cost_usd": 0.00091275,
+      "request_key": "293c68df0295738db2e2e57268c6f17a9cb90a8fa3dc73a0f4014dd3479ad563",
+      "response_sha256": "0bf69ae6744850db5e73f138a1291be0505b18854bdf7fa31e53bb335b999ebb",
+      "size_bytes": 2712
+    },
+    {
+      "cache_relative_path": "card-classification/2a/2a402a4cb22d73d56318bddd931fc5d9d25928ecf118671627f6723422082463.json",
+      "crop_sha256": "92d35492d612a629a9675c681a0a5e50ea35141b5980ec37d0c3bb1ced843583",
+      "estimated_receipt_cost_usd": 0.000921,
+      "request_key": "2a402a4cb22d73d56318bddd931fc5d9d25928ecf118671627f6723422082463",
+      "response_sha256": "0d61d38ae38cd24461e0ec43a868fb070bf4d9969dbecf0fa824278606e48780",
+      "size_bytes": 2665
+    },
+    {
+      "cache_relative_path": "card-classification/2a/2abb471a264ccee55e28658aad57e0f03f957b7fed6811f2516c90a1ec353b7b.json",
+      "crop_sha256": "a9b9a571ce401c2f922c08b1ea6ce897401ddaf1691cff668574c1cce150a89b",
+      "estimated_receipt_cost_usd": 0.00090075,
+      "request_key": "2abb471a264ccee55e28658aad57e0f03f957b7fed6811f2516c90a1ec353b7b",
+      "response_sha256": "498ba537d0c6d2a277fd5377ade76540531d95f05519edee91ef2f0b75ea4b93",
+      "size_bytes": 2811
+    },
+    {
+      "cache_relative_path": "card-classification/2b/2b3c09f4d0c932bf5eb27a729b93927ae445691d2a8c15d8821aa300a7c96bc7.json",
+      "crop_sha256": "2bf26bbf630373892c011e262c9c8271c9c44849ed085416137b019b50b6e598",
+      "estimated_receipt_cost_usd": 0.00092775,
+      "request_key": "2b3c09f4d0c932bf5eb27a729b93927ae445691d2a8c15d8821aa300a7c96bc7",
+      "response_sha256": "0b7b8c08bee5795b694928cbfd6f01045b0f9f05fb379424746774a0d1491b71",
+      "size_bytes": 3812
+    },
+    {
+      "cache_relative_path": "card-classification/2b/2b3caa548d4f7854864ed21bd6c25b0e23770bc15c8b6efc6c41d72cbf6343e2.json",
+      "crop_sha256": "0602e38af232221d5f147fd85ef22673000844d987ef00830c3f104655649978",
+      "estimated_receipt_cost_usd": 0.000948,
+      "request_key": "2b3caa548d4f7854864ed21bd6c25b0e23770bc15c8b6efc6c41d72cbf6343e2",
+      "response_sha256": "34d2bc26a61a0fc913c46981ae3e4f9340c70c10925abfc2cdd3e257a5e49f8a",
+      "size_bytes": 2733
+    },
+    {
+      "cache_relative_path": "card-classification/2b/2b9cd10c3602018e4de34d47635a4e7a694494e1141b55a9cea97c1138437bec.json",
+      "crop_sha256": "c7626b958eab3a5b4bc750f1c950362e18b4fe49ae14072f8812c1b270d74f8f",
+      "estimated_receipt_cost_usd": 0.00091425,
+      "request_key": "2b9cd10c3602018e4de34d47635a4e7a694494e1141b55a9cea97c1138437bec",
+      "response_sha256": "6afece43e864a068e10242e893d5b14347caf4e55d94c6001b5b1d5db35a0ef5",
+      "size_bytes": 2835
+    },
+    {
+      "cache_relative_path": "card-classification/2c/2ca363da1a8673e148d666dc341b1031a578e9f29886f485e85db565383f40e1.json",
+      "crop_sha256": "260e31ee385d9fcfff01e34ab9e8df783a681fc088b3e9f92f77a4fc4d45136d",
+      "estimated_receipt_cost_usd": 0.00093825,
+      "request_key": "2ca363da1a8673e148d666dc341b1031a578e9f29886f485e85db565383f40e1",
+      "response_sha256": "d4627ffd8dae0124133c867c7d7903405a3e2b2917d73f42ab60f2809806ce1b",
+      "size_bytes": 2645
+    },
+    {
+      "cache_relative_path": "card-classification/2d/2defe2225d6e7ac942d0eb25ef558d27ab7d24c63da76a4e72d925399f437c59.json",
+      "crop_sha256": "c70297c1f80f32e45f38bf54c4cad64d8cd6ede5730732f07a845dd6529bddc7",
+      "estimated_receipt_cost_usd": 0.00093675,
+      "request_key": "2defe2225d6e7ac942d0eb25ef558d27ab7d24c63da76a4e72d925399f437c59",
+      "response_sha256": "b830655e523d6a862c3cabfca77a16f4ec409e2c96d9bf2fab5017215149b500",
+      "size_bytes": 2747
+    },
+    {
+      "cache_relative_path": "card-classification/30/30ee5eb7318b3204cc438f1a85b74bab430f94eb3103525df916fb71e2af535c.json",
+      "crop_sha256": "2128d6ab1ca79dedde71c2f012779c6516e51e57219c7b90696764c36ef92c05",
+      "estimated_receipt_cost_usd": 0.00091875,
+      "request_key": "30ee5eb7318b3204cc438f1a85b74bab430f94eb3103525df916fb71e2af535c",
+      "response_sha256": "6f05a1359a3e300b498251b39f862c18c34bd10ddf7704a6d36cb2598bafe9ad",
+      "size_bytes": 2751
+    },
+    {
+      "cache_relative_path": "card-classification/30/30fa91a32eb74dad007e5c49a52541f6955161a06c581e7e7666f124cdcf433a.json",
+      "crop_sha256": "93b56d92cb2398906b0e68ecff960465b9a5bd7b4cd96a362857fd98d994873e",
+      "estimated_receipt_cost_usd": 0.000945,
+      "request_key": "30fa91a32eb74dad007e5c49a52541f6955161a06c581e7e7666f124cdcf433a",
+      "response_sha256": "d140b019f90dd0ec9f71a8655d7fa3a8839fa6b13fdfb93c2bb26be8a7ca2235",
+      "size_bytes": 3292
+    },
+    {
+      "cache_relative_path": "card-classification/31/318d57cb5826e09e8d7b46de111292f8122ff42a4344b0ce0deb41245aa40d3b.json",
+      "crop_sha256": "5d916e0873a3ca06b9a6d028dbc90f2cb46d0bedd24ce0db2be60795df4305b6",
+      "estimated_receipt_cost_usd": 0.00094425,
+      "request_key": "318d57cb5826e09e8d7b46de111292f8122ff42a4344b0ce0deb41245aa40d3b",
+      "response_sha256": "67f1c8351fcfae8e2c01869d4e4b5e8f15f8a27aeb80372c1fe4af9e35afc919",
+      "size_bytes": 2580
+    },
+    {
+      "cache_relative_path": "card-classification/32/326bbdbdc55e859e193c1cf67255da5b87f55792a33640640950014842d724d2.json",
+      "crop_sha256": "bee1f321855a5bb390e684e629b5fa92f201f1702f451f39a37634e3892bab76",
+      "estimated_receipt_cost_usd": 0.00093675,
+      "request_key": "326bbdbdc55e859e193c1cf67255da5b87f55792a33640640950014842d724d2",
+      "response_sha256": "a48aefcc78b6f80ce2ff01ba2d60abd4e345f7fcd23d6c8c66f482c5e27df6e7",
+      "size_bytes": 5050
+    },
+    {
+      "cache_relative_path": "card-classification/33/33047ea9bfcc823f2375aeee841580f1af76c961bd14bb7c17fdb6827e5a8447.json",
+      "crop_sha256": "ca700d5293ff46cb0be11e29af01e9b6046af4b4f74adaa4da266b78b63e7f93",
+      "estimated_receipt_cost_usd": 0.00090975,
+      "request_key": "33047ea9bfcc823f2375aeee841580f1af76c961bd14bb7c17fdb6827e5a8447",
+      "response_sha256": "69abc40ff51355df39a57e1ead4d1e89b91ab520b68ceeb0dc23f902c176ca58",
+      "size_bytes": 2641
+    },
+    {
+      "cache_relative_path": "card-classification/35/357f94b16cad35505765cb98de99645d5bc217aebc18f4ebe8a32b89014fd605.json",
+      "crop_sha256": "5b35a1a5dd916a816b3a3b8680df8b61c9e9a9720ebe6b08cceb7e0bd8ba7154",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "357f94b16cad35505765cb98de99645d5bc217aebc18f4ebe8a32b89014fd605",
+      "response_sha256": "505f2b606a54ab9bd4af5a097e6ecb9f1e480f6047c4e22cca530bf76409fc69",
+      "size_bytes": 2711
+    },
+    {
+      "cache_relative_path": "card-classification/35/35b040fe373b87aadc2191229231c9924f3e63975c5b7b4755fb47e1afc9cb8f.json",
+      "crop_sha256": "c441badbeb416439e1408b84c144c86f76190c455933681b6d423ea8cdad145b",
+      "estimated_receipt_cost_usd": 0.00090525,
+      "request_key": "35b040fe373b87aadc2191229231c9924f3e63975c5b7b4755fb47e1afc9cb8f",
+      "response_sha256": "f41a6de4c9a8e623d4bea0514583f15810f0b37ae9ca6507c55e5a98263a1bd5",
+      "size_bytes": 2663
+    },
+    {
+      "cache_relative_path": "card-classification/36/36125c9d45d986c26153a88ad414d36493dbe08f879e5ed97bea96d2f85c4b7c.json",
+      "crop_sha256": "57b3b044fedd59b50ddd33deab9b33f62f19ec99dc9897a883d4182790c7b8f4",
+      "estimated_receipt_cost_usd": 0.00091875,
+      "request_key": "36125c9d45d986c26153a88ad414d36493dbe08f879e5ed97bea96d2f85c4b7c",
+      "response_sha256": "62d36b58d80997b19c13a972ed7d329a5600c8adb45211390cefa91758f7ad72",
+      "size_bytes": 2744
+    },
+    {
+      "cache_relative_path": "card-classification/37/371cda19156aa4653486de8ef2fefe373ed2180debe92f2e8f7da0d1e272998e.json",
+      "crop_sha256": "7ab5fca96cc469cc7bf49e0dc03401ba82268c910efe8deec45e0891cd3f4c93",
+      "estimated_receipt_cost_usd": 0.00094425,
+      "request_key": "371cda19156aa4653486de8ef2fefe373ed2180debe92f2e8f7da0d1e272998e",
+      "response_sha256": "41da689230de20eb4b26905211dcb0f0496fe3b94ef6aa95ea1ec86e382ee1a0",
+      "size_bytes": 2810
+    },
+    {
+      "cache_relative_path": "card-classification/38/3804a23047cc03770b5383c1c9092a75af0c250bec6c0df1ea0ecc7a512d2d64.json",
+      "crop_sha256": "760095eb8cc4aa680299292ccd3a975bcdf6a1b3857f2c2400630edf28e8d7ec",
+      "estimated_receipt_cost_usd": 0.0009045,
+      "request_key": "3804a23047cc03770b5383c1c9092a75af0c250bec6c0df1ea0ecc7a512d2d64",
+      "response_sha256": "2b56a5e1811cc6d708d99c76e23afcbdfe0fd970fff29f72cc5ed75acd842000",
+      "size_bytes": 2715
+    },
+    {
+      "cache_relative_path": "card-classification/38/389204336b6abf0c7bbcc73ad595b6528b57954b8fef8edf56e62646b4ce0a53.json",
+      "crop_sha256": "ce0ec4042772344009fc8d7b5ffcd31eeda548e8cd46d8c0998d1ba9a865d476",
+      "estimated_receipt_cost_usd": 0.0009255,
+      "request_key": "389204336b6abf0c7bbcc73ad595b6528b57954b8fef8edf56e62646b4ce0a53",
+      "response_sha256": "4a672427a1cdbd8f92eead4a207518c340a5ef9415784ded69c6ae0f96338148",
+      "size_bytes": 2861
+    },
+    {
+      "cache_relative_path": "card-classification/39/396b6349302341481fcd1d6f3419a4d9b409bb626e2bf31276dd57b920388223.json",
+      "crop_sha256": "cc2aba781fd4601feb8887a990719753bd7df32e9d524bdff08f2383d97dec33",
+      "estimated_receipt_cost_usd": 0.0009555,
+      "request_key": "396b6349302341481fcd1d6f3419a4d9b409bb626e2bf31276dd57b920388223",
+      "response_sha256": "1d2252d99670b1bf0aa25d491ab76dbc17f062b825b823371ac3717191685ebb",
+      "size_bytes": 4221
+    },
+    {
+      "cache_relative_path": "card-classification/3c/3c85e11de009b3bf225d4bca409e598b1dcd8be8dd2fff6d8c638cd7f231315c.json",
+      "crop_sha256": "e78b0f3de6aa3b5319e942d86f1c5c29c1aa8269121db767af9ae96f59150864",
+      "estimated_receipt_cost_usd": 0.00090975,
+      "request_key": "3c85e11de009b3bf225d4bca409e598b1dcd8be8dd2fff6d8c638cd7f231315c",
+      "response_sha256": "fcfe86a582b36f68ad91c03e154ff8ed6fff636bdb4edc210b9473a3e4166b5d",
+      "size_bytes": 2589
+    },
+    {
+      "cache_relative_path": "card-classification/3e/3e6efa46f1d8c7de7b4cf001c6524e3efde6fa551e15c77e2c3f94a64a3f07d9.json",
+      "crop_sha256": "163a143e9d8b19805909420342e9787277b6828fe8f6b97b929614f331550a17",
+      "estimated_receipt_cost_usd": 0.0009225,
+      "request_key": "3e6efa46f1d8c7de7b4cf001c6524e3efde6fa551e15c77e2c3f94a64a3f07d9",
+      "response_sha256": "c23945c8fe868e8d41cac07e3845fec88cf1cf2ede22bfdc00cabbd77c3453c2",
+      "size_bytes": 3197
+    },
+    {
+      "cache_relative_path": "card-classification/40/402a0dd4487c19874418e3a8edeac94194410ccd90035bc047b078eba9796752.json",
+      "crop_sha256": "cf0a7118f07be07025e551c68d5731562e510c88a311a6883a11d7b21f85d0a4",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "402a0dd4487c19874418e3a8edeac94194410ccd90035bc047b078eba9796752",
+      "response_sha256": "1a7fb97a0808527e48e7665140864935ebd5bd3be3fa631767803ddbd4854363",
+      "size_bytes": 2668
+    },
+    {
+      "cache_relative_path": "card-classification/44/441b386859e6706114ef8d0dfac45a65bfc29b124a67b3b3ec266adde5361f93.json",
+      "crop_sha256": "4bf7bdfa02e42ea9230573f5be31a9e2bbb15a8a1c9343b8c3059bd61fbe75f5",
+      "estimated_receipt_cost_usd": 0.00094425,
+      "request_key": "441b386859e6706114ef8d0dfac45a65bfc29b124a67b3b3ec266adde5361f93",
+      "response_sha256": "2ca0376de5b8a4525b5ef76bac0bb8f5111f4a2b63346a2d0fa1f19fbebd3eca",
+      "size_bytes": 2688
+    },
+    {
+      "cache_relative_path": "card-classification/45/454664b3f77f78420d75a30f03267800fecca7fcb9ca1f1406e0a78481a987eb.json",
+      "crop_sha256": "f5809bf5a82c27fa25191ff1d9f8889ac5950ffeec08ae1442477b914a2b5c04",
+      "estimated_receipt_cost_usd": 0.000933,
+      "request_key": "454664b3f77f78420d75a30f03267800fecca7fcb9ca1f1406e0a78481a987eb",
+      "response_sha256": "50006949ec0149b4a52338238a0cacb5b046da8d2e9d0efc2f0d1975f99a048e",
+      "size_bytes": 2703
+    },
+    {
+      "cache_relative_path": "card-classification/45/455295d8d39508e432170b69f216b31e2341e3b9a7026637bc8981eabf793641.json",
+      "crop_sha256": "31ef0a0ec9a2272b6394a050e9c46cf6f5f79d831c4c46f7523480ea0a7453ab",
+      "estimated_receipt_cost_usd": 0.00092625,
+      "request_key": "455295d8d39508e432170b69f216b31e2341e3b9a7026637bc8981eabf793641",
+      "response_sha256": "95d0c49a993b2165dc5528239df7e1b293c806d03cb5dada6756735e30dec21c",
+      "size_bytes": 2663
+    },
+    {
+      "cache_relative_path": "card-classification/4b/4b91248509bb700658b7645ab9462a01b1a17e27685647fa1d2fb9d5a3f8b057.json",
+      "crop_sha256": "5c7ed4dcea3fd26a32904cfcbb9ab0b550bdaa985d3caf02e427ec1863829caf",
+      "estimated_receipt_cost_usd": 0.00094425,
+      "request_key": "4b91248509bb700658b7645ab9462a01b1a17e27685647fa1d2fb9d5a3f8b057",
+      "response_sha256": "5114d114319a4db6f448450cf6e456cd37e8c8ae3f8e221f1abc5a37cab43cba",
+      "size_bytes": 2789
+    },
+    {
+      "cache_relative_path": "card-classification/4c/4c1d765e74b3bc9fb24f24171cb4f9069c55cf0f04dd5fadfd910f99de98614e.json",
+      "crop_sha256": "4985720506351425426d1adf563cc4e7d00e82490edaa2c7ab11d0b204b60c52",
+      "estimated_receipt_cost_usd": 0.000945,
+      "request_key": "4c1d765e74b3bc9fb24f24171cb4f9069c55cf0f04dd5fadfd910f99de98614e",
+      "response_sha256": "95466dfdf9072894666af6b65eacdb69dd1994c85426cccebc4af2f0ae1990cf",
+      "size_bytes": 2637
+    },
+    {
+      "cache_relative_path": "card-classification/4c/4c37e727b9f8d1f391b71dcfca5e9a3bc9e831e42b4477c2cdb31c13765d3ce1.json",
+      "crop_sha256": "9c701573dd3a446fc69643d22aa15b55ea0708a3375114e9eb02e492989cf2a1",
+      "estimated_receipt_cost_usd": 0.000933,
+      "request_key": "4c37e727b9f8d1f391b71dcfca5e9a3bc9e831e42b4477c2cdb31c13765d3ce1",
+      "response_sha256": "6e1349f878942328a0a7fac976ac018da84933d25f02bcfbd00d3d674860473c",
+      "size_bytes": 2754
+    },
+    {
+      "cache_relative_path": "card-classification/4f/4f9bcce1969ea25b6a1df70379c9cb9bfacc783a76d9476c6110cad4f3e0b10b.json",
+      "crop_sha256": "9e06df11bd985ece91355cf8fd4f620c371083ed64e24452cfed476f6dcc2a6e",
+      "estimated_receipt_cost_usd": 0.0009165,
+      "request_key": "4f9bcce1969ea25b6a1df70379c9cb9bfacc783a76d9476c6110cad4f3e0b10b",
+      "response_sha256": "6cf235ebcbee2d9c4b9ac22c200bf4e23d903d4161c7536a7d463ae189b5fe64",
+      "size_bytes": 2893
+    },
+    {
+      "cache_relative_path": "card-classification/52/529eb8dabbfc9ace49b6877c21055deecc8761d9bfb04f3f54d196e33dc1175c.json",
+      "crop_sha256": "a6f7be461297a431ce5dc0c79f81a5f897c7e4567e3aac3d1fa1c69b0d84f84c",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "529eb8dabbfc9ace49b6877c21055deecc8761d9bfb04f3f54d196e33dc1175c",
+      "response_sha256": "d2636c1c05e1e949ff89d7f1737e7b627b91d448e66fb8eafb7bcf2de64c2501",
+      "size_bytes": 2626
+    },
+    {
+      "cache_relative_path": "card-classification/53/53089185802cd07e682d1ff9e031caf2b8943d6ce6cbd047877fa545d75ccd85.json",
+      "crop_sha256": "1f2efdbc5a9798ab6fc6d847c0b853a86e9d2e8723122dea3e6cbd7a538f0273",
+      "estimated_receipt_cost_usd": 0.0009315,
+      "request_key": "53089185802cd07e682d1ff9e031caf2b8943d6ce6cbd047877fa545d75ccd85",
+      "response_sha256": "6ac1a93c350434f92359cb65434cac2f23b690271f4b8543e33da6a778d1d260",
+      "size_bytes": 3304
+    },
+    {
+      "cache_relative_path": "card-classification/55/559c2f99e4dd28040dec2faaec25ae1dae139c983accef69ea1f4e1752309a03.json",
+      "crop_sha256": "9e91df875fddc1ff9917278abec0df9a2a2acdcb096771e44e0dfac0f7a181f2",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "559c2f99e4dd28040dec2faaec25ae1dae139c983accef69ea1f4e1752309a03",
+      "response_sha256": "d0092d70e3fcf7e16afc026b69c608d7d87c3824f08819114ac6c3901e151b89",
+      "size_bytes": 2631
+    },
+    {
+      "cache_relative_path": "card-classification/56/5655cf7a57c2a3b299ac08d05a231de69c70ffc7bc439d86349868b6f21f3471.json",
+      "crop_sha256": "0627ad904004b27f158b27deb981f9e0bf396159aef9ebb0a1f1b0672f28bcf3",
+      "estimated_receipt_cost_usd": 0.000924,
+      "request_key": "5655cf7a57c2a3b299ac08d05a231de69c70ffc7bc439d86349868b6f21f3471",
+      "response_sha256": "c8c754470b1a9ce09d97013f427596215325447164606c6ea09b5b69dc81d731",
+      "size_bytes": 2685
+    },
+    {
+      "cache_relative_path": "card-classification/5a/5aad7ee4450ba1a0d473238b4b25d5774b01aa36623efb150b2d5cba0ae3323a.json",
+      "crop_sha256": "8b049de50613fb47eee8448ecf25a987c5c25e017071187cdc9f5be9dfe36228",
+      "estimated_receipt_cost_usd": 0.0009465,
+      "request_key": "5aad7ee4450ba1a0d473238b4b25d5774b01aa36623efb150b2d5cba0ae3323a",
+      "response_sha256": "b80ead3cba9270296849d9ae5216d72c1f4c1cd99d680b30886c6d6252fbd7c7",
+      "size_bytes": 2694
+    },
+    {
+      "cache_relative_path": "card-classification/5d/5d21608052440d1b7c6707c6570e856f19a5f723e61fb4e1cf14a3e5bdc03579.json",
+      "crop_sha256": "660a63a235e4ddf1828495c1a7d21da4d2ac0d52f7afb5ea05d1201f9b525b3f",
+      "estimated_receipt_cost_usd": 0.0009015,
+      "request_key": "5d21608052440d1b7c6707c6570e856f19a5f723e61fb4e1cf14a3e5bdc03579",
+      "response_sha256": "029fd9fcce0ad3817ba287d86eb4f5b6cd0928fadf3087a298a73000f18129b0",
+      "size_bytes": 2866
+    },
+    {
+      "cache_relative_path": "card-classification/5d/5dc6dcb358dd895add1a1e04166bc7fc876d23d265e8b1ee137394b50003a04f.json",
+      "crop_sha256": "a2f42318e42cbe2aaf7f3988daa6fea916f9c212e2badb9d168d77ba64ebaf1f",
+      "estimated_receipt_cost_usd": 0.00092625,
+      "request_key": "5dc6dcb358dd895add1a1e04166bc7fc876d23d265e8b1ee137394b50003a04f",
+      "response_sha256": "7ab32cd84d815f30cddd7df927539b01cb64ee79e43fdb4e6a8c259dbbe9f023",
+      "size_bytes": 3323
+    },
+    {
+      "cache_relative_path": "card-classification/5e/5e0b818f6c74e465318f8f5e42975454045971022ac235ddd88c7b4deb2a7721.json",
+      "crop_sha256": "55d8cbae8164fa27dfce219533666dd14c626c6a019c0a277639a9da92ff23f6",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "5e0b818f6c74e465318f8f5e42975454045971022ac235ddd88c7b4deb2a7721",
+      "response_sha256": "761d717d26058cad7466eea8e9e5c3083e7d10fe282d8cb8277ac4d5054cb260",
+      "size_bytes": 2754
+    },
+    {
+      "cache_relative_path": "card-classification/5f/5fc2a4f0d1837384c233b1e86b96d7a1d707f52258f2e2907ba602867fc8bea1.json",
+      "crop_sha256": "65b50e72a589558ff2fd573931e81d6e07b8ac3639d312453f575e0b1578b240",
+      "estimated_receipt_cost_usd": 0.0009255,
+      "request_key": "5fc2a4f0d1837384c233b1e86b96d7a1d707f52258f2e2907ba602867fc8bea1",
+      "response_sha256": "852588ab59d9bdce222891d16f8a134f0b12301a9c95c7a93af4ec5790846af9",
+      "size_bytes": 2705
+    },
+    {
+      "cache_relative_path": "card-classification/60/608c5614ae8b8b5db4ce17106e14fe9399069c52fdd7a4fd13119a2c985acc8f.json",
+      "crop_sha256": "e7ecb8a8d525b9da8617f82bd88dd91b2948e629ffd502b23eca3d40c76c2099",
+      "estimated_receipt_cost_usd": 0.0009135,
+      "request_key": "608c5614ae8b8b5db4ce17106e14fe9399069c52fdd7a4fd13119a2c985acc8f",
+      "response_sha256": "d5ebbf3bd99f2223896a3c1248f694faaa2524c2749ad4382161b6335d2a76a4",
+      "size_bytes": 2589
+    },
+    {
+      "cache_relative_path": "card-classification/60/609a75c75256ba578086b67730761777a493397b0ce34dc3547c9b21bda914a8.json",
+      "crop_sha256": "fc3f53fe8befb55f9655aff2dec225d8eab1a205e09e7912711e1220c3475989",
+      "estimated_receipt_cost_usd": 0.0009405,
+      "request_key": "609a75c75256ba578086b67730761777a493397b0ce34dc3547c9b21bda914a8",
+      "response_sha256": "678d518d9387927a389a99809a01605ae25ed5a94e567c87e91627bef9689e46",
+      "size_bytes": 2926
+    },
+    {
+      "cache_relative_path": "card-classification/60/60f2fec0a8deb80f2b87ccfa4e3b0299f07eeb65d9473a4db9cd676fced48711.json",
+      "crop_sha256": "eb0afab2ab251961c34ec6fac60454e535f4146a19abea3d7a185b601a7e0bd8",
+      "estimated_receipt_cost_usd": 0.000909,
+      "request_key": "60f2fec0a8deb80f2b87ccfa4e3b0299f07eeb65d9473a4db9cd676fced48711",
+      "response_sha256": "47337ece97c2a9873e6bc5f292ef200bb880a12ddca88c6651dcb35f17a5b575",
+      "size_bytes": 3397
+    },
+    {
+      "cache_relative_path": "card-classification/61/6104d3ffc6041dda305880a5e3b1381920837b6150dbcc0c494bfe52aca4411a.json",
+      "crop_sha256": "bda24ec99c324cc39bfe2d7209adfa21980a45e0657b3dd59d341fcf04cab8a0",
+      "estimated_receipt_cost_usd": 0.00095925,
+      "request_key": "6104d3ffc6041dda305880a5e3b1381920837b6150dbcc0c494bfe52aca4411a",
+      "response_sha256": "174d7a27a7d6dff092099abed85658e265c59fbe544d2ac7366a2e9fea62d4c7",
+      "size_bytes": 2658
+    },
+    {
+      "cache_relative_path": "card-classification/61/610bd347636958688c73ccd694e500b570abfd884794fa2dca7cd80f157b1831.json",
+      "crop_sha256": "6ad427a49dbb2a48c94b75dc1364ccada70e698f2d1790bf3487343f63bd09b4",
+      "estimated_receipt_cost_usd": 0.000903,
+      "request_key": "610bd347636958688c73ccd694e500b570abfd884794fa2dca7cd80f157b1831",
+      "response_sha256": "32c70463209efa3969b6c6b22602baac80e8753f6889994e823608cdbe39956e",
+      "size_bytes": 2580
+    },
+    {
+      "cache_relative_path": "card-classification/61/6182c6eba9ee0c006eb6c5c7a10c0cfdcd232eb86540c4bb7f2edfd718e00198.json",
+      "crop_sha256": "c48391cb367f75d191411ee921c7bd3dd1f623d9444c412f51945c7f21b218fe",
+      "estimated_receipt_cost_usd": 0.000921,
+      "request_key": "6182c6eba9ee0c006eb6c5c7a10c0cfdcd232eb86540c4bb7f2edfd718e00198",
+      "response_sha256": "e3bedea1556a9ea61bef7a3b2590006343d51d6d94708ff88ecc83d082d5f0b0",
+      "size_bytes": 2616
+    },
+    {
+      "cache_relative_path": "card-classification/62/62c8b6e40d0b58e644f8d03570ccfb7da720537dbe0e95309670c2d47af461e8.json",
+      "crop_sha256": "b3ea8d50b7eeab1b187213e2da3e133cf93d5c3d9b34fe3b3d95651e6d15a533",
+      "estimated_receipt_cost_usd": 0.00091725,
+      "request_key": "62c8b6e40d0b58e644f8d03570ccfb7da720537dbe0e95309670c2d47af461e8",
+      "response_sha256": "9db82a1cedf54db6d379669c38cb10a930c09eaa9da339f2dfa0749948d0e255",
+      "size_bytes": 2754
+    },
+    {
+      "cache_relative_path": "card-classification/64/641fe352b86cfca6272a35c27c38e01cd420546d0cd9afe58aa38d67ce5076e6.json",
+      "crop_sha256": "98041298a47e863413b30a9f39aa1e96554dd17dd39e24d429da4d047b61bb6c",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "641fe352b86cfca6272a35c27c38e01cd420546d0cd9afe58aa38d67ce5076e6",
+      "response_sha256": "0fea8a2f9b8dbeedcf91807ef62661888e58fe3ebe60f5c09fb53d6f3a7bc7e3",
+      "size_bytes": 2590
+    },
+    {
+      "cache_relative_path": "card-classification/64/64e360aee31e19fe5c47a20dfe41abadbf96c79501beb02536ec2691246027fa.json",
+      "crop_sha256": "4e8103a4cf1f585f3cddf2b5be3f2f2d8817af6e38a8f09919866020bd197255",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "64e360aee31e19fe5c47a20dfe41abadbf96c79501beb02536ec2691246027fa",
+      "response_sha256": "40521e968769fce6e43d26632d7f1e0439d434bdc89cef973d70ed0298fef32d",
+      "size_bytes": 2585
+    },
+    {
+      "cache_relative_path": "card-classification/64/64ede7b02b3b488720c2a9cd361cb665d36a868bac65cae5bd89288eba40cb03.json",
+      "crop_sha256": "89ff67638e0559fa54b82f5e4750d0a4a313d7d05b9c21662d2543239d4b7398",
+      "estimated_receipt_cost_usd": 0.000933,
+      "request_key": "64ede7b02b3b488720c2a9cd361cb665d36a868bac65cae5bd89288eba40cb03",
+      "response_sha256": "91947c50f882d5f8e546d0662e2ed71560c224dfe9db334838b024aae8746f9e",
+      "size_bytes": 2790
+    },
+    {
+      "cache_relative_path": "card-classification/65/65d61f2452db5e9a3aaa3c0ce9382a39741887cbf8a42d3a6a0ff23dcf8798a4.json",
+      "crop_sha256": "8279a6d8796963561f6233c7e3a2fc3d85a732aaef7aa10dc868aecb6904e8d9",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "65d61f2452db5e9a3aaa3c0ce9382a39741887cbf8a42d3a6a0ff23dcf8798a4",
+      "response_sha256": "736719598bf8f8823441398bc42e8e38674f82e0707b57c129dcc8b87bb02391",
+      "size_bytes": 2797
+    },
+    {
+      "cache_relative_path": "card-classification/66/660124e156c4ab5d3e9830f7855e59b763013ff18a2177ab3205c691dc65ce28.json",
+      "crop_sha256": "3be0fa5d9d2bdac62b39ca366785b529d4888b9e38033216da06da704b11b133",
+      "estimated_receipt_cost_usd": 0.00090975,
+      "request_key": "660124e156c4ab5d3e9830f7855e59b763013ff18a2177ab3205c691dc65ce28",
+      "response_sha256": "0606b6ab4b8e4404a337de6661a773b1e722ffa1e4160c8e483fbd9b05d1d9fd",
+      "size_bytes": 2596
+    },
+    {
+      "cache_relative_path": "card-classification/66/663abd3e86eab10ccd03493efb3db1f5f8ade87d56de695bad717031ceb7fcfd.json",
+      "crop_sha256": "7d71d48bc95bbf5a1fe3d19c952b9fb1ec0daa63e791464adce7a4074b47e45c",
+      "estimated_receipt_cost_usd": 0.0009345,
+      "request_key": "663abd3e86eab10ccd03493efb3db1f5f8ade87d56de695bad717031ceb7fcfd",
+      "response_sha256": "408221f215861eb90e456424b24585a6164b9b7dfd7dcd87a39fd67dbdb354f9",
+      "size_bytes": 2707
+    },
+    {
+      "cache_relative_path": "card-classification/69/695d54dfca9aaa1bd368d04d27cf547adfc01d69c4ceec09b3393a5ecbb6a3fa.json",
+      "crop_sha256": "200188e495d155418c1c989f7e8c00b85500bbf66dfc5a1d46d5af4d29420abe",
+      "estimated_receipt_cost_usd": 0.000948,
+      "request_key": "695d54dfca9aaa1bd368d04d27cf547adfc01d69c4ceec09b3393a5ecbb6a3fa",
+      "response_sha256": "aea7fa9d6a01d6f7d93dd79e3c5e746919232225cbe1c86a0e5c766ba6c0df15",
+      "size_bytes": 2803
+    },
+    {
+      "cache_relative_path": "card-classification/69/69841c2c9b26b79cfbcd7e4ced66f0b3e026a23bbbf9204331d9ea217c07d444.json",
+      "crop_sha256": "709154938df58794864329a1852c3f36b1767de97f1b1b4be6e1df615aba35a5",
+      "estimated_receipt_cost_usd": 0.00093825,
+      "request_key": "69841c2c9b26b79cfbcd7e4ced66f0b3e026a23bbbf9204331d9ea217c07d444",
+      "response_sha256": "6188f898f3d2b4635a0913af995bb5693db814ebc2dab7d2f3ee57c8f3f1e8cf",
+      "size_bytes": 2669
+    },
+    {
+      "cache_relative_path": "card-classification/69/69d3f6adead7a72e6f4436dcff433dbb8ebfe12dab28c1e23c3335971c6897c4.json",
+      "crop_sha256": "582798a13b434d67ed98a9eefac7aa9457833f0907ca70b6c0e287fb397dac5c",
+      "estimated_receipt_cost_usd": 0.000948,
+      "request_key": "69d3f6adead7a72e6f4436dcff433dbb8ebfe12dab28c1e23c3335971c6897c4",
+      "response_sha256": "7880ccb2bf9ae2365ef5e3ff02c7cd4537b720c74b2f9c678c9e756449fc79ea",
+      "size_bytes": 2671
+    },
+    {
+      "cache_relative_path": "card-classification/6a/6a8f1af8c4b2b6aedaef3a09eace36054c8de13ae4f7a260fdff35d633e3c345.json",
+      "crop_sha256": "559c05b62c37509cc643a5d920a281d7a0f9aab304c106f8fb609ad17cf2de0e",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "6a8f1af8c4b2b6aedaef3a09eace36054c8de13ae4f7a260fdff35d633e3c345",
+      "response_sha256": "d4269346ef401657b351200bc744274dd7425bc6b656a49ba76b01100bd17b54",
+      "size_bytes": 2767
+    },
+    {
+      "cache_relative_path": "card-classification/6b/6b1d1922e8939ff19ed38eeca44cddbe19af726aea1e1843fe1f01a3178369da.json",
+      "crop_sha256": "5b816cd3d5ac1bfa86ebd97193c350dc00a1c124d3db1c806704313ddf5338bf",
+      "estimated_receipt_cost_usd": 0.0009405,
+      "request_key": "6b1d1922e8939ff19ed38eeca44cddbe19af726aea1e1843fe1f01a3178369da",
+      "response_sha256": "ec98f07a6025e6f3a9fd165f637db2943b705b6797609c1d7517ab30f4da955a",
+      "size_bytes": 2634
+    },
+    {
+      "cache_relative_path": "card-classification/6f/6f216ff6fd9f5bc4109547e1df36f456ae8be5b5701c272bf9742dde649e78eb.json",
+      "crop_sha256": "39ea399684762791c86b9dd79b1d2e0ff9ea673019f53f3ffaa5e7fdae8a7d6a",
+      "estimated_receipt_cost_usd": 0.0009225,
+      "request_key": "6f216ff6fd9f5bc4109547e1df36f456ae8be5b5701c272bf9742dde649e78eb",
+      "response_sha256": "ec990376e5024ef40ad8f3fdb3eebe079d9cb3f7dff0a777736b728cf2b79ba9",
+      "size_bytes": 2825
+    },
+    {
+      "cache_relative_path": "card-classification/6f/6fcbe0a5eff3c5805915fdd2869517c09d66fc3a59b226c31e57685e13b41854.json",
+      "crop_sha256": "2bc40a0aae79ba4bc3ea5490bfb3db7144977da302e3ef22cf55323013e528b7",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "6fcbe0a5eff3c5805915fdd2869517c09d66fc3a59b226c31e57685e13b41854",
+      "response_sha256": "e7108685d720a465a598b72ff437b1e8ef8aa0380de8d20a4f99a046a32aa1d0",
+      "size_bytes": 2619
+    },
+    {
+      "cache_relative_path": "card-classification/70/7000838abe5fb0b26b8578b76efc723885856a49df57898cf9838caa998ccdfe.json",
+      "crop_sha256": "5000a836d898dd9ef59360b6ceab39eb2efaec0d191aa486f31e4826ec114a8b",
+      "estimated_receipt_cost_usd": 0.00093225,
+      "request_key": "7000838abe5fb0b26b8578b76efc723885856a49df57898cf9838caa998ccdfe",
+      "response_sha256": "609c2619de8708a7d7e313f26e7017228280029fc76d31778b35d6e8993fe864",
+      "size_bytes": 2401
+    },
+    {
+      "cache_relative_path": "card-classification/70/7076ae870a824313168509ad2ec07f310cd55d16c5df929c4eacaf2cb58df0e8.json",
+      "crop_sha256": "d0cd11cdc652e8a33a7429d3e92ae5ee6b7d81e69be7b48cf7306e59324160f6",
+      "estimated_receipt_cost_usd": 0.00093825,
+      "request_key": "7076ae870a824313168509ad2ec07f310cd55d16c5df929c4eacaf2cb58df0e8",
+      "response_sha256": "bf59431b48f581ea110438c37e2d1ac0e092f3d74aedf3711ed89f113eee9c9b",
+      "size_bytes": 3066
+    },
+    {
+      "cache_relative_path": "card-classification/71/711099edcd553b9e2ff708ef8616edae20c171fecffae0c7679536cc196f6acf.json",
+      "crop_sha256": "067754028000f20958383b079b81958d4f7a5a89511b8c3ffdfd9b425e8b88d0",
+      "estimated_receipt_cost_usd": 0.000924,
+      "request_key": "711099edcd553b9e2ff708ef8616edae20c171fecffae0c7679536cc196f6acf",
+      "response_sha256": "a5b2a49196cd4367c5dfd4a6af570d98d2a073678c85e0dfd3cc24a90c84d18b",
+      "size_bytes": 2649
+    },
+    {
+      "cache_relative_path": "card-classification/73/73344cdf60417e9a1b68cc559a0e25ac3dadf03dbfae2a845d7343fb0d2d87df.json",
+      "crop_sha256": "200405efe007b275627d36c1fb93180fb38661b51d356c2c6c88dd27a1e31911",
+      "estimated_receipt_cost_usd": 0.00092475,
+      "request_key": "73344cdf60417e9a1b68cc559a0e25ac3dadf03dbfae2a845d7343fb0d2d87df",
+      "response_sha256": "0d65b5e96f7320d18fd0f7ca82bb34d6ea919bf2d88c3553f749bea876ce2039",
+      "size_bytes": 2789
+    },
+    {
+      "cache_relative_path": "card-classification/74/74f8697da36603e72405746ffc76fae635b854c5db42b989e9a68a6e88b619e1.json",
+      "crop_sha256": "71a217eb230dc3ea663cca82ef3072367f12b0732d13b05e0626ba7a2e3dac60",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "74f8697da36603e72405746ffc76fae635b854c5db42b989e9a68a6e88b619e1",
+      "response_sha256": "dae546c4a38c59b415e053c935ae0b56bcb4ecd9e5e01240d4ac7b50149178c5",
+      "size_bytes": 2918
+    },
+    {
+      "cache_relative_path": "card-classification/75/75e87a846597438411b7ab4e580f366799499fa911a1b7dd13ab9796dbe91069.json",
+      "crop_sha256": "d804fa9416c5079ec9e8a4a067b4408d9be61135b7c38f23f442f33fe3507f15",
+      "estimated_receipt_cost_usd": 0.00091275,
+      "request_key": "75e87a846597438411b7ab4e580f366799499fa911a1b7dd13ab9796dbe91069",
+      "response_sha256": "032437c0d6e3f73df29a1e067ed2226cc4880086958c5a766a81ec75fcf3e998",
+      "size_bytes": 2695
+    },
+    {
+      "cache_relative_path": "card-classification/76/76784f972d6d52844da537923347861844f800a0b34536e5500142a736ba4bcd.json",
+      "crop_sha256": "014b6f02dd745878f6227d56df98a4bfb346ba16061eb36870cfe4d12172fbc8",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "76784f972d6d52844da537923347861844f800a0b34536e5500142a736ba4bcd",
+      "response_sha256": "2d9dbc9d244f50dbb30cdf5c106f9dcb96d7b232f741718b4c654af38e67f945",
+      "size_bytes": 2709
+    },
+    {
+      "cache_relative_path": "card-classification/77/77b135ba74ec9dd9d451b235134912ab366ca6d37d34aa85251f2b887ec604b8.json",
+      "crop_sha256": "e72df6a4628284883e4a185116ca538746043915ad146ead0c361eb630a1ea4f",
+      "estimated_receipt_cost_usd": 0.0009105,
+      "request_key": "77b135ba74ec9dd9d451b235134912ab366ca6d37d34aa85251f2b887ec604b8",
+      "response_sha256": "d0a6c2d407898fad9408117fcb75c198a8b368359d5648e2ca19aa28f475cf71",
+      "size_bytes": 5603
+    },
+    {
+      "cache_relative_path": "card-classification/78/7854c291fe686f43e71bc94a952427ec7fa0049354563c7075afe1cd5a2cb37e.json",
+      "crop_sha256": "c71c23c7f320b90e4a5b13388c377e81a24ac50225c13f043daf681d80dc669c",
+      "estimated_receipt_cost_usd": 0.00090825,
+      "request_key": "7854c291fe686f43e71bc94a952427ec7fa0049354563c7075afe1cd5a2cb37e",
+      "response_sha256": "b2e03c441c4da456b06a4a1ed74bcaea3a34748e676279fa920b3d3cc970ab59",
+      "size_bytes": 3202
+    },
+    {
+      "cache_relative_path": "card-classification/7b/7bdef987d84af2ea6c7968d7886e653e97b5c34cd95bb7d462f4c6f61ccd2a33.json",
+      "crop_sha256": "dbdeb82af95f84f68acad60acce9da37102df18b9e53baa1b836161924862dd0",
+      "estimated_receipt_cost_usd": 0.0009285,
+      "request_key": "7bdef987d84af2ea6c7968d7886e653e97b5c34cd95bb7d462f4c6f61ccd2a33",
+      "response_sha256": "a941bc4781ce92892942a4c8925c4a79016a550ec16cebe39d60e940a88bb80c",
+      "size_bytes": 2574
+    },
+    {
+      "cache_relative_path": "card-classification/7c/7cf1a3ea2d7f905fca9cd1fd62b4042b741dc9bfc022e3fd7fc94765333eb4fd.json",
+      "crop_sha256": "d78ba23ed2ea7853bea62f8a20053abd1b358364c73625ac4e83e49a9930270a",
+      "estimated_receipt_cost_usd": 0.0009315,
+      "request_key": "7cf1a3ea2d7f905fca9cd1fd62b4042b741dc9bfc022e3fd7fc94765333eb4fd",
+      "response_sha256": "eab0a1add7d236cc072aadf865d9770b77646ed36f3861d0f8350e841bb229da",
+      "size_bytes": 2580
+    },
+    {
+      "cache_relative_path": "card-classification/7d/7d00d8a589eadb51c1befb5d1545490480947688f229f22765f8183a51597306.json",
+      "crop_sha256": "d816f15aa0e0c2a72a71a1e3acb131f2a8eddb6193cccd11e86d45d63182d61f",
+      "estimated_receipt_cost_usd": 0.000915,
+      "request_key": "7d00d8a589eadb51c1befb5d1545490480947688f229f22765f8183a51597306",
+      "response_sha256": "312e5c15e778447e2c2fc194afb00dd1066825e822ef621856fa52009792c143",
+      "size_bytes": 2684
+    },
+    {
+      "cache_relative_path": "card-classification/7d/7d186539103be4e94c8d11607f2b2aa14fdc20220af20674f548816d8c1ae3fd.json",
+      "crop_sha256": "c5ab188de8466cdcea6fa49d99039eee341fe9659583db0632a748f9cf85675a",
+      "estimated_receipt_cost_usd": 0.00090825,
+      "request_key": "7d186539103be4e94c8d11607f2b2aa14fdc20220af20674f548816d8c1ae3fd",
+      "response_sha256": "6ad2ab0aa9c5847646d70488e2906f8bf540d79e1461f32419b5a5dec98be5fd",
+      "size_bytes": 2711
+    },
+    {
+      "cache_relative_path": "card-classification/7d/7d924161bc03f4ef7706c1db67168a2eeae9c2fe673ef4d20bfc49d4119ca699.json",
+      "crop_sha256": "2d24573bb318b462e566d8880467238da6d739a0c334f4478d3ec90b1007811f",
+      "estimated_receipt_cost_usd": 0.000921,
+      "request_key": "7d924161bc03f4ef7706c1db67168a2eeae9c2fe673ef4d20bfc49d4119ca699",
+      "response_sha256": "632c33b7bd30dcec6a33016df300db66ebff2289f2ae10d19edf45bec5c6382c",
+      "size_bytes": 2537
+    },
+    {
+      "cache_relative_path": "card-classification/7d/7dc0eb945b2144a21f643ff9fb8180097dc1f344c67fa7154f5d809556944634.json",
+      "crop_sha256": "4a2d12bcc418255e365c5b6cc0a1dda5f591f609453d934a3f763f6a571b6857",
+      "estimated_receipt_cost_usd": 0.00094575,
+      "request_key": "7dc0eb945b2144a21f643ff9fb8180097dc1f344c67fa7154f5d809556944634",
+      "response_sha256": "c8e1fa691fe3d2953d816ebfd6df0b25d3026cc9e669560eaeb9c0805c488b63",
+      "size_bytes": 2713
+    },
+    {
+      "cache_relative_path": "card-classification/7d/7dc3d184b5e762785cf1849d65e7b2f0df674682d1ace1b2fca6ad01a4bb26e6.json",
+      "crop_sha256": "89f500ede8a322d44fdfc4f96e04435cb64f7b530554e28f12d683a1a341a83f",
+      "estimated_receipt_cost_usd": 0.0009405,
+      "request_key": "7dc3d184b5e762785cf1849d65e7b2f0df674682d1ace1b2fca6ad01a4bb26e6",
+      "response_sha256": "0ddb90e75d88ef2fee9e90377c4ba7d3d472bf8093e5371e3a3e3301114dc1ad",
+      "size_bytes": 6361
+    },
+    {
+      "cache_relative_path": "card-classification/82/82cba41ebeab75a8c90755109eb151d610e0fa9cf73911e0c08f5827a4760bce.json",
+      "crop_sha256": "6676708b0e93cedf7d5c3581ca484010034dd8251a02be540574fc9c3a67f237",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "82cba41ebeab75a8c90755109eb151d610e0fa9cf73911e0c08f5827a4760bce",
+      "response_sha256": "06f4da60cb606a89aac32730bd977544fc6ca0cd34723e124d69245187d4d2de",
+      "size_bytes": 2663
+    },
+    {
+      "cache_relative_path": "card-classification/84/842eb6cd7d13b311d4cc253bcd3838229f0c1d277f80a2aaf3c2f4abb0dff77e.json",
+      "crop_sha256": "a753db083b059cce197979c5a9e4a1ac1e35ad0e83c0beb8849d29d6ea5c6a99",
+      "estimated_receipt_cost_usd": 0.0009,
+      "request_key": "842eb6cd7d13b311d4cc253bcd3838229f0c1d277f80a2aaf3c2f4abb0dff77e",
+      "response_sha256": "8dc02e0815a60283631d1f3f7c4eb664f117578c5226db0dd396b20485a39244",
+      "size_bytes": 2612
+    },
+    {
+      "cache_relative_path": "card-classification/84/84bbcbe94e5474f31888631d84b187fcfba52222e67f4811aa0c33b3fe80991d.json",
+      "crop_sha256": "47f4aef9ecc7a321ebc55bd17842977d66f6f098324492cce923e0d684537322",
+      "estimated_receipt_cost_usd": 0.00093675,
+      "request_key": "84bbcbe94e5474f31888631d84b187fcfba52222e67f4811aa0c33b3fe80991d",
+      "response_sha256": "8270ec5f6f878e2cb399db4f758d0ad6e5df50d2d9e7fda3870afb9573c97812",
+      "size_bytes": 2815
+    },
+    {
+      "cache_relative_path": "card-classification/8a/8a44bc54c41528fd461def10a114410c6b0c76bccc7ef677f7dd9305fa8809a3.json",
+      "crop_sha256": "9d6d96fc64f26681571a6593c4289318300879dafc5d3a3aaae0c16a31e5f39d",
+      "estimated_receipt_cost_usd": 0.00093825,
+      "request_key": "8a44bc54c41528fd461def10a114410c6b0c76bccc7ef677f7dd9305fa8809a3",
+      "response_sha256": "02ebbfb91d24c8dfaabd63e20f31389882701efa94e7ff3a0d11f58bc0ebcfa9",
+      "size_bytes": 2677
+    },
+    {
+      "cache_relative_path": "card-classification/8c/8c78ed6fe454600e5c49b7adecdf9172b4e29221050a4e258573dfd10c38490b.json",
+      "crop_sha256": "592ea0fc7385bf2b0afbd46c86fe33c1f8f847fd566c0398006335c3ca220f0e",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "8c78ed6fe454600e5c49b7adecdf9172b4e29221050a4e258573dfd10c38490b",
+      "response_sha256": "8085f7df8b0488be5f3bd270444aaa82ac152365c0abea12081084c88ecd1cfb",
+      "size_bytes": 2755
+    },
+    {
+      "cache_relative_path": "card-classification/8f/8f2309fb6ee3a7a247120ae1fd9f80aef330e2f72597b9978fbe1ecc23d8c7c7.json",
+      "crop_sha256": "0911d5190a7e70f653acd4227ae96d41aee9bf595670104a1f4c8360bd3ce4a0",
+      "estimated_receipt_cost_usd": 0.000915,
+      "request_key": "8f2309fb6ee3a7a247120ae1fd9f80aef330e2f72597b9978fbe1ecc23d8c7c7",
+      "response_sha256": "c7e7bf3036a686baa4ba235af2dc264ed65d52075dd50fd762b6f7f58070c9c1",
+      "size_bytes": 3241
+    },
+    {
+      "cache_relative_path": "card-classification/91/91fe9ff599e46cd482ed4270813b1e048ffe69a2d22f1fd5a71835b6d22a81df.json",
+      "crop_sha256": "dbce4017de3cc0706bbebc103f1e8db618514710e23ca39f8aa107d4e5666b39",
+      "estimated_receipt_cost_usd": 0.00092775,
+      "request_key": "91fe9ff599e46cd482ed4270813b1e048ffe69a2d22f1fd5a71835b6d22a81df",
+      "response_sha256": "c7c18769d24a4956f1ed0ad3dcce49ce994d785fde08878d9d8e0c241c26d519",
+      "size_bytes": 2642
+    },
+    {
+      "cache_relative_path": "card-classification/94/94a4a114f49df3f9babc71e22c19ba1bc97a1a2fcd2450efcce79cf70373b10c.json",
+      "crop_sha256": "a41c8ac180f87311fac93ce303ccd0b768f1c715e0a637441b105a7ade509e71",
+      "estimated_receipt_cost_usd": 0.00092625,
+      "request_key": "94a4a114f49df3f9babc71e22c19ba1bc97a1a2fcd2450efcce79cf70373b10c",
+      "response_sha256": "fd7bf6b064de632f32a11d2a580b4f2d1b7fb049f45b6a4a7dcc1530abff2481",
+      "size_bytes": 4132
+    },
+    {
+      "cache_relative_path": "card-classification/96/96d35145d812be0c3b7491a61c17ecc19aafb82f17f0397182b117f8d79be6a9.json",
+      "crop_sha256": "1765c556b06512d19bbfcc69dba76955ae8955b2b40e4eef57e88e23c841f556",
+      "estimated_receipt_cost_usd": 0.00092775,
+      "request_key": "96d35145d812be0c3b7491a61c17ecc19aafb82f17f0397182b117f8d79be6a9",
+      "response_sha256": "eecdbaa50199d2170329e86d873dce418b8cc972f3da30af32e9c0d75e7fab54",
+      "size_bytes": 2753
+    },
+    {
+      "cache_relative_path": "card-classification/97/973c473a67319d420ae76142730652ef33a11041a6161806dce125e3d99829e5.json",
+      "crop_sha256": "7c38b1a5e61d94e95cbb53aee65ddb34cf566ed5e332825adcb32ef06e5b81ab",
+      "estimated_receipt_cost_usd": 0.00090825,
+      "request_key": "973c473a67319d420ae76142730652ef33a11041a6161806dce125e3d99829e5",
+      "response_sha256": "777272661bd832bb089035b8702a0f44a85791dbf23eae41ace01134b3b2c14a",
+      "size_bytes": 2768
+    },
+    {
+      "cache_relative_path": "card-classification/98/9886e13e12635913149cbeff1ffb616d38502b2e20cdbbc4846c5d6fdbc15d76.json",
+      "crop_sha256": "0585e55b95e69a60a1d793ac210ffcce7c1475b7a97c22cae4bd1fed01859097",
+      "estimated_receipt_cost_usd": 0.0009405,
+      "request_key": "9886e13e12635913149cbeff1ffb616d38502b2e20cdbbc4846c5d6fdbc15d76",
+      "response_sha256": "99f266eeefa1fde6518a4b3f14dc78a696ed3bf6b69e7e9df1810a8f9829ac3e",
+      "size_bytes": 3115
+    },
+    {
+      "cache_relative_path": "card-classification/9a/9a33ab104d002bc7057c970a0491ac15bf42e254919a9e872fc0d0315c9a7046.json",
+      "crop_sha256": "279f6c17e122af7e0a72c0ae119ea7f5fb42143a29eecc9113b6f920c016ba48",
+      "estimated_receipt_cost_usd": 0.00093825,
+      "request_key": "9a33ab104d002bc7057c970a0491ac15bf42e254919a9e872fc0d0315c9a7046",
+      "response_sha256": "3897de0c45135c052794b50081544a0cd0ab1dc90c37c35921f6ba4fb30ea12c",
+      "size_bytes": 2717
+    },
+    {
+      "cache_relative_path": "card-classification/9c/9c25bf1a5ba80dcc3c2014c79a956f5e5aaa9d0ed1a7dd39c210ea8e6eb702c1.json",
+      "crop_sha256": "84b7b3b2e3e958bbe1768d942f27d2e1eb90fb4d3185d5a1789728dc1db3aefc",
+      "estimated_receipt_cost_usd": 0.000945,
+      "request_key": "9c25bf1a5ba80dcc3c2014c79a956f5e5aaa9d0ed1a7dd39c210ea8e6eb702c1",
+      "response_sha256": "ee0db6770f939b0a00ac842d8f8edc326adefafcfb6f43a353fe6229b86e9c16",
+      "size_bytes": 3152
+    },
+    {
+      "cache_relative_path": "card-classification/9c/9ce2670b498ccbe903f29f86f38bd0e9bc2612bcad35135631b633cce11eace5.json",
+      "crop_sha256": "76a73707128a060467fc73706968d160b810fce6def1b8bf97a97d022e541580",
+      "estimated_receipt_cost_usd": 0.000906,
+      "request_key": "9ce2670b498ccbe903f29f86f38bd0e9bc2612bcad35135631b633cce11eace5",
+      "response_sha256": "85044f4c55fc1fbc0a9a090a57195b47e4cb298ef0bb2bfc94577d1570582630",
+      "size_bytes": 2802
+    },
+    {
+      "cache_relative_path": "card-classification/9d/9daa34a2b9f70f6698586441e658f6eb4ee19aba0014fc56fe83be377aa184a6.json",
+      "crop_sha256": "8f28d2a6be7bc3a131bc53d5e8ee4193877c8bfe5097802a383cc7c885394fbb",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "9daa34a2b9f70f6698586441e658f6eb4ee19aba0014fc56fe83be377aa184a6",
+      "response_sha256": "44ca751a4f95b83edc815a4c1b4d5844f81e867eb186dd0a0796c5065a218d83",
+      "size_bytes": 3683
+    },
+    {
+      "cache_relative_path": "card-classification/a2/a233beb6b7befcc8c2b529cdacde3b211a3de665f10c69992851c0ab967dfbf1.json",
+      "crop_sha256": "1ef965605a54b7044aa952daf2943db2196cddf524d11b11d59e0d25975044aa",
+      "estimated_receipt_cost_usd": 0.000945,
+      "request_key": "a233beb6b7befcc8c2b529cdacde3b211a3de665f10c69992851c0ab967dfbf1",
+      "response_sha256": "06d4ba14e676e7231dfc279a4b71fbb0afd0786a77498a42ae006eb1f6201d7d",
+      "size_bytes": 2635
+    },
+    {
+      "cache_relative_path": "card-classification/a3/a3b7c6589f8d160101a9e061019eb67b1a25a319813e69916172c3b70d129a9b.json",
+      "crop_sha256": "489e4ab73588948e976bf480abccc003d5fdda4291baa93d490dd95f509a370e",
+      "estimated_receipt_cost_usd": 0.00094425,
+      "request_key": "a3b7c6589f8d160101a9e061019eb67b1a25a319813e69916172c3b70d129a9b",
+      "response_sha256": "53cdc6b4fbb928f81e68ea57054739b27a9f507dcfbc4a474d6d6d8117792461",
+      "size_bytes": 10256
+    },
+    {
+      "cache_relative_path": "card-classification/a5/a5fb8cce4a4e19645bce243682b8656c43961dc871b07dd8a1be60d2aab1ed8b.json",
+      "crop_sha256": "32a7795efc49b0a2b3267b31b728f677d6c3e4ca80213e7999048b5d546673a9",
+      "estimated_receipt_cost_usd": 0.00090075,
+      "request_key": "a5fb8cce4a4e19645bce243682b8656c43961dc871b07dd8a1be60d2aab1ed8b",
+      "response_sha256": "27dbeab8654145b2e360f1d39c4ba392f0d4fab793e2b22e7711002d75136858",
+      "size_bytes": 2727
+    },
+    {
+      "cache_relative_path": "card-classification/a6/a666e169d10aa3b30f5dc5788e4f0f9bf6170fd452a816c5ea8d3e8c90fcaf07.json",
+      "crop_sha256": "4ea45677c8469c379c4b132e5cd1a6bd759b38bc5799b16ba14a94421753aa6b",
+      "estimated_receipt_cost_usd": 0.000945,
+      "request_key": "a666e169d10aa3b30f5dc5788e4f0f9bf6170fd452a816c5ea8d3e8c90fcaf07",
+      "response_sha256": "1b0da5a10d07035677a481b7a855c9249375700745dc4add25d31bd01b6f0392",
+      "size_bytes": 2733
+    },
+    {
+      "cache_relative_path": "card-classification/a8/a8b701744e464f8279581541f86a666857c066af1f12140103901f0493d3b739.json",
+      "crop_sha256": "40145ea6c37dcc54940f2fb95401c5f760cec9a4b81dee720e1ffd108f53801f",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "a8b701744e464f8279581541f86a666857c066af1f12140103901f0493d3b739",
+      "response_sha256": "35c1e9993b4fb0bce32027740125d7caf136731411e6e4cfe1bf656e4bd3f07d",
+      "size_bytes": 2567
+    },
+    {
+      "cache_relative_path": "card-classification/b0/b064a785ee4ab902d97486f70e11629f5c2e0d3f92248da397cc466b18de9a31.json",
+      "crop_sha256": "3a8869310542dc135d339b814b5ce235b8bae2d3fd939072f1e6d114019e2faa",
+      "estimated_receipt_cost_usd": 0.00093225,
+      "request_key": "b064a785ee4ab902d97486f70e11629f5c2e0d3f92248da397cc466b18de9a31",
+      "response_sha256": "b23fbeecfaa5a04819c602e1abbc9415391e7417ceacea4d802be0370bf0cfc5",
+      "size_bytes": 2683
+    },
+    {
+      "cache_relative_path": "card-classification/b1/b1f1bbc98420e1f0559264f55410c4d9d768290789b2edeec12b73f668264ecb.json",
+      "crop_sha256": "337c47e5de00138bf864e0c6d312cdefcdfc194b2397bb78d4f64323c627cf7c",
+      "estimated_receipt_cost_usd": 0.00090525,
+      "request_key": "b1f1bbc98420e1f0559264f55410c4d9d768290789b2edeec12b73f668264ecb",
+      "response_sha256": "b75899aca91c1d98f56682f59904d29d0c34d7ab4b89ad06c97013996ae9657f",
+      "size_bytes": 3050
+    },
+    {
+      "cache_relative_path": "card-classification/b2/b2d40741d35f71e4457e74e54e0b7ceb19aa22fa0e8c77dc07802b6683d8e718.json",
+      "crop_sha256": "a10c77d4dc285360d5908a5be19e61db9f07eb5be41b38e5a8cd985ee45ddcfe",
+      "estimated_receipt_cost_usd": 0.0009105,
+      "request_key": "b2d40741d35f71e4457e74e54e0b7ceb19aa22fa0e8c77dc07802b6683d8e718",
+      "response_sha256": "bba6ec74242b983d112bb0a80bdea040cdddc286943dafb8500f0076f0a2df57",
+      "size_bytes": 2754
+    },
+    {
+      "cache_relative_path": "card-classification/b3/b386bd81da1a0b37c251feae9086c850e56c675428c95e7cef8d30125d561b30.json",
+      "crop_sha256": "529355df5a2401ef72c7109756194611a8cd3c13018d17ef08face6fd597821f",
+      "estimated_receipt_cost_usd": 0.00090975,
+      "request_key": "b386bd81da1a0b37c251feae9086c850e56c675428c95e7cef8d30125d561b30",
+      "response_sha256": "60f61176deeda6d26d976c5fcf4b0f0f19e391acf986423a42e6ffeea89f0ad5",
+      "size_bytes": 2680
+    },
+    {
+      "cache_relative_path": "card-classification/b3/b3f32c5c6ea4840564ee4232636726a8a58fda7612a8880d56953e7e9bc33c64.json",
+      "crop_sha256": "74c4e27817fdba33c6bfc12f18710d1fa454d42d2def9b541e6e1370781a6143",
+      "estimated_receipt_cost_usd": 0.00092775,
+      "request_key": "b3f32c5c6ea4840564ee4232636726a8a58fda7612a8880d56953e7e9bc33c64",
+      "response_sha256": "f3ebc9856be8057481e9570dad4778c1936647e72dc712864c413e43bdd9c6d8",
+      "size_bytes": 2843
+    },
+    {
+      "cache_relative_path": "card-classification/b4/b4d98111260a855b65d9792fc31e13df6bbc389638fffc1f53f7255181596de6.json",
+      "crop_sha256": "c9b98dfe95528285f5ac563e04acfb9a1467ffc91b7e5a55f21996fbfe675791",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "b4d98111260a855b65d9792fc31e13df6bbc389638fffc1f53f7255181596de6",
+      "response_sha256": "64fc60473adc4f3cd518c11721a774a6352cb267dca873f4c8feb85eaf6d5d60",
+      "size_bytes": 2713
+    },
+    {
+      "cache_relative_path": "card-classification/b6/b6a18db6a6f807c646940d98f083378d157156ca372560b161cd1cb1935dbd73.json",
+      "crop_sha256": "3b2eea08722b9ceaf4cce1ea3261328a6d4c4bdddbf6c5486d3b3a0d83857bf6",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "b6a18db6a6f807c646940d98f083378d157156ca372560b161cd1cb1935dbd73",
+      "response_sha256": "9a5871f3241d0a2077ed616ac50b738ab5ce58c16bac0308d85ea9f368db0702",
+      "size_bytes": 3606
+    },
+    {
+      "cache_relative_path": "card-classification/b8/b8a690983ca67cdc710fbef389f5592e26188237072c8ec63d53445cccecd123.json",
+      "crop_sha256": "3a663d4088e1c99acd9244cdb9d9d0f4c219e4d7d77bd7ec1e3274e004c7c4df",
+      "estimated_receipt_cost_usd": 0.0009225,
+      "request_key": "b8a690983ca67cdc710fbef389f5592e26188237072c8ec63d53445cccecd123",
+      "response_sha256": "646b22efe61a327e118bf89188fe3909045365d46d340434f60c638f8db8b8ee",
+      "size_bytes": 2836
+    },
+    {
+      "cache_relative_path": "card-classification/b8/b8f8275fbb77cf4a2315f5090473b612936410aed0643fbe609b1b165e7920de.json",
+      "crop_sha256": "0c60d7c8dc47059cfa458af72bf3ef8a0a0d28eac06be980daf2c50900a488db",
+      "estimated_receipt_cost_usd": 0.00093225,
+      "request_key": "b8f8275fbb77cf4a2315f5090473b612936410aed0643fbe609b1b165e7920de",
+      "response_sha256": "1c85906ba4ba99973629c7635edf15b635b3c8fd7ffda217f54f33a160840f3e",
+      "size_bytes": 2755
+    },
+    {
+      "cache_relative_path": "card-classification/ba/baf58e01e97f7d591dcf2047d8a79fe3080cd017853429dbb0522bbc3811feff.json",
+      "crop_sha256": "3c2e52a1679ef0660fb80058f569b6461767d6f9446c11899e37bd0f57826367",
+      "estimated_receipt_cost_usd": 0.0009225,
+      "request_key": "baf58e01e97f7d591dcf2047d8a79fe3080cd017853429dbb0522bbc3811feff",
+      "response_sha256": "47160800c6da4e62860074c57258c148d573fc96e10919e99fcbd1e27d8ae7c2",
+      "size_bytes": 2713
+    },
+    {
+      "cache_relative_path": "card-classification/be/be3009d9b608f1584082af0c6536fc82a7daf62420fbb505342b47c90652913a.json",
+      "crop_sha256": "d362a51a3bcedc4090af0dc10f4e63830728d54f37e5f5a80b91df99eb9b2e98",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "be3009d9b608f1584082af0c6536fc82a7daf62420fbb505342b47c90652913a",
+      "response_sha256": "9b6676dba7feb54944938b87062a28ca61e1244690f4e9c0865c4643314d7869",
+      "size_bytes": 2707
+    },
+    {
+      "cache_relative_path": "card-classification/c0/c0408188e51d90f12e200669e33ef1cf31a2ea6d5a3d7bfb841f1b5ec6cb18f2.json",
+      "crop_sha256": "540f35793aa183333fd9957d29099e58a78c21705b855865c2b907dd87d3cd6b",
+      "estimated_receipt_cost_usd": 0.000939,
+      "request_key": "c0408188e51d90f12e200669e33ef1cf31a2ea6d5a3d7bfb841f1b5ec6cb18f2",
+      "response_sha256": "b1619e3a79489ba49298e0c32b769ad24e651418bef27c9c7f66610ef19bca30",
+      "size_bytes": 2721
+    },
+    {
+      "cache_relative_path": "card-classification/c1/c10238fade0a0233b9a266149ce0f4069d044c802f12504865aa0a43dc693d1f.json",
+      "crop_sha256": "a0ac34488d0a302e0a8f6fb996cecfbdebb70ab48c83f3c9a1d20155b5850502",
+      "estimated_receipt_cost_usd": 0.00091275,
+      "request_key": "c10238fade0a0233b9a266149ce0f4069d044c802f12504865aa0a43dc693d1f",
+      "response_sha256": "785e12793499d28ea1cb20b551925cd73a925a2e1afbc6794d314cd1abb4e315",
+      "size_bytes": 2851
+    },
+    {
+      "cache_relative_path": "card-classification/c2/c2f5809351c65340635fabc966c85eaa8f667406587d1627c0d25906022b16f2.json",
+      "crop_sha256": "7c96628c3183cf474d3c60b6d1315e643951e93755b59d840ae523b441509045",
+      "estimated_receipt_cost_usd": 0.00094425,
+      "request_key": "c2f5809351c65340635fabc966c85eaa8f667406587d1627c0d25906022b16f2",
+      "response_sha256": "20f417edf9a3442d4cd06b65286c7b288050e099bb25980ee6b0fc27966d686b",
+      "size_bytes": 2642
+    },
+    {
+      "cache_relative_path": "card-classification/c4/c41abd621e3a3111ed27e7e1b23d15d48362b9460705cbb19a4896d7a91298a6.json",
+      "crop_sha256": "53c1a30e520ba33b5c7ebd90e07883237c69eba238017180a6b72c19343395e8",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "c41abd621e3a3111ed27e7e1b23d15d48362b9460705cbb19a4896d7a91298a6",
+      "response_sha256": "11c63031dea0a67070adb8046fce8a38a3dd8400e067ee86bb0b65eb8aceeaa8",
+      "size_bytes": 2518
+    },
+    {
+      "cache_relative_path": "card-classification/c6/c6c37cd172933824459ddf793e4dc451627e8490adfe663a3f8cab1fd72ced34.json",
+      "crop_sha256": "104e5a92be3ba438ff088fbd67f2b203d764f53dc482bcbd2181249cd9d607d7",
+      "estimated_receipt_cost_usd": 0.0009225,
+      "request_key": "c6c37cd172933824459ddf793e4dc451627e8490adfe663a3f8cab1fd72ced34",
+      "response_sha256": "135484138f3fdfa7c044db4a4011b76a2e064972cd49ff38ab99f5edb579d177",
+      "size_bytes": 2865
+    },
+    {
+      "cache_relative_path": "card-classification/c7/c73164ae9aaddcc4a07a0a7f7b8a4721acc8f2bc96a64ef6870be7f87bd9a257.json",
+      "crop_sha256": "4966bfd45ee8a6c550f89c55c159d5f6dc7d2faf097a9f09f9f1ee2ccbc34e2e",
+      "estimated_receipt_cost_usd": 0.00090525,
+      "request_key": "c73164ae9aaddcc4a07a0a7f7b8a4721acc8f2bc96a64ef6870be7f87bd9a257",
+      "response_sha256": "5dbe5c28fb029b0e4dc5b7f39b9fb62da875ea858d11db6bfa5d2d24ade58242",
+      "size_bytes": 2627
+    },
+    {
+      "cache_relative_path": "card-classification/c7/c73964525901ca5d91f5bb426ff0ba404cfef33a847648d8657b13f4b4597b21.json",
+      "crop_sha256": "ef77aaa9da4d6bf437d7b6e4e64d3293f7cbe109b048d3be41f3d48022a5e582",
+      "estimated_receipt_cost_usd": 0.00091275,
+      "request_key": "c73964525901ca5d91f5bb426ff0ba404cfef33a847648d8657b13f4b4597b21",
+      "response_sha256": "309bbe6f5fd915c75dfab95f58f4c4aa44abb4344f070940ca8007deeccba309",
+      "size_bytes": 2796
+    },
+    {
+      "cache_relative_path": "card-classification/c7/c7a5f8130117a31a9fce6b1f3ff784c9cb1d0b574b466009fb4ae6ae69b2622c.json",
+      "crop_sha256": "13bd3dd72eb6696b9509d31065753b290e2229d3f73a07b350efd5a224fd3f56",
+      "estimated_receipt_cost_usd": 0.00094575,
+      "request_key": "c7a5f8130117a31a9fce6b1f3ff784c9cb1d0b574b466009fb4ae6ae69b2622c",
+      "response_sha256": "9b3c01953f758735131cda4d955f027c3c1f4dfcb09746440ea6ffd22a618b04",
+      "size_bytes": 2665
+    },
+    {
+      "cache_relative_path": "card-classification/c7/c7ea875e4df2f21fd2d1417dee7242ce70d15b400c8528cff107c156733c00ce.json",
+      "crop_sha256": "f61bbca78be0a127d71050b2d0b42e1830b965e8e8de6ef5cdf397128178d9fd",
+      "estimated_receipt_cost_usd": 0.00091275,
+      "request_key": "c7ea875e4df2f21fd2d1417dee7242ce70d15b400c8528cff107c156733c00ce",
+      "response_sha256": "19231e8d0b87452c2205f65773277f1df4000faeca72e7a83203aeda60bfe4ed",
+      "size_bytes": 2708
+    },
+    {
+      "cache_relative_path": "card-classification/c7/c7f8e0d4b4b1feadbd3f41585a8988b5beef21075b7784ea666710c290836cc5.json",
+      "crop_sha256": "489b3fa1495920d7a0d554eda40543067b53cd10728de52dae192b1a2be14813",
+      "estimated_receipt_cost_usd": 0.00091875,
+      "request_key": "c7f8e0d4b4b1feadbd3f41585a8988b5beef21075b7784ea666710c290836cc5",
+      "response_sha256": "72a1d7b31a17ed5d4c624ed658327e38989ab960818c48b8332920a13f8de89d",
+      "size_bytes": 2763
+    },
+    {
+      "cache_relative_path": "card-classification/c8/c869a99c8138dd95163ca3647e8ed52435a3f138811c58d1e6e1f824c6bcefcc.json",
+      "crop_sha256": "fccd98cdcf9b99decd1024fcbec37580426c5928e8055e41b8c89a8b986a3e45",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "c869a99c8138dd95163ca3647e8ed52435a3f138811c58d1e6e1f824c6bcefcc",
+      "response_sha256": "21c713b814deee36faf2d4a3c79b76cf11644341bbb29ba00b6e92f54a255e3c",
+      "size_bytes": 2773
+    },
+    {
+      "cache_relative_path": "card-classification/c8/c8bdc1fd2cd3c5974de0f7a19858d7c735d2641e3bf9a90b7cd3fd25ee929a03.json",
+      "crop_sha256": "5b763b5cde8cf489e34aba0a91349f4bcff9004b943717101d348821581e5e8c",
+      "estimated_receipt_cost_usd": 0.000939,
+      "request_key": "c8bdc1fd2cd3c5974de0f7a19858d7c735d2641e3bf9a90b7cd3fd25ee929a03",
+      "response_sha256": "b451fd01d26890c546752119000341a454569370e86058324539881120188c15",
+      "size_bytes": 2941
+    },
+    {
+      "cache_relative_path": "card-classification/c9/c96d442e8c8b0c7753606e1a39509b57eb2b6882e7615b45392dcd3ee5b59ed5.json",
+      "crop_sha256": "566f3c03c40d6d34c1ade4aa27849c081cb490f4ece2b34a6c63e38c185cf55b",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "c96d442e8c8b0c7753606e1a39509b57eb2b6882e7615b45392dcd3ee5b59ed5",
+      "response_sha256": "95a664071c25d50e4d504c709727959f82a4778751c13bdd3fd7ae2472f42424",
+      "size_bytes": 2681
+    },
+    {
+      "cache_relative_path": "card-classification/ca/ca23bdcea0a488059f3fe76adf98108f194347669582a4de74d2ed84b550abed.json",
+      "crop_sha256": "1975fef3b1e8095360993f5575581fbfe568161f8569b669dda5bb76b6346b98",
+      "estimated_receipt_cost_usd": 0.00094575,
+      "request_key": "ca23bdcea0a488059f3fe76adf98108f194347669582a4de74d2ed84b550abed",
+      "response_sha256": "0c47211d70af31e365b4480aabffd5e332ab8860c0601c3ef02665002102104f",
+      "size_bytes": 2893
+    },
+    {
+      "cache_relative_path": "card-classification/ca/ca42d17d09c440e64da4833b355045eaf53b0d4ab332ac7174902c58d1cc44a4.json",
+      "crop_sha256": "3d100e3971a2bed43e48e687ed5642289e18a88557a98850619b17954074d4bd",
+      "estimated_receipt_cost_usd": 0.0009135,
+      "request_key": "ca42d17d09c440e64da4833b355045eaf53b0d4ab332ac7174902c58d1cc44a4",
+      "response_sha256": "e7cf3e5d8505b6f6a1074fa38517c2bb10632a2a464e13e6a826a7bd25d1a147",
+      "size_bytes": 2794
+    },
+    {
+      "cache_relative_path": "card-classification/cc/ccb1ece512bea4965d00597ae9583a6f16dcc68e30405b809cbb158e1e8857e8.json",
+      "crop_sha256": "4136d475e956b336af1bc38372127d19a6e5c114ac9fe2343e088b8da5a5b106",
+      "estimated_receipt_cost_usd": 0.000948,
+      "request_key": "ccb1ece512bea4965d00597ae9583a6f16dcc68e30405b809cbb158e1e8857e8",
+      "response_sha256": "160415ba6777b4a0affd30dae236fc9d83e1b804fbd13b6beb469a26167fd361",
+      "size_bytes": 2703
+    },
+    {
+      "cache_relative_path": "card-classification/cf/cf32658b62f066be2dab5fbf22bdfa8dfcc15eaa369786cad8af2a591c22d01a.json",
+      "crop_sha256": "a4c3c274f81f6d4e519157767b1f90be15f6884baba45031f98e9cc7707a3470",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "cf32658b62f066be2dab5fbf22bdfa8dfcc15eaa369786cad8af2a591c22d01a",
+      "response_sha256": "a5c3eeb897a40985586aaad7543897c477f564dff3094024b3ce900076a5b3a8",
+      "size_bytes": 2750
+    },
+    {
+      "cache_relative_path": "card-classification/cf/cf7684284d961738d0505db7e2eb019f37d79aaf370a896dd2e02ff3888b01d4.json",
+      "crop_sha256": "0fadc2b6a57763bcaff7647b3f2a32024de542c87c3dcc2dd33001ebf49d8f0d",
+      "estimated_receipt_cost_usd": 0.00091875,
+      "request_key": "cf7684284d961738d0505db7e2eb019f37d79aaf370a896dd2e02ff3888b01d4",
+      "response_sha256": "73f69186626f032d61d427bb31e7ef5768bdff3fec23a870eefe91b3ce09c58d",
+      "size_bytes": 3016
+    },
+    {
+      "cache_relative_path": "card-classification/d7/d782b2ee70d1f6a61e7eaca4ab1ee4aa31be0b2764ed45a3df2f72e6397ca7f9.json",
+      "crop_sha256": "34156e6e0a4ca7a92473d84da8cd5da9101a500605919273374eb21a8bc8906d",
+      "estimated_receipt_cost_usd": 0.00090975,
+      "request_key": "d782b2ee70d1f6a61e7eaca4ab1ee4aa31be0b2764ed45a3df2f72e6397ca7f9",
+      "response_sha256": "236519e386dc0d3896a178dcf7eec7643fd671df1bb54765993d9354ded635e3",
+      "size_bytes": 2627
+    },
+    {
+      "cache_relative_path": "card-classification/d7/d7cfcaec33c67db58640fa74ed397a7b3d846f4f1428f44d76188c4aa4e6ad67.json",
+      "crop_sha256": "f4d14cc45e22a4e6248e15ae9011569bb504ccd4b4981078fb808a7d7f2bc986",
+      "estimated_receipt_cost_usd": 0.0009315,
+      "request_key": "d7cfcaec33c67db58640fa74ed397a7b3d846f4f1428f44d76188c4aa4e6ad67",
+      "response_sha256": "8fac64ae35713ed22681b1f2cc4a917309a88834cde2b675f44f7f08276cc274",
+      "size_bytes": 2719
+    },
+    {
+      "cache_relative_path": "card-classification/d8/d8e5cf08874fcd7da9cf3008a1588eadd3ccea51b5028a9f6c9b64e7bb86bc1f.json",
+      "crop_sha256": "9471fcbbe4e6c2e05609f5ed66cd12362e6f2687592b1ef0160ae6b31ae10891",
+      "estimated_receipt_cost_usd": 0.0009,
+      "request_key": "d8e5cf08874fcd7da9cf3008a1588eadd3ccea51b5028a9f6c9b64e7bb86bc1f",
+      "response_sha256": "b7eb0188121c0502883e632d9666947e419420bd4c5dc1767b3a3fc45ae78204",
+      "size_bytes": 2345
+    },
+    {
+      "cache_relative_path": "card-classification/d9/d99bcb62dcfb158b9a474322399a744d22591da61bf9cffafc29c64e294eed9b.json",
+      "crop_sha256": "9204a9672cea4b8e123d4567d197025f1d495d4011b5ea7fc27ea31e24a17c15",
+      "estimated_receipt_cost_usd": 0.000939,
+      "request_key": "d99bcb62dcfb158b9a474322399a744d22591da61bf9cffafc29c64e294eed9b",
+      "response_sha256": "42b30f7131dda4d1eaa611e00e20febdffd46824880b2adc9319891614421470",
+      "size_bytes": 2731
+    },
+    {
+      "cache_relative_path": "card-classification/d9/d9be995e267e963749cc4a6b4406227fe98e43743b3d8f4074f05a7e40a47f7e.json",
+      "crop_sha256": "a83d4dd91652d5a5dd396561c2f77d38b365b6ed4154b7a24f25c893d577374a",
+      "estimated_receipt_cost_usd": 0.00091425,
+      "request_key": "d9be995e267e963749cc4a6b4406227fe98e43743b3d8f4074f05a7e40a47f7e",
+      "response_sha256": "0143d766e8d3ec88a6c301198c017e2f4a397eec179eade9cc91d5ee4033dedb",
+      "size_bytes": 2851
+    },
+    {
+      "cache_relative_path": "card-classification/d9/d9c7b85335ea885c317bc112d04c11efbbff472b5074a86f0c8f6ea71e30b883.json",
+      "crop_sha256": "398baeba2de5886b90feb4125d0914354a738e431cd55a13f5184fe2007fd79f",
+      "estimated_receipt_cost_usd": 0.000939,
+      "request_key": "d9c7b85335ea885c317bc112d04c11efbbff472b5074a86f0c8f6ea71e30b883",
+      "response_sha256": "c3f71f6050b3e965e6c98d7dec98fa8d15728aa913513f547a0783fb92b979f1",
+      "size_bytes": 2609
+    },
+    {
+      "cache_relative_path": "card-classification/d9/d9fd2f2b665b0a1c419ee0005f78b56e8f131fa847e44fcb714f7b400fb49497.json",
+      "crop_sha256": "c89e81fc5b599acc90ddf9ce7716844c869727adeb6cf5304b42e00fa7378db4",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "d9fd2f2b665b0a1c419ee0005f78b56e8f131fa847e44fcb714f7b400fb49497",
+      "response_sha256": "6600d618e6a90174013063fdc5d4ab3aa773c3ae26f35d9840de60c03950073e",
+      "size_bytes": 2916
+    },
+    {
+      "cache_relative_path": "card-classification/de/de0ecb8e72e7f093472a3df24f2be2828dd82e9ed3db8a4449a01cb0e9a734fe.json",
+      "crop_sha256": "ed7585c7efff56ac6f7d52e1322b0da15358b684b242f7dad9f41c21c60ab67f",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "de0ecb8e72e7f093472a3df24f2be2828dd82e9ed3db8a4449a01cb0e9a734fe",
+      "response_sha256": "7db52268322cb4e75e277089f8b29a3406a7c600b5cc3815b5bb354e7a9a451e",
+      "size_bytes": 2795
+    },
+    {
+      "cache_relative_path": "card-classification/de/decd5c026d83badd42040d62c4b2096526766a858f61a4e609d66c8d1307127c.json",
+      "crop_sha256": "1456cdc372dab38e7959bc262fcf7deb25996918ee6a2f383af68639e1745960",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "decd5c026d83badd42040d62c4b2096526766a858f61a4e609d66c8d1307127c",
+      "response_sha256": "8227871b0889e9e9211b27123e415b35201dd826f50fa52b5712f48c7676ef3f",
+      "size_bytes": 2679
+    },
+    {
+      "cache_relative_path": "card-classification/df/dfb0806b4379ed86263ee0f0b3b7ce79adfb7506a3ee3f7834f161d8d7e71bcb.json",
+      "crop_sha256": "ea4f23a1261baf002d3526cd7571eda935b23235f0efcd4bdc4c204be9d49145",
+      "estimated_receipt_cost_usd": 0.0009255,
+      "request_key": "dfb0806b4379ed86263ee0f0b3b7ce79adfb7506a3ee3f7834f161d8d7e71bcb",
+      "response_sha256": "64fd5e14ad622e9f718bd85ca197b9101c6901acf90c0f27916db6afe77a9297",
+      "size_bytes": 2712
+    },
+    {
+      "cache_relative_path": "card-classification/e4/e4db8649a0c737289a583ae7f1a8b4b028e1b22ad263e10055dc3798c2083006.json",
+      "crop_sha256": "e79f8f2aaf3725db9fea65a82575f42242a4b909545a6869eed7c39bdfc22a8d",
+      "estimated_receipt_cost_usd": 0.0009375,
+      "request_key": "e4db8649a0c737289a583ae7f1a8b4b028e1b22ad263e10055dc3798c2083006",
+      "response_sha256": "45231527b222b27869de764d4ca113f4e47b2cee7a58beb748350c6383c04063",
+      "size_bytes": 2738
+    },
+    {
+      "cache_relative_path": "card-classification/e5/e5a2655743b251008792757d81214dafaa07995b698137f90c8f0ac5b32f8345.json",
+      "crop_sha256": "c4f4947bceeface47b77f66f989c91ceda28d7197cb20086259bf22fa9aeb98f",
+      "estimated_receipt_cost_usd": 0.00091875,
+      "request_key": "e5a2655743b251008792757d81214dafaa07995b698137f90c8f0ac5b32f8345",
+      "response_sha256": "d7635e209932219095c646de8e053b658258b3e929d53ec43207cdc984d1903f",
+      "size_bytes": 3005
+    },
+    {
+      "cache_relative_path": "card-classification/e6/e62fc374a1cf1ed5887a87f6c89737938e2b334ecc599074fbf6da63e118bd15.json",
+      "crop_sha256": "8e02bc2741156bfd94b322f25fb8e1bcd216ca389e38bef8ef66fe14adfc8d0e",
+      "estimated_receipt_cost_usd": 0.000897,
+      "request_key": "e62fc374a1cf1ed5887a87f6c89737938e2b334ecc599074fbf6da63e118bd15",
+      "response_sha256": "6d16a1ddb48852777f51e87bfd66612e1ab9d1695c94ed36e19ef9a71709f51d",
+      "size_bytes": 2672
+    },
+    {
+      "cache_relative_path": "card-classification/e6/e6d81558ab93bb61717b87b599ccc1f907ca7f0189e2c409c8218403aa717580.json",
+      "crop_sha256": "6c02b8bbbf56d273bfb3492d097af01a174ddea4a5c83651d487c9dff6fa17a8",
+      "estimated_receipt_cost_usd": 0.0009675,
+      "request_key": "e6d81558ab93bb61717b87b599ccc1f907ca7f0189e2c409c8218403aa717580",
+      "response_sha256": "188bff6f91fb08737a827764e507d6fa861d423b5f60c63f1f08abac756fd811",
+      "size_bytes": 2716
+    },
+    {
+      "cache_relative_path": "card-classification/e7/e796a2e3add5627489ef32440174a9cca127063cb6f3c66877f1af01d01ba558.json",
+      "crop_sha256": "83c002cd44e6728bdabc5af12ff322693e278c5604b9e49161edcf180a8c365e",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "e796a2e3add5627489ef32440174a9cca127063cb6f3c66877f1af01d01ba558",
+      "response_sha256": "ff5a1145f3d408c6ba1a8c13d4259cef976523050f79521a54dbb1b4fed43023",
+      "size_bytes": 2771
+    },
+    {
+      "cache_relative_path": "card-classification/e9/e94ab5e49b39ca2494d73233cb29ea9d5f5d1bc14d1d23c7b22190a745778d47.json",
+      "crop_sha256": "f0d15ad1f57be5c70d1fca5b5b999c79989f1a3befb393507be0c7fa75f51866",
+      "estimated_receipt_cost_usd": 0.0009345,
+      "request_key": "e94ab5e49b39ca2494d73233cb29ea9d5f5d1bc14d1d23c7b22190a745778d47",
+      "response_sha256": "c623e5ca27cad24bd3659e56fb91988bf21490c3662aaf3dc6ff4f8a8819d242",
+      "size_bytes": 2703
+    },
+    {
+      "cache_relative_path": "card-classification/e9/e996dd569e4c1db4a1da4adad132792ab158d35f05e5758c5bc2e9de06b60615.json",
+      "crop_sha256": "841131de280c77b749ce1d3bcbb0c0d26744c8610ab9dbb01fc2a16fa050b8f7",
+      "estimated_receipt_cost_usd": 0.00091425,
+      "request_key": "e996dd569e4c1db4a1da4adad132792ab158d35f05e5758c5bc2e9de06b60615",
+      "response_sha256": "4962f053f6c28a8f798999238e8febb93edd6a3bdeece6bed723ba130872015d",
+      "size_bytes": 7866
+    },
+    {
+      "cache_relative_path": "card-classification/ea/ea2ead31a0db6ec23a0d1468fa5d6d7acabc7f37c47d6c789ffe918a545a5759.json",
+      "crop_sha256": "1e39a15f09306297b3d77d5d8e2ef3ce772cc0b665d33397a3b0bcc37890b64d",
+      "estimated_receipt_cost_usd": 0.0009405,
+      "request_key": "ea2ead31a0db6ec23a0d1468fa5d6d7acabc7f37c47d6c789ffe918a545a5759",
+      "response_sha256": "c7db557cb2e3f214ca6e2712cbd3e30f3bd20cb5edb9d2710afa7e9a6eb4b042",
+      "size_bytes": 2735
+    },
+    {
+      "cache_relative_path": "card-classification/ea/ead35169a2e7bb7c255e57281e16ad76f17f6fdf1299402e7bd969105524d8d2.json",
+      "crop_sha256": "2e2dfee395a695cf736c25d04a5365cd73efa87cdab8a903a42b0c5a9c1a1a5a",
+      "estimated_receipt_cost_usd": 0.00091875,
+      "request_key": "ead35169a2e7bb7c255e57281e16ad76f17f6fdf1299402e7bd969105524d8d2",
+      "response_sha256": "bb39e0d13446f9e484cb60183e3786b31a8fade652cf4b5d0499dc3fc4a5f945",
+      "size_bytes": 2765
+    },
+    {
+      "cache_relative_path": "card-classification/eb/eb103c6142cd6d903b435cf15953c8764a18fae392a02b2c37390a9216c2a90a.json",
+      "crop_sha256": "3f802bd6a5e69453b61d766af0481a79e21b7a80d48bdf3e431c5ee35e7cc624",
+      "estimated_receipt_cost_usd": 0.000906,
+      "request_key": "eb103c6142cd6d903b435cf15953c8764a18fae392a02b2c37390a9216c2a90a",
+      "response_sha256": "c3451c44efbb1b66885640329624e539db221dea50d2d9ec422bdaefee42f5d2",
+      "size_bytes": 2772
+    },
+    {
+      "cache_relative_path": "card-classification/eb/eb16aa6ad27cedb0ea3e235b585acc48d9da69904b234c809243db750dd08061.json",
+      "crop_sha256": "1c761865b5d4befa43e0f0b07a65be4b2ae045fad4a0e2ea019105228fc6f130",
+      "estimated_receipt_cost_usd": 0.0009225,
+      "request_key": "eb16aa6ad27cedb0ea3e235b585acc48d9da69904b234c809243db750dd08061",
+      "response_sha256": "65e79db653657de903da6c9a65b72e169a061a37d4f01e93a0845cb4f9fcaf20",
+      "size_bytes": 2737
+    },
+    {
+      "cache_relative_path": "card-classification/eb/eb1dcfd4fed7f3a7bd9425668401583a5ef64b6b8e68606b53c7057fdfbd3ff0.json",
+      "crop_sha256": "11a3ff087663c4b0de1476b382a8ebadd34fcd2fe6fc54c916085c5306101376",
+      "estimated_receipt_cost_usd": 0.00093225,
+      "request_key": "eb1dcfd4fed7f3a7bd9425668401583a5ef64b6b8e68606b53c7057fdfbd3ff0",
+      "response_sha256": "3ca02c86c94cb3dfb4c2fb1b245c03711ac3fef2cb3a1ec6dde1ed5661c27901",
+      "size_bytes": 2795
+    },
+    {
+      "cache_relative_path": "card-classification/eb/ebac25b60eee20bcf8afdb5204a50f08122317c1172e078b6af3c65b6005578b.json",
+      "crop_sha256": "7282107992c4e6c997159de841207a3e95a3a0649ca2e85e643ecf876ae60ad1",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "ebac25b60eee20bcf8afdb5204a50f08122317c1172e078b6af3c65b6005578b",
+      "response_sha256": "2bd2c92ee90ad61136dc739c655e37b347f4a746a141eb99123252a203e24eaa",
+      "size_bytes": 2729
+    },
+    {
+      "cache_relative_path": "card-classification/ec/ec08c1316fa5122966a2924d593b3d3df0f4a1accbd626a2c6da6a936c2ffad0.json",
+      "crop_sha256": "e60a56fa1a60ff4f481f49bd87e2709799a696568ff115b1110b24a513124b53",
+      "estimated_receipt_cost_usd": 0.0009315,
+      "request_key": "ec08c1316fa5122966a2924d593b3d3df0f4a1accbd626a2c6da6a936c2ffad0",
+      "response_sha256": "ee13bdce48058d5932ca3207ee34295c6a9692cc6e5adcd471210f42b588b2f3",
+      "size_bytes": 2861
+    },
+    {
+      "cache_relative_path": "card-classification/ec/eccdb43748353193fd89cce48ca9f1042c2bbfcf9307ea514c57ddf4f7110204.json",
+      "crop_sha256": "8ccf8d7ea7e28ce11bdef16b193a46f77347d70a144bf08cdbd77c02d822aa8c",
+      "estimated_receipt_cost_usd": 0.00090975,
+      "request_key": "eccdb43748353193fd89cce48ca9f1042c2bbfcf9307ea514c57ddf4f7110204",
+      "response_sha256": "1fc9e953aeb4ecec7f82d14bab637d9abb222e710dce4a77880a1bc75091ae55",
+      "size_bytes": 2576
+    },
+    {
+      "cache_relative_path": "card-classification/ec/eceec3ec84b54e80911c0f226d5deda6f6b5cdfbe285fbb97efad85ce08d17be.json",
+      "crop_sha256": "fc0b851ab95904e825d67217ba29ea1c0212769e4266d18d16fe225bce079658",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "eceec3ec84b54e80911c0f226d5deda6f6b5cdfbe285fbb97efad85ce08d17be",
+      "response_sha256": "dd65fb49ab8f95cc1ee6b08bc53dd07c65ecd8a239700f64fc91348a7412ddbf",
+      "size_bytes": 2693
+    },
+    {
+      "cache_relative_path": "card-classification/ed/ed329e541d7e98c2b7470fa45246894c3b420c1c7a9974e1087af1cd3eebf7e2.json",
+      "crop_sha256": "798fd61405fe1e99e0579888ec971fde20c7285080fc8b60de1bc44efac97ca6",
+      "estimated_receipt_cost_usd": 0.0009105,
+      "request_key": "ed329e541d7e98c2b7470fa45246894c3b420c1c7a9974e1087af1cd3eebf7e2",
+      "response_sha256": "0497855f515a6b372d95d6c668d6e1dc40de148ae27d60a15bd5e55473ce0279",
+      "size_bytes": 11234
+    },
+    {
+      "cache_relative_path": "card-classification/ed/ede21b48b2a72ca9dbd0297d10949acc352428637041f0f2799f897f7eaac4cb.json",
+      "crop_sha256": "4069619c4ecfe7f6938757f12dd64ea163f6ed781c4c76807a0e73b9c353b877",
+      "estimated_receipt_cost_usd": 0.00090825,
+      "request_key": "ede21b48b2a72ca9dbd0297d10949acc352428637041f0f2799f897f7eaac4cb",
+      "response_sha256": "cd760a4a909d48ff25c703701f8939bd819ee2bdccd3684c0aa40b46c87b997e",
+      "size_bytes": 3306
+    },
+    {
+      "cache_relative_path": "card-classification/ee/eeb7c42784a8022f48c402e395c4eb6e55912e15475eeeb5af145cbab01feda1.json",
+      "crop_sha256": "58254980c3ce80e9204e30e31242c697fb28ae94da3f3c3267ab2b0c8a2fc8ae",
+      "estimated_receipt_cost_usd": 0.00092925,
+      "request_key": "eeb7c42784a8022f48c402e395c4eb6e55912e15475eeeb5af145cbab01feda1",
+      "response_sha256": "9180c9fc4c5237e81bbdfe6f62a0c64f36746f57b349ced946f2324bb631cb84",
+      "size_bytes": 2555
+    },
+    {
+      "cache_relative_path": "card-classification/f0/f0275dd97f746925a5f46c3fd9a3b18e7c7bbbe9db2e98a1f583b55bb3f7e263.json",
+      "crop_sha256": "74763a865818a8c64262227ad99bfb2221bd2e3755b3529ade2f585cb061bfb9",
+      "estimated_receipt_cost_usd": 0.0009225,
+      "request_key": "f0275dd97f746925a5f46c3fd9a3b18e7c7bbbe9db2e98a1f583b55bb3f7e263",
+      "response_sha256": "784a25a0eeaf13107650824cd217537351946eeeeaecd3198d976b76565c2706",
+      "size_bytes": 2670
+    },
+    {
+      "cache_relative_path": "card-classification/f1/f193aa5d37697422a4ad9ccd88d36daa4e70ba187f4f81bf40c8a96b18420932.json",
+      "crop_sha256": "079ae856d74a5bf80d514c8738eaf539332c2d9060c91bf5ef42689dafdadccb",
+      "estimated_receipt_cost_usd": 0.00093375,
+      "request_key": "f193aa5d37697422a4ad9ccd88d36daa4e70ba187f4f81bf40c8a96b18420932",
+      "response_sha256": "51cf5a9269280c30e4d7debec79223abf51ca692b901ec11b5d2c4bc914389ce",
+      "size_bytes": 3528
+    },
+    {
+      "cache_relative_path": "card-classification/f3/f3ec1f3ebd499231af67f4f56744010178cd53d5206c379bce3e1fdb86f7ba9d.json",
+      "crop_sha256": "f50bc46251013de2143e85f1231c21b78d7e75c0a7400a4eb344c3e8d9f4b513",
+      "estimated_receipt_cost_usd": 0.00093825,
+      "request_key": "f3ec1f3ebd499231af67f4f56744010178cd53d5206c379bce3e1fdb86f7ba9d",
+      "response_sha256": "acb1758d30668781ceea005e5d4e7c1d6d521871d9cd914a51738c7b809a3446",
+      "size_bytes": 2863
+    },
+    {
+      "cache_relative_path": "card-classification/f4/f4444bc97fa2d5976b7e79414b1ab29ff08b72ff5b9bdabba4ee0dc02a1f7332.json",
+      "crop_sha256": "88c9cfadbe3d869c19dde19626488964ff644958d0ed51ba136c7132216eaff5",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "f4444bc97fa2d5976b7e79414b1ab29ff08b72ff5b9bdabba4ee0dc02a1f7332",
+      "response_sha256": "70571bf097ae0388feb56adf029de52141b2ca338507e61d53cddde3f78dd236",
+      "size_bytes": 2743
+    },
+    {
+      "cache_relative_path": "card-classification/f5/f5297933844f845a6a5137e6bbb9cb3644172d0883d8816bfe677381ea231eb9.json",
+      "crop_sha256": "126434569252fbb4a01abb5b48cdd85cc8cc24f5aed5abb6b348a8825132e7c7",
+      "estimated_receipt_cost_usd": 0.000948,
+      "request_key": "f5297933844f845a6a5137e6bbb9cb3644172d0883d8816bfe677381ea231eb9",
+      "response_sha256": "b89468baef15dc70fcdfbf8715264f85751ab17434cce23910143928d9dbb2c8",
+      "size_bytes": 2617
+    },
+    {
+      "cache_relative_path": "card-classification/f5/f5890b2bc09a8b110fc78473b79ce494d0ccfdacc0f5fa8034ecea7c80bb60db.json",
+      "crop_sha256": "f814da8a4d02f2d19ab437dd976760341c61d85f131f2f522873dd93462b254a",
+      "estimated_receipt_cost_usd": 0.00092775,
+      "request_key": "f5890b2bc09a8b110fc78473b79ce494d0ccfdacc0f5fa8034ecea7c80bb60db",
+      "response_sha256": "f39e8cab4c397c140388747bc5e6c857f21fe600b551b2f7fa5809c07b7cd993",
+      "size_bytes": 2709
+    },
+    {
+      "cache_relative_path": "card-classification/f7/f72c893206b365b1e83c716333730a2ecc211b5f1194a8fffb50f5652a18e753.json",
+      "crop_sha256": "0cb51eaa7e86fafa86df1844db0fdfb8054235f47e601174ec66ee3791119471",
+      "estimated_receipt_cost_usd": 0.0009225,
+      "request_key": "f72c893206b365b1e83c716333730a2ecc211b5f1194a8fffb50f5652a18e753",
+      "response_sha256": "443db2a0cd47ebb2424292489e2c3589001e2bbd1bedd4b097c159da5e4c69bc",
+      "size_bytes": 2395
+    },
+    {
+      "cache_relative_path": "card-classification/f9/f979ca23a3b403bf0da8493b499f701ece8892fe190002bb10c3ed7f70891ec8.json",
+      "crop_sha256": "fbdb77abab768785d4c997a60a315a0433a7a150dc11a2209924a84acea4f7c7",
+      "estimated_receipt_cost_usd": 0.00093525,
+      "request_key": "f979ca23a3b403bf0da8493b499f701ece8892fe190002bb10c3ed7f70891ec8",
+      "response_sha256": "bc3ab1869c4ba5f86de22e5b16654c86082c755b264864ac5c9b1dbb3bc087bd",
+      "size_bytes": 2671
+    },
+    {
+      "cache_relative_path": "card-classification/f9/f9cf88db3bbaaac425c88f37dc29b2f4bb3f9f54a701e2bdbf8bf8a8e32aca8a.json",
+      "crop_sha256": "d58b60804b53a084507d9cd7fe8bf12759a2fbd6482e0d7def35a5bcde4502ef",
+      "estimated_receipt_cost_usd": 0.00092475,
+      "request_key": "f9cf88db3bbaaac425c88f37dc29b2f4bb3f9f54a701e2bdbf8bf8a8e32aca8a",
+      "response_sha256": "cd64b1fa0f76a2bdb51706762ba68c09386a8bf17a58a9b239c35498edea1868",
+      "size_bytes": 2670
+    },
+    {
+      "cache_relative_path": "card-classification/fa/fa405a8488ba9e889753c09da1f229c2bc1e009d03fb81592b6269ae52cd0aa3.json",
+      "crop_sha256": "afbec54bcde808bb8e1516b381752b302e2f46666482846aa51a7466997d59a7",
+      "estimated_receipt_cost_usd": 0.000921,
+      "request_key": "fa405a8488ba9e889753c09da1f229c2bc1e009d03fb81592b6269ae52cd0aa3",
+      "response_sha256": "c77f38ce7ab0f3fa6549a481addabe4ce915925d36cf6c1f4b08a34518ef1eff",
+      "size_bytes": 2657
+    },
+    {
+      "cache_relative_path": "card-classification/fa/fa4c2cf6a6c24bdc629121454dd46bafd14ce3db0f6c174e165bb15143b092b1.json",
+      "crop_sha256": "6857e29d5f181daac74c20b0ec08a5f7a4fafa5110861aa2efff8b1b30dc8b86",
+      "estimated_receipt_cost_usd": 0.0009045,
+      "request_key": "fa4c2cf6a6c24bdc629121454dd46bafd14ce3db0f6c174e165bb15143b092b1",
+      "response_sha256": "7019ded5052bd4c32d3b101f1eaa461456bcba69b32ed97bdaa98360ab401381",
+      "size_bytes": 3160
+    },
+    {
+      "cache_relative_path": "card-classification/fb/fb7e7722fa70d177bad32c5dd232f64061534d9d80475ec6d1ae9c792be05812.json",
+      "crop_sha256": "9419f8d5fd86e7060a17bc88fdc207f194fd7d9971bad59317f918df8dd90639",
+      "estimated_receipt_cost_usd": 0.0009165,
+      "request_key": "fb7e7722fa70d177bad32c5dd232f64061534d9d80475ec6d1ae9c792be05812",
+      "response_sha256": "5762f07f134b824ffa1ad6020aa129b08f62b531224c8ac23e70371d042abd0e",
+      "size_bytes": 3625
+    },
+    {
+      "cache_relative_path": "card-classification/fb/fb8fe8a84fbcaf5318f628bdf594bb0ba4be23fd5108cc6064719226fe5cee8b.json",
+      "crop_sha256": "3b9473cc79d9285fd8ea5fc9d37c6ddadbf4ff85b0038a6491e36236a7e1d749",
+      "estimated_receipt_cost_usd": 0.00092025,
+      "request_key": "fb8fe8a84fbcaf5318f628bdf594bb0ba4be23fd5108cc6064719226fe5cee8b",
+      "response_sha256": "1812459a827c842f0d8b89bc9964c72812b965cd9ba9c155a9a04c89891b74c6",
+      "size_bytes": 2771
+    },
+    {
+      "cache_relative_path": "card-classification/fd/fda4b4b03e9e8b59c4aa72770e3add4368f7b23a8093de577020a6b5b3f8ac7c.json",
+      "crop_sha256": "7c652777d14deda47b572edc65116769b704ae8037eb68e85f21f11de663d15a",
+      "estimated_receipt_cost_usd": 0.0009015,
+      "request_key": "fda4b4b03e9e8b59c4aa72770e3add4368f7b23a8093de577020a6b5b3f8ac7c",
+      "response_sha256": "f60d4ad8b08af262c3d5ad6e3fe08e5bc97ef04111c9a6dd0a52133d9157bb99",
+      "size_bytes": 2640
+    },
+    {
+      "cache_relative_path": "card-classification/fe/feb7c8c93e71c8502b98c9599e53a13fd4c1cb97c8de33375ed959749b7d755a.json",
+      "crop_sha256": "7b057aa80711bacee7dbc1ecfe40915d94fb7865d8090c8e2d2e4b108dd1dd06",
+      "estimated_receipt_cost_usd": 0.0009135,
+      "request_key": "feb7c8c93e71c8502b98c9599e53a13fd4c1cb97c8de33375ed959749b7d755a",
+      "response_sha256": "8528c834f2374feca661d239908c0b1a31dfc9442e686276b3ef28e355b7499a",
+      "size_bytes": 2622
+    },
+    {
+      "cache_relative_path": "card-classification/ff/ff6e528239dc4eb45cc7593ac80c59126a0c79f8fd719b9c5f2d46df2e3b30fb.json",
+      "crop_sha256": "d2ffe96547f8b652cbd2eacf19b47d66104f0ac828ceb2949f498293d9554203",
+      "estimated_receipt_cost_usd": 0.00090525,
+      "request_key": "ff6e528239dc4eb45cc7593ac80c59126a0c79f8fd719b9c5f2d46df2e3b30fb",
+      "response_sha256": "87e4165338cc39bae8cf6fb584ea26e2b322c161cfbcc17a6b7866e7243ee7df",
+      "size_bytes": 2681
+    }
+  ],
+  "pinned_entry_count": 209,
+  "pinned_response_bytes": 632958,
+  "reason": "0088 M2 cache-only exact request replay",
+  "recorded_receipt_cost_usd": 0.19358325,
+  "schema_version": "0115-provider-cache-pins/v1",
+  "source_report": "docs/reports/0088-M2_Reference_Comparison.json",
+  "source_report_sha256": "0af2eb1682d5a732beb6b578b221ba761e791b18d694b095cbc2bcd9d8579a60"
+}

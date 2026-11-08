@@ -33,6 +33,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from PIL import Image, UnidentifiedImageError
 
 from .gemini_concurrency import GeminiRequestLimiter, get_shared_gemini_request_limiter
+from .provider_response_cache import ProviderResponseCacheLifecycle
 from .rfdetr_import import block_pyav_import
 
 DEFAULT_MODEL = "gemini-3.8-flash"
@@ -1567,13 +1568,24 @@ class CachedVisibleCardProvider:
     name = "cached"
     version = CACHE_SCHEMA_VERSION
 
-    def __init__(self, provider: VisibleCardProvider, cache_dir: str | Path) -> None:
+    def __init__(
+        self,
+        provider: VisibleCardProvider,
+        cache_dir: str | Path,
+        *,
+        lifecycle: ProviderResponseCacheLifecycle | None = None,
+    ) -> None:
         self.provider = provider
         self.cache_dir = Path(cache_dir)
+        self.lifecycle = lifecycle
 
     def propose(self, request: VisibleCardRequest) -> ProviderResult:
         cache_path = self._cache_path(request)
-        cached = self._load(cache_path, request)
+        cached = (
+            self.lifecycle.load(cache_path, lambda: self._load(cache_path, request))
+            if self.lifecycle is not None
+            else self._load(cache_path, request)
+        )
         if cached is not None:
             return replace(cached, cache_hit=True)
         return self.propose_fresh(request)
@@ -1582,7 +1594,13 @@ class CachedVisibleCardProvider:
         """Run the underlying provider and replace the cached response for this request."""
 
         result = self.provider.propose(request)
-        self._store(self._cache_path(request), request, result)
+        cache_path = self._cache_path(request)
+        if self.lifecycle is None:
+            self._store(cache_path, request, result)
+        else:
+            with self.lifecycle.access():
+                self._store(cache_path, request, result)
+            self.lifecycle.stored()
         return result
 
     def _cache_path(self, request: VisibleCardRequest) -> Path:

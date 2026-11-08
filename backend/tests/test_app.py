@@ -235,6 +235,10 @@ def test_factory_configures_the_gemini_analyzer(tmp_path: Path) -> None:
     assert app.state.analyzer.name == "visible-card-table-analyzer"
     assert app.state.analyzer.provider.provider.name == "gemini"
     assert app.state.analyzer.classifier.classifier.name == "gemini"
+    assert app.state.analyzer.provider.lifecycle.root == tmp_path / "runtime" / "gemini-cache"
+    assert app.state.analyzer.classifier.lifecycle.root == tmp_path / "runtime" / "gemini-cache"
+    assert app.state.analyzer.provider.lifecycle.retention.max_bytes == 4 * 1024**3
+    assert app.state.analyzer.provider.lifecycle.retention.idle_seconds == 180 * 24 * 60 * 60
 
 
 def test_factory_starts_without_gemini_api_key_and_fails_on_use(tmp_path: Path) -> None:

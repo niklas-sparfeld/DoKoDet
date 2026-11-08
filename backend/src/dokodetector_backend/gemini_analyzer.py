@@ -21,6 +21,10 @@ from table_evidence_analyzer import (
     VisibleCardTableAnalyzer,
     get_shared_gemini_request_limiter,
 )
+from table_evidence_analyzer.provider_response_cache import (
+    ProviderResponseCacheLifecycle,
+    ProviderResponseCacheRetention,
+)
 from table_evidence_analyzer.visible_card_fine_frame_provider import (
     LocalVisibleCardCropReviewProvider,
 )
@@ -192,6 +196,7 @@ def _create_visible_card_provider(
     provider_name: str,
     *,
     cache_root: Any,
+    cache_lifecycle: ProviderResponseCacheLifecycle | None = None,
     request_limiter: Any,
 ) -> Any:
     if provider_name == "gemini":
@@ -236,7 +241,11 @@ def _create_visible_card_provider(
             ) from error
     else:
         raise ConfigurationError(f"Unsupported visible-card provider: {provider_name}.")
-    return CachedVisibleCardProvider(provider, cache_root / "visible-cards")
+    return CachedVisibleCardProvider(
+        provider,
+        cache_root / "visible-cards",
+        lifecycle=cache_lifecycle,
+    )
 
 
 def _create_identity_classifier(
@@ -244,6 +253,7 @@ def _create_identity_classifier(
     provider_name: str,
     *,
     cache_root: Any,
+    cache_lifecycle: ProviderResponseCacheLifecycle | None = None,
     request_limiter: Any,
 ) -> Any:
     if provider_name == "gemini":
@@ -260,6 +270,7 @@ def _create_identity_classifier(
         return CachedCardClassifier(
             classifier,
             cache_root / "card-classification",
+            lifecycle=cache_lifecycle if provider_name == "gemini" else None,
         )
     if provider_name == "local":
         if settings.visible_card_identity_bundle_path is None:
@@ -338,6 +349,10 @@ def create_configured_processor_registries(
     """Create independently selectable visible-card and identity processors."""
 
     cache_root = settings.evidence_root / "gemini-cache"
+    cache_lifecycle = ProviderResponseCacheLifecycle(
+        cache_root,
+        ProviderResponseCacheRetention(),
+    )
     request_limiter = get_shared_gemini_request_limiter(settings.gemini_max_concurrent_requests)
     local_visible_provider = _configured_local_visible_provider(settings)
     visible = LazyProcessorRegistry(
@@ -346,36 +361,42 @@ def create_configured_processor_registries(
                 settings,
                 "gemini",
                 cache_root=cache_root,
+                cache_lifecycle=cache_lifecycle,
                 request_limiter=request_limiter,
             ),
             "gemini": lambda: _create_visible_card_provider(
                 settings,
                 "gemini",
                 cache_root=cache_root,
+                cache_lifecycle=cache_lifecycle,
                 request_limiter=request_limiter,
             ),
             "local": lambda: _create_visible_card_provider(
                 settings,
                 local_visible_provider,
                 cache_root=cache_root,
+                cache_lifecycle=cache_lifecycle,
                 request_limiter=request_limiter,
             ),
             "local-rfdetr-segmentation": lambda: _create_visible_card_provider(
                 settings,
                 "local-rfdetr-segmentation",
                 cache_root=cache_root,
+                cache_lifecycle=cache_lifecycle,
                 request_limiter=request_limiter,
             ),
             "local-rfdetr-fine-frame": lambda: _create_visible_card_provider(
                 settings,
                 "local-rfdetr-fine-frame",
                 cache_root=cache_root,
+                cache_lifecycle=cache_lifecycle,
                 request_limiter=request_limiter,
             ),
             "local-rfdetr-crop-review": lambda: _create_visible_card_provider(
                 settings,
                 "local-rfdetr-crop-review",
                 cache_root=cache_root,
+                cache_lifecycle=cache_lifecycle,
                 request_limiter=request_limiter,
             ),
         }
@@ -386,18 +407,21 @@ def create_configured_processor_registries(
                 settings,
                 "gemini",
                 cache_root=cache_root,
+                cache_lifecycle=cache_lifecycle,
                 request_limiter=request_limiter,
             ),
             "gemini": lambda: _create_identity_classifier(
                 settings,
                 "gemini",
                 cache_root=cache_root,
+                cache_lifecycle=cache_lifecycle,
                 request_limiter=request_limiter,
             ),
             "local": lambda: _create_identity_classifier(
                 settings,
                 "local",
                 cache_root=cache_root,
+                cache_lifecycle=cache_lifecycle,
                 request_limiter=request_limiter,
             ),
         }
@@ -409,17 +433,23 @@ def create_configured_analyzer(settings: Settings) -> TableEvidenceAnalyzer:
     """Create the analyzer with independent detector and identity selections."""
 
     cache_root = settings.evidence_root / "gemini-cache"
+    cache_lifecycle = ProviderResponseCacheLifecycle(
+        cache_root,
+        ProviderResponseCacheRetention(),
+    )
     request_limiter = get_shared_gemini_request_limiter(settings.gemini_max_concurrent_requests)
     provider = _create_visible_card_provider(
         settings,
         settings.visible_card_provider,
         cache_root=cache_root,
+        cache_lifecycle=cache_lifecycle,
         request_limiter=request_limiter,
     )
     classifier = _create_identity_classifier(
         settings,
         settings.visible_card_identity_classifier,
         cache_root=cache_root,
+        cache_lifecycle=cache_lifecycle,
         request_limiter=request_limiter,
     )
     return VisibleCardTableAnalyzer(

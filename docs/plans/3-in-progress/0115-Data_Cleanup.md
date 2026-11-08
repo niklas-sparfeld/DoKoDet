@@ -471,8 +471,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   policy under `sampled-frames`; package 3 covers the provider-response cache, then operational
   logs and recovery/campaign families. Pinned entries are excluded from the package 1 budget. No
   operator cache or retained human work was changed.
-- **Next:** M13 package 3 — inspect provider-cache replay and cost behavior before setting its
-  independent budget and expiry.
+- **Next:** M13 package 3 — provider-cache replay, cost, budget, and expiry; completed below.
 - **Commit boundary:** The cache writer contract and backend wiring, focused tests, 0114 evidence,
   report, epic/handoff, and board update form package 1's focused commit. It did not complete M13.
 
@@ -501,6 +500,31 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 - **Commit boundary:** Sampled-frame retention, backend wiring, tests, 0114 evidence, report,
   epic/handoff, and board update form one package commit. The run remains at 1/4 milestones
   complete and 3/4 remaining because M13 is not complete.
+
+- **M13 package 3:** The shared `.runtime/gemini-cache` lifecycle now enforces a 180-day idle
+  expiry and 4 GiB logical-byte budget. The report records active writers/readers, request replay
+  behavior, and the policy limits. It measured 18,655 JSON files and 2.697 GiB before applying
+  the new policy.
+- **Changes:** Added thread/process locking for cache reads, writes, and pruning; hourly expiry
+  sweeps, oldest-first unpinned eviction, and `.json.pin` protection. Backend visible-card
+  responses and Gemini identity responses share the lifecycle. The 209 exact responses needed by
+  the 0088 M2 cache-only replay are pinned; their request keys, crop digests, response digests,
+  byte sizes, and recorded costs are in the [pin manifest](../../reports/0115-M13_Growth_Bounds.artifacts/provider-cache-pins.json).
+- **Checks:** 26 provider/classifier tests and 16 backend construction/integration tests passed;
+  Ruff, Ruff format, and `git diff --check` passed. Tests used fake providers; no paid Gemini
+  request was made. The full `backend/tests/test_app.py` has a separate failure in
+  `test_factory_converts_interrupted_round_analysis_to_failed` (`queued` instead of `failed`);
+  its focused repeat also failed. See the [M13 report](../../reports/0115-M13_Growth_Bounds.md)
+  for exact evidence and the package limits.
+- **Decisions and limits:** The M2 replay depends on 209 exact provider receipts. These files are
+  protected from automatic expiry and eviction. Other cache entries can be recreated through
+  provider requests, which can incur cost. The 4 GiB budget excludes pinned files and metadata;
+  expiry runs on access and there is no background sweeper. M13 remains incomplete.
+- **Next:** M13 package 4 — select one operational-log writer family and preserve active-job and
+  recovery evidence. Package 5 and combined M13 checks remain. The run still has 1/4 milestones
+  complete and 3/4 remaining.
+- **Commit boundary:** Provider-cache lifecycle and backend wiring, focused tests, M2 replay pin
+  evidence, report, epic/handoff, and board status form one focused package commit.
 
 ## M0 — Inventory and rank
 
@@ -725,7 +749,7 @@ package is complete and the combined checks pass.
    derived-view root. Preserve exact source-video identity and prove cache reconstruction, in-flight
    access, crash recovery, and 0114 cold/warm behavior. Do not assume the digest-entry cache policy
    covers this separate writer.
-3. **Provider-response cache.** Own only `.runtime/gemini-cache` and its `gemini_analyzer.py`
+3. **Provider-response cache (complete).** Own only `.runtime/gemini-cache` and its `gemini_analyzer.py`
    construction and cache API. First identify replay/cost behavior and exact readers. Freeze its
    own expiry and budget before implementation; do not share derived-view eviction code without a
    verified contract. Check deterministic expiry, active requests, restart, and replay behavior.
