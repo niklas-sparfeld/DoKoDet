@@ -406,7 +406,7 @@ def test_geometry_tags_keep_detector_boxes_separate_from_disconnected_reviewed_r
             transform_version=DEFAULT_TRANSFORM_VERSION,
         )
     )
-    (cache.path(detector_key) / "content.bin").write_bytes(b"corrupt")
+    (cache.path(detector_key) / "content.bin.gz").write_bytes(b"corrupt")
     regenerated = resolve_visible_region_crop(
         frame,
         detector,
@@ -414,6 +414,9 @@ def test_geometry_tags_keep_detector_boxes_separate_from_disconnected_reviewed_r
         cache=cache,
     )
     assert regenerated.image_bytes == detector_crop.image_bytes
+    assert (cache.path(detector_key) / "manifest.json").read_text().find(
+        '"schema_version":"derived-view-cache/v2"'
+    ) >= 0
     assert reviewed_crop.status == "usable"
     assert reviewed_crop.pixel_bounds == detector_crop.pixel_bounds
     assert reviewed_raw_crop.status == "usable"

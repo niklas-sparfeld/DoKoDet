@@ -1,0 +1,11 @@
+{
+  "case_budgets": 179,
+  "hard_fixture_manifest_sha256": "e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294",
+  "method": "temporary copy of the frozen raw corpus with only stale absolute trial-log paths rebased to copied artifacts; frozen baseline and inputs unchanged",
+  "planned_ui_cases": 70,
+  "qualification": "PASS",
+  "registered_api_operations": 76,
+  "retained_hard_fixture_assets": 57,
+  "schema_version": "0115-m12-0114-qualification/v1",
+  "ui_route_budgets": 70
+}

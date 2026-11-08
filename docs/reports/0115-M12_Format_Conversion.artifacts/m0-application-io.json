@@ -1,0 +1,72 @@
+{
+  "cases": [
+    {
+      "case": "lineage_hard",
+      "domain_data_parser_calls": {
+        "parse_visible_card_data_bytes": 4,
+        "parse_visual_identity_data_bytes": 3
+      },
+      "duration_ns": 14461017208,
+      "isolated_data_read_open_count": 46,
+      "live_data_read_open_count": 0,
+      "ok": true,
+      "response_bytes": 5615,
+      "response_sha256": "c170aae91616cb23863c766e5f319074fa63418302f7d03c9be0c2e352b0cee3",
+      "status_code": 200,
+      "stdlib_json_loads": 313,
+      "unique_data_paths_read": 35,
+      "unique_json_paths_read": 34
+    },
+    {
+      "case": "revision_max_identity_payload",
+      "domain_data_parser_calls": {
+        "parse_visual_identity_data_bytes": 2
+      },
+      "duration_ns": 4830610333,
+      "isolated_data_read_open_count": 6,
+      "live_data_read_open_count": 0,
+      "ok": true,
+      "response_bytes": 16006749,
+      "response_sha256": "db2b4ce88b85e0896d486e5dab9a9806fa9aee50d2ad455967671536ff005dfc",
+      "status_code": 200,
+      "stdlib_json_loads": 12,
+      "unique_data_paths_read": 4,
+      "unique_json_paths_read": 4
+    },
+    {
+      "case": "revision_max_polygon_payload",
+      "domain_data_parser_calls": {
+        "parse_visible_card_data_bytes": 2
+      },
+      "duration_ns": 3347248584,
+      "isolated_data_read_open_count": 6,
+      "live_data_read_open_count": 0,
+      "ok": true,
+      "response_bytes": 12136774,
+      "response_sha256": "a7b287d4134957f0a216b318aeb5d7e8a76fbb8ef647d988bb3311182a39f540",
+      "status_code": 200,
+      "stdlib_json_loads": 12,
+      "unique_data_paths_read": 4,
+      "unique_json_paths_read": 4
+    },
+    {
+      "case": "workspace_full_hard",
+      "domain_data_parser_calls": {
+        "parse_visible_card_data_bytes": 8,
+        "parse_visual_identity_data_bytes": 6
+      },
+      "duration_ns": 20353739917,
+      "isolated_data_read_open_count": 63,
+      "live_data_read_open_count": 0,
+      "ok": true,
+      "response_bytes": 49286,
+      "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
+      "status_code": 200,
+      "stdlib_json_loads": 586,
+      "unique_data_paths_read": 38,
+      "unique_json_paths_read": 38
+    }
+  ],
+  "hard_fixture_manifest_sha256": "e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294",
+  "schema_version": "0115-m12-application-io-summary/v1"
+}

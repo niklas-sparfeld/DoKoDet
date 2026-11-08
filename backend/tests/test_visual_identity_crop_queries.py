@@ -182,6 +182,20 @@ def test_visual_identity_pipeline_uses_generated_geometry_and_restarts(
         assert warm_preview.status_code == 200, warm_preview.text
         assert warm_preview.headers["content-type"] == "image/jpeg"
         assert preview_path.is_dir()
+        canonical_cache = None
+        for entry in service.storage.derived_views_root.iterdir():
+            manifest_path = entry / "manifest.json"
+            if not manifest_path.is_file():
+                continue
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest.get("view_kind") == "visible-region-crop/v1":
+                canonical_cache = manifest
+                break
+        assert canonical_cache is not None
+        assert canonical_cache["schema_version"] == "derived-view-cache/v2"
+        assert canonical_cache["storage_codec"] == "gzip/level-1/v1"
+        assert len(canonical_cache["stored_content_sha256"]) == 64
+        assert canonical_cache["stored_byte_length"] > 0
         for entry in service.storage.derived_views_root.iterdir():
             manifest_path = entry / "manifest.json"
             if (

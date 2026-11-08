@@ -1,0 +1,19 @@
+{
+  "cache_checks": [
+    "operations/tests/test_derived_view.py",
+    "operations/tests/test_0115_crop_cache_conversion.py"
+  ],
+  "corruption_fixture": "modified gzip bytes rejected by stored digest and treated as cache miss",
+  "current_hard_pipeline_failures": 0,
+  "current_hard_pipeline_samples": 70,
+  "interruption_fixture": "two-entry source; one entry written before injected interruption; source unchanged; restart into fresh destination verified both entries",
+  "isolated_api_checks": [
+    "backend/tests/test_visual_identity_crop_queries.py",
+    "backend/tests/test_0115_pipeline_cutover.py"
+  ],
+  "m11_exact_response_cases": 35,
+  "m11_exact_response_matches": 35,
+  "operator_cache_modified": false,
+  "recovery_digest": "6721e55f6edc3c3d1f9f0602e0c77ffc1fd553e6acee6d15a39397cd2ae70381",
+  "schema_version": "0115-m12-api-recovery-summary/v1"
+}

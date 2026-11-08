@@ -7,6 +7,7 @@ the source video remains the only visual input.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import math
@@ -16,6 +17,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import zlib
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -34,6 +36,8 @@ SAMPLED_FRAME_CACHE_SCHEMA = "sampled-frame-cache/v2"
 VISIBLE_REGION_CROP_SCHEMA = "visible-region-crop/v1"
 CROP_JPEG_PREVIEW_SCHEMA = "visible-region-crop-jpeg-preview/v1"
 DERIVED_VIEW_CACHE_SCHEMA = "derived-view-cache/v1"
+DERIVED_VIEW_CACHE_COMPRESSED_SCHEMA = "derived-view-cache/v2"
+DERIVED_VIEW_CACHE_CODEC = "gzip/level-1/v1"
 
 # These values are pinned by the repository root mise.toml and operations/uv.lock.
 FFMPEG_TOOLCHAIN_VERSION = "8.1.2"
@@ -1082,15 +1086,13 @@ class DerivedViewCache:
         if not directory.is_dir() or directory.is_symlink():
             return None
         manifest_path = directory / "manifest.json"
-        content_path = directory / "content.bin"
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            content = content_path.read_bytes()
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             return None
         if not isinstance(manifest, dict):
             return None
-        expected = {
+        common = {
             "schema_version",
             "cache_key",
             "view_kind",
@@ -1098,16 +1100,59 @@ class DerivedViewCache:
             "content_sha256",
             "byte_length",
         }
-        if set(manifest) != expected:
-            return None
-        if manifest.get("schema_version") != DERIVED_VIEW_CACHE_SCHEMA:
-            return None
         if manifest.get("cache_key") != cache_key:
             return None
         try:
             digest = _require_digest(manifest["content_sha256"], "cache content_sha256")
             length = _require_int(manifest["byte_length"], "cache byte_length", minimum=0)
         except DerivedViewError:
+            return None
+        schema = manifest.get("schema_version")
+        identity = manifest.get("identity")
+        if schema == DERIVED_VIEW_CACHE_SCHEMA:
+            if set(manifest) != common or not isinstance(identity, dict):
+                return None
+            # PPM crop entries use the selected v2 representation. Reject old entries so
+            # callers regenerate them instead of silently continuing to use the old path.
+            if (
+                manifest.get("view_kind") == VISIBLE_REGION_CROP_SCHEMA
+                and identity.get("output_encoding") == "ppm"
+            ):
+                return None
+            content_path = directory / "content.bin"
+            try:
+                content = content_path.read_bytes()
+            except OSError:
+                return None
+        elif schema == DERIVED_VIEW_CACHE_COMPRESSED_SCHEMA:
+            if set(manifest) != common | {
+                "storage_codec",
+                "stored_content_sha256",
+                "stored_byte_length",
+            }:
+                return None
+            if (
+                manifest.get("view_kind") != VISIBLE_REGION_CROP_SCHEMA
+                or not isinstance(identity, dict)
+                or identity.get("output_encoding") != "ppm"
+                or manifest.get("storage_codec") != DERIVED_VIEW_CACHE_CODEC
+            ):
+                return None
+            stored_path = directory / "content.bin.gz"
+            try:
+                stored = stored_path.read_bytes()
+                stored_digest = _require_digest(
+                    manifest["stored_content_sha256"], "cache stored_content_sha256"
+                )
+                stored_length = _require_int(
+                    manifest["stored_byte_length"], "cache stored_byte_length", minimum=0
+                )
+                if len(stored) != stored_length or _sha256(stored) != stored_digest:
+                    return None
+                content = gzip.decompress(stored)
+            except (OSError, KeyError, DerivedViewError, EOFError, gzip.BadGzipFile, zlib.error):
+                return None
+        else:
             return None
         if length != len(content) or digest != _sha256(content):
             return None
@@ -1130,12 +1175,30 @@ class DerivedViewCache:
             raise DerivedViewCacheError("cache manifest key does not match the path")
         data["content_sha256"] = _sha256(content)
         data["byte_length"] = len(content)
+        compressed = (
+            data.get("view_kind") == VISIBLE_REGION_CROP_SCHEMA
+            and isinstance(data.get("identity"), dict)
+            and data["identity"].get("output_encoding") == "ppm"
+        )
+        if compressed:
+            stored = gzip.compress(content, compresslevel=1, mtime=0)
+            data.update(
+                {
+                    "schema_version": DERIVED_VIEW_CACHE_COMPRESSED_SCHEMA,
+                    "storage_codec": DERIVED_VIEW_CACHE_CODEC,
+                    "stored_content_sha256": _sha256(stored),
+                    "stored_byte_length": len(stored),
+                }
+            )
+            filename = "content.bin.gz"
+        else:
+            filename = "content.bin"
         manifest_bytes = canonical_json_bytes(data)
         parent = self.root.resolve()
         staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=parent))
         try:
             _write_fsync(staging / "manifest.json", manifest_bytes)
-            _write_fsync(staging / "content.bin", content)
+            _write_fsync(staging / filename, stored if compressed else content)
             if destination.is_symlink():
                 destination.unlink()
             elif destination.exists():

@@ -165,15 +165,15 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M9 | Cut over the selected tracked pipeline family after dependency and recovery checks | Complete |
 | M10 | Evaluate safe Git and LFS maintenance and record history costs | Complete |
 | M11 | Measure compact storage candidates and select at most one bounded format change | Complete |
-| M12 | Implement and convert the selected format family, if justified | Not started |
+| M12 | Implement and convert the selected format family, if justified | Complete |
 | M13 | Bound cache, log, and future recovery-copy growth | Not started |
 | M14 | Add compact agent discovery and data-authority guidance | Not started |
 | M15 | Verify savings, workflows, performance, and recovery; close | Not started |
 
 ## Execution handoff
 
-- **Run:** M8 through M11 completed in this 8-milestone run. Requested: 8. Completed: 4. Remaining: 4.
-  M12 is next; do not exceed the run limit. The previous run completed M7; its separate count is in the M7 record.
+- **Run:** M12 completed in this 4-milestone run. Requested: 4. Completed: 1. Remaining: 3.
+  M13 is next. The preceding run completed M8 through M11; its count is recorded in the M11 report.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -423,11 +423,34 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   snapshot until isolated conversion, restart, interruption, corruption, and recovery checks pass.
   The full pipeline performance runner's prior M5 hard fixture omitted six exact resources; the
   profiler now seeds those resources in disposable storage using existing runner helpers.
-- **Next:** M12 — implement and convert the selected crop-cache family.
+- **Next:** M13 — bound cache, log, and future recovery-copy growth.
 - **Commit boundary:** M11 report and artifacts, profiler and benchmark tools, epic/handoff, and
   board update form one focused commit.
-- **Current run result:** M8–M11 complete; this run has completed 4 of 8 requested milestones
-  and has 4 remaining.
+- **M12:** Complete. The [format conversion report](../../reports/0115-M12_Format_Conversion.md)
+  records the selected gzip cache implementation, full 8,571-entry isolated conversion, exact
+  identities, interruption and corruption recovery, API and restart checks, and same-corpus
+  performance results.
+- **Changes:** The crop-cache reader now verifies `derived-view-cache/v2` stored-byte fields,
+  decompresses the selected PPM crop family, and checks the original content digest and length.
+  It rejects v1 PPM entries as misses; other v1 cache kinds keep their current format. The bounded
+  [converter](../../../operations/scripts/convert_0115_crop_cache.py) writes only to a separate
+  destination and verifies every converted entry.
+- **Checks:** All 8,571 entries converted and restored exactly, retaining the M11 identity digest
+  and 128-key sample. The rehearsal used 798,392,320 allocated bytes across 17,142 files (61.7%
+  below M11), averaged 1.99 ms per entry for encode/write, and measured 1.58/1.60 ms cold/warm
+  random-read p95. Two backend API modules passed (3 tests); focused cache modules passed (18).
+  The current 35-case hard pipeline run passed 70 samples and matched all M11 response digests.
+  Four M0 I/O cases passed with no live reads. The 0114 hard fixture, inventory, and rebased-copy
+  qualification passed (57 assets, 76 API operations, 179 case budgets, 70 route budgets).
+- **Decisions and limits:** The conversion used a disposable destination. The original operator
+  cache was not modified. Its post-rehearsal digest equals the frozen M11 digest and is the recovery
+  reference for any later activation. The direct 0114 qualifier still fails on stale absolute log
+  paths in the retained raw corpus; a temporary copy with only those paths rebased passed without
+  changing the baseline or checked-in evidence.
+- **Commit boundary:** M12 implementation, focused tests, conversion and qualification evidence,
+  report, epic/handoff, and board update form one focused milestone commit.
+- **Current run result:** M12 complete; this run has completed 1 of 4 requested milestones and
+  has 3 remaining.
 
 ## M0 — Inventory and rank
 

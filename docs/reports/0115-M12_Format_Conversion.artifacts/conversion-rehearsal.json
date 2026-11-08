@@ -1,0 +1,29 @@
+{
+  "allocated_byte_reduction": 1285550080,
+  "allocated_byte_reduction_percent": 61.7,
+  "allocated_bytes": 798392320,
+  "average_store_encode_write_ms_per_entry": 1.9718713102321783,
+  "baseline_allocated_bytes": 2083942400,
+  "cold_random_read_median_ns": 300854,
+  "cold_random_read_p95_ns": 1628750,
+  "conversion_mode": "isolated disposable destination; no activation",
+  "convert_verify_elapsed_ns": 20813276042,
+  "converted_entries": 8571,
+  "files": 17142,
+  "m11_frozen_identity_digest": "6721e55f6edc3c3d1f9f0602e0c77ffc1fd553e6acee6d15a39397cd2ae70381",
+  "operator_cache_modified": false,
+  "random_sample_key_set_sha256": "c8d44641933c34513ce042c3ab3ac7f2f40dde8530198fa0d9f93ef9bd055ffd",
+  "random_sample_n": 128,
+  "schema_version": "0115-m12-format-conversion-rehearsal/v1",
+  "source_after_rehearsal_digest": "6721e55f6edc3c3d1f9f0602e0c77ffc1fd553e6acee6d15a39397cd2ae70381",
+  "source_revision": "f63b5bdb091a789dbce4f79a40223c7d0044b276",
+  "source_snapshot": {
+    "entries": 8571,
+    "logical_content_bytes": 1997795952,
+    "source_digest": "6721e55f6edc3c3d1f9f0602e0c77ffc1fd553e6acee6d15a39397cd2ae70381"
+  },
+  "store_encode_write_elapsed_ns": 16900909000,
+  "stored_content_bytes": 711507194,
+  "warm_random_read_median_ns": 297729,
+  "warm_random_read_p95_ns": 1572375
+}
