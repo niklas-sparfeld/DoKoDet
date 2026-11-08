@@ -7,6 +7,7 @@ the source video remains the only visual input.
 
 from __future__ import annotations
 
+import fcntl
 import gzip
 import hashlib
 import json
@@ -17,9 +18,11 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import zlib
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from io import BytesIO
@@ -38,6 +41,8 @@ CROP_JPEG_PREVIEW_SCHEMA = "visible-region-crop-jpeg-preview/v1"
 DERIVED_VIEW_CACHE_SCHEMA = "derived-view-cache/v1"
 DERIVED_VIEW_CACHE_COMPRESSED_SCHEMA = "derived-view-cache/v2"
 DERIVED_VIEW_CACHE_CODEC = "gzip/level-1/v1"
+DERIVED_VIEW_CACHE_PIN_FILE = ".pin"
+_DERIVED_VIEW_CACHE_PROCESS_LOCK = RLock()
 
 # These values are pinned by the repository root mise.toml and operations/uv.lock.
 FFMPEG_TOOLCHAIN_VERSION = "8.1.2"
@@ -1067,11 +1072,37 @@ class DerivedViewCacheEntry:
     content: bytes
 
 
+@dataclass(frozen=True, slots=True)
+class DerivedViewCacheRetention:
+    """Bounds disposable entries in one runtime derived-view cache root."""
+
+    max_bytes: int
+    idle_seconds: float
+    clock: Any = time.time
+
+    def __post_init__(self) -> None:
+        _require_int(self.max_bytes, "retention max_bytes", minimum=1)
+        if (
+            isinstance(self.idle_seconds, bool)
+            or not isinstance(self.idle_seconds, (int, float))
+            or self.idle_seconds <= 0
+        ):
+            raise DerivedViewCacheError("retention idle_seconds must be positive")
+        if not callable(self.clock):
+            raise DerivedViewCacheError("retention clock must be callable")
+
+
 class DerivedViewCache:
     """A disposable, digest-verified cache below ``derived-views``."""
 
-    def __init__(self, root: str | Path) -> None:
+    def __init__(
+        self,
+        root: str | Path,
+        *,
+        retention: DerivedViewCacheRetention | None = None,
+    ) -> None:
         self.root = Path(root).expanduser()
+        self.retention = retention
         self.root.mkdir(parents=True, exist_ok=True)
         if not self.root.is_dir():
             raise DerivedViewCacheError(f"cache root is not a directory: {self.root}")
@@ -1082,8 +1113,20 @@ class DerivedViewCache:
         return self.root / cache_key
 
     def read(self, cache_key: str) -> DerivedViewCacheEntry | None:
+        with self._retention_lock():
+            return self._read(cache_key)
+
+    def _read(self, cache_key: str) -> DerivedViewCacheEntry | None:
         directory = self.path(cache_key)
         if not directory.is_dir() or directory.is_symlink():
+            return None
+        if self._is_expired(directory):
+            self._ensure_retention_state()
+            if not (directory / DERIVED_VIEW_CACHE_PIN_FILE).exists():
+                _write_fsync(self.root / ".maintenance-pending", b"pending\n")
+                self._adjust_retention_state(-self._entry_size(directory))
+                shutil.rmtree(directory)
+                (self.root / ".maintenance-pending").unlink(missing_ok=True)
             return None
         manifest_path = directory / "manifest.json"
         try:
@@ -1168,9 +1211,40 @@ class DerivedViewCache:
             return None
         if length != len(content) or digest != _sha256(content):
             return None
+        if self.retention is not None:
+            now = self.retention.clock()
+            os.utime(directory, (now, now), follow_symlinks=False)
         return DerivedViewCacheEntry(manifest=manifest, content=content)
 
     def write(
+        self,
+        cache_key: str,
+        manifest: Mapping[str, Any],
+        content: bytes,
+    ) -> DerivedViewCacheEntry:
+        with self._retention_lock():
+            if self.retention is not None:
+                self._ensure_retention_state()
+                destination = self.path(cache_key)
+                was_pinned = (destination / DERIVED_VIEW_CACHE_PIN_FILE).exists()
+                previous_size = self._entry_size(destination)
+                _write_fsync(self.root / ".maintenance-pending", b"pending\n")
+            result = self._write(cache_key, manifest, content)
+            if self.retention is not None:
+                destination = self.path(cache_key)
+                if was_pinned:
+                    _write_fsync(destination / DERIVED_VIEW_CACHE_PIN_FILE, b"pinned\n")
+                new_size = self._entry_size(destination)
+                self._adjust_retention_state(0 if was_pinned else new_size - previous_size)
+                if (
+                    self._retention_state_needs_sweep()
+                    or self._retention_bytes() > self.retention.max_bytes
+                ):
+                    self._prune()
+                (self.root / ".maintenance-pending").unlink(missing_ok=True)
+            return result
+
+    def _write(
         self,
         cache_key: str,
         manifest: Mapping[str, Any],
@@ -1217,10 +1291,205 @@ class DerivedViewCache:
                 shutil.rmtree(destination)
             os.replace(staging, destination)
             staging = Path()
+            if self.retention is not None:
+                written_at = self.retention.clock()
+                os.utime(destination, (written_at, written_at), follow_symlinks=False)
         finally:
             if staging != Path() and (staging.exists() or staging.is_symlink()):
                 shutil.rmtree(staging)
         return DerivedViewCacheEntry(manifest=data, content=content)
+
+    def pin(self, cache_key: str) -> None:
+        """Keep one cache entry outside automatic expiry and size eviction."""
+
+        with self._retention_lock():
+            directory = self.path(cache_key)
+            if not directory.is_dir() or directory.is_symlink():
+                raise DerivedViewCacheError("cannot pin a missing cache entry")
+            pin = directory / DERIVED_VIEW_CACHE_PIN_FILE
+            if pin.exists():
+                return
+            if self.retention is not None:
+                self._ensure_retention_state()
+                _write_fsync(self.root / ".maintenance-pending", b"pending\n")
+                self._adjust_retention_state(-self._entry_size(directory))
+            _write_fsync(pin, b"pinned\n")
+            if self.retention is not None:
+                (self.root / ".maintenance-pending").unlink(missing_ok=True)
+
+    def unpin(self, cache_key: str) -> None:
+        """Allow one cache entry to expire or be evicted by its size budget."""
+
+        with self._retention_lock():
+            pin = self.path(cache_key) / DERIVED_VIEW_CACHE_PIN_FILE
+            try:
+                directory = pin.parent
+                if self.retention is not None and directory.is_dir() and not directory.is_symlink():
+                    self._ensure_retention_state()
+                    size = self._entry_size(directory) - pin.stat().st_size
+                else:
+                    size = 0
+                if self.retention is not None:
+                    _write_fsync(self.root / ".maintenance-pending", b"pending\n")
+                pin.unlink()
+            except FileNotFoundError:
+                return
+            if self.retention is not None:
+                self._adjust_retention_state(size)
+                if self._retention_bytes() > self.retention.max_bytes:
+                    self._prune()
+                (self.root / ".maintenance-pending").unlink(missing_ok=True)
+
+    @contextmanager
+    def _retention_lock(self):
+        if self.retention is None:
+            yield
+            return
+        with _DERIVED_VIEW_CACHE_PROCESS_LOCK:
+            lock_path = self.root / ".lifecycle.lock"
+            descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+                pending = self.root / ".maintenance-pending"
+                if pending.exists():
+                    self._ensure_retention_state(force=True)
+                    self._prune()
+                    pending.unlink(missing_ok=True)
+                yield
+            finally:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+                os.close(descriptor)
+
+    def _is_expired(self, directory: Path) -> bool:
+        if self.retention is None or (directory / DERIVED_VIEW_CACHE_PIN_FILE).exists():
+            return False
+        try:
+            age = self.retention.clock() - directory.stat(follow_symlinks=False).st_mtime
+        except OSError:
+            return True
+        return age >= self.retention.idle_seconds
+
+    def _prune(self) -> None:
+        assert self.retention is not None
+        now = self.retention.clock()
+        entries: list[tuple[float, Path, int]] = []
+        unpinned_bytes = 0
+        for path in self.root.iterdir():
+            if path.name.startswith(".staging-"):
+                if path.is_dir() and not path.is_symlink():
+                    shutil.rmtree(path)
+                continue
+            if _CACHE_KEY.fullmatch(path.name) is None or not path.is_dir() or path.is_symlink():
+                continue
+            if (path / DERIVED_VIEW_CACHE_PIN_FILE).exists():
+                continue
+            try:
+                modified = path.stat(follow_symlinks=False).st_mtime
+                size = sum(
+                    child.stat(follow_symlinks=False).st_size
+                    for child in path.iterdir()
+                    if child.is_file() and not child.is_symlink()
+                )
+            except OSError:
+                continue
+            if now - modified >= self.retention.idle_seconds:
+                shutil.rmtree(path)
+            else:
+                entries.append((modified, path, size))
+                unpinned_bytes += size
+        total = unpinned_bytes
+        for _, path, size in sorted(entries, key=lambda item: item[0]):
+            if total <= self.retention.max_bytes:
+                break
+            shutil.rmtree(path)
+            total -= size
+        self._write_retention_state(total, now)
+
+    def _retention_state_path(self) -> Path:
+        return self.root / ".retention-state.json"
+
+    def _ensure_retention_state(self, *, force: bool = False) -> None:
+        assert self.retention is not None
+        state_path = self._retention_state_path()
+        if not force:
+            try:
+                state = json.loads(state_path.read_text(encoding="utf-8"))
+                if (
+                    isinstance(state, dict)
+                    and state.get("schema_version") == "derived-view-retention/v1"
+                    and isinstance(state.get("evictable_bytes"), int)
+                    and not isinstance(state.get("evictable_bytes"), bool)
+                    and state["evictable_bytes"] >= 0
+                    and isinstance(state.get("last_sweep"), (int, float))
+                    and math.isfinite(state["last_sweep"])
+                    and state["last_sweep"] >= 0
+                ):
+                    return
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                pass
+        total = 0
+        for path in self.root.iterdir():
+            if (
+                _CACHE_KEY.fullmatch(path.name) is None
+                or not path.is_dir()
+                or path.is_symlink()
+                or (path / DERIVED_VIEW_CACHE_PIN_FILE).exists()
+            ):
+                continue
+            total += self._entry_size(path)
+        self._write_retention_state(total, self.retention.clock())
+
+    def _write_retention_state(self, evictable_bytes: int, last_sweep: float) -> None:
+        state = {
+            "schema_version": "derived-view-retention/v1",
+            "evictable_bytes": max(0, evictable_bytes),
+            "last_sweep": last_sweep,
+        }
+        _write_fsync(self._retention_state_path(), canonical_json_bytes(state))
+
+    def _adjust_retention_state(self, byte_delta: int) -> None:
+        assert self.retention is not None
+        try:
+            state = json.loads(self._retention_state_path().read_text(encoding="utf-8"))
+            if (
+                not isinstance(state, dict)
+                or not isinstance(state.get("evictable_bytes"), int)
+                or isinstance(state.get("evictable_bytes"), bool)
+                or state["evictable_bytes"] < 0
+                or not isinstance(state.get("last_sweep"), (int, float))
+                or not math.isfinite(state["last_sweep"])
+            ):
+                raise ValueError("invalid derived-view retention state")
+            total = state["evictable_bytes"] + byte_delta
+            last_sweep = state["last_sweep"]
+        except (OSError, KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            self._ensure_retention_state(force=True)
+            state = json.loads(self._retention_state_path().read_text(encoding="utf-8"))
+            total = state["evictable_bytes"] + byte_delta
+            last_sweep = state["last_sweep"]
+        self._write_retention_state(total, last_sweep)
+
+    def _retention_bytes(self) -> int:
+        self._ensure_retention_state()
+        state = json.loads(self._retention_state_path().read_text(encoding="utf-8"))
+        return state["evictable_bytes"]
+
+    def _retention_state_needs_sweep(self) -> bool:
+        assert self.retention is not None
+        self._ensure_retention_state()
+        state = json.loads(self._retention_state_path().read_text(encoding="utf-8"))
+        return self.retention.clock() - state["last_sweep"] >= 3600
+
+    @staticmethod
+    def _entry_size(directory: Path) -> int:
+        try:
+            return sum(
+                child.stat(follow_symlinks=False).st_size
+                for child in directory.iterdir()
+                if child.is_file() and not child.is_symlink()
+            )
+        except OSError:
+            return 0
 
 
 class FrameResolver(Protocol):

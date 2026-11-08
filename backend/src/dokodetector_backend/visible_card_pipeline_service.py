@@ -51,7 +51,10 @@ from table_evidence_analyzer.pipeline_data import (
 from table_evidence_analyzer.visible_cards import ProviderResult, VisibleCardRequest
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
+from dokodetector_backend.derived_view_cache import (
+    DERIVED_VIEW_CACHE_LOCK,
+    runtime_derived_view_cache,
+)
 from dokodetector_backend.job_models import Job, JobCancelled
 from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import (
@@ -175,7 +178,7 @@ class VisibleCardPipelineService:
                 self._video_path(recording_id),
                 source=source,
                 requested_time_us=requested_time_us,
-                cache=self.storage.derived_views_root,
+                cache=runtime_derived_view_cache(self.storage.derived_views_root),
                 resolver=self.frame_resolver,
                 output_encoding="jpeg",
                 validate_source=False,
@@ -208,7 +211,7 @@ class VisibleCardPipelineService:
                 self._video_path(recording_id),
                 source=source,
                 requested_time_us=requested_time_us,
-                cache=self.storage.derived_views_root,
+                cache=runtime_derived_view_cache(self.storage.derived_views_root),
                 resolver=SampledFrameResolver(
                     self.storage.derived_views_root / "sampled-frames",
                     interval_us=SAMPLED_FRAME_INTERVAL_US,
@@ -689,7 +692,7 @@ class VisibleCardPipelineService:
                         event,
                         run.request.extraction_policy.get("event_time_anchor", "start_us"),
                     ),
-                    cache=self.storage.derived_views_root,
+                    cache=runtime_derived_view_cache(self.storage.derived_views_root),
                     resolver=self.frame_resolver,
                     output_encoding=run.request.extraction_policy.get("output_encoding", "jpeg"),
                 )

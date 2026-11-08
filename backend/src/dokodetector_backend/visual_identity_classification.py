@@ -34,6 +34,7 @@ from table_evidence_analyzer.visual_identity import (
 from table_evidence_analyzer.visual_identity_crop_input import VisualIdentityCropInputItem
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.derived_view_cache import runtime_derived_view_cache
 from dokodetector_backend.pipeline_storage import PipelineRuntimeStorage
 from dokodetector_backend.processor_run_models import StoredProcessorRun
 from dokodetector_backend.visual_identity_crop_resolution import crop_identity_mapping
@@ -121,7 +122,7 @@ class VisualIdentityClassification:
                         self.video_path_for_recording(run.request.source.recording_id),
                         source=run.request.source,
                         requested_time_us=frame_identity.requested_time_us,
-                        cache=self.storage.derived_views_root,
+                        cache=runtime_derived_view_cache(self.storage.derived_views_root),
                         resolver=self.frame_resolver,
                         output_encoding=frame_identity.output_encoding,
                         validate_source=False,
@@ -164,7 +165,7 @@ class VisualIdentityClassification:
                     geometry.to_mapping(),
                     crop_policy=str(crop_policy_id),
                     output_encoding=str(crop_policy.get("output_encoding", "ppm")),
-                    cache=self.storage.derived_views_root,
+                    cache=runtime_derived_view_cache(self.storage.derived_views_root),
                 )
             crop_identity = VisualIdentityCropIdentity.from_mapping(crop_identity_mapping(crop))
         except (DerivedViewError, OSError, RuntimeError, ValueError):

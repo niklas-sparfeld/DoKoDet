@@ -15,6 +15,7 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from dokodetector_backend.contract import ContractModel
+from dokodetector_backend.derived_view_cache import runtime_derived_view_cache
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.event_pipeline_service import EventPipelineService
 from dokodetector_backend.observation_pipeline_service import (
@@ -582,7 +583,7 @@ def get_recording_identity_crop(
         try:
             browser_preview = resolve_crop_jpeg_preview(
                 crop,
-                cache=service.storage.derived_views_root,
+                cache=runtime_derived_view_cache(service.storage.derived_views_root),
             )
         except (DerivedViewError, OSError, RuntimeError) as error:
             raise ContractError("derived_view_unavailable", str(error), status_code=409) from error

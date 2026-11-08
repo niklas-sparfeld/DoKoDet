@@ -166,14 +166,15 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M10 | Evaluate safe Git and LFS maintenance and record history costs | Complete |
 | M11 | Measure compact storage candidates and select at most one bounded format change | Complete |
 | M12 | Implement and convert the selected format family, if justified | Complete |
-| M13 | Bound cache, log, and future recovery-copy growth | Not started |
+| M13 | Bound cache, log, and future recovery-copy growth | In Progress |
 | M14 | Add compact agent discovery and data-authority guidance | Not started |
 | M15 | Verify savings, workflows, performance, and recovery; close | Not started |
 
 ## Execution handoff
 
-- **Run:** M12 completed in this 4-milestone run. Requested: 4. Completed: 1. Remaining: 3.
-  M13 is next. The preceding run completed M8 through M11; its count is recorded in the M11 report.
+- **Run:** M12 is complete and M13 is in progress in this 4-milestone run. Requested: 4.
+  Completed: 1. Remaining: 3. The preceding run completed M8 through M11; its count is recorded
+  in the M11 report.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -451,6 +452,30 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   report, epic/handoff, and board update form one focused milestone commit.
 - **Current run result:** M12 complete; this run has completed 1 of 4 requested milestones and
   has 3 remaining.
+- **M13 package 1:** The bounded runtime derived-view cache is implemented. See the
+  [M13 growth-bounds report](../../reports/0115-M13_Growth_Bounds.md) for exact package boundaries,
+  limits, and the retained [0114 media samples](../../reports/0115-M13_Growth_Bounds.artifacts/0114-media.json).
+- **Changes:** Direct SHA-256-keyed runtime `DerivedViewCache` entries use a 30-day idle expiry and
+  an 8 GiB unpinned logical-byte budget. Exact-key reads still regenerate missing or stale views.
+  Explicit `.pin` markers protect pinned entries. Atomic writes, a process and thread lifecycle
+  lock, and pending-state recovery protect concurrent readers/writers and interrupted cleanup.
+  The separate `sampled-frames` writer, durable roots, and external 0114 hard-fixture cache are
+  outside this eviction policy.
+- **Checks:** 24 derived-view tests, 18 visible-card and identity crop API tests, Ruff and format
+  checks, 57 hard assets, 76 API operations, 70 planned UI cases, and the 13-case 0114 media suite
+  passed. All 13 media response tuples match the retained 0114 M9 sample. See the M13 report for
+  hot/cold timings and limits.
+- **Decisions and limits:** M13 remains incomplete, and the 8 GiB policy bounds only direct
+  digest-keyed entries in the derived-view root. `SampledFrameResolver` has an independent writer
+  under `sampled-frames`; it is the next package. The provider-response cache, operational logs,
+  and recovery/campaign families also require their own bounded packages. Pinned entries are
+  excluded from the budget. No operator cache or retained human work was changed.
+- **Next:** M13 package 2 — bound the `SampledFrameResolver` per-recording cache under
+  `.runtime/pipeline/derived-views/sampled-frames` and coordinate its lifecycle with the parent
+  root.
+- **Commit boundary:** The cache writer contract and backend wiring, focused tests, 0114 evidence,
+  report, epic/handoff, and board update form one package commit. This does not complete M13 or
+  advance the requested run count.
 
 ## M0 — Inventory and rank
 
@@ -659,24 +684,32 @@ retention behavior, so implementation is split into sequential packages. A packa
 milestone and does not change the authorized M12–M15 run limit. M13 stays incomplete until every
 package is complete and the combined checks pass.
 
-1. **Derived-view cache lifecycle (current package).** Own only
-   `.runtime/pipeline/derived-views`, through `operations/src/doko_operations/derived_view.py` and
-   its backend readers and writers. Freeze exact-key regeneration, bounded idle expiry and total
-   size, safe eviction with concurrent readers/writers, crash recovery, and behavior after source
-   revisions change. Keep `~/.cache/doko-detector` and all source, review, and model roots outside
-   this writer. Check deterministic expiry/budget, active readers/writers, interruption/restart,
-   missing-entry regeneration, stale revision behavior, and hot/cold 0114 cases. Commit the cache
+1. **Digest-entry cache lifecycle (current package).** Own only the direct SHA-256-keyed
+   `DerivedViewCache` entry directories under `.runtime/pipeline/derived-views`, through
+   `operations/src/doko_operations/derived_view.py` and its backend readers and writers. Freeze
+   exact-key regeneration, bounded idle expiry and total size, safe eviction with concurrent
+   readers/writers, crash recovery, and behavior after source revisions change. This package does
+   not own the separate `SampledFrameResolver` writer under `sampled-frames`; package 2 owns that
+   path. Keep `~/.cache/doko-detector` and all source, review, and model roots outside this writer.
+   Check deterministic expiry/budget, active readers/writers, interruption/restart, missing-entry
+   regeneration, stale revision behavior, and hot/cold 0114 cases. Commit this exact writer's
    contract, implementation, tests, evidence report, and updated handoff together.
-2. **Provider-response cache.** Own only `.runtime/gemini-cache` and its `gemini_analyzer.py`
+2. **Sampled-frame cache.** Own only
+   `.runtime/pipeline/derived-views/sampled-frames` and the `SampledFrameResolver` read/write
+   contract. Bound its per-recording frame cache and coordinate its lifecycle with the parent
+   derived-view root. Preserve exact source-video identity and prove cache reconstruction, in-flight
+   access, crash recovery, and 0114 cold/warm behavior. Do not assume the digest-entry cache policy
+   covers this separate writer.
+3. **Provider-response cache.** Own only `.runtime/gemini-cache` and its `gemini_analyzer.py`
    construction and cache API. First identify replay/cost behavior and exact readers. Freeze its
    own expiry and budget before implementation; do not share derived-view eviction code without a
    verified contract. Check deterministic expiry, active requests, restart, and replay behavior.
-3. **Operational logs.** Select and name one writer family, starting with per-job `logs.json` in
+4. **Operational logs.** Select and name one writer family, starting with per-job `logs.json` in
    `backend/src/dokodetector_backend/job_persistence.py` if its M0 rank and current size justify
    bounds. Preserve active-job logs and any records required for recovery. Check bounded writes,
    concurrent append/read, and restart separately. Campaign command/output logs need their own
    owner and retention decision before they enter this package.
-4. **Recovery copies and campaign intermediates.** Inventory one exact retained backup or campaign
+5. **Recovery copies and campaign intermediates.** Inventory one exact retained backup or campaign
    family at a time. Record its writer, pin/dependency roots, reconstructability, expiry condition,
    and recovery procedure. Never apply cache expiry to these paths. Check interrupted creation,
    recovery, and exact retained human work before any expiry or cleanup.

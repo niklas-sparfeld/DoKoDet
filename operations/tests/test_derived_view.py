@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
@@ -16,6 +18,7 @@ from doko_operations.derived_view import (
     DEFAULT_TRANSFORM_VERSION,
     SAMPLED_FRAME_INTERVAL_US,
     DerivedViewCache,
+    DerivedViewCacheRetention,
     DerivedViewError,
     DerivedViewMissingFrameError,
     DerivedViewSourceError,
@@ -339,6 +342,143 @@ def test_exact_event_missing_frame_and_corrupt_cache_regenerate(tmp_path: Path) 
         resolve_exact_event(video, source=source, requested_time_us=500_000)
     with pytest.raises(DerivedViewSourceError, match="does not exist"):
         resolve_exact_event(tmp_path / "missing.mp4", source=source, requested_time_us=0)
+
+
+def _write_cache_entry(cache: DerivedViewCache, key: str, content: bytes) -> None:
+    cache.write(
+        key,
+        {
+            "schema_version": "derived-view-cache/v1",
+            "cache_key": key,
+            "view_kind": "test-view/v1",
+            "identity": {"test": key},
+        },
+        content,
+    )
+
+
+def _entry_bytes(path: Path) -> int:
+    return sum(item.stat().st_size for item in path.iterdir() if item.is_file())
+
+
+def test_runtime_derived_view_cache_expires_idle_entries_and_keeps_pins(tmp_path: Path) -> None:
+    now = [1000.0]
+    cache = DerivedViewCache(
+        tmp_path / "derived-views",
+        retention=DerivedViewCacheRetention(
+            max_bytes=10_000,
+            idle_seconds=100,
+            clock=lambda: now[0],
+        ),
+    )
+    expired_key = "a" * 64
+    pinned_key = "b" * 64
+    _write_cache_entry(cache, expired_key, b"expired")
+    _write_cache_entry(cache, pinned_key, b"pinned")
+    cache.pin(pinned_key)
+    now[0] += 100
+
+    assert cache.read(expired_key) is None
+    assert not cache.path(expired_key).exists()
+    assert cache.read(pinned_key) is not None
+    cache.unpin(pinned_key)
+    os.utime(cache.path(pinned_key), (now[0], now[0]))
+    now[0] += 101
+    assert cache.read(pinned_key) is None
+
+
+def test_runtime_derived_view_cache_evicts_oldest_until_under_budget(tmp_path: Path) -> None:
+    root = tmp_path / "derived-views"
+    first_key = "c" * 64
+    second_key = "d" * 64
+    cache = DerivedViewCache(root)
+    _write_cache_entry(cache, first_key, b"first")
+    one_entry_bytes = _entry_bytes(cache.path(first_key))
+    now = [1000.0]
+    bounded = DerivedViewCache(
+        root,
+        retention=DerivedViewCacheRetention(
+            max_bytes=one_entry_bytes * 2 - 1,
+            idle_seconds=1000,
+            clock=lambda: now[0],
+        ),
+    )
+    os.utime(bounded.path(first_key), (now[0], now[0]))
+    now[0] += 1
+    _write_cache_entry(bounded, second_key, b"other")
+
+    assert not bounded.path(first_key).exists()
+    assert bounded.read(second_key) is not None
+    assert _entry_bytes(bounded.path(second_key)) <= one_entry_bytes
+
+
+def test_runtime_derived_view_cache_keeps_pinned_entry_over_budget(tmp_path: Path) -> None:
+    root = tmp_path / "derived-views"
+    pinned_key = "1" * 64
+    new_key = "2" * 64
+    initial = DerivedViewCache(root)
+    _write_cache_entry(initial, pinned_key, b"pinned")
+    entry_bytes = _entry_bytes(initial.path(pinned_key))
+    bounded = DerivedViewCache(
+        root,
+        retention=DerivedViewCacheRetention(
+            max_bytes=entry_bytes // 2,
+            idle_seconds=1000,
+            clock=lambda: 1000.0,
+        ),
+    )
+    bounded.pin(pinned_key)
+    _write_cache_entry(bounded, new_key, b"new")
+
+    assert bounded.read(pinned_key) is not None
+    assert not bounded.path(new_key).exists()
+
+
+def test_runtime_derived_view_cache_recovers_interrupted_staging(tmp_path: Path) -> None:
+    root = tmp_path / "derived-views"
+    cache = DerivedViewCache(
+        root,
+        retention=DerivedViewCacheRetention(
+            max_bytes=100_000,
+            idle_seconds=1000,
+            clock=lambda: 1000.0,
+        ),
+    )
+    abandoned = root / ".staging-interrupted-write"
+    abandoned.mkdir()
+    (abandoned / "partial.bin").write_bytes(b"partial")
+    (root / ".maintenance-pending").write_bytes(b"pending\n")
+
+    assert cache.read("e" * 64) is None
+    assert not abandoned.exists()
+    assert not (root / ".maintenance-pending").exists()
+
+
+def test_runtime_derived_view_cache_serializes_concurrent_users(tmp_path: Path) -> None:
+    root = tmp_path / "derived-views"
+    cache = DerivedViewCache(
+        root,
+        retention=DerivedViewCacheRetention(
+            max_bytes=100_000,
+            idle_seconds=1000,
+            clock=lambda: 1000.0,
+        ),
+    )
+    base_key = "f" * 64
+    _write_cache_entry(cache, base_key, b"base")
+
+    keys = [f"{index:064x}" for index in range(8)]
+
+    def write_and_read(key: str) -> bool:
+        _write_cache_entry(cache, key, key.encode())
+        return cache.read(base_key) is not None
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        base_reads = list(pool.map(write_and_read, keys))
+
+    assert all(base_reads)
+    assert all(cache.read(key) is not None for key in keys)
+    assert len([path for path in root.iterdir() if len(path.name) == 64]) == len(keys) + 1
 
 
 @pytest.mark.parametrize("missing_field", ["content_sha256", "byte_length"])

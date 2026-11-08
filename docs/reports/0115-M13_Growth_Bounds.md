@@ -1,8 +1,8 @@
 # Epic 0115 M13: growth bounds package plan
 
 Date: 2026-11-08
-Status: Replanned before implementation
-Base revision: `d31b19bda`
+Status: Package 1 complete; M13 remains in progress
+Planning revision: `84a8835c`
 
 ## Why M13 has separate packages
 
@@ -24,7 +24,8 @@ The current implementation has at least these independent writers:
 
 | Package | Writer and owned path | Required boundary |
 | --- | --- | --- |
-| Derived-view cache | `operations/src/doko_operations/derived_view.py`; `.runtime/pipeline/derived-views` | Exact cache-key reconstruction, budget and idle expiry, in-flight access protection, crash-safe eviction, and 0114 hot/cold evidence. Keep the separate hard-fixture cache and durable roots outside this writer. |
+| Digest-entry derived-view cache | `DerivedViewCache` in `operations/src/doko_operations/derived_view.py`; direct SHA-256-keyed directories in `.runtime/pipeline/derived-views` | Exact cache-key reconstruction, budget and idle expiry, in-flight access protection, crash-safe eviction, and 0114 hot/cold evidence. Keep the separate hard-fixture cache and durable roots outside this writer. |
+| Sampled-frame cache | `SampledFrameResolver` in `operations/src/doko_operations/derived_view.py`; `.runtime/pipeline/derived-views/sampled-frames` | Independent per-recording manifest/frame writer. It is excluded from package 1 and requires its own bounds and parent-root coordination. |
 | Provider-response cache | `backend/src/dokodetector_backend/gemini_analyzer.py`; `.runtime/gemini-cache` | Identify request replay and provider-cost effects, then define independent expiry, budget, active-request, and restart behavior. |
 | Operational logs | `backend/src/dokodetector_backend/job_persistence.py` writes per-job `logs.json`; campaign tools also write command and output logs | Select one bounded writer family after ranking. Keep active-job logs and logs needed for restart/recovery. Campaign logs need a separate owner and retention decision. |
 | Recovery copies and campaign intermediates | Migration/recovery tooling and campaign materialization/training writers; exact roots vary by operation | Name one exact family at a time, then record pins, dependencies, reconstructability, expiry condition, and a tested recovery procedure. Cache expiry does not apply. |
@@ -34,23 +35,70 @@ deletion, provider-cache expiry, job-log truncation, or recovery-copy cleanup. T
 owns only the derived-view cache. Any further family selected for a package must have its active
 reader/writer and retained dependencies confirmed before implementation.
 
-## Current package: derived-view cache lifecycle
+## Package 1: derived-view cache lifecycle
 
-Observable result: new derived-view cache growth is bounded while an entry still reconstructs from
-its exact cache key and source identity. Durable human work and the 0114 hard-fixture cache remain
-outside automatic eviction. A missing or evicted entry regenerates through the existing API path.
+The backend's direct SHA-256-keyed `DerivedViewCache` entries now use a 30-day idle expiry and an
+8 GiB logical-byte limit for unpinned entries. The limit is based on the M0 6.82 GB logical
+inventory, with room for ordinary growth. When the limit is exceeded, the cache removes the least
+recently used entries first. A `.pin` file excludes an entry from expiry and eviction. The policy
+does not cover the separate `SampledFrameResolver` writer under the `sampled-frames` subdirectory;
+that writer is the next M13 package. Explicit cache roots for source media, human work, models, and
+the 0114 hard-fixture assets do not use this policy.
+
+The policy is enabled only for backend runtime digest-entry cache access. Other `DerivedViewCache`
+users keep their current unbounded test or campaign behavior. Reads refresh the cache entry's directory
+timestamp. A small retention state avoids a full tree scan per write; the cache rebuilds that state
+after an interrupted mutation. Writes remain atomic. A lifecycle lock serializes cache access
+across threads and processes. The next operation recovers a pending state, removes abandoned
+staging directories, and reapplies the budget. Exact cache keys still bind the source and view
+identity, so a changed source or revision misses the prior entry and regenerates through the
+existing API path.
 
 Required checks: deterministic budget and idle-expiry behavior; pinned dependency preservation;
 missing-entry regeneration; stale source/revision behavior after restart; concurrent readers and
 writers; interruption/crash recovery as a separate check; and hot/cold 0114 behavior on the same
 fixture corpus. Record source revision, fixture digest, response correctness, and latency against
-the M12/M11 baseline. If the exact budget or safe pin mechanism cannot be established from the
-current contract, revise this package before implementation rather than weakening the acceptance.
+the M12/M11 baseline. The focused tests cover expiry, pin/unpin, oldest-first eviction, concurrent
+readers and writers, and a pending-write/staging recovery state. Existing API tests cover a new
+identity revision, review save, and restart.
 
-Commit boundary: derived-view writer contract, implementation, focused tests, 0114 evidence, this
-report, epic/handoff, and any board update required by a status change in one package commit. Later
-packages receive their own bounded contract and evidence. Completing this package alone does not
-complete M13.
+The 0114 media suite passed 13/13 cases. All 13 status, byte-count, and response-digest tuples match
+the retained 0114 M9 sample. Derived-frame cold/warm requests took 3.59/2.12 ms. Identity-crop
+cold/warm, new-revision, after-review, and after-restart requests took 70.93/5.08/70.99/4.04/115.94
+ms. These are single-run local samples, not a new latency baseline. The full 0114 qualifier was not
+rerun in this package.
+
+The [0114 media result](0115-M13_Growth_Bounds.artifacts/0114-media.json) retains all 13 responses
+and timings. Their status, byte count, and response digest tuples match the checked-in 0114 M9
+sample. The hard-asset validator passed all 57 assets. Inventory validation passed with 76
+registered API operations and 70 planned UI cases. The code and test files have the SHA-256
+fingerprint `fbe294d7e6dc28f8cbbc53a09602f52288a6dfffd466bcefa4192aab20d37114` in the media
+artifact.
+
+Limits: the 8 GiB limit applies to unpinned cache entry bytes, not lock/state files or explicitly
+pinned entries. Pinned cache entries can therefore exceed it. The 30-day expiry is lazy on read and
+is also applied by the hourly cache sweep while the cache is active. The cache root is disposable;
+if an evicted entry cannot be regenerated, its API request still fails under the existing source
+availability rules. The operator cache was not activated or modified.
+
+Package 1 commit boundary: cache contract and backend wiring, focused tests, 0114 evidence, this
+report, epic, and handoff. Later packages have separate boundaries. Completing this package alone
+does not complete M13.
+
+## Remaining M13 packages
+
+1. Sampled-frame cache: inspect its per-recording writer and readers, then define a separate bound
+   coordinated with the parent derived-view cache root.
+2. Provider-response cache: confirm the active request/cache readers and replay/cost behavior before
+   setting its own budget and expiry.
+3. Operational logs: select one ranked writer family. Preserve active-job logs and recovery
+   evidence; campaign logs need a separate retention decision.
+4. Recovery copies and campaign intermediates: select one exact family at a time and prove its
+   pins, dependencies, reconstruction or restore path, and expiry condition before cleanup.
+
+These packages remain part of M13 and do not add to the four-milestone run limit. Package 1 bounds
+only direct digest entries; it does not bound the entire derived-view root. M14 and M15 remain
+within the authorized run.
 
 ## Run handoff
 

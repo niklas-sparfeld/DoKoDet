@@ -29,6 +29,7 @@ from table_evidence_analyzer.visual_identity_crop_input import (
     VisualIdentityCropInputItem,
 )
 
+from dokodetector_backend.derived_view_cache import runtime_derived_view_cache
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
@@ -168,7 +169,7 @@ class VisualIdentityCropQueries:
                     crop_policy="oracle_visible_region",
                     output_encoding="ppm",
                     resolver=self.frame_resolver,
-                    cache=self.storage.derived_views_root,
+                    cache=runtime_derived_view_cache(self.storage.derived_views_root),
                     lock=self._derived_view_lock,
                 )
                 resolved[item.card_id] = crop_identity_mapping(crop)
@@ -196,7 +197,7 @@ class VisualIdentityCropQueries:
             source=source,
             video_path=self.recording_access.video_path(recording_id),
             resolver=self.frame_resolver,
-            cache=self.storage.derived_views_root,
+            cache=runtime_derived_view_cache(self.storage.derived_views_root),
             lock=self._derived_view_lock,
         )
 
@@ -290,7 +291,7 @@ class VisualIdentityCropQueries:
             outcome=outcome,
             crop_identity=self._usable_crop_identity(outcome),
             resolver=self.frame_resolver,
-            cache=self.storage.derived_views_root,
+            cache=runtime_derived_view_cache(self.storage.derived_views_root),
             lock=self._derived_view_lock,
         )
 
@@ -352,7 +353,7 @@ class VisualIdentityCropQueries:
                 crop_resolver=lambda: self._resolve_identity_crop_from_validated(
                     recording_id, revision, outcome
                 ),
-                cache=self.storage.derived_views_root,
+                cache=runtime_derived_view_cache(self.storage.derived_views_root),
             )
 
     def _require_identity_revision(
