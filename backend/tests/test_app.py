@@ -200,6 +200,20 @@ def test_settings_places_durable_backend_records_under_operations(tmp_path: Path
     assert settings.round_analyses_root == tmp_path / "data" / "operations" / "round-analyses"
 
 
+def test_storage_root_isolates_all_mutable_roots(tmp_path: Path, monkeypatch) -> None:
+    storage_root = tmp_path / "worktree-a"
+    monkeypatch.setenv("DOKO_STORAGE_ROOT", str(storage_root))
+    settings = Settings(_env_file=None, repository_root=BACKEND_ROOT.parent)
+
+    assert settings.evidence_root == storage_root / "runtime"
+    assert settings.operations_root == storage_root / "data" / "operations"
+    assert settings.repository_intake_root == (storage_root / "data" / "intake" / "recordings")
+    assert settings.evidence_package_intake_root == (
+        storage_root / "data" / "intake" / "evidence-packages"
+    )
+    assert settings.pending_video_root == storage_root / "data" / "incoming" / "videos"
+
+
 def test_discover_repository_root_skips_backend_component_mise(monkeypatch) -> None:
     monkeypatch.chdir(BACKEND_ROOT)
 

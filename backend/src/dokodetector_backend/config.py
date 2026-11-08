@@ -65,6 +65,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("REPOSITORY_ROOT", "DOKO_REPOSITORY_ROOT"),
     )
+    storage_root: Path | None = Field(
+        default=None,
+        validation_alias=AliasChoices("DOKO_STORAGE_ROOT"),
+    )
     evidence_root: Path = Path(".runtime")
     operations_root: Path = Path("data/operations")
     frontend_dist: Path = Path("web/dist")
@@ -175,18 +179,32 @@ class Settings(BaseSettings):
         if not root.is_dir():
             raise ConfigurationError(f"Repository root is not a directory: {root}")
         self.repository_root = root
-        self.evidence_root = _resolve_path(self.evidence_root, root)
-        # Keep an explicitly relocated runtime beside its matching data root. This also gives
-        # local test and operator sandboxes isolated durable state without extra configuration.
-        self.operations_root = (
-            self.evidence_root.parent / "data" / "operations"
-            if self.operations_root == Path("data/operations")
-            else _resolve_path(self.operations_root, root)
-        )
+        if self.storage_root is not None:
+            # One explicit mutable root keeps operations, uploads, and caches together while
+            # allowing each checkout to use a different root. Never infer it from operator data.
+            self.storage_root = self.storage_root.expanduser().resolve()
+            self.evidence_root = self.storage_root / "runtime"
+            self.operations_root = self.storage_root / "data" / "operations"
+            self.repository_intake_root = self.storage_root / "data" / "intake" / "recordings"
+            self.evidence_package_intake_root = (
+                self.storage_root / "data" / "intake" / "evidence-packages"
+            )
+            self.pending_video_root = self.storage_root / "data" / "incoming" / "videos"
+        else:
+            self.evidence_root = _resolve_path(self.evidence_root, root)
+            # Keep an explicitly relocated runtime beside its matching data root. This also gives
+            # local test and operator sandboxes isolated durable state without extra configuration.
+            self.operations_root = (
+                self.evidence_root.parent / "data" / "operations"
+                if self.operations_root == Path("data/operations")
+                else _resolve_path(self.operations_root, root)
+            )
+            self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
+            self.evidence_package_intake_root = _resolve_path(
+                self.evidence_package_intake_root, root
+            )
+            self.pending_video_root = _resolve_path(self.pending_video_root, root)
         self.frontend_dist = _resolve_frontend_dist(self.frontend_dist, root)
-        self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
-        self.evidence_package_intake_root = _resolve_path(self.evidence_package_intake_root, root)
-        self.pending_video_root = _resolve_path(self.pending_video_root, root)
         if self.card_event_checkpoint_path is not None:
             self.card_event_checkpoint_path = _resolve_path(self.card_event_checkpoint_path, root)
         if self.visible_card_bundle_path is not None:

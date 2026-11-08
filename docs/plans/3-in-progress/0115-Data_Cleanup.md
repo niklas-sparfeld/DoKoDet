@@ -158,7 +158,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 | M2 | Bounded cleanup planner and apply mechanism | Complete |
 | M3 | Retire verified redundant migration and recovery trees | Complete |
 | M4 | Remove one ranked family of unused runtime intermediates | Complete |
-| M5 | Specify and prove isolated worktree data access | Not started |
+| M5 | Specify and prove isolated worktree data access | Complete |
 | M6 | Cut over Git tracking and development setup to the verified layout | Not started |
 | M7 | Measure compact storage candidates and select one bounded format change | Not started |
 | M8 | Implement and convert the selected format family | Not started |
@@ -168,7 +168,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 
 ## Execution handoff
 
-- **Run:** requested 11 milestones; completed 4; remaining 7.
+- **Run:** requested 11 milestones; completed 5; remaining 6.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -253,6 +253,25 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 - **Next:** M5 — specify and prove isolated worktree data access.
 - **Commit boundary:** M4 report and provenance / before-after artifacts, this epic, and board
   update in one focused milestone commit.
+
+- **M5:** Complete. The [M5 report](../../reports/0115-M5_Worktree_Storage_Contract.md) defines
+  `DOKO_STORAGE_ROOT` and records the first API edit/save/readback/restart workflow. The setting
+  places mutable operation data, intake, runtime output, and cache roots under one explicit
+  worktree-owned root. It does not infer or write to operator corpus paths.
+- **Changes:** Added root resolution and its regression test. Added an API test that edits a
+  checked-in compact fixture node, reads the new revision, restarts the app, and reads it again
+  while checking the exact fixture digest and that the legacy pipeline-node path is unused.
+- **Checks:** The new workflow test passed. The focused app/pipeline suite passed 43 tests with one
+  unrelated lifespan baseline failure; evidence and limits are in the report. Two-worktree and
+  storage-size qualification remain M6 gates; the legacy data defaults are still active when the
+  explicit root is absent.
+- **Decisions and limits:** This contract does not relocate immutable models or operator media,
+  validate restore availability, or change existing defaults. M6 must prove separate worktree roots
+  in disposable checkouts, finish ordinary clean-checkout setup and missing-asset checks, measure
+  ready time and bytes, and cut over remaining roots only when recovery evidence permits.
+- **Next:** M6 — tracking and setup cutover.
+- **Commit boundary:** Storage-root code/test, M5 report, this epic, and board entry in one focused
+  milestone commit.
 
 ## M0 — Inventory and rank
 
