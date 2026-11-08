@@ -157,7 +157,8 @@ a positive integer.
 the next incomplete milestone. Do not add milestones to extend a run.
 
 Before using either mode, read and follow the [execution workflow](docs/workflows/epic-execution.md).
-Stop at the run limit, epic completion, a user stop request, or a blocker. These modes do not change
+Stop at the run limit, epic completion, a user stop request, or a blocker that cannot be resolved
+within the current authorization. These modes do not change
 the single-milestone behavior of `start epic` and `next phase`.
 
 ### Epic maintenance

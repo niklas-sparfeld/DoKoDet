@@ -98,6 +98,15 @@ limits. A scope escalation is not a completed milestone or a correction turn. Re
 scope in the epic before resuming implementation. Ask the user only when a decision exceeds the
 existing authorization or the intended behavior remains unclear.
 
+When a worker reports `BLOCKED` or `NEEDS_USER`, do not stop the loop based on the receipt alone.
+Inspect the specific evidence needed to decide whether human input is required or an external
+dependency prevents progress. If the issue can be resolved within the existing authorization,
+replan the remaining work, record any scope change in the epic, and continue with an implementing
+worker. Preserve the run limit and do not count an incomplete milestone as complete. Do not repeat
+an unchanged failed action; give the worker a concrete revised step. Stop only when the evidence
+shows that a required human decision, unavailable dependency, or other condition prevents safe
+progress within the authorization. Explain the precise blocker and remaining work.
+
 Keep the orchestrator's context small. Do not read worker transcripts, raw logs, ongoing
 implementation, or full diffs by default. Do not repeat source exploration or successful checks. Luna owns
 implementation and verification. After the initial read, read only relevant epic sections and
@@ -146,6 +155,7 @@ DECISION_NEEDED: none, or one precise question
 Use the persistent mode's handoff, interruption, and stop rules and the root compaction rule.
 In this mode, the current chat orchestrates the authorized workers; do not create another supervisor, chat, harness,
 or external continuation loop. After compaction, reconcile the handoff and actual Git state.
-Stop at the run limit, epic completion, a user stop request, or a blocker. Do not repeat an action
+Stop at the run limit, epic completion, a user stop request, or a blocker that cannot be resolved
+within the current authorization. Do not repeat an action
 with an unknown outcome. End with completed milestones, commits, verification, all milestone
 statuses, remaining work, and any blocker. Another run requires a new user instruction.
