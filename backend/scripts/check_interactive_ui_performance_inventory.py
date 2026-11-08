@@ -40,6 +40,11 @@ def main() -> int:
         or not row.get("caller")
         or not row.get("scenario")
         or row.get("registration") not in {"openapi_registered", "ui_url_unregistered"}
+        or (
+            row.get("classification") == "ui"
+            and row.get("budget_key")
+            != f"api:{row.get('method', '').upper()}:{row.get('route', '')}"
+        )
     ]
     registered = registered_operations()
     listed = set(keys)
@@ -59,6 +64,10 @@ def main() -> int:
         return 1
 
     ui = sum(row["classification"] == "ui" for row in rows)
+    ui_budget_keys = [row["budget_key"] for row in rows if row["classification"] == "ui"]
+    if len(ui_budget_keys) != len(set(ui_budget_keys)):
+        print("UI route budget keys must be unique.", file=sys.stderr)
+        return 1
     print(
         f"PASS: {len(registered_rows)} registered API operations classified; "
         f"{len(ui_url_rows)} UI URL registration gap(s) documented; {ui} planned UI cases."

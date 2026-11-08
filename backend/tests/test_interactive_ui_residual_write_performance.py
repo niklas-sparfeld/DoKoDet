@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 # ruff: noqa: E402
 import json
 import os
@@ -56,6 +58,7 @@ def _timed_post(client: TestClient, name: str, path: str, **kwargs: object):
         "duration_ns": duration_ns,
         "status_code": response.status_code,
         "response_bytes": len(response.content),
+        "response_sha256": hashlib.sha256(response.content).hexdigest(),
         "ok": response.status_code in {200, 201, 202},
     }
 

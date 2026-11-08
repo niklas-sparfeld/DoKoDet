@@ -1,0 +1,2923 @@
+{
+  "cases": {
+    "browser/controlled_load": {
+      "absolute_noise_allowance_ns": 113068080,
+      "category": "browser",
+      "ceiling_ns": 2718868430,
+      "median_ns": 2069844854,
+      "metric": "p95",
+      "noise_mad_ns": 25421125,
+      "p95_ns": 2171500291,
+      "reference_ns": 2171500291,
+      "relative_tolerance": 0.2,
+      "samples": 30,
+      "slow_debt": true
+    },
+    "browser/displayed_revision_switch": {
+      "absolute_noise_allowance_ns": 13032146,
+      "category": "browser",
+      "ceiling_ns": 624438847,
+      "median_ns": 501743937,
+      "metric": "p95",
+      "noise_mad_ns": 2930020,
+      "p95_ns": 509505584,
+      "reference_ns": 509505584,
+      "relative_tolerance": 0.2,
+      "samples": 30,
+      "slow_debt": false
+    },
+    "browser/frame_crop_navigation": {
+      "absolute_noise_allowance_ns": 28276055,
+      "category": "browser",
+      "ceiling_ns": 687506855,
+      "median_ns": 517291146,
+      "metric": "p95",
+      "noise_mad_ns": 6357312,
+      "p95_ns": 549359000,
+      "reference_ns": 549359000,
+      "relative_tolerance": 0.2,
+      "samples": 30,
+      "slow_debt": false
+    },
+    "browser/job_submission_visible_status": {
+      "absolute_noise_allowance_ns": 37164152,
+      "category": "browser",
+      "ceiling_ns": 2684574403,
+      "median_ns": 2187065166,
+      "metric": "p95",
+      "noise_mad_ns": 8355625,
+      "p95_ns": 2206175209,
+      "reference_ns": 2206175209,
+      "relative_tolerance": 0.2,
+      "samples": 30,
+      "slow_debt": true
+    },
+    "browser/jobs_drawer_history": {
+      "absolute_noise_allowance_ns": 18437986,
+      "category": "browser",
+      "ceiling_ns": 730711036,
+      "median_ns": 575210166,
+      "metric": "p95",
+      "noise_mad_ns": 4145417,
+      "p95_ns": 593560875,
+      "reference_ns": 593560875,
+      "relative_tolerance": 0.2,
+      "samples": 30,
+      "slow_debt": false
+    },
+    "browser/recordings_to_workspace": {
+      "absolute_noise_allowance_ns": 30740323,
+      "category": "browser",
+      "ceiling_ns": 620237374,
+      "median_ns": 473039937,
+      "metric": "p95",
+      "noise_mad_ns": 6911354,
+      "p95_ns": 491247542,
+      "reference_ns": 491247542,
+      "relative_tolerance": 0.2,
+      "samples": 30,
+      "slow_debt": false
+    },
+    "browser/review_save": {
+      "absolute_noise_allowance_ns": 65975701,
+      "category": "browser",
+      "ceiling_ns": 1025660452,
+      "median_ns": 769198146,
+      "metric": "p95",
+      "noise_mad_ns": 14833333,
+      "p95_ns": 799737292,
+      "reference_ns": 799737292,
+      "relative_tolerance": 0.2,
+      "samples": 30,
+      "slow_debt": false
+    },
+    "catalog/analysis_missing/generated_empty": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2655800,
+      "median_ns": 417583,
+      "metric": "p95",
+      "noise_mad_ns": 14438,
+      "p95_ns": 546500,
+      "reference_ns": 546500,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/analysis_missing/hard": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2783150,
+      "median_ns": 422687,
+      "metric": "p95",
+      "noise_mad_ns": 19687,
+      "p95_ns": 652625,
+      "reference_ns": 652625,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/catalog_empty/generated_empty": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2595000,
+      "median_ns": 419270,
+      "metric": "p95",
+      "noise_mad_ns": 14375,
+      "p95_ns": 495833,
+      "reference_ns": 495833,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/catalog_hard/hard": {
+      "absolute_noise_allowance_ns": 155747781,
+      "category": "control",
+      "ceiling_ns": 21746000781,
+      "median_ns": 17869065979,
+      "metric": "p95",
+      "noise_mad_ns": 35016813,
+      "p95_ns": 17991877500,
+      "reference_ns": 17991877500,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "catalog/counterfactual_missing/generated_empty": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2552951,
+      "median_ns": 412083,
+      "metric": "p95",
+      "noise_mad_ns": 9062,
+      "p95_ns": 460792,
+      "reference_ns": 460792,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/counterfactual_missing/hard": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2734801,
+      "median_ns": 435979,
+      "metric": "p95",
+      "noise_mad_ns": 21479,
+      "p95_ns": 612334,
+      "reference_ns": 612334,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/evidence_package_missing/generated_empty": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2578300,
+      "median_ns": 384479,
+      "metric": "p95",
+      "noise_mad_ns": 7354,
+      "p95_ns": 481916,
+      "reference_ns": 481916,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/evidence_package_missing/hard": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2555251,
+      "median_ns": 387312,
+      "metric": "p95",
+      "noise_mad_ns": 8542,
+      "p95_ns": 462709,
+      "reference_ns": 462709,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/evidence_package_observations_missing/generated_empty": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2492351,
+      "median_ns": 383062,
+      "metric": "p95",
+      "noise_mad_ns": 5083,
+      "p95_ns": 410292,
+      "reference_ns": 410292,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/evidence_package_observations_missing/hard": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2508701,
+      "median_ns": 389896,
+      "metric": "p95",
+      "noise_mad_ns": 5729,
+      "p95_ns": 423917,
+      "reference_ns": 423917,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/recording_detail_hard/hard": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 66396600,
+      "median_ns": 52042375,
+      "metric": "p95",
+      "noise_mad_ns": 178250,
+      "p95_ns": 53663833,
+      "reference_ns": 53663833,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/recording_detail_missing/generated_empty": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2543600,
+      "median_ns": 412083,
+      "metric": "p95",
+      "noise_mad_ns": 13292,
+      "p95_ns": 453000,
+      "reference_ns": 453000,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/recording_detail_missing/hard": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 8469050,
+      "median_ns": 4539021,
+      "metric": "p95",
+      "noise_mad_ns": 65416,
+      "p95_ns": 5390875,
+      "reference_ns": 5390875,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/repository_bundle_hard/hard": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 140783201,
+      "median_ns": 110894479,
+      "metric": "p95",
+      "noise_mad_ns": 186020,
+      "p95_ns": 115652667,
+      "reference_ns": 115652667,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/table_observation_missing/generated_empty": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2510400,
+      "median_ns": 382645,
+      "metric": "p95",
+      "noise_mad_ns": 5874,
+      "p95_ns": 425333,
+      "reference_ns": 425333,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/table_observation_missing/hard": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2506651,
+      "median_ns": 398708,
+      "metric": "p95",
+      "noise_mad_ns": 10979,
+      "p95_ns": 422209,
+      "reference_ns": 422209,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/timeline_missing/generated_empty": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2510051,
+      "median_ns": 402000,
+      "metric": "p95",
+      "noise_mad_ns": 6354,
+      "p95_ns": 425042,
+      "reference_ns": 425042,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "catalog/timeline_missing/hard": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2599500,
+      "median_ns": 433104,
+      "metric": "p95",
+      "noise_mad_ns": 17312,
+      "p95_ns": 499583,
+      "reference_ns": 499583,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "controlled/jobs_json": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2804350,
+      "median_ns": 611500,
+      "metric": "p95",
+      "noise_mad_ns": 19499,
+      "p95_ns": 670291,
+      "reference_ns": 670291,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "controlled/video_range": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 580370100,
+      "median_ns": 461214875,
+      "metric": "p95",
+      "noise_mad_ns": 444479,
+      "p95_ns": 479475083,
+      "reference_ns": 479475083,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "jobs/calibration_preview_success": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 9919700,
+      "median_ns": 6599750,
+      "metric": "median",
+      "noise_mad_ns": 68458,
+      "p95_ns": 6687000,
+      "reference_ns": 6599750,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "jobs/calibration_preview_wrong_type": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3061976,
+      "median_ns": 884979,
+      "metric": "median",
+      "noise_mad_ns": 61021,
+      "p95_ns": 987917,
+      "reference_ns": 884979,
+      "relative_tolerance": 0.2,
+      "samples": 6,
+      "slow_debt": false
+    },
+    "jobs/history_cursor_page_12": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4355201,
+      "median_ns": 1962667,
+      "metric": "median",
+      "noise_mad_ns": 41417,
+      "p95_ns": 2005625,
+      "reference_ns": 1962667,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "jobs/history_cursor_page_300": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 26328800,
+      "median_ns": 20274000,
+      "metric": "median",
+      "noise_mad_ns": 625,
+      "p95_ns": 20346875,
+      "reference_ns": 20274000,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "jobs/history_page_12": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 10820651,
+      "median_ns": 7350542,
+      "metric": "median",
+      "noise_mad_ns": 61083,
+      "p95_ns": 7411625,
+      "reference_ns": 7350542,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "jobs/history_page_300": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 46394900,
+      "median_ns": 36995750,
+      "metric": "median",
+      "noise_mad_ns": 2791,
+      "p95_ns": 36998541,
+      "reference_ns": 36995750,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "jobs/job_detail": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3167176,
+      "median_ns": 972646,
+      "metric": "median",
+      "noise_mad_ns": 57000,
+      "p95_ns": 1044416,
+      "reference_ns": 972646,
+      "relative_tolerance": 0.2,
+      "samples": 6,
+      "slow_debt": false
+    },
+    "jobs/job_detail_missing": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3029450,
+      "median_ns": 857874,
+      "metric": "median",
+      "noise_mad_ns": 17771,
+      "p95_ns": 916250,
+      "reference_ns": 857874,
+      "relative_tolerance": 0.2,
+      "samples": 6,
+      "slow_debt": false
+    },
+    "jobs/job_logs_first_page": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3079601,
+      "median_ns": 899667,
+      "metric": "median",
+      "noise_mad_ns": 45250,
+      "p95_ns": 948375,
+      "reference_ns": 899667,
+      "relative_tolerance": 0.2,
+      "samples": 6,
+      "slow_debt": false
+    },
+    "jobs/job_logs_missing": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2959775,
+      "median_ns": 799812,
+      "metric": "median",
+      "noise_mad_ns": 11604,
+      "p95_ns": 850833,
+      "reference_ns": 799812,
+      "relative_tolerance": 0.2,
+      "samples": 6,
+      "slow_debt": false
+    },
+    "media/derived_event_frame_cold": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 8474600,
+      "median_ns": 2895500,
+      "metric": "median",
+      "noise_mad_ns": 3875,
+      "p95_ns": 2970416,
+      "reference_ns": 2895500,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/derived_event_frame_warm": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 7406150,
+      "median_ns": 2005125,
+      "metric": "median",
+      "noise_mad_ns": 53083,
+      "p95_ns": 2086167,
+      "reference_ns": 2005125,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/evidence_frame": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 14073250,
+      "median_ns": 7561041,
+      "metric": "median",
+      "noise_mad_ns": 130083,
+      "p95_ns": 8056834,
+      "reference_ns": 7561041,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/evidence_video_snippet": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 9495601,
+      "median_ns": 3746334,
+      "metric": "median",
+      "noise_mad_ns": 30541,
+      "p95_ns": 3776875,
+      "reference_ns": 3746334,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/identity_crop_after_restart": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 111577651,
+      "median_ns": 88814709,
+      "metric": "median",
+      "noise_mad_ns": 50876,
+      "p95_ns": 88950916,
+      "reference_ns": 88814709,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/identity_crop_after_review_save": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 9630301,
+      "median_ns": 3858584,
+      "metric": "median",
+      "noise_mad_ns": 12958,
+      "p95_ns": 3871542,
+      "reference_ns": 3858584,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/identity_crop_cold": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 88276901,
+      "median_ns": 69397417,
+      "metric": "median",
+      "noise_mad_ns": 34416,
+      "p95_ns": 69431833,
+      "reference_ns": 69397417,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/identity_crop_new_revision": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 89329900,
+      "median_ns": 70274916,
+      "metric": "median",
+      "noise_mad_ns": 65584,
+      "p95_ns": 70340500,
+      "reference_ns": 70274916,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/identity_crop_warm": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 10052550,
+      "median_ns": 4210458,
+      "metric": "median",
+      "noise_mad_ns": 51042,
+      "p95_ns": 4279584,
+      "reference_ns": 4210458,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/recording_thumbnail_cold": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 7980050,
+      "median_ns": 2483375,
+      "metric": "median",
+      "noise_mad_ns": 2041,
+      "p95_ns": 2485416,
+      "reference_ns": 2483375,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/recording_thumbnail_warm": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 7152851,
+      "median_ns": 1794042,
+      "metric": "median",
+      "noise_mad_ns": 7875,
+      "p95_ns": 1801917,
+      "reference_ns": 1794042,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/recording_video_full": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 8244701,
+      "median_ns": 2703917,
+      "metric": "median",
+      "noise_mad_ns": 20333,
+      "p95_ns": 2724250,
+      "reference_ns": 2703917,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "media/recording_video_range_64k": {
+      "absolute_noise_allowance_ns": 5000000,
+      "category": "media",
+      "ceiling_ns": 8027850,
+      "median_ns": 2523208,
+      "metric": "median",
+      "noise_mad_ns": 5624,
+      "p95_ns": 2587167,
+      "reference_ns": 2523208,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/automated_run_exact/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 14857351,
+      "median_ns": 10714459,
+      "metric": "median",
+      "noise_mad_ns": 217667,
+      "p95_ns": 11774792,
+      "reference_ns": 10714459,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/automated_run_exact/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2571001,
+      "median_ns": 454271,
+      "metric": "p95",
+      "noise_mad_ns": 7916,
+      "p95_ns": 475834,
+      "reference_ns": 475834,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/automated_run_missing/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 15702900,
+      "median_ns": 11419083,
+      "metric": "median",
+      "noise_mad_ns": 46208,
+      "p95_ns": 12607209,
+      "reference_ns": 11419083,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/automated_run_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2541600,
+      "median_ns": 390563,
+      "metric": "p95",
+      "noise_mad_ns": 11459,
+      "p95_ns": 451333,
+      "reference_ns": 451333,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/calibration_draft_invalid_lineage/cold": {
+      "absolute_noise_allowance_ns": 134509808,
+      "category": "control",
+      "ceiling_ns": 2233688609,
+      "median_ns": 1749315667,
+      "metric": "median",
+      "noise_mad_ns": 30241874,
+      "p95_ns": 1779557541,
+      "reference_ns": 1749315667,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/calibration_draft_invalid_lineage/warm": {
+      "absolute_noise_allowance_ns": 160115150,
+      "category": "control",
+      "ceiling_ns": 2293548751,
+      "median_ns": 1687780000,
+      "metric": "p95",
+      "noise_mad_ns": 35998729,
+      "p95_ns": 1777861334,
+      "reference_ns": 1777861334,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/calibration_draft_missing/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 24875750,
+      "median_ns": 19063125,
+      "metric": "median",
+      "noise_mad_ns": 86667,
+      "p95_ns": 73187625,
+      "reference_ns": 19063125,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/calibration_draft_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2578500,
+      "median_ns": 458229,
+      "metric": "p95",
+      "noise_mad_ns": 6812,
+      "p95_ns": 482083,
+      "reference_ns": 482083,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/calibration_draft_snapshot/cold": {
+      "absolute_noise_allowance_ns": 333500123,
+      "category": "control",
+      "ceiling_ns": 2882602823,
+      "median_ns": 2124252250,
+      "metric": "median",
+      "noise_mad_ns": 74980917,
+      "p95_ns": 2215405917,
+      "reference_ns": 2124252250,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/calibration_draft_snapshot/warm": {
+      "absolute_noise_allowance_ns": 195125173,
+      "category": "control",
+      "ceiling_ns": 2828596573,
+      "median_ns": 2044546875,
+      "metric": "p95",
+      "noise_mad_ns": 43870042,
+      "p95_ns": 2194559500,
+      "reference_ns": 2194559500,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/calibration_published_missing/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 24572251,
+      "median_ns": 18810209,
+      "metric": "median",
+      "noise_mad_ns": 17626,
+      "p95_ns": 18843125,
+      "reference_ns": 18810209,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/calibration_published_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2621051,
+      "median_ns": 428354,
+      "metric": "p95",
+      "noise_mad_ns": 11646,
+      "p95_ns": 517542,
+      "reference_ns": 517542,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/calibration_published_snapshot/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 310146701,
+      "median_ns": 256788917,
+      "metric": "median",
+      "noise_mad_ns": 83249,
+      "p95_ns": 256872166,
+      "reference_ns": 256788917,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/calibration_published_snapshot/warm": {
+      "absolute_noise_allowance_ns": 4101891,
+      "category": "control",
+      "ceiling_ns": 361397691,
+      "median_ns": 236496250,
+      "metric": "p95",
+      "noise_mad_ns": 922229,
+      "p95_ns": 297746500,
+      "reference_ns": 297746500,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/comparison_exact_runs/cold": {
+      "absolute_noise_allowance_ns": 850807991,
+      "category": "control",
+      "ceiling_ns": 25792570291,
+      "median_ns": 20784801916,
+      "metric": "median",
+      "noise_mad_ns": 191287376,
+      "p95_ns": 20976089292,
+      "reference_ns": 20784801916,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/comparison_exact_runs/warm": {
+      "absolute_noise_allowance_ns": 1259409675,
+      "category": "control",
+      "ceiling_ns": 26554952625,
+      "median_ns": 20763849166,
+      "metric": "p95",
+      "noise_mad_ns": 283153396,
+      "p95_ns": 21079619125,
+      "reference_ns": 21079619125,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/comparison_missing_inputs/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 22332350,
+      "median_ns": 16943625,
+      "metric": "median",
+      "noise_mad_ns": 83916,
+      "p95_ns": 18494000,
+      "reference_ns": 16943625,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/comparison_missing_inputs/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2685650,
+      "median_ns": 532042,
+      "metric": "p95",
+      "noise_mad_ns": 13583,
+      "p95_ns": 571375,
+      "reference_ns": 571375,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/event_result_exact/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 23549500,
+      "median_ns": 17957916,
+      "metric": "median",
+      "noise_mad_ns": 147250,
+      "p95_ns": 18110958,
+      "reference_ns": 17957916,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/event_result_exact/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4265801,
+      "median_ns": 1817812,
+      "metric": "p95",
+      "noise_mad_ns": 19625,
+      "p95_ns": 1888167,
+      "reference_ns": 1888167,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/event_result_missing/cold": {
+      "absolute_noise_allowance_ns": 3590300,
+      "category": "control",
+      "ceiling_ns": 24260250,
+      "median_ns": 17224958,
+      "metric": "median",
+      "noise_mad_ns": 807208,
+      "p95_ns": 44537500,
+      "reference_ns": 17224958,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/event_result_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2587151,
+      "median_ns": 455354,
+      "metric": "p95",
+      "noise_mad_ns": 7896,
+      "p95_ns": 489292,
+      "reference_ns": 489292,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/event_runs_exact/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 24865001,
+      "median_ns": 19054167,
+      "metric": "median",
+      "noise_mad_ns": 361292,
+      "p95_ns": 19504709,
+      "reference_ns": 19054167,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/event_runs_exact/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4473300,
+      "median_ns": 1985145,
+      "metric": "p95",
+      "noise_mad_ns": 30749,
+      "p95_ns": 2061083,
+      "reference_ns": 2061083,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/event_selection_exact/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 22038200,
+      "median_ns": 16698500,
+      "metric": "median",
+      "noise_mad_ns": 31416,
+      "p95_ns": 18011208,
+      "reference_ns": 16698500,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/event_selection_exact/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2980650,
+      "median_ns": 766479,
+      "metric": "p95",
+      "noise_mad_ns": 12042,
+      "p95_ns": 817208,
+      "reference_ns": 817208,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/lineage_hard/cold": {
+      "absolute_noise_allowance_ns": 123089347,
+      "category": "control",
+      "ceiling_ns": 35429818848,
+      "median_ns": 29422274584,
+      "metric": "median",
+      "noise_mad_ns": 27674209,
+      "p95_ns": 29677694917,
+      "reference_ns": 29422274584,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/lineage_hard/warm": {
+      "absolute_noise_allowance_ns": 483904426,
+      "category": "control",
+      "ceiling_ns": 35966339077,
+      "median_ns": 29343303292,
+      "metric": "p95",
+      "noise_mad_ns": 108796354,
+      "p95_ns": 29568695542,
+      "reference_ns": 29568695542,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/lineage_missing/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 11812950,
+      "median_ns": 8177458,
+      "metric": "median",
+      "noise_mad_ns": 27292,
+      "p95_ns": 8204750,
+      "reference_ns": 8177458,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/lineage_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2618350,
+      "median_ns": 436625,
+      "metric": "p95",
+      "noise_mad_ns": 10229,
+      "p95_ns": 515291,
+      "reference_ns": 515291,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/observation_result_missing/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 21521251,
+      "median_ns": 16267709,
+      "metric": "median",
+      "noise_mad_ns": 33792,
+      "p95_ns": 16607916,
+      "reference_ns": 16267709,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/observation_result_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2657450,
+      "median_ns": 502979,
+      "metric": "p95",
+      "noise_mad_ns": 13062,
+      "p95_ns": 547875,
+      "reference_ns": 547875,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/observation_runs_empty/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 23555900,
+      "median_ns": 17963250,
+      "metric": "median",
+      "noise_mad_ns": 231417,
+      "p95_ns": 19106042,
+      "reference_ns": 17963250,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/observation_runs_empty/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4644850,
+      "median_ns": 2015770,
+      "metric": "p95",
+      "noise_mad_ns": 27624,
+      "p95_ns": 2204041,
+      "reference_ns": 2204041,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/observation_selection_empty/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 21714101,
+      "median_ns": 16428417,
+      "metric": "median",
+      "noise_mad_ns": 117292,
+      "p95_ns": 17366791,
+      "reference_ns": 16428417,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/observation_selection_empty/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2652050,
+      "median_ns": 507521,
+      "metric": "p95",
+      "noise_mad_ns": 6312,
+      "p95_ns": 543375,
+      "reference_ns": 543375,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/proposed_scene_result_missing/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 21534251,
+      "median_ns": 16278542,
+      "metric": "median",
+      "noise_mad_ns": 228126,
+      "p95_ns": 16529291,
+      "reference_ns": 16278542,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/proposed_scene_result_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2613301,
+      "median_ns": 479937,
+      "metric": "p95",
+      "noise_mad_ns": 13416,
+      "p95_ns": 511084,
+      "reference_ns": 511084,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/proposed_scene_runs_empty/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 22078951,
+      "median_ns": 16732459,
+      "metric": "median",
+      "noise_mad_ns": 262334,
+      "p95_ns": 17789417,
+      "reference_ns": 16732459,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/proposed_scene_runs_empty/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2824201,
+      "median_ns": 643771,
+      "metric": "p95",
+      "noise_mad_ns": 7396,
+      "p95_ns": 686834,
+      "reference_ns": 686834,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/reviews_exact_revision/cold": {
+      "absolute_noise_allowance_ns": 151024867,
+      "category": "control",
+      "ceiling_ns": 6065128567,
+      "median_ns": 4928419750,
+      "metric": "median",
+      "noise_mad_ns": 33954959,
+      "p95_ns": 4962374709,
+      "reference_ns": 4928419750,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/reviews_exact_revision/warm": {
+      "absolute_noise_allowance_ns": 110928135,
+      "category": "control",
+      "ceiling_ns": 6072207585,
+      "median_ns": 4874375354,
+      "metric": "p95",
+      "noise_mad_ns": 24940000,
+      "p95_ns": 4967732875,
+      "reference_ns": 4967732875,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/reviews_stale_revision/cold": {
+      "absolute_noise_allowance_ns": 165732999,
+      "category": "control",
+      "ceiling_ns": 6048078499,
+      "median_ns": 4901954583,
+      "metric": "median",
+      "noise_mad_ns": 37261792,
+      "p95_ns": 4939216375,
+      "reference_ns": 4901954583,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/reviews_stale_revision/warm": {
+      "absolute_noise_allowance_ns": 108511496,
+      "category": "control",
+      "ceiling_ns": 6065873146,
+      "median_ns": 4879434042,
+      "metric": "p95",
+      "noise_mad_ns": 24396667,
+      "p95_ns": 4964468041,
+      "reference_ns": 4964468041,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/revision_max_identity_payload/cold": {
+      "absolute_noise_allowance_ns": 57005598,
+      "category": "control",
+      "ceiling_ns": 6193215348,
+      "median_ns": 5113508125,
+      "metric": "median",
+      "noise_mad_ns": 12816583,
+      "p95_ns": 5166332708,
+      "reference_ns": 5113508125,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/revision_max_identity_payload/warm": {
+      "absolute_noise_allowance_ns": 49282739,
+      "category": "control",
+      "ceiling_ns": 6317574089,
+      "median_ns": 5126581562,
+      "metric": "p95",
+      "noise_mad_ns": 11080250,
+      "p95_ns": 5223576125,
+      "reference_ns": 5223576125,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/revision_max_polygon_payload/cold": {
+      "absolute_noise_allowance_ns": 141818842,
+      "category": "control",
+      "ceiling_ns": 4463380192,
+      "median_ns": 3601301125,
+      "metric": "median",
+      "noise_mad_ns": 31885166,
+      "p95_ns": 3678702792,
+      "reference_ns": 3601301125,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/revision_max_polygon_payload/warm": {
+      "absolute_noise_allowance_ns": 209786881,
+      "category": "control",
+      "ceiling_ns": 4621540381,
+      "median_ns": 3617895812,
+      "metric": "p95",
+      "noise_mad_ns": 47166437,
+      "p95_ns": 3676461250,
+      "reference_ns": 3676461250,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/revision_missing_stale/cold": {
+      "absolute_noise_allowance_ns": 9644499,
+      "category": "control",
+      "ceiling_ns": 5787786800,
+      "median_ns": 4815118584,
+      "metric": "median",
+      "noise_mad_ns": 2168375,
+      "p95_ns": 4822951375,
+      "reference_ns": 4815118584,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/revision_missing_stale/warm": {
+      "absolute_noise_allowance_ns": 109133258,
+      "category": "control",
+      "ceiling_ns": 6058468508,
+      "median_ns": 4875057437,
+      "metric": "p95",
+      "noise_mad_ns": 24536458,
+      "p95_ns": 4957779375,
+      "reference_ns": 4957779375,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/visible_card_result_missing/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 21569300,
+      "median_ns": 16307750,
+      "metric": "median",
+      "noise_mad_ns": 96166,
+      "p95_ns": 17646791,
+      "reference_ns": 16307750,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/visible_card_result_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2643700,
+      "median_ns": 479083,
+      "metric": "p95",
+      "noise_mad_ns": 11458,
+      "p95_ns": 536416,
+      "reference_ns": 536416,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/visible_card_runs_empty/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 22578600,
+      "median_ns": 17148833,
+      "metric": "median",
+      "noise_mad_ns": 118167,
+      "p95_ns": 17267000,
+      "reference_ns": 17148833,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/visible_card_runs_empty/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2601750,
+      "median_ns": 471187,
+      "metric": "p95",
+      "noise_mad_ns": 7645,
+      "p95_ns": 501458,
+      "reference_ns": 501458,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/visible_card_selection_empty/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 21734150,
+      "median_ns": 16445125,
+      "metric": "median",
+      "noise_mad_ns": 220292,
+      "p95_ns": 17216291,
+      "reference_ns": 16445125,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/visible_card_selection_empty/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2627750,
+      "median_ns": 473041,
+      "metric": "p95",
+      "noise_mad_ns": 9479,
+      "p95_ns": 523125,
+      "reference_ns": 523125,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/visual_identity_proposed_inputs_empty/cold": {
+      "absolute_noise_allowance_ns": 10019039,
+      "category": "control",
+      "ceiling_ns": 676704689,
+      "median_ns": 555571375,
+      "metric": "median",
+      "noise_mad_ns": 2252583,
+      "p95_ns": 625440125,
+      "reference_ns": 555571375,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/visual_identity_proposed_inputs_empty/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 646965050,
+      "median_ns": 534005209,
+      "metric": "p95",
+      "noise_mad_ns": 387375,
+      "p95_ns": 537470875,
+      "reference_ns": 537470875,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/visual_identity_result_missing/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 21906800,
+      "median_ns": 16589000,
+      "metric": "median",
+      "noise_mad_ns": 60709,
+      "p95_ns": 81869042,
+      "reference_ns": 16589000,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/visual_identity_result_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2634101,
+      "median_ns": 502729,
+      "metric": "p95",
+      "noise_mad_ns": 9312,
+      "p95_ns": 528417,
+      "reference_ns": 528417,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/visual_identity_runs_empty/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 22480501,
+      "median_ns": 17067084,
+      "metric": "median",
+      "noise_mad_ns": 120209,
+      "p95_ns": 18371542,
+      "reference_ns": 17067084,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/visual_identity_runs_empty/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3614051,
+      "median_ns": 1265687,
+      "metric": "p95",
+      "noise_mad_ns": 16541,
+      "p95_ns": 1345042,
+      "reference_ns": 1345042,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/visual_identity_selection_empty/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 21699851,
+      "median_ns": 16416542,
+      "metric": "median",
+      "noise_mad_ns": 330125,
+      "p95_ns": 16848834,
+      "reference_ns": 16416542,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/visual_identity_selection_empty/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2630400,
+      "median_ns": 497500,
+      "metric": "p95",
+      "noise_mad_ns": 6562,
+      "p95_ns": 525333,
+      "reference_ns": 525333,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/workspace_full_hard/cold": {
+      "absolute_noise_allowance_ns": 215201613,
+      "category": "control",
+      "ceiling_ns": 25161230913,
+      "median_ns": 20788357750,
+      "metric": "median",
+      "noise_mad_ns": 48383833,
+      "p95_ns": 20932990792,
+      "reference_ns": 20788357750,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/workspace_full_hard/warm": {
+      "absolute_noise_allowance_ns": 400637253,
+      "category": "control",
+      "ceiling_ns": 25671408203,
+      "median_ns": 20844894854,
+      "metric": "p95",
+      "noise_mad_ns": 90075375,
+      "p95_ns": 21058975791,
+      "reference_ns": 21058975791,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "pipeline/workspace_missing/cold": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 11930450,
+      "median_ns": 8275375,
+      "metric": "median",
+      "noise_mad_ns": 98791,
+      "p95_ns": 8460500,
+      "reference_ns": 8275375,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "pipeline/workspace_missing/warm": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 2667950,
+      "median_ns": 449583,
+      "metric": "p95",
+      "noise_mad_ns": 10125,
+      "p95_ns": 556625,
+      "reference_ns": 556625,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": false
+    },
+    "pipeline/workspace_stage_visual_identities_hard/cold": {
+      "absolute_noise_allowance_ns": 200932888,
+      "category": "control",
+      "ceiling_ns": 17857529438,
+      "median_ns": 14713830458,
+      "metric": "median",
+      "noise_mad_ns": 45175792,
+      "p95_ns": 14866124583,
+      "reference_ns": 14713830458,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "pipeline/workspace_stage_visual_identities_hard/warm": {
+      "absolute_noise_allowance_ns": 371218857,
+      "category": "control",
+      "ceiling_ns": 18202401907,
+      "median_ns": 14710628458,
+      "metric": "p95",
+      "noise_mad_ns": 83461229,
+      "p95_ns": 14859319208,
+      "reference_ns": 14859319208,
+      "relative_tolerance": 0.2,
+      "samples": 90,
+      "slow_debt": true
+    },
+    "residual/calibration_apply": {
+      "absolute_noise_allowance_ns": 42741130,
+      "category": "control",
+      "ceiling_ns": 29866798281,
+      "median_ns": 24853380959,
+      "metric": "median",
+      "noise_mad_ns": 9609499,
+      "p95_ns": 24862990458,
+      "reference_ns": 24853380959,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "residual/event_stage_submission": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 74160401,
+      "median_ns": 60133667,
+      "metric": "median",
+      "noise_mad_ns": 245208,
+      "p95_ns": 60378875,
+      "reference_ns": 60133667,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "residual/observation_stage_submission": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 42505601,
+      "median_ns": 33754667,
+      "metric": "median",
+      "noise_mad_ns": 227125,
+      "p95_ns": 34149209,
+      "reference_ns": 33754667,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "residual/proposed_card_scene_stage_submission": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 23669850,
+      "median_ns": 18058208,
+      "metric": "median",
+      "noise_mad_ns": 5750,
+      "p95_ns": 18121250,
+      "reference_ns": 18058208,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "residual/round_analysis_explicit_intake": {
+      "absolute_noise_allowance_ns": 3529886,
+      "category": "control",
+      "ceiling_ns": 110540836,
+      "median_ns": 89175791,
+      "metric": "median",
+      "noise_mad_ns": 793625,
+      "p95_ns": 89969416,
+      "reference_ns": 89175791,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "residual/round_analysis_recording_intake": {
+      "absolute_noise_allowance_ns": 11442709,
+      "category": "control",
+      "ceiling_ns": 117572260,
+      "median_ns": 88441292,
+      "metric": "median",
+      "noise_mad_ns": 2572667,
+      "p95_ns": 92759625,
+      "reference_ns": 88441292,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "residual/visible_card_stage_submission": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 89438000,
+      "median_ns": 72865000,
+      "metric": "median",
+      "noise_mad_ns": 45417,
+      "p95_ns": 72910417,
+      "reference_ns": 72865000,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "residual/visual_identity_stage_submission": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 327215051,
+      "median_ns": 271012542,
+      "metric": "median",
+      "noise_mad_ns": 359291,
+      "p95_ns": 271371833,
+      "reference_ns": 271012542,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "startup/empty/health_live": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 722945725,
+      "median_ns": 581621437,
+      "metric": "median",
+      "noise_mad_ns": 4273249,
+      "p95_ns": 688911333,
+      "reference_ns": 581621437,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/empty/health_ready": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 29580750,
+      "median_ns": 3817291,
+      "metric": "median",
+      "noise_mad_ns": 79354,
+      "p95_ns": 3957292,
+      "reference_ns": 3817291,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/empty/jobs_json": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 26109825,
+      "median_ns": 924854,
+      "metric": "median",
+      "noise_mad_ns": 31729,
+      "p95_ns": 987542,
+      "reference_ns": 924854,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/empty/recordings_first_use": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 26183425,
+      "median_ns": 986187,
+      "metric": "median",
+      "noise_mad_ns": 29438,
+      "p95_ns": 1031333,
+      "reference_ns": 986187,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/hard/health_live": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 724406301,
+      "median_ns": 582838583,
+      "metric": "median",
+      "noise_mad_ns": 1522541,
+      "p95_ns": 2752919833,
+      "reference_ns": 582838583,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/hard/health_ready": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 29446825,
+      "median_ns": 3705687,
+      "metric": "median",
+      "noise_mad_ns": 85583,
+      "p95_ns": 3837750,
+      "reference_ns": 3705687,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/hard/jobs_json": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 26584375,
+      "median_ns": 1320312,
+      "metric": "median",
+      "noise_mad_ns": 13604,
+      "p95_ns": 1356125,
+      "reference_ns": 1320312,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/hard/recordings_first_use": {
+      "absolute_noise_allowance_ns": 27125467,
+      "category": "startup",
+      "ceiling_ns": 3639237718,
+      "median_ns": 3010093542,
+      "metric": "median",
+      "noise_mad_ns": 6098625,
+      "p95_ns": 3030492875,
+      "reference_ns": 3010093542,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": true
+    },
+    "startup/hard/video_range": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 94722701,
+      "median_ns": 58102250,
+      "metric": "median",
+      "noise_mad_ns": 54312,
+      "p95_ns": 58522583,
+      "reference_ns": 58102250,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/hard/workspace_first_use": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 5365757175,
+      "median_ns": 4450630979,
+      "metric": "median",
+      "noise_mad_ns": 4989625,
+      "p95_ns": 4458598833,
+      "reference_ns": 4450630979,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": true
+    },
+    "startup/recovery/health_live": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 720743226,
+      "median_ns": 579786021,
+      "metric": "median",
+      "noise_mad_ns": 1855937,
+      "p95_ns": 587613500,
+      "reference_ns": 579786021,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/recovery/health_ready": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 29420326,
+      "median_ns": 3683604,
+      "metric": "median",
+      "noise_mad_ns": 85021,
+      "p95_ns": 3798167,
+      "reference_ns": 3683604,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/recovery/interrupted_job_recovery": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 26063151,
+      "median_ns": 885958,
+      "metric": "median",
+      "noise_mad_ns": 33812,
+      "p95_ns": 941792,
+      "reference_ns": 885958,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/recovery/jobs_json": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 26150425,
+      "median_ns": 958687,
+      "metric": "median",
+      "noise_mad_ns": 22729,
+      "p95_ns": 1010125,
+      "reference_ns": 958687,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "startup/recovery/recordings_first_use": {
+      "absolute_noise_allowance_ns": 25000000,
+      "category": "startup",
+      "ceiling_ns": 26211475,
+      "median_ns": 1009562,
+      "metric": "median",
+      "noise_mad_ns": 44875,
+      "p95_ns": 1117250,
+      "reference_ns": 1009562,
+      "relative_tolerance": 0.2,
+      "samples": 10,
+      "slow_debt": false
+    },
+    "writes/calibration_draft_discard": {
+      "absolute_noise_allowance_ns": 47902993,
+      "category": "control",
+      "ceiling_ns": 2458913893,
+      "median_ns": 2009175750,
+      "metric": "median",
+      "noise_mad_ns": 10770042,
+      "p95_ns": 2019945792,
+      "reference_ns": 2009175750,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "writes/calibration_draft_readback_after_update": {
+      "absolute_noise_allowance_ns": 56975393,
+      "category": "control",
+      "ceiling_ns": 2397897443,
+      "median_ns": 1950768375,
+      "metric": "median",
+      "noise_mad_ns": 12809792,
+      "p95_ns": 1963578167,
+      "reference_ns": 1950768375,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "writes/calibration_draft_start": {
+      "absolute_noise_allowance_ns": 49927850,
+      "category": "control",
+      "ceiling_ns": 2447188750,
+      "median_ns": 1997717416,
+      "metric": "median",
+      "noise_mad_ns": 11225291,
+      "p95_ns": 2021564666,
+      "reference_ns": 1997717416,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "writes/calibration_draft_update": {
+      "absolute_noise_allowance_ns": 50577971,
+      "category": "control",
+      "ceiling_ns": 2407415222,
+      "median_ns": 1964031042,
+      "metric": "median",
+      "noise_mad_ns": 11371458,
+      "p95_ns": 1975402500,
+      "reference_ns": 1964031042,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": true
+    },
+    "writes/cancel_queued_job": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 5050201,
+      "median_ns": 2541834,
+      "metric": "median",
+      "noise_mad_ns": 9584,
+      "p95_ns": 2584958,
+      "reference_ns": 2541834,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/events_selection_clear": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 12427501,
+      "median_ns": 8689584,
+      "metric": "median",
+      "noise_mad_ns": 25334,
+      "p95_ns": 8795834,
+      "reference_ns": 8689584,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/events_selection_readback": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3264200,
+      "median_ns": 1053500,
+      "metric": "median",
+      "noise_mad_ns": 19541,
+      "p95_ns": 1118375,
+      "reference_ns": 1053500,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/frame_review_defer": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 6900751,
+      "median_ns": 4083959,
+      "metric": "median",
+      "noise_mad_ns": 4000,
+      "p95_ns": 4087959,
+      "reference_ns": 4083959,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/frame_review_queue": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 22017450,
+      "median_ns": 16681208,
+      "metric": "median",
+      "noise_mad_ns": 8708,
+      "p95_ns": 16717667,
+      "reference_ns": 16681208,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/frame_review_read_after_save": {
+      "absolute_noise_allowance_ns": 2430910,
+      "category": "control",
+      "ceiling_ns": 22195960,
+      "median_ns": 16470875,
+      "metric": "median",
+      "noise_mad_ns": 546542,
+      "p95_ns": 19293459,
+      "reference_ns": 16470875,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/observations_selection_clear": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4031750,
+      "median_ns": 1693125,
+      "metric": "median",
+      "noise_mad_ns": 2917,
+      "p95_ns": 1696042,
+      "reference_ns": 1693125,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/observations_selection_readback": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3223451,
+      "median_ns": 1019542,
+      "metric": "median",
+      "noise_mad_ns": 6291,
+      "p95_ns": 1025833,
+      "reference_ns": 1019542,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_coverage_review": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4650150,
+      "median_ns": 2208458,
+      "metric": "median",
+      "noise_mad_ns": 2833,
+      "p95_ns": 2231833,
+      "reference_ns": 2208458,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_item_review": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4732850,
+      "median_ns": 2277375,
+      "metric": "median",
+      "noise_mad_ns": 14041,
+      "p95_ns": 2311666,
+      "reference_ns": 2277375,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_node_copy": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 8229200,
+      "median_ns": 5191000,
+      "metric": "median",
+      "noise_mad_ns": 62125,
+      "p95_ns": 5253833,
+      "reference_ns": 5191000,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_node_copy_readback": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3707200,
+      "median_ns": 1422666,
+      "metric": "median",
+      "noise_mad_ns": 7209,
+      "p95_ns": 1429875,
+      "reference_ns": 1422666,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_node_edit": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 19607600,
+      "median_ns": 14673000,
+      "metric": "median",
+      "noise_mad_ns": 6292,
+      "p95_ns": 14804000,
+      "reference_ns": 14673000,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_node_edit_readback": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4221500,
+      "median_ns": 1851250,
+      "metric": "median",
+      "noise_mad_ns": 1750,
+      "p95_ns": 1875500,
+      "reference_ns": 1851250,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_node_restore": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 8394950,
+      "median_ns": 5329125,
+      "metric": "median",
+      "noise_mad_ns": 18458,
+      "p95_ns": 5369834,
+      "reference_ns": 5329125,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_node_restore_readback": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4284600,
+      "median_ns": 1903833,
+      "metric": "median",
+      "noise_mad_ns": 4458,
+      "p95_ns": 1911000,
+      "reference_ns": 1903833,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_overall_review": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4608250,
+      "median_ns": 2173541,
+      "metric": "median",
+      "noise_mad_ns": 22918,
+      "p95_ns": 2196459,
+      "reference_ns": 2173541,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_review_readback": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4606950,
+      "median_ns": 2172458,
+      "metric": "median",
+      "noise_mad_ns": 6042,
+      "p95_ns": 2178500,
+      "reference_ns": 2172458,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_run_readback_after_submit": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3195551,
+      "median_ns": 996292,
+      "metric": "median",
+      "noise_mad_ns": 2792,
+      "p95_ns": 1002292,
+      "reference_ns": 996292,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/pipeline_run_submit": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 6826100,
+      "median_ns": 4021750,
+      "metric": "median",
+      "noise_mad_ns": 12750,
+      "p95_ns": 4049667,
+      "reference_ns": 4021750,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/queue_move": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3612200,
+      "median_ns": 1343500,
+      "metric": "median",
+      "noise_mad_ns": 12792,
+      "p95_ns": 1356292,
+      "reference_ns": 1343500,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/queue_read_after_move": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3326351,
+      "median_ns": 1105292,
+      "metric": "median",
+      "noise_mad_ns": 7874,
+      "p95_ns": 1113166,
+      "reference_ns": 1105292,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/queue_read_before_move": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3537251,
+      "median_ns": 1281042,
+      "metric": "median",
+      "noise_mad_ns": 667,
+      "p95_ns": 1312000,
+      "reference_ns": 1281042,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/retry_cancelled_job": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 6201850,
+      "median_ns": 3501541,
+      "metric": "median",
+      "noise_mad_ns": 9749,
+      "p95_ns": 3695833,
+      "reference_ns": 3501541,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/retry_detail_after_write": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3080101,
+      "median_ns": 900084,
+      "metric": "median",
+      "noise_mad_ns": 13500,
+      "p95_ns": 913584,
+      "reference_ns": 900084,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/submit_first": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 6441750,
+      "median_ns": 3701458,
+      "metric": "median",
+      "noise_mad_ns": 30042,
+      "p95_ns": 3731500,
+      "reference_ns": 3701458,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/submit_second": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 6190151,
+      "median_ns": 3491792,
+      "metric": "median",
+      "noise_mad_ns": 28542,
+      "p95_ns": 3524750,
+      "reference_ns": 3491792,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/unregistered_ui_video_url": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3209600,
+      "median_ns": 1008000,
+      "metric": "median",
+      "noise_mad_ns": 2334,
+      "p95_ns": 1033791,
+      "reference_ns": 1008000,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/visible-cards_selection_clear": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4157050,
+      "median_ns": 1797541,
+      "metric": "median",
+      "noise_mad_ns": 23332,
+      "p95_ns": 1833250,
+      "reference_ns": 1797541,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/visible-cards_selection_readback": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3167251,
+      "median_ns": 972709,
+      "metric": "median",
+      "noise_mad_ns": 16125,
+      "p95_ns": 997083,
+      "reference_ns": 972709,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/visual-identities_selection_clear": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 4011300,
+      "median_ns": 1676083,
+      "metric": "median",
+      "noise_mad_ns": 9917,
+      "p95_ns": 1692333,
+      "reference_ns": 1676083,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    },
+    "writes/visual-identities_selection_readback": {
+      "absolute_noise_allowance_ns": 2000000,
+      "category": "control",
+      "ceiling_ns": 3201150,
+      "median_ns": 1000958,
+      "metric": "median",
+      "noise_mad_ns": 542,
+      "p95_ns": 1001500,
+      "reference_ns": 1000958,
+      "relative_tolerance": 0.2,
+      "samples": 3,
+      "slow_debt": false
+    }
+  },
+  "environment": {
+    "cpu_count": 12,
+    "hard_manifest_sha256": "e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294",
+    "hardware_model": "Mac14,10",
+    "machine": "arm64",
+    "processor": "arm",
+    "python": "3.13.18",
+    "release": "27.2.0",
+    "system": "Darwin"
+  },
+  "protocol": {
+    "browser_fresh_contexts_per_scenario_per_session": 10,
+    "cold_os_cache": false,
+    "finite_request_timeout_seconds": 180,
+    "independent_batches": 3,
+    "measured_repeats_per_batch": 30,
+    "slow_debt_threshold_ns": 1000000000,
+    "startup_fresh_processes_per_profile": 10,
+    "warmups": 5
+  },
+  "provenance": {
+    "commit": "89ad7f9b1ae70b8d9f6c62bd3b2aed3bed7d5300",
+    "raw_file_sha256": {
+      "catalog-reads.json": "f5ab8d5e9829bf28ea041d2fcd40bed4fa4f5ab03158d947cb6f0392275773a6",
+      "pipeline-reads.json": "1a82f153105d54a2998eea467b3504f1ed996a2afb2321d449ef5931c473aaa4",
+      "session-01/browser.artifacts/backend.log": "7b43228401070a4cbcfcfa1bab4d9285d6eda6e199aa9304c2c43fd72d2ae577",
+      "session-01/browser.artifacts/browser-samples.json": "2370220073d54f35a300063a6ab0edac8174832880f3d7d28ab113ccb2ef8771",
+      "session-01/browser.artifacts/web.log": "1bdfe6a599670c785c137af725797445503a5a1abcba3456b0b4225b2390febc",
+      "session-01/browser.json": "e68f3cbd0301361777f86d6be27a718990447f3300e7f1f44156a42a564ce1ff",
+      "session-01/controlled-hard.csv": "065a0f602817dad28a1b3ca2867eed4a3d0e8aeee43563a5a3d48364772f47b0",
+      "session-01/controlled-hard.json": "257d970cb60f4a4c5790f8937d23a579fcac41d65674e6d4320ce4362668daea",
+      "session-01/controlled-hard.summary.csv": "6e5eae6a3a66959a0ce549c4c8c353cdd8812df05b72a0c958de138bded58fd0",
+      "session-01/interactive-writes.json": "dd35cb00de953d6f800ce336173e2cca8c97bed8f1b8ad4a4441479f7cbbb78a",
+      "session-01/job-reads.json": "e736d2f11a676c9368c6ab08dbcdab748dc007968dd9b53cedbcbe1f37259025",
+      "session-01/media.json": "8199f51e13110eb181584164541628ff537126046fcdf6e33cb91340ea7a816c",
+      "session-01/residual-writes.json": "70f10f1691737dec4f471104b5a2506b5ce0ae210d7f1320bf27b0bf9722e6d6",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-00/backend-output.log": "52f66798d6accaa14485d2ce1da3d49c25f94496dcedcb27f3537ffbb9074920",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-01/backend-output.log": "6f531f56d99e0f886fe4b34d8dac7710b421f15ec397b3acf1d3a8d60a45c1fd",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-02/backend-output.log": "aa048ad79012b7d649a4a0a2c2464b4a8d076a2d8f859e50628009d0b534d3c7",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-03/backend-output.log": "a56586af2889f6169336cdd7d800c323c9bc0b9a0d97f6398e532d7c240bb9ee",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-04/backend-output.log": "3acb77b5cdb8f7bb35320ef9b96b467e12e86aa6d7054f032765fb7a6d476d6d",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-05/backend-output.log": "305c8c776b46edda64547764720721ea93ece9f9ad6ceee307bcfaf385c52ffa",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-06/backend-output.log": "a9aad0c6b14dd5c3c75c63ba8f6b5f654147872400905b2007ff2fe69101899c",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-07/backend-output.log": "9967810e656ecaba6d986c88addcf38fdbf495e3ed6ad95a0f3cd3c129693353",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-08/backend-output.log": "125a8cdf1fc8ed9d3e85b6023fa27fc3d4b0973dcf617254b89e333b489f2a94",
+      "session-01/startup-empty.artifacts/empty/ca8f0bb0/trial-09/backend-output.log": "e10b2bc8d4828be50ce100910df95146016f48d9fe361da362d97c40a50c65e6",
+      "session-01/startup-empty.csv": "ce57209adf01add22ece201c7128aa861da98aaad18ad5ecfdf7f774173f3284",
+      "session-01/startup-empty.json": "0697248550a4ff66248d1fb23973df169c766b84aa6adc23c464857ab69974ce",
+      "session-01/startup-empty.summary.csv": "0f35cd2aade4a1972eb1055047036b9c9b2731bf5116ccefbd2ab325158bd629",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-00/backend-output.log": "ba431e99f8c412e2329596e8db0add87f3de54375b2b5b3f00b00f919975e71a",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-01/backend-output.log": "e4b37e41c92426582eeee7a63bea5333bb445d5614e6e372efdb9c9d93f2fdf2",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-02/backend-output.log": "5437a3917969eae16e3cca35f78b77b47d3dad1bcf6d80c39a33fe926dc96421",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-03/backend-output.log": "268a8ba675ccbacc6c99fed5e130973af0eb6ed6b9fbd604fe1c1ffdfdfc6aab",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-04/backend-output.log": "8e94250c5c3345e46fb2c50cdc0f7111cf938c923d4c4ffe8b0d0eb9212a5a84",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-05/backend-output.log": "760545210c45bd52a68def846f074499bd242a6d669529b73846760b7b23c009",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-06/backend-output.log": "1da8a4b30705e189e98d1ed3ef53cff4004e43c6026b044b819418c4e6e198d5",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-07/backend-output.log": "96569b2e960400472bfbbbf2404adaeed857596e3e56e91c5580714f4069eaad",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-08/backend-output.log": "091f4a31c4683752b5c02ffc24e25358762a64d40f4a8fb9f1b630678a323103",
+      "session-01/startup-hard.artifacts/hard_populated/28dc32cc/trial-09/backend-output.log": "84da2fe4cd5a91b664f7880b81d495e55679be81bae08354773ea4d6656e8684",
+      "session-01/startup-hard.csv": "27bd08fe7a208558598824a3f9300001e9d000a8b8e46a087b090807b18de353",
+      "session-01/startup-hard.json": "9f1d2092d98cf813e63d4bb2f56a491da048915957025777fc4e3b7bb73ca83e",
+      "session-01/startup-hard.summary.csv": "a1b0daa8f11a8f45b13722025a63f1a04bfe4223c4a53d8e216a4a59de712927",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-00/backend-output.log": "c9f7b8bead7c01d864d802be017d356d2f5254a8472c137f4057fdada627f57e",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-01/backend-output.log": "29742877edba8be94ff85b14e8d61ffbeca8ba89e9bb9336ab4bf259d13815a7",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-02/backend-output.log": "2fb30afe14fab77371b42331573e06ff430d083ba88f00892b1824b12a6ba893",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-03/backend-output.log": "116631ba75cdc3efc59f53a6c5257e68ef784dabd9e60ec1c1c9d4c64d1179af",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-04/backend-output.log": "f4968992f3a64e24c48606cd4e7779961b40892d3d2f0d903a285c28cf1fa649",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-05/backend-output.log": "1abbe3f4af31f92331609853c3b1b1a96dda443799540e986f4ed202ed07c31e",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-06/backend-output.log": "10d0800c42982138f81964b389511ecac15559923cac61cbc876e13c1c43a495",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-07/backend-output.log": "ea627efc6b10671c53c508043f950c46b3ff3ee9f10731e083cf4edd89ae5862",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-08/backend-output.log": "6688bab5da0ae2fff592b4c41a2b914e6a3136a911709e6814161086b9bac7eb",
+      "session-01/startup-recovery.artifacts/interrupted_recovery/800331a9/trial-09/backend-output.log": "6552e406e119db5f41a79d00946119343e9b11c8a50d9c2009e467131fdfb4e8",
+      "session-01/startup-recovery.csv": "37806872a0ec830dc87728e907d54b4fd5ebb84656618a9ea42337dfe35a68dc",
+      "session-01/startup-recovery.json": "09380d6b660ed652691caa0e80d0ae6ba8b892a18d44e3633172383c51bda39f",
+      "session-01/startup-recovery.summary.csv": "d5fa3359f8711e761f7eeaf14be144de4e7147acda89e71bde70083c59312c98",
+      "session-02/browser.artifacts/backend.log": "e242a967d549eeb7b9c895493f61cb894ada2a57b8859c492c1f16e25729f8fd",
+      "session-02/browser.artifacts/browser-samples.json": "05515d1eafa953bb0c2a04f13afd379e24eeb9c1f837d163a2fce20926122421",
+      "session-02/browser.artifacts/web.log": "d57314b3515ecf32a64bc442714ae62af52d256dded1a66d044b0a4916592ef3",
+      "session-02/browser.json": "c326eaa09e198b66528c3bf301d9c79cdddef6e6feb475b0189c8d4adef8ceb6",
+      "session-02/interactive-writes.json": "c4cb532a7bf47c50d3e98c713bedb7c1c4691e36e35ddf8174440e2b05c22b9a",
+      "session-02/job-reads.json": "1c4e6736e36679d0a60806c18afc972240f9e8454c3528eee5880111d7c569e5",
+      "session-02/media.json": "e390984ea911d8e08359af953b05f93f1da9028171bf6a9a11e882b3a781a751",
+      "session-02/residual-writes.json": "4bef856e2bceb51888017767f795bbe8c1239fed8bd0527e4ef8e4db9db5232f",
+      "session-03/browser.artifacts/backend.log": "2a3f74e82f278ad1a962549c731fdbff43f542eba4570a9c22f6fb4d47c94e44",
+      "session-03/browser.artifacts/browser-samples.json": "241ca651f526a3ce40ba4f4ba9a92fa13188b2ab0469a9bd97a286a728e8ae60",
+      "session-03/browser.artifacts/web.log": "6229fea40eb4a799798444d241c66bf13188e93818e818b329fba4661730bad6",
+      "session-03/browser.json": "6e1415cd8ac44f472a84351b27f381b01b1a752f32c76b991551fd9e2c43f3aa",
+      "session-03/interactive-writes.json": "28c997730c280f246aefb44887c90cdf6b57eb3761b7820e1896fd68a2eb694e",
+      "session-03/job-reads.json": "750f849361055f68aae69600f632068c51031adf69bfdc949baa6b0c596f8565",
+      "session-03/media.json": "40dd2b8eb131f3902cfcec930f39420280f147afa3de8fa3787c6864798abc93",
+      "session-03/residual-writes.json": "e60889c04e1f46a39f36856cf01529d103753ad6ff51d50362dcb41e164cacb4"
+    },
+    "source_sha256": {
+      "backend/scripts/check_interactive_ui_performance_inventory.py": "8e3fbc4c7a3531069328b75fb6be148e7a8c938bed220c5d13315b6d71ddc7c9",
+      "backend/scripts/interactive_ui_browser_app.py": "0e92a5e8bccfd8d901267bb988b9776ecfcf3b637362898b525f63b3f663d7f2",
+      "backend/scripts/materialize_interactive_ui_performance_fixtures.py": "d50e2789f8559fdbad6a5c1e6f750e693a0deb27c0674524aeb702f34c9f82c6",
+      "backend/scripts/qualify_interactive_ui_performance.py": "079c825a33d2882f7df3d5f7bf28dabfefb84b44ac966a831634c13b23f4dca9",
+      "backend/scripts/run_interactive_ui_browser_performance.py": "510cf97893220904020122f133e5de18f65864d67f0cc33ece4ad5e694e5a726",
+      "backend/scripts/run_interactive_ui_catalog_read_performance.py": "35df3c09cacbea7839bca307507a109465361aa47ae869676ead0e6cf96931e2",
+      "backend/scripts/run_interactive_ui_job_read_performance.py": "d2ba83405b1fc4ef57d23e71f18329f403517c5c19938cc30de1f171e94268c2",
+      "backend/scripts/run_interactive_ui_media_performance.py": "8b64d52e89b048c722d21cf93a534cba6ae30b0b0d6f9234c1e8f0784dd942fd",
+      "backend/scripts/run_interactive_ui_performance.py": "66a0f5c5c461f8a85af62df4115610b30c56fdb5c97a4be61d0ebb5ff198c719",
+      "backend/scripts/run_interactive_ui_pipeline_read_performance.py": "7fd1b1ed9555ea3607a332919c6a8560fbee564d02955d772c0a835e61662faa",
+      "backend/scripts/run_interactive_ui_read_performance.py": "b2b60298edee37ac3cb0a1b5acdde39eeed80c0891a9d4a7b316faf8dab8a64c",
+      "backend/scripts/run_interactive_ui_write_performance.py": "6cd1d2c8b2505e2118a907cf0866957a34fdbe188cc3f39be5607c5d3c0e4389",
+      "backend/tests/test_interactive_ui_catalog_read_performance.py": "97d6003f07fb2d61b8b9a35580af5b6a4b361c4ca1c8aa965c8cd44694db4919",
+      "backend/tests/test_interactive_ui_media_performance.py": "24518d04e4579ae1b207018da3cffcbdd1041ec9476033918b71c6e7db7773e1",
+      "backend/tests/test_interactive_ui_performance_qualification.py": "4f681dd2be743aa5db1a5d4062871b5864a6ddd23f0b1e06618bbd3a8467b43d",
+      "backend/tests/test_interactive_ui_performance_runner.py": "eb70c06c52ed7491921a52dcf9c1c94ea2fe545750c695b6d0be0e49a984c8c3",
+      "backend/tests/test_interactive_ui_pipeline_read_performance.py": "6dcf001363cf8d1a8b93f70fd34792862a022beb900cc5a5852ef5a2e39ec09c",
+      "backend/tests/test_interactive_ui_read_performance.py": "0396dd4467ae552c7a57ae669a7196c79dfaeff8529b73d90bdfc5c917dcad96",
+      "backend/tests/test_interactive_ui_residual_write_performance.py": "21f1ae6cb9af62ba9eb4cf5c5ad5e0026d4b0d441bb0fde5c4a765b6c8b0e98c",
+      "backend/tests/test_interactive_ui_write_performance.py": "82025ffb9aec0c34aa19f5d6d7f5cae85f9a1e4c854c53931f1472bc574f799d",
+      "web/tests/e2e-performance/interactive-ui-real-process.spec.ts": "1b7df3bec769d41ca141711bdb0130cac3ffc536b2cc820e938ac0449c931bb1"
+    }
+  },
+  "schema_version": "interactive-ui-performance-baseline/v1",
+  "ui_routes": {
+    "api:GET:/api/frame-reviews/0096-M4": {
+      "ceiling_ns": 22195960,
+      "groups": [
+        "writes/frame_review_queue",
+        "writes/frame_review_read_after_save"
+      ]
+    },
+    "api:GET:/api/jobs": {
+      "ceiling_ns": 46394900,
+      "groups": [
+        "controlled/jobs_json",
+        "jobs/history_cursor_page_12",
+        "jobs/history_cursor_page_300",
+        "jobs/history_page_12",
+        "jobs/history_page_300",
+        "startup/empty/jobs_json",
+        "startup/hard/jobs_json",
+        "startup/recovery/jobs_json",
+        "writes/queue_read_after_move",
+        "writes/queue_read_before_move"
+      ]
+    },
+    "api:GET:/api/jobs/{job_id}": {
+      "ceiling_ns": 26063151,
+      "groups": [
+        "jobs/job_detail",
+        "jobs/job_detail_missing",
+        "startup/recovery/interrupted_job_recovery",
+        "writes/retry_detail_after_write"
+      ]
+    },
+    "api:GET:/api/jobs/{job_id}/calibration-preview": {
+      "ceiling_ns": 9919700,
+      "groups": [
+        "jobs/calibration_preview_success",
+        "jobs/calibration_preview_wrong_type"
+      ]
+    },
+    "api:GET:/api/jobs/{job_id}/logs": {
+      "ceiling_ns": 3079601,
+      "groups": [
+        "jobs/job_logs_first_page",
+        "jobs/job_logs_missing"
+      ]
+    },
+    "api:GET:/api/pipeline/nodes/{node_id}/revisions/{revision_id}": {
+      "ceiling_ns": 6317574089,
+      "groups": [
+        "pipeline/revision_max_identity_payload/warm",
+        "pipeline/revision_max_polygon_payload/warm",
+        "pipeline/revision_missing_stale/warm",
+        "writes/pipeline_node_copy_readback",
+        "writes/pipeline_node_edit_readback",
+        "writes/pipeline_node_restore_readback"
+      ]
+    },
+    "api:GET:/api/pipeline/nodes/{node_id}/revisions/{revision_id}/reviews": {
+      "ceiling_ns": 6072207585,
+      "groups": [
+        "pipeline/reviews_exact_revision/warm",
+        "pipeline/reviews_stale_revision/warm",
+        "writes/pipeline_review_readback"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline": {
+      "ceiling_ns": 25671408203,
+      "groups": [
+        "pipeline/workspace_full_hard/warm",
+        "pipeline/workspace_missing/warm",
+        "pipeline/workspace_stage_visual_identities_hard/warm",
+        "startup/hard/workspace_first_use"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/calibration-refinement": {
+      "ceiling_ns": 2828596573,
+      "groups": [
+        "pipeline/calibration_draft_invalid_lineage/warm",
+        "pipeline/calibration_draft_missing/warm",
+        "pipeline/calibration_draft_snapshot/warm",
+        "writes/calibration_draft_readback_after_update"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/calibrations/{calibration_revision_id}": {
+      "ceiling_ns": 361397691,
+      "groups": [
+        "pipeline/calibration_published_missing/warm",
+        "pipeline/calibration_published_snapshot/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/derived-views/exact-event/{requested_time_us}": {
+      "ceiling_ns": 8474600,
+      "groups": [
+        "media/derived_event_frame_cold",
+        "media/derived_event_frame_warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/derived-views/identity-crops/{revision_id}/{item_id}": {
+      "ceiling_ns": 111577651,
+      "groups": [
+        "media/identity_crop_after_restart",
+        "media/identity_crop_after_review_save",
+        "media/identity_crop_cold",
+        "media/identity_crop_new_revision",
+        "media/identity_crop_warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/events": {
+      "ceiling_ns": 4473300,
+      "groups": [
+        "pipeline/event_runs_exact/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/events/selection": {
+      "ceiling_ns": 3264200,
+      "groups": [
+        "pipeline/event_selection_exact/warm",
+        "writes/events_selection_readback"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/events/{run_id}/result": {
+      "ceiling_ns": 4265801,
+      "groups": [
+        "pipeline/event_result_exact/warm",
+        "pipeline/event_result_missing/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/lineage": {
+      "ceiling_ns": 35966339077,
+      "groups": [
+        "pipeline/lineage_hard/warm",
+        "pipeline/lineage_missing/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/observations": {
+      "ceiling_ns": 4644850,
+      "groups": [
+        "pipeline/observation_runs_empty/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/observations/selection": {
+      "ceiling_ns": 3223451,
+      "groups": [
+        "pipeline/observation_selection_empty/warm",
+        "writes/observations_selection_readback"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/observations/{run_id}/result": {
+      "ceiling_ns": 2657450,
+      "groups": [
+        "pipeline/observation_result_missing/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/proposed-card-scenes": {
+      "ceiling_ns": 2824201,
+      "groups": [
+        "pipeline/proposed_scene_runs_empty/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/proposed-card-scenes/{run_id}/result": {
+      "ceiling_ns": 2613301,
+      "groups": [
+        "pipeline/proposed_scene_result_missing/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/runs/{run_id}": {
+      "ceiling_ns": 3195551,
+      "groups": [
+        "pipeline/automated_run_exact/warm",
+        "pipeline/automated_run_missing/warm",
+        "writes/pipeline_run_readback_after_submit"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/visible-cards": {
+      "ceiling_ns": 2601750,
+      "groups": [
+        "pipeline/visible_card_runs_empty/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/visible-cards/selection": {
+      "ceiling_ns": 3167251,
+      "groups": [
+        "pipeline/visible_card_selection_empty/warm",
+        "writes/visible-cards_selection_readback"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/visible-cards/{run_id}/result": {
+      "ceiling_ns": 2643700,
+      "groups": [
+        "pipeline/visible_card_result_missing/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/visual-identities": {
+      "ceiling_ns": 3614051,
+      "groups": [
+        "pipeline/visual_identity_runs_empty/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/visual-identities/proposed-crop-inputs": {
+      "ceiling_ns": 646965050,
+      "groups": [
+        "pipeline/visual_identity_proposed_inputs_empty/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/visual-identities/selection": {
+      "ceiling_ns": 3201150,
+      "groups": [
+        "pipeline/visual_identity_selection_empty/warm",
+        "writes/visual-identities_selection_readback"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}/result": {
+      "ceiling_ns": 2634101,
+      "groups": [
+        "pipeline/visual_identity_result_missing/warm"
+      ]
+    },
+    "api:GET:/api/recordings/{recording_id}/video": {
+      "ceiling_ns": 3209600,
+      "groups": [
+        "writes/unregistered_ui_video_url"
+      ]
+    },
+    "api:GET:/v1/evidence-packages/{package_id}": {
+      "ceiling_ns": 2555251,
+      "groups": [
+        "catalog/evidence_package_missing/hard"
+      ]
+    },
+    "api:GET:/v1/evidence-packages/{package_id}/table-observations": {
+      "ceiling_ns": 2508701,
+      "groups": [
+        "catalog/evidence_package_observations_missing/hard"
+      ]
+    },
+    "api:GET:/v1/evidence-packages/{package_id}/video-snippet": {
+      "ceiling_ns": 9495601,
+      "groups": [
+        "media/evidence_video_snippet"
+      ]
+    },
+    "api:GET:/v1/recordings": {
+      "ceiling_ns": 21746000781,
+      "groups": [
+        "catalog/catalog_hard/hard",
+        "startup/empty/recordings_first_use",
+        "startup/hard/recordings_first_use",
+        "startup/recovery/recordings_first_use"
+      ]
+    },
+    "api:GET:/v1/recordings/{recording_id}": {
+      "ceiling_ns": 66396600,
+      "groups": [
+        "catalog/recording_detail_hard/hard",
+        "catalog/recording_detail_missing/hard"
+      ]
+    },
+    "api:GET:/v1/repository-bundles/{recording_id}": {
+      "ceiling_ns": 140783201,
+      "groups": [
+        "catalog/repository_bundle_hard/hard"
+      ]
+    },
+    "api:GET:/v1/repository-bundles/{recording_id}/thumbnail": {
+      "ceiling_ns": 7980050,
+      "groups": [
+        "media/recording_thumbnail_cold",
+        "media/recording_thumbnail_warm"
+      ]
+    },
+    "api:GET:/v1/repository-bundles/{recording_id}/video": {
+      "ceiling_ns": 580370100,
+      "groups": [
+        "controlled/video_range",
+        "media/recording_video_full",
+        "media/recording_video_range_64k",
+        "startup/hard/video_range"
+      ]
+    },
+    "api:GET:/v1/round-analyses/{analysis_id}": {
+      "ceiling_ns": 2783150,
+      "groups": [
+        "catalog/analysis_missing/hard"
+      ]
+    },
+    "api:GET:/v1/round-analyses/{analysis_id}/counterfactuals/{counterfactual_id}": {
+      "ceiling_ns": 2734801,
+      "groups": [
+        "catalog/counterfactual_missing/hard"
+      ]
+    },
+    "api:GET:/v1/round-analyses/{analysis_id}/evidence-packages/{package_id}/frames/{part_name}": {
+      "ceiling_ns": 14073250,
+      "groups": [
+        "media/evidence_frame"
+      ]
+    },
+    "api:GET:/v1/round-analyses/{analysis_id}/timeline": {
+      "ceiling_ns": 2599500,
+      "groups": [
+        "catalog/timeline_missing/hard"
+      ]
+    },
+    "api:GET:/v1/table-observations/{observation_id}": {
+      "ceiling_ns": 2506651,
+      "groups": [
+        "catalog/table_observation_missing/hard"
+      ]
+    },
+    "api:POST:/api/jobs": {
+      "ceiling_ns": 74160401,
+      "groups": [
+        "residual/event_stage_submission",
+        "writes/submit_first",
+        "writes/submit_second"
+      ]
+    },
+    "api:POST:/api/jobs/queue/move": {
+      "ceiling_ns": 3612200,
+      "groups": [
+        "writes/queue_move"
+      ]
+    },
+    "api:POST:/api/jobs/{job_id}/cancel": {
+      "ceiling_ns": 5050201,
+      "groups": [
+        "writes/cancel_queued_job"
+      ]
+    },
+    "api:POST:/api/jobs/{job_id}/retry": {
+      "ceiling_ns": 6201850,
+      "groups": [
+        "writes/retry_cancelled_job"
+      ]
+    },
+    "api:POST:/api/pipeline/nodes/{node_id}/copy": {
+      "ceiling_ns": 8229200,
+      "groups": [
+        "writes/pipeline_node_copy"
+      ]
+    },
+    "api:POST:/api/pipeline/nodes/{node_id}/edit": {
+      "ceiling_ns": 19607600,
+      "groups": [
+        "writes/pipeline_node_edit"
+      ]
+    },
+    "api:POST:/api/pipeline/nodes/{node_id}/restore": {
+      "ceiling_ns": 8394950,
+      "groups": [
+        "writes/pipeline_node_restore"
+      ]
+    },
+    "api:POST:/api/pipeline/nodes/{node_id}/reviews/coverage": {
+      "ceiling_ns": 4650150,
+      "groups": [
+        "writes/pipeline_coverage_review"
+      ]
+    },
+    "api:POST:/api/pipeline/nodes/{node_id}/reviews/item": {
+      "ceiling_ns": 4732850,
+      "groups": [
+        "writes/pipeline_item_review"
+      ]
+    },
+    "api:POST:/api/pipeline/nodes/{node_id}/reviews/overall": {
+      "ceiling_ns": 4608250,
+      "groups": [
+        "writes/pipeline_overall_review"
+      ]
+    },
+    "api:POST:/api/recordings/{recording_id}/pipeline/calibration-refinement": {
+      "ceiling_ns": 2447188750,
+      "groups": [
+        "writes/calibration_draft_start"
+      ]
+    },
+    "api:POST:/api/recordings/{recording_id}/pipeline/calibration-refinement/apply": {
+      "ceiling_ns": 29866798281,
+      "groups": [
+        "residual/calibration_apply"
+      ]
+    },
+    "api:POST:/api/recordings/{recording_id}/pipeline/calibration-refinement/discard": {
+      "ceiling_ns": 2458913893,
+      "groups": [
+        "writes/calibration_draft_discard"
+      ]
+    },
+    "api:POST:/api/recordings/{recording_id}/pipeline/comparisons": {
+      "ceiling_ns": 26554952625,
+      "groups": [
+        "pipeline/comparison_exact_runs/warm",
+        "pipeline/comparison_missing_inputs/warm"
+      ]
+    },
+    "api:POST:/api/recordings/{recording_id}/pipeline/observations": {
+      "ceiling_ns": 42505601,
+      "groups": [
+        "residual/observation_stage_submission"
+      ]
+    },
+    "api:POST:/api/recordings/{recording_id}/pipeline/proposed-card-scenes": {
+      "ceiling_ns": 23669850,
+      "groups": [
+        "residual/proposed_card_scene_stage_submission"
+      ]
+    },
+    "api:POST:/api/recordings/{recording_id}/pipeline/runs": {
+      "ceiling_ns": 6826100,
+      "groups": [
+        "writes/pipeline_run_submit"
+      ]
+    },
+    "api:POST:/api/recordings/{recording_id}/pipeline/visible-cards": {
+      "ceiling_ns": 89438000,
+      "groups": [
+        "residual/visible_card_stage_submission"
+      ]
+    },
+    "api:POST:/api/recordings/{recording_id}/pipeline/visual-identities": {
+      "ceiling_ns": 327215051,
+      "groups": [
+        "residual/visual_identity_stage_submission"
+      ]
+    },
+    "api:POST:/v1/recordings/{recording_id}/round-analyses": {
+      "ceiling_ns": 117572260,
+      "groups": [
+        "residual/round_analysis_recording_intake"
+      ]
+    },
+    "api:POST:/v1/round-analyses": {
+      "ceiling_ns": 110540836,
+      "groups": [
+        "residual/round_analysis_explicit_intake"
+      ]
+    },
+    "api:PUT:/api/frame-reviews/0096-M4/items/{recording_id}/{item_id}/workflow": {
+      "ceiling_ns": 6900751,
+      "groups": [
+        "writes/frame_review_defer"
+      ]
+    },
+    "api:PUT:/api/recordings/{recording_id}/pipeline/calibration-refinement": {
+      "ceiling_ns": 2407415222,
+      "groups": [
+        "writes/calibration_draft_update"
+      ]
+    },
+    "api:PUT:/api/recordings/{recording_id}/pipeline/events/selection": {
+      "ceiling_ns": 12427501,
+      "groups": [
+        "writes/events_selection_clear"
+      ]
+    },
+    "api:PUT:/api/recordings/{recording_id}/pipeline/observations/selection": {
+      "ceiling_ns": 4031750,
+      "groups": [
+        "writes/observations_selection_clear"
+      ]
+    },
+    "api:PUT:/api/recordings/{recording_id}/pipeline/visible-cards/selection": {
+      "ceiling_ns": 4157050,
+      "groups": [
+        "writes/visible-cards_selection_clear"
+      ]
+    },
+    "api:PUT:/api/recordings/{recording_id}/pipeline/visual-identities/selection": {
+      "ceiling_ns": 4011300,
+      "groups": [
+        "writes/visual-identities_selection_clear"
+      ]
+    }
+  }
+}

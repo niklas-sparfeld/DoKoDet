@@ -1,0 +1,87 @@
+{
+  "scope": "Epic 0114 M8 residual write API responses",
+  "measurement": "one in-process TestClient response per named case",
+  "qualification": "preliminary samples; not a baseline",
+  "samples": [
+    {
+      "case": "event_stage_submission",
+      "method": "POST",
+      "path": "/api/jobs",
+      "duration_ns": 59698458,
+      "status_code": 202,
+      "response_bytes": 1800,
+      "response_sha256": "8f9c99e28f4079ad5c97cb1055887c3953720459474d2ad967232ad91699316d",
+      "ok": true
+    },
+    {
+      "case": "visible_card_stage_submission",
+      "method": "POST",
+      "path": "/api/recordings/recording-both/pipeline/visible-cards",
+      "duration_ns": 72910417,
+      "status_code": 202,
+      "response_bytes": 1679,
+      "response_sha256": "06706265ad707d3b231764db8871636f48e4f9e3f97d95525f200c17e0dc8dfd",
+      "ok": true
+    },
+    {
+      "case": "proposed_card_scene_stage_submission",
+      "method": "POST",
+      "path": "/api/recordings/recording-both/pipeline/proposed-card-scenes",
+      "duration_ns": 18058208,
+      "status_code": 202,
+      "response_bytes": 1437,
+      "response_sha256": "0daf287bbf3c326407d77137d7798b337f7a87763d3cc16943c5ec94647ab312",
+      "ok": true
+    },
+    {
+      "case": "visual_identity_stage_submission",
+      "method": "POST",
+      "path": "/api/recordings/recording-both/pipeline/visual-identities",
+      "duration_ns": 271012542,
+      "status_code": 202,
+      "response_bytes": 3308,
+      "response_sha256": "0a1e799328c9a890c7af9f1b721865023ee1f3b2040b8e097687fb79c4ec89b5",
+      "ok": true
+    },
+    {
+      "case": "observation_stage_submission",
+      "method": "POST",
+      "path": "/api/recordings/recording-both/pipeline/observations",
+      "duration_ns": 33754667,
+      "status_code": 202,
+      "response_bytes": 1884,
+      "response_sha256": "893bb1e23ee7af8a1189e3d14538ffd5e0204139cf3b86bf21bbb3d8e3e2ec84",
+      "ok": true
+    },
+    {
+      "case": "round_analysis_explicit_intake",
+      "method": "POST",
+      "path": "/v1/round-analyses",
+      "duration_ns": 89969416,
+      "status_code": 202,
+      "response_bytes": 2120,
+      "response_sha256": "bd0191090f6acd6f9acb081656048b7c590755338308917145455b92675ab0de",
+      "ok": true
+    },
+    {
+      "case": "round_analysis_recording_intake",
+      "method": "POST",
+      "path": "/v1/recordings/recording-both/round-analyses",
+      "duration_ns": 85868625,
+      "status_code": 202,
+      "response_bytes": 2124,
+      "response_sha256": "f4af4f43e714372ddf1a11f040c80321bcfa891e899a3fbec3faac6d9b1a5acf",
+      "ok": true
+    },
+    {
+      "case": "calibration_apply",
+      "method": "POST",
+      "path": "/api/recordings/cardeventnet-IMG_0655/pipeline/calibration-refinement/apply?proposal_revision_id=card-scene-proposals-card-scene-proposal-0086-91x59-IMG_0655-retry-65bb8ec7-attempt-1",
+      "duration_ns": 24862990458,
+      "status_code": 200,
+      "response_bytes": 2288,
+      "response_sha256": "8a67ac33a47a3a506ed973275d94d8b479f4485fb03fc74fdaff26f4a6f0ce68",
+      "ok": true
+    }
+  ]
+}

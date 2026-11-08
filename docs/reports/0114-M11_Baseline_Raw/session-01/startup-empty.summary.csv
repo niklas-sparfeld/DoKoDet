@@ -1,0 +1,6 @@
+case,batch,samples,min_completion_ns,median_completion_ns,p90_completion_ns,max_completion_ns,median_first_byte_ns,p90_first_byte_ns
+health_live,0,10,568025458,581621437,586860416,688911333,,
+health_ready,0,10,3676042,3817291,3893959,3957292,,
+jobs_json,0,10,871833,924854,975625,987542,912333,964333
+recordings_first_use,0,10,942625,986187,1026458,1031333,,
+startup_to_useful_response,0,10,572746541,586491021,591762250,693757250,,

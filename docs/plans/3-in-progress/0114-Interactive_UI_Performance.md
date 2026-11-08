@@ -173,7 +173,7 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M8:** Complete — measure eight residual real-backend write routes and durable effects.
 - **M9:** Complete — add named real-backend media cases and verify cold/warm and saved-review, revision, and restart cache behavior.
 - **M10:** Complete — seven real-process Playwright scenarios passed across 70 fresh contexts; 10 backend startup processes passed. See the [M10 report](../../reports/0114-M10_Real_Process_Browser_and_Load.md).
-- **M11:** Not started — run the complete corpus in three independent sessions and freeze budgets and regression gates.
+- **M11:** Complete — warm endpoints ran in three independent batches; the single-run and browser families ran in three sequential sessions. The baseline has 179 case budgets and 70 route keys; missing evidence and regressions fail qualification. See the [M11 report](../../reports/0114-M11_Baseline_and_Gates.md) and [baseline](../../reports/0114-M11_Performance_Baseline.json).
 - **M12:** Not started — profile and rank candidates, then implement candidate cycle one.
 - **M13:** Not started — implement candidate cycle two, qualify the full suite, and close the epic.
 
@@ -361,10 +361,19 @@ generated, so these samples do not replace M11's full-corpus runs or enable a ba
 
 ## Execution handoff
 
-### Current state — M10 complete; M11 next
+### Current state — M11 complete; M12 next
 
-- M0–M10 are complete. Their reports and evidence remain linked in the board and prior milestone
+- M0–M11 are complete. Their reports and evidence remain linked in the board and prior milestone
   reports.
+- M11 retained 6,456 raw response and action samples on Mac14,10. Warm endpoints ran in three
+  independent batches; the single-run and browser families ran in three sequential sessions.
+  The hard fixture validator passed all 57 assets. The baseline defines 179 case budgets and 70 UI
+  route keys. Qualification verifies exact cases and sample counts, responses, machine profile,
+  fixtures, startup logs, and route links before it compares timings.
+- The qualification command passed the full retained corpus in 24.5 seconds after the capture.
+  The collection envelope was 5 hours 15 minutes. A 10× slowdown in the hard workspace case failed
+  through the qualification CLI. See `docs/reports/0114-M11_Baseline_and_Gates.md` and
+  `docs/reports/0114-M11_Performance_Baseline.json`.
 - M6 adds focused read samples in
   `backend/scripts/run_interactive_ui_job_read_performance.py` and coverage checks in
   `backend/tests/test_interactive_ui_read_performance.py`. It covers job history, job detail/status,
@@ -383,14 +392,14 @@ generated, so these samples do not replace M11's full-corpus runs or enable a ba
 - Decision: compare the same filtered target jobs against 12 and 300 unrelated-history sizes.
   This verifies page and cursor correctness as unrelated records grow; no latency claim beyond
   these preliminary samples is made.
-- Known limit: one request per named read and per size is only a preliminary sample. M11 will
-  establish repeated measurements and budgets. The successful preview uses a small deterministic
-  fixture and does not represent a hard calibration payload.
+- Known limit: the successful calibration preview uses a small deterministic fixture and does not
+  represent a hard calibration payload. M11 repeats this job-read family in three sessions, while
+  the fixture size and preview work remain specific to this case.
 - Decisions: M7 covers measured durable write/control families and the unregistered video URL
   not-found boundary. M8 completes named real-backend scenarios for the five residual stage
   submissions, both round-analysis intake routes, and calibration apply. The revised sequence keeps
   M9 on media API timing and cache invalidation; M10 on six real-process Playwright workflows and
-  bounded controlled load; M11 on three independent full-corpus sessions and baseline gates; M12
+  bounded controlled load; M11 on three endpoint batches, three repeated M6–M10 sessions, and baseline gates; M12
   on profiling and candidate cycle one; and M13 on candidate cycle two and final qualification.
   The `/api/recordings/{recording_id}/video` URL remains an explicit unregistered 404 boundary.
   It is not a media timing case.
@@ -419,7 +428,7 @@ generated, so these samples do not replace M11's full-corpus runs or enable a ba
   `docs/reports/0114-M9_Media_Samples.json`.
 - M9 uses the real route and cache handlers with a deterministic thumbnail renderer stub because
   the small local source recording is not decodable. Its range response is 55 bytes, below the
-  65,536-byte cap. M11 must measure the frozen hard video asset before freezing transfer budgets.
+  65,536-byte cap. M11 adds the frozen hard-video range budget through the M2 loopback runner.
 - M10 passed seven scenarios in 70 fresh contexts: the six browser workflows and controlled load.
   It retained all request waterfalls, exact recording/revision/review/job identities, request counts,
   browser cache events, derived-media ETags/cache-control, and actual 206 video-range bodies. Ten
@@ -429,14 +438,13 @@ generated, so these samples do not replace M11's full-corpus runs or enable a ba
 - M10 used an isolated generated 64×64 recording with four identity outcomes, two identity
   revisions, deterministic local processors, the production FastAPI app, real Uvicorn, and real
   Vite. Its samples are preliminary. They do not qualify the frozen hard-data corpus or establish
-  production budgets. The hard asset returned a 1,554-byte range in this fixture; M11 must measure
-  the frozen hard video before it freezes transfer budgets.
+  hard-data browser timing. The hard asset returned a 1,554-byte range in this fixture; M2 measures
+  the frozen hard video range separately.
 - M10 checks: the 7-scenario/70-context browser run and 10-process startup suite passed. Web
   TypeScript, targeted Prettier, backend Ruff check, and backend Ruff format checks passed. HTTP
   errors, failed requests, timeouts, incorrect identities, and invalid range responses fail the
   runner. Intentional navigation cancellations are retained separately from request errors.
-- Next milestone: M11. Run the endpoint corpus, startup profiles, media routes, browser workflows,
-  and controlled load in three independent sessions. Freeze budgets and gates only after those
-  runs pass on the declared machine profile.
-- Run authorization: 9 milestones requested, 6 completed, 3 remaining (M11–M13). This fixed run
+- Next milestone: M12. Profile the highest-cost measured cases, rank candidates, and freeze a
+  numeric cycle-one improvement target before implementation.
+- Run authorization: 9 milestones requested, 7 completed, 2 remaining (M12–M13). This fixed run
   limit does not authorize adding milestones.

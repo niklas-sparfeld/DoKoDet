@@ -315,7 +315,9 @@ def _seed_interrupted_job(root: Path) -> str:
     from uuid import NAMESPACE_URL, uuid5
 
     import dokodetector_backend.job_store as job_store
-    from dokodetector_backend.job_store import FakeParticipant, JobManager
+    sys.path.insert(0, str(ROOT / "backend/tests"))
+    from dokodetector_backend.job_store import JobManager
+    from support.job_participants import FakeParticipant
 
     job_id = str(uuid5(NAMESPACE_URL, "doko-ui-perf-interrupted-job"))
     idempotency_key = str(uuid5(NAMESPACE_URL, "doko-ui-perf-interrupted-key"))

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -15,6 +16,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "backend/tests"))
 NODE_SOURCE = {
     "schema_version": "recording-video/v1",
     "recording_id": "m7-recording",
@@ -74,6 +76,8 @@ def _sample(
 
 
 def run() -> dict[str, Any]:
+    from support.job_participants import FakeParticipant
+
     from dokodetector_backend.app import create_app
     from dokodetector_backend.poc_analyzer import create_local_poc_analyzer
 
@@ -82,7 +86,7 @@ def run() -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="doko-ui-m7-writes-") as temporary:
         root = Path(temporary).resolve()
         app = create_app(_settings(root), analyzer=create_local_poc_analyzer())
-        app.state.job_type_registry.register_fake()
+        app.state.job_type_registry.register_fake(FakeParticipant(root / "operations/job-domain"))
         with TestClient(app) as client:
             _measure_node_writes(app, client, samples, effects)
             _measure_selection_writes(client, samples, effects)
@@ -653,6 +657,14 @@ def _measure_pipeline_run_submission(
     )
     payload = {
         "idempotency_key": "8c9ff760-48e4-4d9d-9ce1-3f9d7878b2a7",
+        "session_id": "m7-session",
+        "round_context": {
+            "game_id": "m7-game",
+            "round_id": "m7-round",
+            "active_players": ["p1", "p2", "p3", "p4"],
+            "dealer": "p1",
+            "first_trick_leader": "p2",
+        },
         "rules_version": "v1",
         "search": {"max_missing_plays": 1, "max_hypotheses": 16, "max_search_nodes": 1000},
         "stage_requests": {

@@ -11,7 +11,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/frame-reviews/0096-M4",
       "registration": "openapi_registered"
     },
     {
@@ -23,7 +23,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:PUT:/api/frame-reviews/0096-M4/items/{recording_id}/{item_id}/workflow",
       "registration": "openapi_registered"
     },
     {
@@ -35,7 +35,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/jobs",
       "registration": "openapi_registered"
     },
     {
@@ -47,7 +47,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/jobs",
       "registration": "openapi_registered"
     },
     {
@@ -59,7 +59,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/jobs/queue/move",
       "registration": "openapi_registered"
     },
     {
@@ -71,7 +71,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/jobs/{job_id}",
       "registration": "openapi_registered"
     },
     {
@@ -83,7 +83,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/jobs/{job_id}/calibration-preview",
       "registration": "openapi_registered"
     },
     {
@@ -95,7 +95,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/jobs/{job_id}/cancel",
       "registration": "openapi_registered"
     },
     {
@@ -107,7 +107,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/jobs/{job_id}/logs",
       "registration": "openapi_registered"
     },
     {
@@ -119,7 +119,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/jobs/{job_id}/retry",
       "registration": "openapi_registered"
     },
     {
@@ -131,7 +131,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/pipeline/nodes/{node_id}/copy",
       "registration": "openapi_registered"
     },
     {
@@ -143,7 +143,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/pipeline/nodes/{node_id}/edit",
       "registration": "openapi_registered"
     },
     {
@@ -155,7 +155,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/pipeline/nodes/{node_id}/restore",
       "registration": "openapi_registered"
     },
     {
@@ -167,7 +167,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/pipeline/nodes/{node_id}/reviews/coverage",
       "registration": "openapi_registered"
     },
     {
@@ -179,7 +179,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/pipeline/nodes/{node_id}/reviews/item",
       "registration": "openapi_registered"
     },
     {
@@ -191,7 +191,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/pipeline/nodes/{node_id}/reviews/overall",
       "registration": "openapi_registered"
     },
     {
@@ -203,7 +203,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/pipeline/nodes/{node_id}/revisions/{revision_id}",
       "registration": "openapi_registered"
     },
     {
@@ -215,7 +215,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/pipeline/nodes/{node_id}/revisions/{revision_id}/reviews",
       "registration": "openapi_registered"
     },
     {
@@ -239,7 +239,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline",
       "registration": "openapi_registered"
     },
     {
@@ -251,7 +251,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/calibration-refinement",
       "registration": "openapi_registered"
     },
     {
@@ -263,7 +263,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/recordings/{recording_id}/pipeline/calibration-refinement",
       "registration": "openapi_registered"
     },
     {
@@ -275,7 +275,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:PUT:/api/recordings/{recording_id}/pipeline/calibration-refinement",
       "registration": "openapi_registered"
     },
     {
@@ -287,7 +287,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/recordings/{recording_id}/pipeline/calibration-refinement/apply",
       "registration": "openapi_registered"
     },
     {
@@ -299,7 +299,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/recordings/{recording_id}/pipeline/calibration-refinement/discard",
       "registration": "openapi_registered"
     },
     {
@@ -311,7 +311,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/recordings/{recording_id}/pipeline/comparisons",
       "registration": "openapi_registered"
     },
     {
@@ -323,7 +323,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/derived-views/exact-event/{requested_time_us}",
       "registration": "openapi_registered"
     },
     {
@@ -335,7 +335,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/derived-views/identity-crops/{revision_id}/{item_id}",
       "registration": "openapi_registered"
     },
     {
@@ -347,7 +347,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/events",
       "registration": "openapi_registered"
     },
     {
@@ -359,7 +359,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/events/selection",
       "registration": "openapi_registered"
     },
     {
@@ -371,7 +371,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:PUT:/api/recordings/{recording_id}/pipeline/events/selection",
       "registration": "openapi_registered"
     },
     {
@@ -383,7 +383,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/events/{run_id}/result",
       "registration": "openapi_registered"
     },
     {
@@ -395,7 +395,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/lineage",
       "registration": "openapi_registered"
     },
     {
@@ -407,7 +407,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/observations",
       "registration": "openapi_registered"
     },
     {
@@ -419,7 +419,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/recordings/{recording_id}/pipeline/observations",
       "registration": "openapi_registered"
     },
     {
@@ -431,7 +431,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/observations/selection",
       "registration": "openapi_registered"
     },
     {
@@ -443,7 +443,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:PUT:/api/recordings/{recording_id}/pipeline/observations/selection",
       "registration": "openapi_registered"
     },
     {
@@ -455,7 +455,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/observations/{run_id}/result",
       "registration": "openapi_registered"
     },
     {
@@ -467,7 +467,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/proposed-card-scenes",
       "registration": "openapi_registered"
     },
     {
@@ -479,7 +479,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/recordings/{recording_id}/pipeline/proposed-card-scenes",
       "registration": "openapi_registered"
     },
     {
@@ -491,7 +491,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/proposed-card-scenes/{run_id}/result",
       "registration": "openapi_registered"
     },
     {
@@ -503,7 +503,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/recordings/{recording_id}/pipeline/runs",
       "registration": "openapi_registered"
     },
     {
@@ -515,7 +515,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/runs/{run_id}",
       "registration": "openapi_registered"
     },
     {
@@ -527,7 +527,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/visible-cards",
       "registration": "openapi_registered"
     },
     {
@@ -539,7 +539,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/recordings/{recording_id}/pipeline/visible-cards",
       "registration": "openapi_registered"
     },
     {
@@ -551,7 +551,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/visible-cards/selection",
       "registration": "openapi_registered"
     },
     {
@@ -563,7 +563,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:PUT:/api/recordings/{recording_id}/pipeline/visible-cards/selection",
       "registration": "openapi_registered"
     },
     {
@@ -575,7 +575,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/visible-cards/{run_id}/result",
       "registration": "openapi_registered"
     },
     {
@@ -587,7 +587,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/visual-identities",
       "registration": "openapi_registered"
     },
     {
@@ -599,7 +599,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/api/recordings/{recording_id}/pipeline/visual-identities",
       "registration": "openapi_registered"
     },
     {
@@ -611,7 +611,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/visual-identities/proposed-crop-inputs",
       "registration": "openapi_registered"
     },
     {
@@ -623,7 +623,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/visual-identities/selection",
       "registration": "openapi_registered"
     },
     {
@@ -635,7 +635,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:PUT:/api/recordings/{recording_id}/pipeline/visual-identities/selection",
       "registration": "openapi_registered"
     },
     {
@@ -647,7 +647,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/visual-identities/{run_id}/result",
       "registration": "openapi_registered"
     },
     {
@@ -683,7 +683,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/evidence-packages/{package_id}",
       "registration": "openapi_registered"
     },
     {
@@ -707,7 +707,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/evidence-packages/{package_id}/table-observations",
       "registration": "openapi_registered"
     },
     {
@@ -719,7 +719,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/evidence-packages/{package_id}/video-snippet",
       "registration": "openapi_registered"
     },
     {
@@ -755,7 +755,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/recordings",
       "registration": "openapi_registered"
     },
     {
@@ -767,7 +767,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/recordings/{recording_id}",
       "registration": "openapi_registered"
     },
     {
@@ -779,7 +779,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/v1/recordings/{recording_id}/round-analyses",
       "registration": "openapi_registered"
     },
     {
@@ -791,7 +791,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/repository-bundles/{recording_id}",
       "registration": "openapi_registered"
     },
     {
@@ -815,7 +815,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/repository-bundles/{recording_id}/thumbnail",
       "registration": "openapi_registered"
     },
     {
@@ -827,7 +827,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/repository-bundles/{recording_id}/video",
       "registration": "openapi_registered"
     },
     {
@@ -839,7 +839,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:POST:/v1/round-analyses",
       "registration": "openapi_registered"
     },
     {
@@ -851,7 +851,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/round-analyses/{analysis_id}",
       "registration": "openapi_registered"
     },
     {
@@ -863,7 +863,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/round-analyses/{analysis_id}/counterfactuals/{counterfactual_id}",
       "registration": "openapi_registered"
     },
     {
@@ -875,7 +875,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/round-analyses/{analysis_id}/evidence-packages/{package_id}/frames/{part_name}",
       "registration": "openapi_registered"
     },
     {
@@ -887,7 +887,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/round-analyses/{analysis_id}/timeline",
       "registration": "openapi_registered"
     },
     {
@@ -899,7 +899,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "assigned in M2/M6",
+      "budget_key": "api:GET:/v1/table-observations/{observation_id}",
       "registration": "openapi_registered"
     },
     {
@@ -912,7 +912,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "real loopback media request + browser workflow where applicable",
       "cache_mode": "declared by M2/M5 case",
-      "budget_key": "blocked pending route registration reconciliation"
+      "budget_key": "api:GET:/api/recordings/{recording_id}/video"
     },
     {
       "method": "GET",
@@ -923,7 +923,7 @@
       "fixture": "M1 hard-data/generated tier",
       "measurement_tier": "controlled HTTP + loopback process; browser workflow where applicable",
       "cache_mode": "cold first request and warm repeated requests in isolated app",
-      "budget_key": "pipeline_calibration_snapshot_json",
+      "budget_key": "api:GET:/api/recordings/{recording_id}/pipeline/calibrations/{calibration_revision_id}",
       "registration": "openapi_registered"
     }
   ]
