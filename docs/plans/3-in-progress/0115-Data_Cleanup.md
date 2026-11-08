@@ -522,9 +522,11 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   protected from overwrite, automatic expiry, and eviction. Other cache entries can be recreated through
   provider requests, which can incur cost. The 4 GiB budget excludes pinned files and metadata;
   expiry runs on access and there is no background sweeper. M13 remains incomplete.
-- **Next:** M13 package 4 — select one operational-log writer family and preserve active-job and
-  recovery evidence. Package 5 and combined M13 checks remain. The run still has 1/4 milestones
-  complete and 3/4 remaining.
+- **Next:** Finish package 3 review: test normal access with a fresh lifecycle after killing each
+  writer, and prove a concurrent writer waits with a sustained handshake. The existing tests reuse
+  the lifecycle and do not reliably establish that wait. Then proceed to package 4, package 5, and
+  combined M13 checks. The run stopped at its correction limit with 1/4 milestones complete and
+  3/4 remaining.
 - **Commit boundary:** Provider-cache lifecycle and backend wiring, focused tests, M2 replay pin
   evidence, report, epic/handoff, and board status form one focused package commit.
 

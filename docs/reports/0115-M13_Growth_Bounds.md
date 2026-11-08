@@ -172,8 +172,9 @@ Lock and sweep-marker files are outside the byte count.
 
 The lifecycle lock protects entry reads, writes, and pruning across threads and processes. Provider
 requests run outside the lock; their request and response remain in memory while in flight. Writes
-retain the cache API's atomic file replacement. After a process restart, the next access removes
-orphaned atomic-write temporary files. An interrupted prune can be repeated. Files can be protected
+retain the cache API's atomic file replacement. Access removes orphaned temporary files for the
+accessed key; a due sweep removes other keys' temporary files. Restart behavior still needs the
+fresh-lifecycle check below. An interrupted prune can be repeated. Files can be protected
 by a sibling `.json.pin` marker. Pinned entries are excluded from expiry and budget eviction. The
 exact 209 response files used by the 0088 M2 cache-only replay were checked
 against the report's request keys, crop digests, classifier version, status, and receipt costs, then
@@ -182,9 +183,11 @@ records each response digest and the source report digest. Other provider cache 
 regenerable by the current request path, at the possible cost of another Gemini request.
 
 Focused lifecycle checks cover deterministic idle expiry, oldest-first budget eviction with pin
-preservation, and a separate-process reader blocking a writer until the read completes. Tests kill
+preservation, and a separate-process reader/writer check. Tests kill
 a writer process after it creates a temporary response file for both the visible-card and
-classifier caches. A fresh lifecycle removes each orphan and replays the prior published response.
+classifier caches. The existing lifecycle removes each orphan and replays the prior published response.
+The tests do not yet prove this through a fresh lifecycle and normal access after restart. The
+reader/writer check also needs a sustained handshake to prove the writer actually waited.
 An interrupted prune also completes on the next access. A classifier version mismatch test
 confirms that a fresh result cannot overwrite a pinned exact response and that the old classifier
 can still replay it. Backend integration checks confirm the cache wrappers use the configured
@@ -204,9 +207,8 @@ or write, not in the background. Provider cache eviction can cause a new paid re
 repeats an uncached request. The 0088 M2 output remains the durable result; its exact raw receipts
 are separately pinned for cache-only replay.
 
-Package 3 commit boundary: shared cache lifecycle, Gemini backend wiring, focused tests, the exact
-M2 replay pin manifest, this report, epic, and handoff form one focused package commit. M13 remains
-incomplete until packages 4 and 5 and the combined M13 checks pass.
+Package 3 remains under review until the fresh-restart and concurrent-writer checks above pass.
+M13 also remains incomplete until packages 4 and 5 and the combined M13 checks pass.
 
 ## Remaining M13 packages
 
