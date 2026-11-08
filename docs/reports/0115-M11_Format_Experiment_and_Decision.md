@@ -36,11 +36,14 @@ read and validation, content read, and the candidate decompression and digest ch
 covers reading the source, encoding, writing content, and writing the manifest. Allocated sizes
 come from the complete temporary family on the same volume.
 
-| Representation | Content bytes | Manifest bytes | Allocated bytes | Files | Encode / parse (256 manifests) | Complete-family store, encode, and write | Cold random read median / p95 | Warm median / p95 | Peak traced memory |
+| Representation | Content bytes | Manifest bytes | Allocated bytes | Files | Encode / parse (256 manifests) | Complete-family store, encode, and write | Cold random read median / p95 | Warm median / p95 | Peak traced memory: store / random read |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Current PPM | 1,997,795,952 | 50,023,371 | 2,083,942,400 | 17,142 | n/a / 84.9 ms | 3.02 s | 0.426 / 1.451 ms | 0.411 / 1.452 ms | 3.48 MiB |
-| Gzip level 1 | 711,507,194 | 51,336,165 | 798,392,320 | 17,142 | 13.26 s / 86.3 ms | 28.39 s | 0.610 / 2.602 ms | 0.596 / 2.595 ms | 10.72 MiB |
-| Gzip level 6 | 687,768,807 | 51,335,998 | 774,754,304 | 17,142 | 24.94 s / 87.4 ms | 40.36 s | 0.602 / 2.540 ms | 0.596 / 2.531 ms | 10.66 MiB |
+| Current PPM | 1,997,795,952 | 50,023,371 | 2,083,942,400 | 17,142 | n/a / 84.9 ms | 2.91 s | 0.438 / 1.475 ms | 0.411 / 1.445 ms | 2.99 / 3.48 MiB |
+| Gzip level 1 | 711,507,194 | 51,336,165 | 798,392,320 | 17,142 | 13.22 s / 86.1 ms | 28.35 s | 0.610 / 2.602 ms | 0.587 / 2.581 ms | 5.72 / 10.72 MiB |
+| Gzip level 6 | 687,768,807 | 51,335,998 | 774,754,304 | 17,142 | 24.80 s / 86.2 ms | 39.94 s | 0.603 / 2.520 ms | 0.589 / 2.533 ms | 5.62 / 10.66 MiB |
+
+Peak traced memory reports separate measurements: full-family materialization and storage, then the
+128-key random-read sample. The read-phase peak does not replace the write-phase peak.
 
 Gzip level 1 reduces allocated bytes by 1,285,550,080 (61.7%) for this exact family. Its random
 lookup p95 stays below 3 ms; its absolute median increase is below 0.2 ms. Gzip level 6 saves a
@@ -119,8 +122,8 @@ accepted for the measured reduction in disposable cache storage.
 - Full exact PPM round-trip across 8,571 entries for gzip levels 1 and 6 — PASS.
 - `backend/scripts/profile_0115_application_io.py` across all 35 named hard pipeline scenarios —
   PASS; exact response checks and zero live-root reads. See the sanitized counter artifact.
-- `backend/scripts/benchmark_0115_derived_crop_cache_formats.py` — PASS; 8,571 exact round trips
-  for each gzip alternative and all required storage/read/write metrics.
+- `backend/scripts/benchmark_0115_derived_crop_cache_formats.py` — PASS, rerun on the same 8,571
+  entries; 8,571 exact round trips for each gzip alternative and separate store/read memory peaks.
 - Four M0 hard-case read/parse ceilings — PASS.
 - `materialize_interactive_ui_performance_fixtures.py --require-hard` — PASS, 57 assets.
 - `check_interactive_ui_performance_inventory.py` — PASS.

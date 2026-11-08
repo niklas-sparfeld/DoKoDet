@@ -111,7 +111,7 @@ def _read_samples(
         "warm_app_read_median_ns": int(statistics.median(times[1])),
         "warm_app_read_p95_ns": percentile95(times[1]),
         "manifest_parse_total_ns": parse_ns,
-        "peak_tracemalloc_bytes": peak,
+        "peak_read_tracemalloc_bytes": peak,
     }
 
 
@@ -198,7 +198,7 @@ def run(root: Path) -> dict[str, Any]:
                 "file_count": len(files),
                 "store_read_encode_manifest_write_total_ns": store_ns,
                 "encode_ns": encode_ns,
-                "peak_tracemalloc_bytes": peak,
+                "peak_store_tracemalloc_bytes": peak,
             }
             if level is not None:
                 verify_started = time.perf_counter_ns()
