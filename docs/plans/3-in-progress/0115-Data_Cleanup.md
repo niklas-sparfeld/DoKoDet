@@ -171,29 +171,33 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 - **Run:** requested 11 milestones; completed 0; remaining 11.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **Current milestone:** M1 — In Progress. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md)
-  records an exact restore of the ignored node store, migrated review bytes, a representative
-  recording and model, two-stage 0108 reconciliation, isolated service edit/readback/restart, and
-  the exact candidate and exclusion paths. No authoritative data was deleted.
-- **Changes:** Added a read-only [recovery verifier](../../../scripts/verify_0115_recovery.py),
+  records ignored node data and original migrated records, the representative edited review, an
+  independent review, calibration, the hardest selected run chain, model loading, 0108 snapshot
+  reconciliation, and the path-specific cleanup candidates. No authoritative data was deleted.
+- **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py),
   [validation summary](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/recovery-validation.json),
+  [selected-chain checks](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/selected-chain-validation.json),
+  [video comparisons](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/video-comparisons.json),
   [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and
-  M1 report. All temporary restores were removed after the checks.
-- **Checks:** Both migration stages passed package verification. All 150 retained draft, review, and
-  calibration records matched 441 staged files byte for byte. The bounded API returned HTTP 200 for
-  workspace, lineage, edit/readback, and post-restart reads. Maintained references, one independent
-  review, three calibration drafts, and the cloned DINOv3 encoder and head loaded. The full-node
-  API lineage omitted processor-run records. Free space readings ranged from a 3.1 GiB low
-  watermark to 73 GiB at the latest check; the cause of the fluctuation is unknown. No run-store
-  copy or full recovery-tree copy was attempted. The created inference virtual environment was
-  removed; caches were preserved.
-- **Decisions and limits:** M1 remains In Progress. No deletion is approved. One exact duplicate
-  recovery video is listed as an M3 candidate. The complete processor-run dependency chain, the
-  independent review's runtime API projection, the durable recovery location, and 50 remaining
-  recovery video comparisons are open. A full root copy would exceed current available space.
-- **Next:** Continue M1 only after confirming safe disk headroom; restore the exact run records and
-  dependencies for the selected review chain in a bounded isolated copy, then repeat API restart
-  checks. Do not begin M2 or delete any path until M1 acceptance passes.
-- **Commit boundary:** Keep this incomplete evidence update in one focused M1 commit. Do not mark
+  M1 report. The accepted-loss stage remains the verified local recovery set on the source volume.
+- **Checks:** The IMG_0097 loopback API returned five workspace stages, five lineage nodes, and two
+  exact processor runs across restart. Five exact revision reads matched the migration graph.
+  `VisibleCardReviewStore.list_reviews` restored the independent 50-item draft before and after
+  restart. The runtime OpenAPI has no route for that independent-review store; node-review routes
+  use a different contract. All 51 recovery-video files (14,516,434,567 logical bytes) match their
+  accepted-stage digest and protected intake copy. Disk free space was 73 GiB before and after the
+  bounded restore. Existing IMG_0637 edit/save/readback/restart and offline DINOv3 loading checks
+  remain recorded in the report.
+- **Decisions and limits:** M1 remains In Progress. Do not add a review HTTP or storage contract in
+  M1. The independent review is readable through its existing store API but is not exposed through
+  a supported runtime HTTP path. This is the remaining acceptance gap. The durable recovery set is
+  local to the source volume; physical APFS allocation and full-root recovery cost are unknown. No
+  deletion is approved. All 51 duplicate video files are M3 candidates only; full recovery-tree
+  reference checks and the recovery drill remain required before deletion.
+- **Next:** Resolve the independent-review runtime-reader gap in a separately scoped change or
+  revise the M1 acceptance plan with the orchestrator. Keep M1 In Progress until the supported
+  reader and end-to-end recovery criteria pass. Do not begin M2 or delete data.
+- **Commit boundary:** Keep this incomplete M1 evidence update in one focused commit. Do not mark
   M1 complete.
 
 ## M0 — Inventory and rank

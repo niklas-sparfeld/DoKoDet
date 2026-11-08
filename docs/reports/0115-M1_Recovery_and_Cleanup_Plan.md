@@ -2,7 +2,7 @@
 
 Date: 2026-11-08
 
-Code revision: `63c5953f662728e09c5124ade19d8df52218d6a6`
+Code revision: `fc78bf8e12c6652fe4b09f7dba7262a0ac529410`
 
 Data source: `/Users/niklas.sparfeld/Developer/doko_detector/data`
 Result: **Incomplete. No deletion is authorized.**
@@ -57,32 +57,52 @@ I restored a bounded set into `/tmp/0115-m1-service`: 28 nodes for the `IMG_0637
   head (`Linear`) using the declared `inference` dependency group. It used no remote model fetch.
 
 The original full-node-set API request remained CPU-bound for more than two minutes and grew to
-about 1 GiB RSS. I stopped it and used the smaller dependency-complete set above. The bounded
-lineage API returned no processor-run records. I did not restore the run store or prove the full
-run-parent/output chain through the service API. This is an acceptance gap.
+about 1 GiB RSS. I stopped it and restored a smaller exact dependency chain from the accepted-loss
+stage into a disposable root. The set contains five node revisions, two processor runs, two exact
+selections, the independent review, its 1,404,947-byte calibration resource, the 302,193,776-byte
+recording bundle, and two persisted run directories (2,014,161 and 1,799,744 bytes). The selected
+migration resources total 10,891,987 bytes. The five revisions are the canonical events revision,
+maintained events revision, detector revision, proposal revision, and their exact input revisions.
+The source video digest is
+`f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b`.
 
+I started the real FastAPI app on loopback with isolated roots. Across two service starts,
+`GET /api/recordings/cardeventnet-IMG_0097/pipeline` returned five stages and
+`GET /api/recordings/cardeventnet-IMG_0097/pipeline/lineage` returned five nodes and two processor
+runs. Both runs' exact input and output node/revision references matched the migration manifest.
+All five exact revision endpoints returned the expected content. The same run graph and revisions
+were available after restart. The existing `VisibleCardReviewStore.list_reviews` reader returned
+the restored 50-item review before and after restart, with status `draft` and no commands.
+
+The independent review is not projected by the supported runtime HTTP API. The current OpenAPI
+document has no route for the `VisibleCardReviewStore` resource; the node-review routes serve a
+different review contract. I did not add a route or storage contract. This remains an M1 acceptance
+gap: the retained review is readable through the existing store API, but the current runtime HTTP
+workflow cannot read or edit that independent review.
 ## Exact cleanup plan
 
 The [machine-readable cleanup plan](0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json)
-lists the exact paths, reasons, unknown references, current recovery location, disk requirements,
-and expiry conditions. One file is a candidate for M3 only:
+lists each exact candidate path, digest, size, matching protected intake path, exclusions, unknown
+references, recovery location, disk needs, and expiry conditions. A streaming SHA-256 check
+compared all 51 recovery-video files (14,516,434,567 logical bytes) with the accepted-stage
+manifest and corresponding intake files. Every hash and byte length matched. These are individual
+M3 candidates only; this does not authorize deletion of any file or recovery root.
 
-`data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov`
+The accepted-loss stage remains at
+`data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss` in the main checkout.
+Its activation manifest and snapshot digest were rechecked. This is a durable local recovery
+location on the same volume, not an off-volume backup. Keep it until M3 completes a full dependency
+audit and recovery drill. The plan also preserves the 137 item histories, 13 intermediate draft
+histories, and three processor-run records that M10 reports as uncertain. The two restored selected
+runs do not resolve those three other missing-run records.
 
-Its 1,061,930,405 bytes have SHA-256
-`b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73`, matching the protected
-intake copy. All other recovery snapshots and video files remain excluded because M1 did not prove
-their full dependency and recovery roles. The plan records the 137 item histories, 13 intermediate
-draft histories, and three processor-run records that M10 reports as uncertain.
-
-The verified temporary restores were removed after the checks. The authoritative active data and
-0108 packages remain in the main checkout. A full copy of the 24.1 GiB 0108 recovery root was not
-attempted. Available space readings changed from 39 GiB at the start to a 3.1 GiB low watermark,
-then 73 GiB at the latest check; the cause of this fluctuation is unknown. The shared UV cache
-measured 2.4 GiB. I removed the inference virtual environment created for the model check and did
-not prune the cache or other data. The APFS clone's physical allocation and any future deletion's
-actual free-space gain remain unknown.
-
+The exact 0097 restore required 302,193,776 bytes for its recording bundle, 10,891,987 bytes of
+migration resources, 1,404,947 bytes for its calibration resource, and 3,813,905 bytes for the two
+persisted run directories. `df -h` showed 73 GiB available before and after the bounded restore. A
+full copy of the 24.1 GiB 0108 recovery root was not attempted. Physical APFS allocation and any
+future deletion's actual free-space gain remain unknown. The shared UV cache measured 2.4 GiB. I
+removed the inference virtual environment created for the model check and did not prune the cache
+or other data. The APFS clone's physical allocation remains unknown.
 ## Reproduction and evidence
 
 Run the bounded static checks from a checkout with the ignored data roots:
@@ -94,19 +114,20 @@ mise exec -- uv run --project backend python scripts/verify_0115_recovery.py \
   --output /tmp/0115-recovery-validation.json
 ```
 
-The checked summary is in [recovery-validation.json](0115-M1_Recovery_and_Cleanup_Plan.artifacts/recovery-validation.json).
-The API process, edited revision, restart receipt, review-store reads, and model loader were
-temporary checks; the test copy was removed. Do not treat this evidence as full-corpus recovery,
-run-chain verification, or deletion approval.
+The checked summaries are in [recovery-validation.json](0115-M1_Recovery_and_Cleanup_Plan.artifacts/recovery-validation.json),
+[selected-chain-validation.json](0115-M1_Recovery_and_Cleanup_Plan.artifacts/selected-chain-validation.json),
+and [video-comparisons.json](0115-M1_Recovery_and_Cleanup_Plan.artifacts/video-comparisons.json).
+The API process, restored run chain, review-store reads, and model loader were temporary checks;
+the test copy was removed. Do not treat this evidence as full-corpus recovery or deletion approval.
 
 ## Remaining acceptance gaps
 
-- Restore and read the selected processor runs and their exact graph inputs/outputs through the
-  disposable service, including after restart.
-- Verify that the independent review's complete proposal, detector, calibration, and source
-  dependencies are exposed through the intended runtime API, not only the retained review store.
-- Establish a durable recovery location and exact physical space needs before any M3 apply step.
-- Finish full path-level reference analysis for the remaining recovery snapshots and 50 unchecked
-  video files.
-
+- The independent review's retained store state and dependencies restore, but the current runtime
+  HTTP API does not expose that review resource. Keep M1 In Progress until its supported reader is
+  established or the plan is revised outside M1; do not add a new contract here.
+- The accepted-loss migration stage is the verified local recovery location. It shares the source
+  volume, and its physical APFS allocation and full-root recovery cost remain unknown.
+- Full path-level reference analysis for the other recovery snapshots remains open. The 51 video
+  files match their intake originals, but M3 must still check all snapshot references and prove its
+  recovery drill before any deletion.
 M1 remains **In Progress**. No data was deleted or changed in the authoritative store.

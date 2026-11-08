@@ -1,33 +1,442 @@
 {
-  "schema_version": "0115-cleanup-plan/v1",
-  "decision": "No deletion is authorized by M1.",
-  "recovery_location": {
-    "authoritative_root": "/Users/niklas.sparfeld/Developer/doko_detector/data",
-    "temporary_restore": "/tmp/0115-m1-recovery and /tmp/0115-m1-service",
-    "temporary_restore_status": "Removed after validation. The active data and recovery packages remain in the authoritative root."
-  },
-  "disk": {
-    "0108_recovery_root_allocated_kib": 25308248,
-    "free_space_low_watermark_gib": 3.1,
-    "free_space_latest_observed_gib": 73,
-    "full_root_copy_attempted": false,
-    "sample_restore_logical_bytes": 2089585944,
-    "apfs_physical_reclaim_or_clone_cost": "Unknown; du and logical clone size do not prove unique physical blocks."
-  },
   "candidates": [
     {
-      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov",
+      "bytes": 478743464,
+      "intake_path": "data/intake/recordings/5a1f4037-d8ad-48da-9950-2ed2272811a5/videos/video-5a1f4037-d8ad-48da-9950-2ed2272811a5.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/5a1f4037-d8ad-48da-9950-2ed2272811a5/videos/video-5a1f4037-d8ad-48da-9950-2ed2272811a5.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 149163581,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0090/videos/video-cardeventnet-IMG_0090.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0090/videos/video-cardeventnet-IMG_0090.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 134705169,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0091/videos/video-cardeventnet-IMG_0091.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0091/videos/video-cardeventnet-IMG_0091.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 126875766,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0092/videos/video-cardeventnet-IMG_0092.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0092/videos/video-cardeventnet-IMG_0092.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 334940123,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0095/videos/video-cardeventnet-IMG_0095.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0095/videos/video-cardeventnet-IMG_0095.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 321820778,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0096/videos/video-cardeventnet-IMG_0096.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0096/videos/video-cardeventnet-IMG_0096.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 302191126,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0097/videos/video-cardeventnet-IMG_0097.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0097/videos/video-cardeventnet-IMG_0097.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 329117529,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0635/videos/video-cardeventnet-IMG_0635.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0635/videos/video-cardeventnet-IMG_0635.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 265216840,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0636/videos/video-cardeventnet-IMG_0636.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0636/videos/video-cardeventnet-IMG_0636.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 129432156,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0637/videos/video-cardeventnet-IMG_0637.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0637/videos/video-cardeventnet-IMG_0637.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 161154751,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0638/videos/video-cardeventnet-IMG_0638.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0638/videos/video-cardeventnet-IMG_0638.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 132769108,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0639/videos/video-cardeventnet-IMG_0639.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0639/videos/video-cardeventnet-IMG_0639.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 149142154,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0640/videos/video-cardeventnet-IMG_0640.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0640/videos/video-cardeventnet-IMG_0640.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 159644121,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0641/videos/video-cardeventnet-IMG_0641.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0641/videos/video-cardeventnet-IMG_0641.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 158996461,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0642/videos/video-cardeventnet-IMG_0642.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0642/videos/video-cardeventnet-IMG_0642.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "bed363c2d52f6c141f8ddcac09a20ec42328834dbd635e9c0922ac1cf52f821c",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 166119136,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0643/videos/video-cardeventnet-IMG_0643.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0643/videos/video-cardeventnet-IMG_0643.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 252227791,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0644/videos/video-cardeventnet-IMG_0644.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0644/videos/video-cardeventnet-IMG_0644.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 259520711,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0645/videos/video-cardeventnet-IMG_0645.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0645/videos/video-cardeventnet-IMG_0645.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "47707b79140338f5393b59c52ab7c0078b23ed889fc7da01423b7734f3ac15f8",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 307897642,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0646/videos/video-cardeventnet-IMG_0646.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0646/videos/video-cardeventnet-IMG_0646.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "232c707df9474ceae51c581ec55ae274f12e09e871e5a5867cab1ea75d73c033",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 172686963,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0648/videos/video-cardeventnet-IMG_0648.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0648/videos/video-cardeventnet-IMG_0648.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 183090255,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0649/videos/video-cardeventnet-IMG_0649.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0649/videos/video-cardeventnet-IMG_0649.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "5b48dcad8a7faa34748ac2631f55352ea8219c6c5b54474bd887fed93b62f6ed",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 127322550,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0650/videos/video-cardeventnet-IMG_0650.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0650/videos/video-cardeventnet-IMG_0650.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 159476349,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0651/videos/video-cardeventnet-IMG_0651.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0651/videos/video-cardeventnet-IMG_0651.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 130173534,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0652/videos/video-cardeventnet-IMG_0652.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0652/videos/video-cardeventnet-IMG_0652.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 164793007,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0653/videos/video-cardeventnet-IMG_0653.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0653/videos/video-cardeventnet-IMG_0653.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 135762950,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0654/videos/video-cardeventnet-IMG_0654.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0654/videos/video-cardeventnet-IMG_0654.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 147455393,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0655/videos/video-cardeventnet-IMG_0655.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0655/videos/video-cardeventnet-IMG_0655.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 142891847,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0656/videos/video-cardeventnet-IMG_0656.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0656/videos/video-cardeventnet-IMG_0656.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 149744950,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 131761671,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0658/videos/video-cardeventnet-IMG_0658.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0658/videos/video-cardeventnet-IMG_0658.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 138300811,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0659/videos/video-cardeventnet-IMG_0659.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0659/videos/video-cardeventnet-IMG_0659.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 139254088,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0660/videos/video-cardeventnet-IMG_0660.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0660/videos/video-cardeventnet-IMG_0660.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 151493812,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0661/videos/video-cardeventnet-IMG_0661.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0661/videos/video-cardeventnet-IMG_0661.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 158680194,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 708244420,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 869798284,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 678222998,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "43685d181346b93cc865b5ece77702081c75091771b01f5972f7ee0f1883fa69",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 515588593,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0673/videos/video-cardeventnet-IMG_0673.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0673/videos/video-cardeventnet-IMG_0673.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "3b8aa89940cb14af8383da13b18fc9dbe2c1dc593e8b088e33a6b47119c01ce3",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 418502146,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_0674/videos/video-cardeventnet-IMG_0674.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0674/videos/video-cardeventnet-IMG_0674.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "26fb63d873129ab65988a3bba3ca0546b690f66556cefeab291f1c4ec0f3dc14",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 420346149,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "ccb1c0ca78558691af4a37c18eaac76a64d782aadc105cd0c779a5296e311e81",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 347808185,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "9a9ccbdf365bd2addd919617fb28513e9700395b83b0b8b913713cb21da4a029",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 390784854,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "3c4e2da8d5381aa5648e832ebc31efea09e20008cd7f72fc9b4e33a719660f93",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 499382267,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "1c801078b400622dd91d43fd57f209ab5f364169dd07b0b6d4487d71dab9f046",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 244885260,
+      "intake_path": "data/intake/recordings/cardeventnet-IMG_2781/videos/video-cardeventnet-IMG_2781.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2781/videos/video-cardeventnet-IMG_2781.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "d851b5dd347ec9b91adefac2a641b27a3f8c80d308de8e320ad93f927ed458ee",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 557067308,
+      "intake_path": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 625609570,
+      "intake_path": "data/intake/recordings/game-2026-08-20-01-002/videos/game-2026-08-20-01-002-video.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-002/videos/game-2026-08-20-01-002-video.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "5e8018e24a1328e796d1546dc9a9b05f157007a727c831383d38676e640feb88",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 459868428,
+      "intake_path": "data/intake/recordings/game-2026-08-20-01-003/videos/game-2026-08-20-01-003-video.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-003/videos/game-2026-08-20-01-003-video.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
       "bytes": 1061930405,
+      "intake_path": "data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
       "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73",
-      "status": "Candidate for M3 only; retain in M1.",
-      "reason": "Exact digest match with data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov. The intake source is protected. The recovery copy is redundant by bytes, but its snapshot role and physical reclaim remain for M3 to verify."
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 63211536,
+      "intake_path": "data/intake/recordings/game-2026-09-18-01-001/videos/game-2026-09-18-01-001-video.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-09-18-01-001/videos/game-2026-09-18-01-001-video.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 54234848,
+      "intake_path": "data/intake/recordings/game-2026-09-18-01-002/videos/game-2026-09-18-01-002-video.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-09-18-01-002/videos/game-2026-09-18-01-002-video.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65",
+      "status": "Candidate for M3 only; retain in M1."
+    },
+    {
+      "bytes": 48382535,
+      "intake_path": "data/intake/recordings/game-2026-09-18-01-003/videos/game-2026-09-18-01-003-video.mov",
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-09-18-01-003/videos/game-2026-09-18-01-003-video.mov",
+      "reason": "Exact byte length and SHA-256 match with the protected intake source and accepted-stage manifest. M3 must check all snapshot references and run the recovery drill before any deletion; no deletion is authorized by this entry.",
+      "sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada",
+      "status": "Candidate for M3 only; retain in M1."
     },
     {
       "path": "data/operations-recovery/0108-m10-20261105",
-      "status": "Retain; no subtree deletion is approved.",
-      "reason": "The root contains the old operations snapshot, two migration stages, migration source, evidence packages, recording videos, and validation workspaces. Only one video is an exact duplicate. M1 did not restore the complete root or prove all remaining references redundant."
+      "reason": "The root contains old operations snapshots, two migration stages, migration source, evidence packages, recording videos, and validation workspaces. The 51 listed video files match protected intake bytes, but the root also has unresolved snapshot and unique-evidence roles.",
+      "status": "Retain; no subtree deletion is approved."
     }
   ],
+  "decision": "No deletion is authorized by M1.",
+  "disk": {
+    "0108_recovery_root_allocated_kib": 25308248,
+    "apfs_physical_reclaim_or_clone_cost": "Unknown; du and logical clone size do not prove unique physical blocks.",
+    "free_space_before_and_after_selected_restore_gib": 73,
+    "free_space_latest_observed_gib": 73,
+    "free_space_low_watermark_gib": 3.1,
+    "full_root_copy_attempted": false,
+    "sample_restore_logical_bytes": 2089585944,
+    "selected_chain_calibration_resource_bytes": 1404947,
+    "selected_chain_migration_resource_bytes": 10891987,
+    "selected_chain_recording_bundle_bytes": 302193776,
+    "selected_chain_run_directories_bytes": 3813905
+  },
+  "expiry": "No time-based expiry. Keep the accepted-loss recovery stage until M3 completes full path-specific dependency checks, a recovery drill, writer shutdown, preserved unique bytes, and measured free-space change.",
+  "recovery_location": {
+    "authoritative_root": "/Users/niklas.sparfeld/Developer/doko_detector/data",
+    "durable_recovery_set": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss",
+    "recovery_location_status": "Verified package remains on the source volume in the main checkout. This is local recovery, not an off-volume backup. Retain through M3 dependency audit and recovery drill.",
+    "snapshot_sha256": "c8979c9a53956abd749e638466e1f88009f2e0ce8e725d674bf26ff0335ed430",
+    "temporary_restore": "/tmp/0115-m1-chain",
+    "temporary_restore_status": "Removed after validation. The accepted-loss package remains in the authoritative root."
+  },
   "retained_paths": [
     {
       "path": "data/operations/pipeline-nodes",
@@ -62,12 +471,12 @@
       "reason": "The raw source and selected runtime bundle passed local offline loading checks; retain both and their provenance."
     }
   ],
+  "schema_version": "0115-cleanup-plan/v1",
   "unknowns": [
     "0108 M10 reports 137 item histories and 13 intermediate draft histories that the old stores did not retain.",
-    "0108 M10 reports three processor-run IDs with no separate run record inside complete coordinator stage records.",
-    "The disposable API lineage read returned 24 nodes and 30 revisions but no run records; the run dependency chain was not restored in that API root.",
-    "Unique physical bytes and post-delete APFS space recovery are not measured.",
-    "Only the listed duplicate video was rechecked in M1; other video, crop, checkpoint, and snapshot duplicates remain unknown."
-  ],
-  "expiry": "No time-based expiry. A future M3 deletion needs an exact dependency audit, a recovery drill, writer shutdown, verified active replacements, preserved unique bytes, and measured free-space change."
+    "0108 M10 reports three processor-run IDs with no separate run record inside complete coordinator stage records. The selected IMG_0097 chain restores two different runs; these three IDs remain unresolved.",
+    "The independent review restores through VisibleCardReviewStore, but the supported runtime HTTP API has no projection route for this review resource.",
+    "The accepted-loss stage is local to the source volume; full-root recovery cost and physical APFS allocation remain unknown.",
+    "All 51 external recovery-video files match their protected intake originals by length and SHA-256. Other crop, checkpoint, evidence-package, and snapshot relationships remain unverified."
+  ]
 }

@@ -1,0 +1,157 @@
+{
+  "active_api_review_gap": "No OpenAPI route projects VisibleCardReviewStore independent reviews; direct service store read succeeds.",
+  "api_exact_revision_reads": [
+    {
+      "content_sha256": "5f2f09a6516e169fc4fce435f13908328701e6a55a33e7bcf425db06e1bbfb9c",
+      "http_status": 200,
+      "node_id": "0e56b928-bb37-5e0a-802d-03ba2b86e734",
+      "old_revision_id": "canonical-card-state-reference-events-570e225c1762370434597c1804347e5d",
+      "revision_id": "16758ec5-388d-5a1c-bbc4-ca3cb546f733"
+    },
+    {
+      "content_sha256": "5f2f09a6516e169fc4fce435f13908328701e6a55a33e7bcf425db06e1bbfb9c",
+      "http_status": 200,
+      "node_id": "d95960cd-f7af-544e-b8e4-414783e04160",
+      "old_revision_id": "cardeventnet-events-img_0097",
+      "revision_id": "ebf025a1-371b-5017-b69f-2047847a6e72"
+    },
+    {
+      "content_sha256": "94b943228fdf5ad6e5583d9b1ea1e799ce467a905308082c2743a0cfd40122f7",
+      "http_status": 200,
+      "node_id": "2ff79c20-4836-5b6c-a190-85a6ee7a4ab6",
+      "old_revision_id": "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+      "revision_id": "f9e8f3ad-6294-53d9-9ec4-c5bf9a80273d"
+    },
+    {
+      "content_sha256": "ac0cebdf2eb3d53921738c6a818fc252e5cb63929e25efa8ee439ab2b790e765",
+      "http_status": 200,
+      "node_id": "23c3e690-18af-55dc-8073-becf3717b981",
+      "old_revision_id": "visible-cards-visible_cards-run-f9b6c6cf-577-attempt-1",
+      "revision_id": "6022fe80-db15-5da0-9fbb-fc0326d4d8ae"
+    },
+    {
+      "content_sha256": "d85806033384b68ded0fe4a65adf04559ab3c9fc250d094c26e2297f12de7903",
+      "http_status": 200,
+      "node_id": "b0dcfad1-2f68-5ded-a9c6-ffb19915fb82",
+      "old_revision_id": "card-scene-proposals-card-scene-proposal-1793787913577-attempt-1",
+      "revision_id": "aa617a64-b60c-5b33-925e-4784066ce044"
+    }
+  ],
+  "api_exact_run_edges": [
+    {
+      "inputs": [
+        {
+          "kind": "revision",
+          "node_id": "2ff79c20-4836-5b6c-a190-85a6ee7a4ab6",
+          "revision_id": "f9e8f3ad-6294-53d9-9ec4-c5bf9a80273d",
+          "role": "input"
+        }
+      ],
+      "legacy_run_id": "visible_cards-run-f9b6c6cf-577",
+      "outputs": [
+        {
+          "kind": "revision",
+          "node_id": "23c3e690-18af-55dc-8073-becf3717b981",
+          "revision_id": "6022fe80-db15-5da0-9fbb-fc0326d4d8ae",
+          "role": "output"
+        }
+      ],
+      "run_id": "a64ba619-7a90-5620-b6f7-a4f6fc684461",
+      "status": "succeeded"
+    },
+    {
+      "inputs": [
+        {
+          "kind": "revision",
+          "node_id": "23c3e690-18af-55dc-8073-becf3717b981",
+          "revision_id": "6022fe80-db15-5da0-9fbb-fc0326d4d8ae",
+          "role": "input"
+        }
+      ],
+      "legacy_run_id": "card-scene-proposal-1793787913577",
+      "outputs": [
+        {
+          "kind": "revision",
+          "node_id": "b0dcfad1-2f68-5ded-a9c6-ffb19915fb82",
+          "revision_id": "aa617a64-b60c-5b33-925e-4784066ce044",
+          "role": "output"
+        }
+      ],
+      "run_id": "0e076184-fd4d-5b94-aec5-9f767d23c18c",
+      "status": "succeeded"
+    }
+  ],
+  "api_restart_checks": [
+    {
+      "legacy_run_ids": [
+        "card-scene-proposal-1793787913577",
+        "visible_cards-run-f9b6c6cf-577"
+      ],
+      "lineage_nodes": 5,
+      "lineage_runs": 2,
+      "restart": 0,
+      "review_projection_routes": [],
+      "workspace_stages": 5
+    },
+    {
+      "legacy_run_ids": [
+        "card-scene-proposal-1793787913577",
+        "visible_cards-run-f9b6c6cf-577"
+      ],
+      "lineage_nodes": 5,
+      "lineage_runs": 2,
+      "restart": 1,
+      "review_projection_routes": [],
+      "workspace_stages": 5
+    }
+  ],
+  "calibration_resource": {
+    "bytes": 1404947,
+    "old_id": "cardeventnet-IMG_0097/calibration-1d154b1e75fe5bf0b788916d",
+    "sha256": "8d6ceab3dd0a77ba0fa50dbf251b6cc5d538ec2c39e172ed2e0a4ce1accecfcf"
+  },
+  "recording_bundle_bytes": 302193776,
+  "resource_bytes": 10891987,
+  "resource_count": 10,
+  "review_store": {
+    "commands": 0,
+    "items": 50,
+    "review_id": "visible-cards-219ce6dc37ab4729acaaee5c8896203a",
+    "status": "draft"
+  },
+  "review_store_after_restart": {
+    "commands": 0,
+    "items": 50,
+    "result": "exact persisted state matches post-restart read",
+    "review_id": "visible-cards-219ce6dc37ab4729acaaee5c8896203a",
+    "service": "VisibleCardReviewStore.list_reviews",
+    "status": "draft"
+  },
+  "review_store_after_service_restart": {
+    "commands": 0,
+    "items": 50,
+    "result": "exact persisted state matches pre-restart",
+    "review_id": "visible-cards-219ce6dc37ab4729acaaee5c8896203a",
+    "service": "VisibleCardReviewStore.list_reviews",
+    "status": "draft"
+  },
+  "revision_ids": [
+    "canonical-card-state-reference-events-570e225c1762370434597c1804347e5d",
+    "card-scene-proposals-card-scene-proposal-1793787913577-attempt-1",
+    "cardeventnet-events-img_0097",
+    "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+    "visible-cards-visible_cards-run-f9b6c6cf-577-attempt-1"
+  ],
+  "run_bytes": {
+    "card-scene-proposal-1793787913577": 2014161,
+    "visible_cards-run-f9b6c6cf-577": 1799744
+  },
+  "run_ids": [
+    "card-scene-proposal-1793787913577",
+    "visible_cards-run-f9b6c6cf-577"
+  ],
+  "source_video": {
+    "bytes": 302191126,
+    "sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b"
+  }
+}
