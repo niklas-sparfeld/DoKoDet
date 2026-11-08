@@ -164,7 +164,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M8 | Cut over tracked intake after proving source access and recovery | Complete |
 | M9 | Cut over the selected tracked pipeline family after dependency and recovery checks | Complete |
 | M10 | Evaluate safe Git and LFS maintenance and record history costs | Complete |
-| M11 | Measure compact storage candidates and select at most one bounded format change | Not started |
+| M11 | Measure compact storage candidates and select at most one bounded format change | Complete |
 | M12 | Implement and convert the selected format family, if justified | Not started |
 | M13 | Bound cache, log, and future recovery-copy growth | Not started |
 | M14 | Add compact agent discovery and data-authority guidance | Not started |
@@ -172,8 +172,8 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 
 ## Execution handoff
 
-- **Run:** M8, M9, and M10 completed in this 8-milestone run. Requested: 8. Completed: 3. Remaining: 5.
-  M11 is next; do not exceed the run limit. The previous run completed M7; its separate count is in the M7 record.
+- **Run:** M8 through M11 completed in this 8-milestone run. Requested: 8. Completed: 4. Remaining: 4.
+  M12 is next; do not exceed the run limit. The previous run completed M7; its separate count is in the M7 record.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -399,8 +399,35 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   inventory before any future maintenance. No history rewrite is proposed.
 - **Next:** M11 — benchmark up to two storage alternatives for one ranked large resource family.
 - **Commit boundary:** M10 report, epic status and handoff, and board update form one focused commit.
-- **Current run result:** M8–M10 complete; this run has completed 3 of 8 requested milestones
-  and has 5 remaining.
+
+- **M11:** Complete. The [format experiment report](../../reports/0115-M11_Format_Experiment_and_Decision.md)
+  records two lossless alternatives for one M0-ranked derived-view crop family and selects gzip
+  level 1 for M12. The machine-readable [format benchmark](../../reports/0115-M11_Format_Experiment.artifacts/format-benchmark.json)
+  contains aggregate metrics only.
+- **Changes:** Added a repeatable, read-only
+  [format benchmark](../../../backend/scripts/benchmark_0115_derived_crop_cache_formats.py).
+  Corrected the application-I/O profiler to create the same exact disposable calibration,
+  event-run, comparison, and automated-run resources as the established pipeline performance
+  runner. The hard fixture manifest and live data remain unchanged.
+- **Checks:** All 8,571 selected PPM crop entries round-trip byte for byte under gzip levels 1 and 6.
+  Gzip level 1 reduces allocated bytes by 61.7%; cold/warm random-read p95 remains below 3 ms.
+  All 35 hard pipeline scenarios pass with zero live-root reads and exact response checks. The four
+  frozen M0 counter cases meet their read/parse ceilings. The 57-asset fixture and the full 0114
+  baseline qualifier pass; the latter uses a temporary copy with stale absolute log paths rebased.
+  Ruff, format, and diff checks pass.
+- **Decisions and limits:** M12 is justified for only `visible-region-crop/v1` PPM cache entries.
+  M12 uses `derived-view-cache/v2`, gzip level 1, `content.bin.gz`, and separate stored-byte
+  digest/length fields. Preserve the existing uncompressed content digest/length, cache key, and
+  identity. Freeze M12 at >=55% allocated-byte reduction, <=3 ms cold/warm random-read p95,
+  <=4 ms average store/encode/write time per entry, and exact byte/identity checks. Keep the v1
+  snapshot until isolated conversion, restart, interruption, corruption, and recovery checks pass.
+  The full pipeline performance runner's prior M5 hard fixture omitted six exact resources; the
+  profiler now seeds those resources in disposable storage using existing runner helpers.
+- **Next:** M12 — implement and convert the selected crop-cache family.
+- **Commit boundary:** M11 report and artifacts, profiler and benchmark tools, epic/handoff, and
+  board update form one focused commit.
+- **Current run result:** M8–M11 complete; this run has completed 4 of 8 requested milestones
+  and has 4 remaining.
 
 ## M0 — Inventory and rank
 

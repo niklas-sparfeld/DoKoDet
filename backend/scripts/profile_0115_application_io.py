@@ -181,7 +181,20 @@ def run(hard_cache: Path, case_names: set[str]) -> dict[str, Any]:
             root = parent / name
             root.mkdir()
             pipeline_profile._link_hard_snapshot(root, hard_cache)
+            if name in {"calibration_draft_snapshot", "calibration_draft_invalid_lineage"}:
+                pipeline_profile._prepare_current_calibration_draft_fixture(root)
             app = create_app(pipeline_profile._settings(root))
+            if name in {
+                "event_runs_exact",
+                "event_result_exact",
+                "event_selection_exact",
+                "comparison_exact_runs",
+            }:
+                pipeline_profile._seed_event_result(
+                    app, include_comparison=name == "comparison_exact_runs"
+                )
+            if name == "automated_run_exact":
+                pipeline_profile._seed_automated_run(app)
             asyncio.run(_measure_request(app, cases[name], root))
     manifest_digest = hashlib.sha256(pipeline_profile.MANIFEST.read_bytes()).hexdigest()
     return {
