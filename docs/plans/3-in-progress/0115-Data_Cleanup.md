@@ -255,23 +255,26 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   update in one focused milestone commit.
 
 - **M5:** Complete. The [M5 report](../../reports/0115-M5_Worktree_Storage_Contract.md) defines
-  `DOKO_STORAGE_ROOT` and records the first API edit/save/readback/restart workflow. The setting
-  places mutable operation data, intake, runtime output, and cache roots under one explicit
-  worktree-owned root. It does not infer or write to operator corpus paths.
-- **Changes:** Added root resolution and its regression test. Added an API test that edits a
-  checked-in compact fixture node, reads the new revision, restarts the app, and reads it again
-  while checking the exact fixture digest and that the legacy pipeline-node path is unused.
-- **Checks:** The new workflow test passed. The focused app/pipeline suite passed 43 tests with one
-  unrelated lifespan baseline failure; evidence and limits are in the report. Two-worktree and
-  storage-size qualification remain M6 gates; the legacy data defaults are still active when the
-  explicit root is absent.
-- **Decisions and limits:** This contract does not relocate immutable models or operator media,
-  validate restore availability, or change existing defaults. M6 must prove separate worktree roots
-  in disposable checkouts, finish ordinary clean-checkout setup and missing-asset checks, measure
-  ready time and bytes, and cut over remaining roots only when recovery evidence permits.
+  `DOKO_STORAGE_ROOT` and records an explicit selected-bundle copy plus API edit/save/readback/
+  restart workflow. Mutable operations, intake, runtime output, and caches use one worktree-owned
+  root. API uploads do not write to the source corpus.
+- **Changes:** Added root resolution, the selected operator-bundle copy CLI, and focused tests. The
+  API workflow copies one bundle into isolated intake, edits a compact fixture node, reads the node
+  and recording asset, restarts, and repeats both reads.
+- **Checks:** The fixture-backed API edit/save/readback/restart test passed in two detached
+  disposable worktrees with distinct roots. Exact bundle hashes matched; the source stayed
+  unchanged. Worktree storage was
+  17,739,124 KiB at checkout in each and 18,453,996 / 18,453,972 KiB after Python setup. This fails
+  the M0 2 GiB target; M6 must complete tracking cutover. A bounded app/pipeline test run passed 43
+  tests with one lifespan-related failure recorded in the report. The legacy data defaults are
+  still active when the explicit root is absent.
+- **Decisions and limits:** Explicit operator access copies selected validated bundles into the
+  worktree intake. The source stays intact as the local restore copy. The 2 GiB worktree target
+  remains unmet until M6 tracking cutover. M5 does not relocate model bundles or verify full
+  frontend readiness.
 - **Next:** M6 — tracking and setup cutover.
-- **Commit boundary:** Storage-root code/test, M5 report, this epic, and board entry in one focused
-  milestone commit.
+- **Commit boundary:** Storage-root and corpus-copy code/tests, M5 report, this epic, and board
+  entry in one focused milestone commit.
 
 ## M0 — Inventory and rank
 
