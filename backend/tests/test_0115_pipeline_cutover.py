@@ -34,7 +34,6 @@ RUN_EDGES = {
 }
 RECORDING_ID = "cardeventnet-IMG_0097"
 ACTOR = {"kind": "human", "id": "0115-m9-cutover-test"}
-EDIT_FIXTURE = Path(__file__).parents[2] / "fixtures/pipeline-data/v1/event-data-interval.json"
 CHAIN_RECEIPT = (
     Path(__file__).parents[2]
     / "docs/reports/0115-M9_Pipeline_Cutover.artifacts/selected-chain.json"
@@ -45,6 +44,8 @@ def test_selected_legacy_chain_runs_from_isolated_root_across_api_restart(
     tmp_path: Path, monkeypatch
 ) -> None:
     storage_root = tmp_path / "isolated-storage"
+    repository_root = tmp_path / "checkout-without-legacy-pipeline"
+    repository_root.mkdir()
     operations = storage_root / "data/operations"
     shutil.copytree(FIXTURE_ROOT, operations)
     chain_receipt = json.loads(CHAIN_RECEIPT.read_bytes())
@@ -54,10 +55,15 @@ def test_selected_legacy_chain_runs_from_isolated_root_across_api_restart(
         assert len(content) == item["byte_length"]
         assert hashlib.sha256(content).hexdigest() == item["sha256"]
     monkeypatch.setenv("DOKO_STORAGE_ROOT", str(storage_root))
+    monkeypatch.setenv("DOKO_REPOSITORY_ROOT", str(repository_root))
     settings = Settings(
         _env_file=None,
-        repository_root=Path(__file__).parents[2],
     )
+    legacy_checkout_roots = tuple(
+        repository_root / "data/operations/pipeline" / name
+        for name in ("revisions", "runs", "selections")
+    )
+    assert all(not root.exists() for root in legacy_checkout_roots)
     storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
     revision_store = PipelineRevisionStore(storage)
     run_store = LegacyProcessorRunStore(storage, revision_store=revision_store)
@@ -99,29 +105,31 @@ def test_selected_legacy_chain_runs_from_isolated_root_across_api_restart(
     assert storage.operations_root == operations.resolve()
     assert storage.operations_root != Path(__file__).parents[2] / "data/operations"
 
-    app = create_test_app(settings)
-    edited_source = json.loads(EDIT_FIXTURE.read_bytes())
-    source = {
-        "schema_version": "recording-video/v1",
-        "recording_id": "m9-fixture-recording",
-        "relative_path": "fixtures/pipeline-data/v1/event-data-interval.json",
-        "video_sha256": "a" * 64,
-        "byte_length": 100,
-        "duration_us": 10_000_000,
-    }
-    pointers = {
-        event["event_id"]: f"/events/{index}" for index, event in enumerate(edited_source["events"])
-    }
-    node = app.state.pipeline_node_edits.store.create(
-        "m9-cutover-events",
-        "M9 cutover events",
-        "events",
-        source,
-        edited_source,
-        pointers,
+    selected_revision = revision_store.require(
+        "visible-cards-visible_cards-run-f9b6c6cf-577-attempt-1"
     )
-    edited_content = json.loads(json.dumps(edited_source))
-    edited_content["events"][0]["end_us"] += 1
+    selected_source = selected_revision.manifest.source.to_mapping()
+    selected_content = selected_revision.content.to_mapping()
+    reviewed_item_id = selected_content["outcomes"][0]["event_id"]
+    pointers = {reviewed_item_id: "/outcomes/0"}
+
+    app = create_test_app(settings)
+    node = app.state.pipeline_node_edits.store.create(
+        "m9-selected-visible-cards",
+        "M9 selected visible-card output",
+        "visible_cards",
+        selected_source,
+        selected_content,
+        {
+            "origin": "processor",
+            "source_revision_id": selected_revision.manifest.revision_id,
+            "source_run_id": "visible_cards-run-f9b6c6cf-577",
+        },
+    )
+    edited_content = json.loads(json.dumps(selected_content))
+    edited_content["outcomes"][0]["candidates"][0]["geometry"]["visible_region"]["polygons"][0][0][
+        "x"
+    ] += 1
 
     with TestClient(app) as client:
         response = client.post(
@@ -136,8 +144,8 @@ def test_selected_legacy_chain_runs_from_isolated_root_across_api_restart(
                 "operations": [
                     {
                         "kind": "replace",
-                        "before": [edited_content["events"][0]["event_id"]],
-                        "after": [edited_content["events"][0]["event_id"]],
+                        "before": [reviewed_item_id],
+                        "after": [reviewed_item_id],
                     }
                 ],
             },
@@ -149,17 +157,25 @@ def test_selected_legacy_chain_runs_from_isolated_root_across_api_restart(
             json={
                 "review_id": "m9-cutover-review",
                 "revision_id": saved_revision_id,
-                "item_id": edited_content["events"][0]["event_id"],
+                "item_id": reviewed_item_id,
                 "question": "Does this event match the supplied evidence?",
                 "decision": "accepted",
                 "reviewer": ACTOR,
-                "evidence": {"policy": "pipeline-event-review/v1", "source": "0115-M9 fixture"},
+                "evidence": {
+                    "policy": "visible-card-review/v1",
+                    "source_revision_id": selected_revision.manifest.revision_id,
+                    "source_run_id": "visible_cards-run-f9b6c6cf-577",
+                },
             },
         )
         assert review.status_code == 200, review.text
         readback = client.get(f"/api/pipeline/nodes/{node.node_id}/revisions/{saved_revision_id}")
         assert readback.status_code == 200
         assert readback.json()["content"] == edited_content
+        assert readback.json()["metadata"]["source_revision_id"] == (
+            selected_revision.manifest.revision_id
+        )
+        assert readback.json()["metadata"]["source_run_id"] == "visible_cards-run-f9b6c6cf-577"
 
     restarted = create_test_app(settings)
     with TestClient(restarted) as client:
@@ -171,6 +187,8 @@ def test_selected_legacy_chain_runs_from_isolated_root_across_api_restart(
         )
         assert reviews.status_code == 200
         assert [item["decision"] for item in reviews.json()] == ["accepted"]
+        assert readback.json()["content"] == edited_content
+        assert all(not root.exists() for root in legacy_checkout_roots)
 
     restarted_storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
     restarted_revision_store = PipelineRevisionStore(restarted_storage)

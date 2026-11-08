@@ -364,10 +364,17 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   records remain tracked. Added a fixture-backed isolated-root API test for an exact five-revision,
   two-run chain, two selections, edit, review, and restart.
 - **Checks:** The accepted-loss recovery package verifier passed before and after cutover. Its full
-  31,521-file pipeline copy matches the source byte for byte. The M9 API/restart test and the
-  pipeline, node, worktree-storage, and importer suites passed (38 tests). Two disposable checkout
-  protection rehearsals restored all 31,521 files exactly and kept all 15 automated-run records
-  tracked. Current worktree setup timing and allocation are in the M9 report.
+  31,521-file pipeline copy matches the source byte for byte. The corrected M9 API/restart test runs
+  with an empty repository root and absent checkout pipeline paths. It edits and reviews the exact
+  selected visible-card output and re-reads all five revisions, both run edges, and both selections
+  after restart. The uncertainty audit maps all 156 records; candidate dependencies resolve, the
+  three missing inputs are declared lost and unused by the selected family, and all 15 automated-run
+  files remain tracked. The M1 event digest differs from the current M9 event payload, so M1 is cited
+  only for the matching visible-card revision and preserved review decisions. The pipeline, node,
+  worktree-storage, and importer suites passed (38 tests). Two disposable checkout protection
+  rehearsals restored all 31,521 files exactly. The correction rerun passed 63 focused backend tests,
+  and the read-only recovery verifier passed with the same migration snapshot. Current worktree setup
+  timing and allocation are in the M9 report.
 - **Decisions and limits:** No data file or Git history was deleted. The recovery package is on the
   same volume. A fresh shallow GitHub clone restored and verified all 31,521 candidate files. The operator corpus is not copied to new isolated roots by default. Existing
   detached worktrees remain unchanged; use the tested archive/restore procedure before a future
