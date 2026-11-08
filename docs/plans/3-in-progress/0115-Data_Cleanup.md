@@ -160,7 +160,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M4 | Remove one ranked family of unused runtime intermediates | Complete |
 | M5 | Specify and prove isolated worktree data access | Complete |
 | M6 | Freeze cutover inventory, replacement owners, recovery evidence, and test-failure disposition | Complete |
-| M7 | Make isolated development storage and setup the normal path | Not started |
+| M7 | Make isolated development storage and setup the normal path | Complete |
 | M8 | Cut over tracked intake after proving source access and recovery | Not started |
 | M9 | Cut over the selected tracked pipeline family after dependency and recovery checks | Not started |
 | M10 | Evaluate safe Git and LFS maintenance and record history costs | Not started |
@@ -172,7 +172,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 
 ## Execution handoff
 
-- **Run:** M6 completed in a 10-milestone run. Requested: 10. Completed: 1. Remaining: 9.
+- **Run:** M7 completed in the same 10-milestone run. Requested: 10. Completed: 2. Remaining: 8.
   The 2026-11-08 replan split M6–M15; this count authorizes no later milestone. Follow the next
   user execution request and its run limit.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
@@ -306,6 +306,26 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   still unmet; no savings claim follows from this inventory.
 - **Next:** M7 — make isolated development storage and setup the normal path.
 - **Commit boundary:** M6 inventory artifact, report, epic, board, and handoff only.
+
+- **M7:** Complete. The [M7 report](../../reports/0115-M7_Isolated_Development_Setup.md) applies
+  the M5 root contract to the CardEventNet runtime cache and documents the explicit per-worktree
+  setup and operator import path. Existing repository defaults remain when the setting is absent;
+  no operator data is redirected or copied implicitly.
+- **Changes:** CardEventNet cache writes now use `Settings.evidence_root`; backend setup docs name
+  every mutable root and provide clean-checkout, run, operator-import, and missing-asset behavior.
+  No tracked data, tracking, or data authority changed.
+- **Checks:** The M6 clean setup passed in two disposable worktrees at `12bd999ec`: tool install,
+  backend sync, frontend install/build, app initialization, and three API fixture tests per
+  worktree. A third isolated API run left worktree B's manifest unchanged. Each API run edited,
+  read, and re-read after restart; no old node path appeared. The M7 report records fixture and root
+  digests and exact commands. Ruff, format, Markdown links, and `git diff --check` passed. The known
+  M6 interrupted-round-analysis test still returns `queued` instead of `failed`.
+- **Decisions and limits:** The operator corpus and model bundles stay at their declared paths.
+  Opening operator data requires an explicit validated copy. Missing source and model assets fail
+  visibly; no implicit fetch or fabricated asset is used. No M8 or M9 tracked family changed.
+- **Next:** M8 — cut over only the selected tracked intake family after source and recovery proof.
+- **Commit boundary:** M7 backend cache-root change and regression test, setup documentation, report,
+  epic, board, and handoff in one focused commit.
 
 ## M0 — Inventory and rank
 

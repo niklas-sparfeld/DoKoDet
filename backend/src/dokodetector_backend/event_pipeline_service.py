@@ -71,7 +71,6 @@ _CARD_EVENT_INTEGRATION_CONTRACT = Path(
     "data/model-campaigns/cardeventnet-0063-m14-development-integration/integration-contract.json"
 )
 _CARD_EVENT_INTEGRATION_SCHEMA = "cardeventnet-m15-integration-contract/v1"
-_CARD_EVENT_RUNTIME_CACHE = Path(".runtime/cardevent/inference-cache")
 _DEFAULT_CARD_EVENT_THRESHOLD = 0.5
 
 
@@ -99,6 +98,7 @@ class CardEventFileProvider:
     """Adapt CardEventNet's existing file inference operation."""
 
     repository_root: Path
+    runtime_root: Path | None = None
 
     def resolve_checkpoint_path(self, configuration: Mapping[str, Any]) -> Path | None:
         """Resolve the checkpoint explicitly supplied in a processor request."""
@@ -136,13 +136,15 @@ class CardEventFileProvider:
             raise PipelineProviderError(
                 "The CardEventNet checkpoint changed or is missing. Restore the frozen checkpoint."
             )
+        configured_cache_dir = _configured_path(
+            configuration,
+            "cache_dir",
+            repository_root=self.repository_root,
+        )
         cache_dir = (
-            _configured_path(
-                configuration,
-                "cache_dir",
-                repository_root=self.repository_root,
-            )
-            or self.repository_root / _CARD_EVENT_RUNTIME_CACHE
+            self.runtime_root / "cardevent" / "inference-cache"
+            if self.runtime_root is not None
+            else configured_cache_dir or self.repository_root / ".runtime/cardevent/inference-cache"
         )
         batch_size = configuration.get("batch_size")
         threshold = configuration.get("threshold")
@@ -315,6 +317,7 @@ class EventPipelineService:
         self.selection_store = selection_store
         self.event_provider = event_provider or CardEventFileProvider(
             settings.repository_root,
+            settings.evidence_root if settings.storage_root is not None else None,
         )
         self.card_event_checkpoint_path = getattr(settings, "card_event_checkpoint_path", None)
         self._workspace_sources: dict[str, tuple[tuple[int, int, str], RecordingVideoSource]] = {}

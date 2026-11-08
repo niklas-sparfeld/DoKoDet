@@ -56,6 +56,29 @@ integration contract. Set `CARD_EVENT_CHECKPOINT_PATH` to select a specific chec
 discovers checkpoints below the legacy `card_event_net/data` tree. File inference prepares a
 matching full-frame cache below `.runtime/cardevent/inference-cache` on demand.
 
+### Isolated worktree data
+
+Set `DOKO_STORAGE_ROOT` for every backend process, test, and backend setup command in a development
+worktree. Use a distinct absolute path per checkout. This moves mutable operations, uploads,
+pending videos, and runtime caches under that path. It does not copy, move, or select operator data.
+Keep the operator corpus at its current path. Open selected recordings only with the explicit
+`dokodetector-import-operator-recordings` command and its `--operator-corpus-root` and
+`--recording-id` arguments.
+
+For example, from the repository root:
+
+```bash
+export DOKO_STORAGE_ROOT="$PWD/.local/worktree-state"
+mise exec -- uv run --project backend python -c \
+  'from dokodetector_backend.app import create_app; create_app()'
+mise exec -- uv run --project backend dokodetector-backend
+```
+
+Add a different absolute path when you open a second worktree. Do not put this value in the
+generated `backend/.env`; export it in the shell or use the setup tool that launches your backend.
+The explicit operator import command fails with a clear error when a selected source bundle is
+missing or invalid. Missing model bundles also remain unavailable and are not fetched or created.
+
 For the local visible-card provider, install its pinned native inference dependency as well:
 
 ```bash
@@ -76,7 +99,8 @@ run `npm run dev` in `web/`; its `/v1` requests use the local backend proxy.
 
 ## Consolidate legacy local data
 
-The repository-level `data/` and `.runtime/` directories are the only active storage roots.
+Without `DOKO_STORAGE_ROOT`, the repository-level `data/` and `.runtime/` directories remain the
+backend's defaults. Isolated development must set `DOKO_STORAGE_ROOT` explicitly.
 `data/intake/`, `data/operations/`, and `data/model-campaigns/` hold shared source and durable
 operational records. `.runtime/` holds only caches, materialized trainer views, and local process
 state. If an older checkout has data below `backend/data/`, `backend/.runtime/`, or an old

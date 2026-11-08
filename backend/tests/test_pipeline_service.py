@@ -109,6 +109,34 @@ def test_card_event_file_provider_uses_repository_runtime_cache_by_default(
     assert calls["kwargs"]["cache_dir"] == tmp_path / ".runtime" / "cardevent" / "inference-cache"
 
 
+def test_card_event_file_provider_uses_configured_worktree_runtime_root(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import cardevent
+
+    calls: dict[str, object] = {}
+
+    def fake_infer_from_files(checkpoint_path, video_path, **kwargs):
+        calls.update(checkpoint_path=checkpoint_path, video_path=video_path, kwargs=kwargs)
+        return {"events": []}
+
+    monkeypatch.setattr(cardevent, "infer_from_files", fake_infer_from_files)
+    provider = CardEventFileProvider(tmp_path, tmp_path / "isolated" / "runtime")
+    provider.infer(
+        tmp_path / "recording.mov",
+        request=SimpleNamespace(
+            configuration={
+                "checkpoint_path": "checkpoints/best.pt",
+                "cache_dir": "configured-cache",
+            }
+        ),
+    )
+    assert calls["kwargs"]["cache_dir"] == (
+        tmp_path / "isolated" / "runtime" / "cardevent" / "inference-cache"
+    )
+
+
 def test_card_event_file_provider_forwards_progress_callback(
     tmp_path: Path,
     monkeypatch,
