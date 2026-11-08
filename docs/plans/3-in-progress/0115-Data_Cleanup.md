@@ -169,13 +169,13 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M11 | Measure compact storage candidates and select at most one bounded format change | Complete |
 | M12 | Implement and convert the selected format family, if justified | Complete |
 | M13 | Complete provider-cache recovery and concurrency evidence; run combined checks for implemented cache policies | Complete |
-| M14 | Add a small maintained storage map from existing evidence | Not started |
+| M14 | Add a small maintained storage map from existing evidence | Complete |
 | M15 | Run essential integrated checks and publish an honest closure report | Not started |
 
 ## Execution handoff
 
-- **Run:** The approved replan starts at M13. Requested: 3. Completed: 1. Remaining: 2.
-  M14–M15 remain authorized. M12 and earlier remain complete; see their reports.
+- **Run:** The approved replan starts at M13. Requested: 3. Completed: 2. Remaining: 1.
+  M15 remains authorized. M14 and earlier are complete; see their reports.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -545,6 +545,24 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   dependencies and recovery paths.
 - **Commit boundary:** Provider-cache lifecycle and backend wiring, focused tests, M2 replay pin
   evidence, report, epic/handoff, and board status form one focused package commit.
+
+- **M14:** Complete. The [maintained storage map](../../reports/0115-M14_Maintained_Storage_Map.md)
+  points to existing evidence for source recordings, current and legacy pipeline data, recovery,
+  model bundles, derived caches, provider responses, shared hard fixtures, and Git/LFS.
+- **Changes:** Added bounded exact lookup examples and stated each family's owner, authority,
+  retention class, recovery status, and known uncertainty. The map records configured per-worktree
+  roots, ignored local data, external shared assets, and the same-volume recovery limit. No index,
+  runtime contract, inventory, or data changed.
+- **Checks:** Verified every Markdown path and anchor in the map and board update. Confirmed each
+  lookup command against its named repository path or the existing report and verifier. The map
+  distinguishes durable authority, derived caches, shared assets, ignored local data, and recovery
+  copies. `git diff --check` passed.
+- **Decisions and limits:** The map reuses historical reports; it is not a current inventory or a
+  physical-space, unique-allocation, or complete-backup claim. Log, recovery-copy, and campaign
+  lifecycle remain deferred to Epic 0118.
+- **Next:** M15 — run essential integrated checks and publish an honest closure report.
+- **Commit boundary:** The storage map, this epic and handoff update, and the board entry form one
+  focused M14 commit.
 
 ## M0 — Inventory and rank
 
