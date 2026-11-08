@@ -1,0 +1,32 @@
+{
+  "api_checks_after_import_and_restart": {
+    "GET /v1/recordings/{recording_id}": "200, exact recording ID and source SHA-256",
+    "GET /v1/repository-bundles/{recording_id}": "200, exact ID and source SHA-256",
+    "GET /v1/repository-bundles/{recording_id}/video": "200, streamed bytes hash to exact source SHA-256",
+    "external_source_unchanged": true,
+    "readback_repeated_after_app_restart": true
+  },
+  "canonical_metadata_and_video_checks": {
+    "all_manifest_files_match": true,
+    "manifest_sha256": "8c8ea300c4194e61aeab437b9355d3f2b900838c9575e30041c73fbb12c394ef",
+    "source_record_sha256": "0a40a96ea2447bf13dbe027437624d9cc1515622d8c3fbeeed8446b1b283ea31",
+    "task_enrollment_sha256": "ad8150b22ee65412549b574e33ca078c4eebe0939724886e6593b02c7529043b",
+    "video_relative_path": "videos/video-cardeventnet-IMG_0641.mov",
+    "video_sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3"
+  },
+  "external_original_bytes": 159644121,
+  "external_original_path": "/Users/niklas.sparfeld/Developer/doko_detector-local-data/card_event_net/data/raw/IMG_0641.MOV",
+  "external_original_sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3",
+  "import_command": "DOKO_STORAGE_ROOT=/private/tmp/doko-0115-m8-restore-cardeventnet-IMG_0641/state mise exec -- uv run --project backend dokodetector-import-operator-recordings --operator-corpus-root /private/tmp/doko-0115-m8-restore-cardeventnet-IMG_0641/source-corpus --recording-id cardeventnet-IMG_0641",
+  "imported_bundle_fingerprint": "7009ec3b043f3f9d8e753e2c4eccd858bf12d84efcb7fa59096a0c61df06e723",
+  "limits": [
+    "This proves one restored recording only.",
+    "The raw-media folder is not directly accepted by the importer; the disposable canonical bundle was assembled using tracked metadata and the independent raw file.",
+    "Metadata was not independently backed up and must remain tracked.",
+    "No checkout or merge protection was demonstrated."
+  ],
+  "metadata_remains_tracked": true,
+  "recording_id": "cardeventnet-IMG_0641",
+  "schema_version": "0115-m8-single-recording-restore/v1",
+  "tracked_metadata_source": "data/intake/recordings/cardeventnet-IMG_0641"
+}
