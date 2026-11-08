@@ -154,7 +154,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 | Milestone | Observable result / commit boundary | State |
 | --- | --- | --- |
 | M0 | Storage inventory, cost baseline, retention roots, and ranked targets | Complete |
-| M1 | Tested recovery of retained authority and an exact cleanup manifest | Not started |
+| M1 | Tested recovery of retained authority and an exact cleanup manifest | In Progress |
 | M2 | Bounded cleanup planner and apply mechanism | Not started |
 | M3 | Retire verified redundant migration and recovery trees | Not started |
 | M4 | Remove one ranked family of unused runtime intermediates | Not started |
@@ -168,29 +168,33 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 
 ## Execution handoff
 
-- **Run:** requested 1 milestone; completed 1; remaining 0.
-- **Completed:** M0 — storage inventory and ranked targets. The report records repeated root and
-  metadata measurements, the disposable worktree setup, the 0114 application cases, exact agent
-  lookups, retained roots, ranked cleanup candidates, and measured read/parse counts for four hard
-  application cases. Five JSON evidence files are in the linked report artifact folder.
-- **Changes:** Added [the M0 inventory and target report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md),
-  a repeatable metadata inventory command, and a disposable application I/O profiler. No retained
-  data or runtime path changed. The temporary benchmark worktree was removed.
-- **Checks:** The inventory command ran twice with identical JSON. Its output includes every
-  registered worktree and shared `.git` separately. Backend and web setup and the backend import
-  check passed in the disposable worktree. The 0114 hard fixture passed `--require-hard` (57
-  assets); M3 passed 20/20 samples, M4 passed 105/105, M9 passed 13/13, and the I/O profiler passed
-  all four cases with 0 live-root reads. Ruff and format checks passed for both new scripts. Existing
-  M10 evidence covers 7 workflows, 70 contexts, and 10 startup processes. `git diff --check` and
-  local Markdown links passed.
-- **Decisions and limits:** No deletion is approved. The 24.1 GiB recovery tree is a conditional
-  upper bound until M1 proves recovery and exact redundancy. M0 freezes per-case M11 ceilings for
-  read opens, unique files, JSON decodes, and domain parser calls. These counts cover four cases;
-  M11 must qualify the full corpus. Cache expiry limits remain provisional until M9 verifies
-  regeneration and active consumers.
-- **Next:** M1 — prove recovery for retained authority and prepare an exact cleanup plan.
-- **Commit boundary:** M0 report, repeatable inventory and I/O profiler, evidence, epic status/handoff,
-  and board update in focused M0 commits.
+- **Run:** requested 11 milestones; completed 0; remaining 11.
+- **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
+- **Current milestone:** M1 — In Progress. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md)
+  records an exact restore of the ignored node store, migrated review bytes, a representative
+  recording and model, two-stage 0108 reconciliation, isolated service edit/readback/restart, and
+  the exact candidate and exclusion paths. No authoritative data was deleted.
+- **Changes:** Added a read-only [recovery verifier](../../../scripts/verify_0115_recovery.py),
+  [validation summary](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/recovery-validation.json),
+  [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and
+  M1 report. All temporary restores were removed after the checks.
+- **Checks:** Both migration stages passed package verification. All 150 retained draft, review, and
+  calibration records matched 441 staged files byte for byte. The bounded API returned HTTP 200 for
+  workspace, lineage, edit/readback, and post-restart reads. Maintained references, one independent
+  review, three calibration drafts, and the cloned DINOv3 encoder and head loaded. The full-node
+  API lineage omitted processor-run records. Free space readings ranged from a 3.1 GiB low
+  watermark to 73 GiB at the latest check; the cause of the fluctuation is unknown. No run-store
+  copy or full recovery-tree copy was attempted. The created inference virtual environment was
+  removed; caches were preserved.
+- **Decisions and limits:** M1 remains In Progress. No deletion is approved. One exact duplicate
+  recovery video is listed as an M3 candidate. The complete processor-run dependency chain, the
+  independent review's runtime API projection, the durable recovery location, and 50 remaining
+  recovery video comparisons are open. A full root copy would exceed current available space.
+- **Next:** Continue M1 only after confirming safe disk headroom; restore the exact run records and
+  dependencies for the selected review chain in a bounded isolated copy, then repeat API restart
+  checks. Do not begin M2 or delete any path until M1 acceptance passes.
+- **Commit boundary:** Keep this incomplete evidence update in one focused M1 commit. Do not mark
+  M1 complete.
 
 ## M0 — Inventory and rank
 

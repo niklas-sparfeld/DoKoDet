@@ -1,0 +1,73 @@
+{
+  "schema_version": "0115-cleanup-plan/v1",
+  "decision": "No deletion is authorized by M1.",
+  "recovery_location": {
+    "authoritative_root": "/Users/niklas.sparfeld/Developer/doko_detector/data",
+    "temporary_restore": "/tmp/0115-m1-recovery and /tmp/0115-m1-service",
+    "temporary_restore_status": "Removed after validation. The active data and recovery packages remain in the authoritative root."
+  },
+  "disk": {
+    "0108_recovery_root_allocated_kib": 25308248,
+    "free_space_low_watermark_gib": 3.1,
+    "free_space_latest_observed_gib": 73,
+    "full_root_copy_attempted": false,
+    "sample_restore_logical_bytes": 2089585944,
+    "apfs_physical_reclaim_or_clone_cost": "Unknown; du and logical clone size do not prove unique physical blocks."
+  },
+  "candidates": [
+    {
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov",
+      "bytes": 1061930405,
+      "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73",
+      "status": "Candidate for M3 only; retain in M1.",
+      "reason": "Exact digest match with data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov. The intake source is protected. The recovery copy is redundant by bytes, but its snapshot role and physical reclaim remain for M3 to verify."
+    },
+    {
+      "path": "data/operations-recovery/0108-m10-20261105",
+      "status": "Retain; no subtree deletion is approved.",
+      "reason": "The root contains the old operations snapshot, two migration stages, migration source, evidence packages, recording videos, and validation workspaces. Only one video is an exact duplicate. M1 did not restore the complete root or prove all remaining references redundant."
+    }
+  ],
+  "retained_paths": [
+    {
+      "path": "data/operations/pipeline-nodes",
+      "reason": "Ignored current authority. A 27,654-file restore was hash-verified; no deletion or tracking change is in scope."
+    },
+    {
+      "path": "data/operations/pipeline",
+      "reason": "Older persisted representation remains until later epics close its readers and recovery role."
+    },
+    {
+      "path": "data/operations-recovery/0108-m10-20261105/migration-stage",
+      "reason": "Verified older operations snapshot with 32,168 operations file entries and 1,903 resources. Its bytes remain a separate historical stage."
+    },
+    {
+      "path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss",
+      "reason": "Verified accepted-loss stage with 2,086 resources, 34,414 file records, and the three declared lost revision IDs. Preserve its source bytes and activation manifest."
+    },
+    {
+      "path": "data/operations-recovery/0108-m10-20261105/migration-source",
+      "reason": "Retain until M3 reconciles the source and both stages at full dependency scope."
+    },
+    {
+      "path": "data/operations-recovery/0108-m10-20261105/evidence-packages",
+      "reason": "Accepted stage references 183 validated packages; no complete replacement workflow was restored for all packages."
+    },
+    {
+      "path": "data/operations-recovery/0108-m10-20261105/recording-videos",
+      "reason": "Retain all files except the one exact duplicate candidate listed above; the other 50 video references were not compared in this milestone."
+    },
+    {
+      "path": "data/models/dinov3-vits16-pretrain-lvd1689m and .runtime/dinov3-identity-0088/bundles/224-cls",
+      "reason": "The raw source and selected runtime bundle passed local offline loading checks; retain both and their provenance."
+    }
+  ],
+  "unknowns": [
+    "0108 M10 reports 137 item histories and 13 intermediate draft histories that the old stores did not retain.",
+    "0108 M10 reports three processor-run IDs with no separate run record inside complete coordinator stage records.",
+    "The disposable API lineage read returned 24 nodes and 30 revisions but no run records; the run dependency chain was not restored in that API root.",
+    "Unique physical bytes and post-delete APFS space recovery are not measured.",
+    "Only the listed duplicate video was rechecked in M1; other video, crop, checkpoint, and snapshot duplicates remain unknown."
+  ],
+  "expiry": "No time-based expiry. A future M3 deletion needs an exact dependency audit, a recovery drill, writer shutdown, verified active replacements, preserved unique bytes, and measured free-space change."
+}
