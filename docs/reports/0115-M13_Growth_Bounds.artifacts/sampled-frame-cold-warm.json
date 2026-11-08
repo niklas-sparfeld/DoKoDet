@@ -7,7 +7,7 @@
     {
       "case": "cold",
       "status": 200,
-      "elapsed_ns": 119272666,
+      "elapsed_ns": 119823250,
       "response_bytes": 245,
       "response_sha256": "11da23d88df1a1368fb869106826052351f8335525704a185f3cfee0dc755001",
       "frame_time_us": "250000"
@@ -15,7 +15,7 @@
     {
       "case": "warm",
       "status": 200,
-      "elapsed_ns": 2890708,
+      "elapsed_ns": 2763125,
       "response_bytes": 245,
       "response_sha256": "11da23d88df1a1368fb869106826052351f8335525704a185f3cfee0dc755001",
       "frame_time_us": "250000"
@@ -27,11 +27,11 @@
     "max_frames_per_recording": 2048,
     "idle_seconds": 2592000
   },
-  "tested_base_commit": "5411a3e50facd8a4108e4d02677a1c986d975ef7",
-  "implementation_fingerprint_sha256": "3c75d24d8993c8ee0280234a24501dbad6fc2952b2a34833d21a3dda1d15aa79",
+  "tested_base_commit": "0974674529023ca03cc313d60a97cb52d24dbdc1",
+  "implementation_fingerprint_sha256": "c472d1b8d28f8e402a615c700cc63142812ece86cfec78382df924401dbfd471",
   "implementation_files_sha256": {
-    "operations/src/doko_operations/derived_view.py": "dbc0373081448d1a6f84afe191629de18dc19e1c709a99ffa6830c8e3152d1fe",
-    "operations/tests/test_derived_view.py": "f4d917e2d3d78ff5c6247d50f2f160b34964887c8f88fd9713dc140b1bf2090f",
+    "operations/src/doko_operations/derived_view.py": "a390a21ed9721bb2e6bd0aa350eb728c6395d15443516a78def3f27e4d142d27",
+    "operations/tests/test_derived_view.py": "f2cca4a32688d4572151feea14d8e7828473820a7262dc0727da9f525cb145ae",
     "backend/src/dokodetector_backend/visible_card_pipeline_service.py": "c3d1322da5beb6d7fe4257e3d528bd467a45dad151cfd7f75afb6e3f9f02c26a",
     "backend/tests/test_visible_card_pipeline_api.py": "1dacf219f5a2142d37f53e843fb0e8ad94a63dd33ee652c1303463c601359310"
   }

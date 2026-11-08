@@ -481,14 +481,16 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   `derived-views/.lifecycle.lock` with package 1. The manifest binds video SHA-256 and byte length,
   decoder version, and transform version. See the [package 2 evidence](../../reports/0115-M13_Growth_Bounds.md#package-2-sampled-frame-cache)
   and [sampled-frame cold/warm result](../../reports/0115-M13_Growth_Bounds.artifacts/sampled-frame-cold-warm.json).
-- **Changes:** Added bounded frame-level pruning, stale cache regeneration, atomic manifest publish,
-  and orphan cleanup after interruption. Concurrent misses use the shared lifecycle lock. Backend
+- **Changes:** Added bounded frame-level pruning, truncated-JPEG regeneration, atomic manifest
+  publish, and orphan cleanup after interruption. Independent processes share the lifecycle lock;
+  eviction waits for an active cache reader. Backend
   sampled-frame requests enable the policy; source, review, model, and hard-fixture roots remain
   outside it.
-- **Checks:** 33 operations derived-view tests and 16 visible-card API tests passed. Ruff check,
+- **Checks:** 36 operations derived-view tests and 16 visible-card API tests passed, including
+  cross-process eviction and interrupted-prune recovery. Ruff check,
   Ruff format, and `git diff --check` passed. The 13-case 0114 media suite passed and all response
   status/length/digest tuples match M9. Sampled-frame cold/warm API responses both returned HTTP 200
-  with the same digest and frame time; the local samples were 119.27/2.89 ms. These are one-run
+  with the same digest and frame time; the local samples were 119.82/2.76 ms. These are one-run
   timings on a generated 1-second, 64x64 video.
 - **Decisions and limits:** M13 remains incomplete. The sampled-frame limit covers JPEG frame bytes;
   manifests and lifecycle lock files are outside its 2 GiB count. Idle expiry runs on cache access,

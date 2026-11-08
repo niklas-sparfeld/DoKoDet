@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import multiprocessing
 import os
 import shutil
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -131,6 +134,47 @@ def _source(path: Path, *, duration_us: int) -> RecordingVideoSource:
         byte_length=len(content),
         duration_us=duration_us,
     )
+
+
+def _sampled_cache_reader_process(
+    cache_root: Path,
+    source: RecordingVideoSource,
+    video_path: Path,
+    ready: Any,
+    release: Any,
+    result_queue: Any,
+) -> None:
+    resolver = SampledFrameResolver(cache_root, retention=SampledFrameCacheRetention())
+    with resolver._lifecycle_lock():
+        entries = resolver._read_cache(resolver._cache_path(source), source)
+        if entries is None:
+            result_queue.put(False)
+            ready.set()
+            return
+        frame_path = resolver._cache_path(source) / entries[0][4]
+        content = frame_path.read_bytes()
+        ready.set()
+        if not release.wait(timeout=10):
+            result_queue.put(False)
+            return
+        result_queue.put(frame_path.exists() and frame_path.read_bytes() == content)
+
+
+def _sampled_cache_writer_process(
+    cache_root: Path,
+    source: RecordingVideoSource,
+    video_path: Path,
+    max_bytes: int,
+    started: Any,
+    result_queue: Any,
+) -> None:
+    resolver = SampledFrameResolver(
+        cache_root,
+        retention=SampledFrameCacheRetention(max_bytes=max_bytes),
+    )
+    started.set()
+    frame = resolver.resolve(ExactEventRequest(source, 0), video_path)
+    result_queue.put(bool(frame.image_bytes))
 
 
 def test_ffmpeg_probe_reads_packet_timestamps_without_frame_side_data(
@@ -351,6 +395,54 @@ def test_sampled_frame_cache_bounds_frames_and_recovers_orphans(tmp_path: Path) 
     assert (tmp_path / "derived-views" / ".lifecycle.lock").is_file()
 
 
+def test_sampled_frame_cache_recovers_interrupted_prune(tmp_path: Path, monkeypatch) -> None:
+    video = tmp_path / "cfr.mp4"
+    _make_cfr_video(video, duration_s=1.0)
+    source = _source(video, duration_us=1_000_000)
+    root = tmp_path / "derived-views" / "sampled-frames"
+    initial = SampledFrameResolver(root)
+    initial.resolve(ExactEventRequest(source, 0), video)
+    initial.resolve(ExactEventRequest(source, 250_000), video)
+    cache = initial._cache_path(source)
+    manifest_path = cache / "manifest.json"
+    initial_manifest = json.loads(manifest_path.read_text())
+    frame_paths = [cache / entry["relative_path"] for entry in initial_manifest["frames"]]
+    now = time.time()
+    os.utime(frame_paths[0], (now - 5, now - 5))
+    os.utime(frame_paths[1], (now - 1, now - 1))
+    os.utime(cache, (now, now))
+    limited = SampledFrameResolver(
+        root,
+        retention=SampledFrameCacheRetention(max_frames_per_recording=1),
+    )
+    replace = os.replace
+
+    def interrupt_manifest_publish(source_path, destination_path):
+        if Path(destination_path) == manifest_path:
+            raise OSError("simulated stop after frame deletion")
+        replace(source_path, destination_path)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(os, "replace", interrupt_manifest_publish)
+        with pytest.raises(OSError, match="simulated stop"):
+            limited.resolve(ExactEventRequest(source, 250_000), video)
+
+    assert not frame_paths[0].exists()
+    assert len(json.loads(manifest_path.read_text())["frames"]) == 2
+    assert (cache / ".manifest.tmp").is_file()
+
+    restarted = SampledFrameResolver(
+        root,
+        retention=SampledFrameCacheRetention(max_frames_per_recording=1),
+    )
+    result = restarted.resolve(ExactEventRequest(source, 250_000), video)
+    recovered_manifest = json.loads(manifest_path.read_text())
+
+    assert result.frame_index == 1
+    assert [entry["frame_index"] for entry in recovered_manifest["frames"]] == [1]
+    assert not (cache / ".manifest.tmp").exists()
+
+
 def test_sampled_frame_cache_identity_change_regenerates(tmp_path: Path) -> None:
     video = tmp_path / "cfr.mp4"
     _make_cfr_video(video, duration_s=1.0)
@@ -389,6 +481,26 @@ def test_sampled_frame_cache_restarts_and_regenerates_missing_frame(tmp_path: Pa
     assert frame_path.is_file()
 
 
+def test_sampled_frame_cache_regenerates_truncated_jpeg(tmp_path: Path) -> None:
+    video = tmp_path / "cfr.mp4"
+    _make_cfr_video(video, duration_s=1.0)
+    source = _source(video, duration_us=1_000_000)
+    resolver = SampledFrameResolver(
+        tmp_path / "derived-views" / "sampled-frames",
+        retention=SampledFrameCacheRetention(),
+    )
+    first = resolver.resolve(ExactEventRequest(source, 0), video)
+    cache = resolver._cache_path(source)
+    manifest = json.loads((cache / "manifest.json").read_text())
+    frame_path = cache / manifest["frames"][0]["relative_path"]
+    frame_path.write_bytes(first.image_bytes[:16])
+
+    regenerated = resolver.resolve(ExactEventRequest(source, 0), video)
+
+    assert regenerated.image_bytes == first.image_bytes
+    assert frame_path.read_bytes() == first.image_bytes
+
+
 def test_sampled_frame_cache_coordinates_in_flight_misses(tmp_path: Path) -> None:
     video = tmp_path / "cfr.mp4"
     _make_cfr_video(video, duration_s=1.0)
@@ -410,6 +522,55 @@ def test_sampled_frame_cache_coordinates_in_flight_misses(tmp_path: Path) -> Non
 
     assert decode.call_count == 1
     assert results[0].image_bytes == results[1].image_bytes
+
+
+def test_sampled_frame_cache_process_lock_protects_active_reader_from_eviction(
+    tmp_path: Path,
+) -> None:
+    video = tmp_path / "first.mp4"
+    second_video = tmp_path / "second.mp4"
+    _make_cfr_video(video, duration_s=1.0)
+    second_video.write_bytes(video.read_bytes() + b"different source identity")
+    source = _source(video, duration_us=1_000_000)
+    second_source = _source(second_video, duration_us=1_000_000)
+    root = tmp_path / "derived-views" / "sampled-frames"
+    cache = SampledFrameResolver(root, retention=SampledFrameCacheRetention())
+    cache.resolve(ExactEventRequest(source, 0), video)
+    first_directory = cache._cache_path(source)
+    first_frame_bytes = (first_directory / "frames" / "000000.jpg").stat().st_size
+
+    context = multiprocessing.get_context("spawn")
+    reader_ready = context.Event()
+    release_reader = context.Event()
+    writer_started = context.Event()
+    result_queue = context.Queue()
+    reader = context.Process(
+        target=_sampled_cache_reader_process,
+        args=(root, source, video, reader_ready, release_reader, result_queue),
+    )
+    writer = context.Process(
+        target=_sampled_cache_writer_process,
+        args=(root, second_source, second_video, first_frame_bytes, writer_started, result_queue),
+    )
+    reader.start()
+    try:
+        assert reader_ready.wait(timeout=10)
+        writer.start()
+        assert writer_started.wait(timeout=10)
+        time.sleep(0.2)
+        assert writer.is_alive()
+        assert first_directory.exists()
+    finally:
+        release_reader.set()
+    reader.join(timeout=10)
+    writer.join(timeout=10)
+
+    assert reader.exitcode == 0
+    assert writer.exitcode == 0
+    assert result_queue.get(timeout=2) is True
+    assert result_queue.get(timeout=2) is True
+    assert not first_directory.exists()
+    assert cache._cache_path(second_source).is_dir()
 
 
 def test_sampled_frame_cache_enforces_root_bytes_and_idle_expiry(tmp_path: Path) -> None:

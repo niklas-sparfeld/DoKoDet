@@ -114,20 +114,23 @@ or invalid frame makes the entry a cache miss and the requested sample is decode
 eviction does not touch source media, review work, models, or recovery families.
 
 The focused tests cover per-recording frame limits, root-byte eviction, idle expiry, orphan cleanup,
-restart regeneration, source-identity changes, and concurrent same-frame misses. The backend API
-test checks the sampled preview's cold, warm, and second-frame behavior. The 0114 media suite passed
+restart regeneration, truncated-JPEG regeneration, source-identity changes, and same-frame misses.
+Separate processes verify that eviction waits while a reader holds the shared lock. An interruption
+test stops pruning after frame deletion but before manifest replacement, then checks recovery on
+the next access. The backend API test checks the sampled preview's cold, warm, and second-frame
+behavior. The 0114 media suite passed
 13/13 cases; all status, response-byte, and response-digest tuples match the retained M9 sample.
-Derived-event cold/warm requests took 3.68/2.17 ms; these exercise the regular derived-view path.
+Derived-event cold/warm requests took 4.13/2.36 ms; these exercise the regular derived-view path.
 The separate sampled-frame API cold/warm requests on a generated one-second 64x64 video both
 returned HTTP 200 and the same 245-byte response digest, with frame time 250,000 us. Their one-run
-times were 119.27/2.89 ms. These are local samples, not a new latency baseline.
+times were 119.82/2.76 ms. These are local samples, not a new latency baseline.
 
 See [the sampled cold/warm result](0115-M13_Growth_Bounds.artifacts/sampled-frame-cold-warm.json)
 and [the 0114 media result](0115-M13_Growth_Bounds.artifacts/0114-media-package2.json). The 0114
 artifact contains all 13 response tuples and timings. The separate sampled-frame artifact records
 the generated source-video digest, route, cache policy, response identities, and timings. Both
 artifacts bind the implementation files to fingerprint
-`3c75d24d8993c8ee0280234a24501dbad6fc2952b2a34833d21a3dda1d15aa79`; the checked-in M9 response
+`c472d1b8d28f8e402a615c700cc63142812ece86cfec78382df924401dbfd471`; the checked-in M9 response
 corpus remains unchanged.
 
 Limits: size is bounded by JPEG payload bytes, while manifest and filesystem overhead are excluded.

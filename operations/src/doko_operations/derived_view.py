@@ -1844,12 +1844,32 @@ class SampledFrameResolver:
             try:
                 frame_path = destination / relative_path
                 image_bytes = frame_path.read_bytes()
+                actual_dimensions = _image_dimensions(image_bytes)
+                if actual_dimensions != (width, height):
+                    raise DerivedViewProbeError("sampled frame dimensions do not match the cache")
                 if self.retention is not None:
                     now = self.retention.clock()
                     os.utime(frame_path, (now, now), follow_symlinks=False)
                     os.utime(destination, (now, now), follow_symlinks=False)
-            except OSError as error:
-                raise DerivedViewProbeError("sampled frame cache could not be read") from error
+            except (OSError, DerivedViewProbeError):
+                # A cache entry is disposable. Regenerate a selected frame if its JPEG is
+                # truncated or its bytes no longer match the manifest's dimensions.
+                shutil.rmtree(destination)
+                image_bytes = self._decode_sample(path, timestamp_us)
+                width, height = _image_dimensions(image_bytes)
+                selected = (
+                    frame_index,
+                    timestamp_us,
+                    width,
+                    height,
+                    f"frames/{frame_index:06d}.jpg",
+                )
+                frames = [selected]
+                self._write_cache(destination, request.source, frames, image_bytes)
+                if self.retention is not None:
+                    now = self.retention.clock()
+                    os.utime(destination / selected[4], (now, now), follow_symlinks=False)
+                    os.utime(destination, (now, now), follow_symlinks=False)
         frame_index, timestamp_us, width, height, relative_path = selected
         actual_width, actual_height = _image_dimensions(image_bytes)
         if (actual_width, actual_height) != (width, height):
@@ -2084,19 +2104,46 @@ class SampledFrameResolver:
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             shutil.rmtree(cache)
             return
-        entries = manifest.get("frames") if isinstance(manifest, dict) else None
+        entries = manifest.get("frames") if isinstance(manifest, Mapping) else None
         if not isinstance(entries, list):
             shutil.rmtree(cache)
             return
-        referenced = {
-            Path(str(entry.get("relative_path", ""))).name
-            for entry in entries
-            if isinstance(entry, dict)
-        }
+        surviving_entries: list[Mapping[str, Any]] = []
+        referenced: set[str] = set()
+        missing_entry = False
+        for entry in entries:
+            if not isinstance(entry, Mapping):
+                shutil.rmtree(cache)
+                return
+            frame_index = entry.get("frame_index")
+            relative_path = entry.get("relative_path")
+            if (
+                isinstance(frame_index, bool)
+                or not isinstance(frame_index, int)
+                or relative_path != f"frames/{frame_index:06d}.jpg"
+            ):
+                shutil.rmtree(cache)
+                return
+            frame_name = f"{frame_index:06d}.jpg"
+            frame_path = frames_dir / frame_name
+            if not frame_path.is_file() or frame_path.is_symlink():
+                missing_entry = True
+                continue
+            surviving_entries.append(entry)
+            referenced.add(frame_name)
         for frame in frames:
             if frame.name not in referenced:
                 frame.unlink()
         frames = [frame for frame in frames if frame.name in referenced]
+        if missing_entry:
+            if not surviving_entries:
+                shutil.rmtree(cache)
+                return
+            manifest = {**manifest, "frames": surviving_entries}
+            tmp = cache / ".manifest.tmp"
+            _write_fsync(tmp, canonical_json_bytes(manifest))
+            os.replace(tmp, cache / "manifest.json")
+            entries = surviving_entries
         if len(frames) <= self.retention.max_frames_per_recording:
             return
         recent = sorted(
