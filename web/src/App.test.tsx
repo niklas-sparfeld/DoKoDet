@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, it, afterEach, describe, vi } from "vitest";
 
+import type { RecordingDetail } from "./api/recordingContracts";
 import { App } from "./App";
 
 const recordingId = "recording-fixture";
@@ -59,6 +60,44 @@ function workspace(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function recordingDetail(): RecordingDetail {
+  return {
+    recording_id: recordingId,
+    source_asset_id: "source-fixture",
+    video_id: "video-fixture",
+    session_id: "session-fixture",
+    state: "accepted",
+    source_sha256: "a".repeat(64),
+    received_at: "2026-09-06T12:00:00Z",
+    round_id: "round-7",
+    source: {
+      original_filename: "recording.mov",
+      acquisition_method: "ios_upload",
+      allowed_uses: ["training"],
+      content_type: "video/quicktime",
+      game_id: "game-fixture",
+      notes: null,
+      recording_id: recordingId,
+      retention_state: "active",
+      round_id: "round-7",
+      session_id: "session-fixture",
+      source_permission: "training_only",
+      table_setup: "four_players",
+      video_id: "video-fixture",
+    },
+    video: {
+      url: `/v1/repository-bundles/${recordingId}/video`,
+      content_type: "video/quicktime",
+      media_facts: null,
+    },
+    evidence_package_ids: [],
+    analyses: [],
+    task_enrollments: [],
+    can_start_analysis: false,
+    analysis_blocker: "The pipeline is not ready.",
+  };
+}
+
 function response(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), {
     status,
@@ -76,6 +115,17 @@ function pipelineStatus(eventState = "video-only") {
       { key: "table_observations", state: "empty" },
       { key: "round_analyses", state: "empty" },
     ],
+  };
+}
+
+function pipelineLineage() {
+  return {
+    schema_version: "pipeline-lineage-graph/v1",
+    nodes: [],
+    revisions: [],
+    runs: [],
+    artifacts: [],
+    edges: [],
   };
 }
 
@@ -331,7 +381,8 @@ describe("App", () => {
     window.history.pushState({}, "", `/recordings/${recordingId}`);
     const pipelinePaths: string[] = [];
     const fetchMock = vi.fn<typeof fetch>((input) => {
-      if (String(input).startsWith("/api/jobs?"))
+      const path = String(input);
+      if (path.startsWith("/api/jobs?"))
         return Promise.resolve(
           response({
             items: [],
@@ -340,8 +391,14 @@ describe("App", () => {
             queue_revision: 0,
           }),
         );
-      pipelinePaths.push(String(input));
-      return Promise.resolve(response(workspace()));
+      pipelinePaths.push(path);
+      if (path === `/api/recordings/${recordingId}/pipeline/lineage`)
+        return Promise.resolve(response(pipelineLineage()));
+      if (path === `/api/recordings/${recordingId}/pipeline?stage=events`)
+        return Promise.resolve(response(workspace()));
+      if (path === `/v1/recordings/${recordingId}`)
+        return Promise.resolve(response(recordingDetail()));
+      throw new Error(`Unexpected fetch request: ${path}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -371,7 +428,25 @@ describe("App", () => {
     );
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>(() => Promise.resolve(response(workspace()))),
+      vi.fn<typeof fetch>((input) => {
+        const path = String(input);
+        if (path.startsWith("/api/jobs?"))
+          return Promise.resolve(
+            response({
+              items: [],
+              next_cursor: null,
+              groups: [],
+              queue_revision: 0,
+            }),
+          );
+        if (path === `/api/recordings/${recordingId}/pipeline/lineage`)
+          return Promise.resolve(response(pipelineLineage()));
+        if (path.startsWith(`/api/recordings/${recordingId}/pipeline?stage=`))
+          return Promise.resolve(response(workspace()));
+        if (path === `/v1/recordings/${recordingId}`)
+          return Promise.resolve(response(recordingDetail()));
+        throw new Error(`Unexpected fetch request: ${path}`);
+      }),
     );
 
     render(<App />);
