@@ -3,7 +3,7 @@
 ## Plan status
 
 - **Status:** Blocked
-- **Depends on:** 0114 complete. Wait for 0115 M11 qualification and the final storage layout
+- **Depends on:** 0114 complete. Wait for 0115 M15 qualification and the final storage layout
   before M0. Coordinate any remaining storage changes before implementation.
 - **Outcome:** Reduce measured workspace and backend startup delay without weakening content
   validation, exact lineage, review state, or restart behavior.
@@ -65,7 +65,7 @@ Do not hide a new store or migration in profiling or final qualification.
 
 ## M0 — Establish the post-cleanup baseline
 
-Confirm 0115 M11 is complete. Record its final storage contract and retained corpus. Validate
+Confirm 0115 M15 is complete. Record its final storage contract and retained corpus. Validate
 the 57 frozen hard assets or an explicit verified replacement. Reconcile the 0114 route and
 budget inventory with current code; list any changed cases before comparing results.
 

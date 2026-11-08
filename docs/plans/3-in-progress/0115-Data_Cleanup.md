@@ -3,8 +3,8 @@
 ## Plan status
 
 - **Status:** In Progress
-- **Depends on:** 0108 and 0110 complete. No unmet dependency for M0. Coordinate storage changes
-  with 0112 and performance checks with 0114 before changing their shared boundaries.
+- **Depends on:** 0108, 0110, 0112, and 0114 complete. Use the final 0112 storage boundaries and
+  0114 qualification evidence. No unmet dependency for M6.
 - **Outcome:** Reduce retained disk bytes, worktree cost, application overhead from data growth,
   and agent discovery cost. Preserve useful source material and human work. Prevent regrowth.
 - **Retention decision:** Confirmed by the user on 2026-11-07. Preserve original recordings, human
@@ -123,7 +123,7 @@ input bytes can be reconstructed. Do not claim full run reproducibility when the
 unique evaluation evidence and active frozen inputs remain protected under the retention policy.
 
 M0 must rank both classes. M4 must explicitly account for old processed training inputs, including
-retained reasons for candidates it does not remove. M9 must cover cache eviction and the lifecycle
+retained reasons for candidates it does not remove. M13 must cover cache eviction and the lifecycle
 of newly created training materializations. Preserve caches needed by 0114 qualification until a
 verified replacement exists; do not evict a shared asset merely because one run has ended.
 
@@ -146,8 +146,8 @@ writers, replacement owners, and verification checks. Prove one complete workflo
 services/APIs and disposable persistence with the old path disabled before broader conversion.
 Rehearse and restart. Verify content, editing, selections, review decisions, and exact dependencies.
 Freeze the activation snapshot; retain minimal tested recovery evidence. Test concurrent writers
-and crash recovery separately when coordinated writes change. Coordinate with ongoing 0112 store
-extraction and 0114 fixtures; do not alter their contracts concurrently without resolving ownership.
+and crash recovery separately when coordinated writes change. Preserve the completed 0112 store
+boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 
 ## Milestone status
 
@@ -159,16 +159,22 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 | M3 | Retire verified redundant migration and recovery trees | Complete |
 | M4 | Remove one ranked family of unused runtime intermediates | Complete |
 | M5 | Specify and prove isolated worktree data access | Complete |
-| M6 | Cut over Git tracking and development setup to the verified layout | Not started |
-| M7 | Measure compact storage candidates and select one bounded format change | Not started |
-| M8 | Implement and convert the selected format family | Not started |
-| M9 | Bound cache, log, and future recovery-copy growth | Not started |
-| M10 | Add compact agent discovery and data-authority guidance | Not started |
-| M11 | Verify savings, workflows, performance, and recovery; close | Not started |
+| M6 | Freeze cutover inventory, replacement owners, recovery evidence, and test-failure disposition | Not started |
+| M7 | Make isolated development storage and setup the normal path | Not started |
+| M8 | Cut over tracked intake after proving source access and recovery | Not started |
+| M9 | Cut over the selected tracked pipeline family after dependency and recovery checks | Not started |
+| M10 | Evaluate safe Git and LFS maintenance and record history costs | Not started |
+| M11 | Measure compact storage candidates and select at most one bounded format change | Not started |
+| M12 | Implement and convert the selected format family, if justified | Not started |
+| M13 | Bound cache, log, and future recovery-copy growth | Not started |
+| M14 | Add compact agent discovery and data-authority guidance | Not started |
+| M15 | Verify savings, workflows, performance, and recovery; close | Not started |
 
 ## Execution handoff
 
-- **Run:** requested 11 milestones; completed 5; remaining 6.
+- **Run:** The previous run stopped after M5. Its original remaining milestone count does not
+  authorize a new run. The 2026-11-08 replan splits the remaining work into M6–M15. Continue on
+  main in a fresh context; follow the user's next execution request and its run limit.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -266,14 +272,14 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   unchanged. Full `mise install`, backend sync, frontend install/build, and backend app
   initialization measured 26.30 / 27.09 s. Total ready allocation was 18,670,260 / 18,673,008
   KiB: 17.80 / 17.81 GiB, exceeding the M0 2 GiB target by 15.80 / 15.81 GiB. Checkout
-  allocation was 16.92 GiB, or 14.92 GiB over target. M6 must complete tracking cutover. A bounded
+  allocation was 16.92 GiB, or 14.92 GiB over target. M8–M9 own tracking cutover. A bounded
   app/pipeline test run passed 43 tests with one lifespan-related failure
   recorded in the report. The legacy data defaults are still active when the explicit root is absent.
 - **Decisions and limits:** Explicit operator access copies selected validated bundles into the
   worktree intake. The source stays intact as the local restore copy. The create-to-ready time
-  target passes; the 2 GiB worktree target remains unmet until M6 tracking cutover. M5 does not
+  target passes; the 2 GiB worktree target remains unmet until tracking cutover. M5 does not
   relocate model bundles.
-- **Next:** M6 — tracking and setup cutover.
+- **Next:** M6 — freeze the cutover inventory and test-failure disposition.
 - **Commit boundary:** Storage-root and corpus-copy code/tests, M5 report, this epic, and board
   entry in one focused milestone commit.
 
@@ -363,20 +369,84 @@ workflow in each, edit/save/restart, and prove write isolation and exact asset i
 assets and ordinary clean-checkout setup. Measure create-to-ready time and incremental bytes.
 This milestone owns any new storage-location contract and its first complete replacement workflow.
 
-## M6 — Tracking and setup cutover
+## M6 — Cutover inventory and qualification plan
 
-Apply M5 to the remaining selected roots and maintained setup commands. Remove obsolete tracked
-copies and update ignore/LFS rules only after current authority is recoverable and consumers use
-the replacement. Do not manually edit the auto-generated environment file. Use its supported
-configuration path or document the command that its generator must invoke.
-Evaluate supported Git/LFS maintenance against active operations, all worktree refs, required
-history, and verified object availability. Do not delete pack temporaries or LFS objects by guess.
+Freeze exact tracked intake and pipeline candidate families, paths, counts, sizes, source revision,
+retained roots, and their current authority. Inspect representative persisted resource kinds and
+schema versions. List active readers and writers, replacement owners and paths, exact dependency
+checks, and restore sources. Include current human work, active epics, model bundles, fixtures,
+and all registered worktrees. Investigate missing or opaque references before any removal.
 
-Checks: clean checkout, two-worktree isolation, fixture materialization, current corpus access,
-retained-model loading, and recovery with old paths disabled. Measure checkout bytes separately
-from shared history. Report history costs left in place. Run affected backend/operations checks.
+Reproduce the M5 `test_factory_converts_interrupted_round_analysis_to_failed` failure on the M5
+baseline and current code. Record its origin, owner, and a concrete resolution or follow-up. Do
+not waive an acceptance check because the failure predates M5. Freeze candidate-specific checks,
+recovery drills, setup commands, and commit boundaries for M7–M9. Split a family before assignment
+if it needs another storage contract or cannot fit one phase. Record current 0112 and 0114
+boundaries and the 0114 final qualification evidence. Do not remove data or change tracking here.
 
-## M7 — Format experiment and decision
+Checks: repeat bounded inventory counts and representative dependency lookups; verify restore sources
+and hashes where available; run the named failure on both revisions; check local Markdown links.
+Commit only the inventory and plan/board updates. The output is an actionable cutover plan, not a
+declaration that all candidates are safe to remove.
+
+## M7 — Isolated development setup
+
+Apply the M5 root contract to the selected remaining mutable roots and maintained development setup.
+Make isolation the normal path without silently redirecting an operator's existing human data.
+Provide an explicit operator-corpus access path and clear missing-asset errors. Do not edit the
+auto-generated environment file; use its supported configuration or document the generator command.
+Do not remove tracked data or change its authority in this milestone.
+
+Checks: clean setup in two disposable worktrees with distinct roots and the old mutable path
+disabled; real API edit/save/readback/restart; source and cross-worktree write isolation; fixture
+materialization and missing-asset behavior; affected backend and setup checks. Record exact revision,
+commands, asset digests, and remaining roots. Commit setup and root changes with their tests and report.
+
+## M8 — Tracked intake cutover
+
+Use the M6 inventory and M7 setup to cut over the exact selected tracked intake family. Before
+untracking, freeze the activation snapshot and verify a usable independent restore source for every
+retained original and required metadata. Preserve original recordings and the operator's active
+corpus; do not equate removing Git tracking with deleting local source files. Do not touch pipeline
+tracking in this milestone. If the independent restore source or a consumer is unresolved, record
+the gap and keep the affected paths tracked.
+Before integration, protect retained files in every existing checkout from checkout or merge effects.
+Rehearse those effects; do not rely on `git rm --cached` alone to protect other worktrees.
+
+Checks: disposable rehearsal with old checkout paths disabled; exact asset identities and current
+corpus access through real services; clean checkout, two-worktree isolation, fixture materialization,
+and restore/readback. Verify that the main operator corpus remains intact. Measure checkout and
+shared Git history separately. Commit only the selected intake tracking, setup changes, tests, and
+receipt. No history rewrite or destructive Git/LFS maintenance.
+
+## M9 — Tracked pipeline cutover
+
+Cut over one exact M6-selected tracked pipeline family only after its readers and writers use the
+replacement and its retained content has a verified recovery source. Preserve exact revisions,
+lineage, review decisions, selections, and pending work. Investigate unresolved references; do not
+substitute a different revision. Rehearse the activation in disposable storage before changing
+tracking. Split further if independent contracts or families remain.
+Protect retained files in existing checkouts from checkout or merge effects before integration.
+
+Checks: real API/service workflow with the old path disabled, including exact content, edit/save,
+review decisions, dependencies and restart; recovery drill and frozen snapshot digest; clean
+checkout and affected backend/operations checks. Repeat the M0 ready-worktree time and allocation
+measurement with two worktrees and report remaining tracked families and the 2 GiB target gap.
+Commit only this family, its tests, evidence, and plan updates.
+
+## M10 — Git and LFS maintenance decision
+
+Inspect active Git operations, all worktree refs, temporary objects, LFS reachability, and verified
+object availability. Evaluate supported maintenance and its expected space effect. Do not infer safety
+from a garbage label, delete pack temporaries by guess, rewrite history, or remove a worktree. Record
+remaining shared history and LFS costs separately from checkout bytes. Execute only a bounded safe
+operation if the evidence supports it; otherwise record the unresolved decision and follow-up.
+
+Checks: record commands, exact candidate objects and refs, before/after state and free-space samples,
+and object availability. Run the relevant Git integrity and recovery checks for any operation.
+Commit the evidence and plan updates; do not include unrelated data changes.
+
+## M11 — Format experiment and decision
 
 Benchmark at most two storage alternatives against current storage for one ranked large resource
 family. Candidates include transparent lossless compression, less repeated immutable payloads,
@@ -386,22 +456,22 @@ and restore complexity. Smaller compressed files can still make application acce
 
 Checks: exact content/digest semantics, review decisions, frame/item membership, numerical precision,
 lineage, and representative large cases. Freeze one bounded replacement schema, reader/writer
-contract, conversion scope, target gain, and recovery plan for M8. If no alternative gives useful
-savings without unacceptable access cost, record that result and mark M8 not required. Split a
+contract, conversion scope, target gain, and recovery plan for M12. If no alternative gives useful
+savings without unacceptable access cost, record that result and mark M12 not required. Split a
 larger design into explicit milestones before implementation; retain the existing authorization limit.
 
-## M8 — Selected format and conversion
+## M12 — Selected format and conversion
 
-Implement the M7 contract for one family. Update its active readers/writers and tests; remove the
+Implement the M11 contract for one family. Update its active readers/writers and tests; remove the
 replaced undeployed path. Rehearse conversion in disposable storage before activation. Preserve
 exact source bytes where required by existing identities and bind any new representation to them.
 Do not convert unrelated payload types as a side effect.
 
 Checks: old path disabled, real API/service read and edit round trip, exact dependencies/review
-state, restart, conversion interruption, corruption, and recovery. Repeat the M7 size/access tests
+state, restart, conversion interruption, corruption, and recovery. Repeat the M11 size/access tests
 and affected 0114 cases on the same logical corpus. Record code revision and snapshot digest.
 
-## M9 — Prevent regrowth
+## M13 — Prevent regrowth
 
 Define and enforce bounded lifetimes/size budgets for the ranked derived-cache, log, and recovery
 families. Keep durable human work and pinned dependencies outside automatic eviction. Give derived
@@ -413,7 +483,7 @@ Checks: deterministic budget/expiry tests, pinned entries, missing cache regener
 active readers/writers, and crash recovery separately. Measure hot/cold application behavior with
 0114; moving all latency to cache misses is not sufficient. The result must bound new growth.
 
-## M10 — Agent discovery and authority
+## M14 — Agent discovery and authority
 
 Add a compact maintained storage map with authority, schema, owner, lookup command, retention class,
 and example manifest for each retained family. Use bounded metadata indexes only if measurements
@@ -426,7 +496,7 @@ bundle, and a cleanup reason. Record search bytes/lines and lookup correctness a
 answers. Test that changed data does not leave a false authoritative pointer. Do not claim token
 or reasoning improvements from file-count reduction alone. Run Markdown link checks.
 
-## M11 — Qualification and closure
+## M15 — Qualification and closure
 
 Repeat storage and worktree measurements on the same machine and declared retained corpus.
 Compare the original and final layouts with all retained logical inputs fixed; also report any
