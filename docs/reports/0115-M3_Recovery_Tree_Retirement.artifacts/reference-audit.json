@@ -1,0 +1,574 @@
+{
+  "candidate_manifest_sha256": "8de6e1b4ee5eb867027ccffa5cdd28bc13cab30a039ada500ec8459b2b917ae9",
+  "runtime_reader_writer_search": {
+    "patterns": [
+      "recording_videos",
+      "recording-videos"
+    ],
+    "result": "No runtime readers or writers reference this candidate family; only the cleanup fixture names its exact root. The storage inventory script measures the parent 0108 recovery root.",
+    "scanned_roots": [
+      "scripts",
+      "backend",
+      "operations"
+    ]
+  },
+  "schema_version": "0115-m3-reference-audit/v1",
+  "source_location_aliases": [
+    {
+      "key": "data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.m4v",
+      "physical_path": "data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.mov"
+    },
+    {
+      "key": "data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.m4v",
+      "physical_path": "data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.mov"
+    },
+    {
+      "key": "data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.m4v",
+      "physical_path": "data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.mov"
+    },
+    {
+      "key": "data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.m4v",
+      "physical_path": "data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.mov"
+    }
+  ],
+  "source_location_count": 55,
+  "stages": {
+    "migration-stage": {
+      "all_references_resolve_to_protected_intake": true,
+      "candidate_file_entries": 51,
+      "file_count": 32219,
+      "migration_snapshot_sha256": "d85acd8ca675e3c6fade359359416bda1e3d49a436397d2e895a75c0052c4909",
+      "resource_count": 1903,
+      "source_video_reference_count": 1429,
+      "unique_protected_paths": [
+        {
+          "path": "data/intake/recordings/5a1f4037-d8ad-48da-9950-2ed2272811a5/videos/video-5a1f4037-d8ad-48da-9950-2ed2272811a5.mov",
+          "reference_count": 33,
+          "sha256": "6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0090/videos/video-cardeventnet-IMG_0090.mov",
+          "reference_count": 31,
+          "sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0091/videos/video-cardeventnet-IMG_0091.mov",
+          "reference_count": 38,
+          "sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0092/videos/video-cardeventnet-IMG_0092.mov",
+          "reference_count": 18,
+          "sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0095/videos/video-cardeventnet-IMG_0095.mov",
+          "reference_count": 53,
+          "sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0096/videos/video-cardeventnet-IMG_0096.mov",
+          "reference_count": 34,
+          "sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0097/videos/video-cardeventnet-IMG_0097.mov",
+          "reference_count": 41,
+          "sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0635/videos/video-cardeventnet-IMG_0635.mov",
+          "reference_count": 17,
+          "sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0636/videos/video-cardeventnet-IMG_0636.mov",
+          "reference_count": 41,
+          "sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0637/videos/video-cardeventnet-IMG_0637.mov",
+          "reference_count": 31,
+          "sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0638/videos/video-cardeventnet-IMG_0638.mov",
+          "reference_count": 33,
+          "sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0639/videos/video-cardeventnet-IMG_0639.mov",
+          "reference_count": 27,
+          "sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0640/videos/video-cardeventnet-IMG_0640.mov",
+          "reference_count": 33,
+          "sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0641/videos/video-cardeventnet-IMG_0641.mov",
+          "reference_count": 30,
+          "sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0642/videos/video-cardeventnet-IMG_0642.mov",
+          "reference_count": 25,
+          "sha256": "bed363c2d52f6c141f8ddcac09a20ec42328834dbd635e9c0922ac1cf52f821c"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0643/videos/video-cardeventnet-IMG_0643.mov",
+          "reference_count": 33,
+          "sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0644/videos/video-cardeventnet-IMG_0644.mov",
+          "reference_count": 26,
+          "sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0645/videos/video-cardeventnet-IMG_0645.mov",
+          "reference_count": 31,
+          "sha256": "47707b79140338f5393b59c52ab7c0078b23ed889fc7da01423b7734f3ac15f8"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0646/videos/video-cardeventnet-IMG_0646.mov",
+          "reference_count": 24,
+          "sha256": "232c707df9474ceae51c581ec55ae274f12e09e871e5a5867cab1ea75d73c033"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0648/videos/video-cardeventnet-IMG_0648.mov",
+          "reference_count": 26,
+          "sha256": "6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0649/videos/video-cardeventnet-IMG_0649.mov",
+          "reference_count": 26,
+          "sha256": "5b48dcad8a7faa34748ac2631f55352ea8219c6c5b54474bd887fed93b62f6ed"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0650/videos/video-cardeventnet-IMG_0650.mov",
+          "reference_count": 66,
+          "sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0651/videos/video-cardeventnet-IMG_0651.mov",
+          "reference_count": 32,
+          "sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0652/videos/video-cardeventnet-IMG_0652.mov",
+          "reference_count": 27,
+          "sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0653/videos/video-cardeventnet-IMG_0653.mov",
+          "reference_count": 42,
+          "sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0654/videos/video-cardeventnet-IMG_0654.mov",
+          "reference_count": 34,
+          "sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0655/videos/video-cardeventnet-IMG_0655.mov",
+          "reference_count": 30,
+          "sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0656/videos/video-cardeventnet-IMG_0656.mov",
+          "reference_count": 24,
+          "sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+          "reference_count": 39,
+          "sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0658/videos/video-cardeventnet-IMG_0658.mov",
+          "reference_count": 27,
+          "sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0659/videos/video-cardeventnet-IMG_0659.mov",
+          "reference_count": 19,
+          "sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0660/videos/video-cardeventnet-IMG_0660.mov",
+          "reference_count": 33,
+          "sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0661/videos/video-cardeventnet-IMG_0661.mov",
+          "reference_count": 51,
+          "sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+          "reference_count": 50,
+          "sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov",
+          "reference_count": 16,
+          "sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov",
+          "reference_count": 19,
+          "sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov",
+          "reference_count": 17,
+          "sha256": "43685d181346b93cc865b5ece77702081c75091771b01f5972f7ee0f1883fa69"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0673/videos/video-cardeventnet-IMG_0673.mov",
+          "reference_count": 15,
+          "sha256": "3b8aa89940cb14af8383da13b18fc9dbe2c1dc593e8b088e33a6b47119c01ce3"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0674/videos/video-cardeventnet-IMG_0674.mov",
+          "reference_count": 12,
+          "sha256": "26fb63d873129ab65988a3bba3ca0546b690f66556cefeab291f1c4ec0f3dc14"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.mov",
+          "reference_count": 4,
+          "sha256": "ccb1c0ca78558691af4a37c18eaac76a64d782aadc105cd0c779a5296e311e81"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.mov",
+          "reference_count": 4,
+          "sha256": "9a9ccbdf365bd2addd919617fb28513e9700395b83b0b8b913713cb21da4a029"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.mov",
+          "reference_count": 4,
+          "sha256": "3c4e2da8d5381aa5648e832ebc31efea09e20008cd7f72fc9b4e33a719660f93"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.mov",
+          "reference_count": 4,
+          "sha256": "1c801078b400622dd91d43fd57f209ab5f364169dd07b0b6d4487d71dab9f046"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2781/videos/video-cardeventnet-IMG_2781.mov",
+          "reference_count": 2,
+          "sha256": "d851b5dd347ec9b91adefac2a641b27a3f8c80d308de8e320ad93f927ed458ee"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+          "reference_count": 56,
+          "sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-08-20-01-002/videos/game-2026-08-20-01-002-video.mov",
+          "reference_count": 4,
+          "sha256": "5e8018e24a1328e796d1546dc9a9b05f157007a727c831383d38676e640feb88"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-08-20-01-003/videos/game-2026-08-20-01-003-video.mov",
+          "reference_count": 28,
+          "sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov",
+          "reference_count": 15,
+          "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-09-18-01-001/videos/game-2026-09-18-01-001-video.mov",
+          "reference_count": 40,
+          "sha256": "a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-09-18-01-002/videos/game-2026-09-18-01-002-video.mov",
+          "reference_count": 23,
+          "sha256": "bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-09-18-01-003/videos/game-2026-09-18-01-003-video.mov",
+          "reference_count": 41,
+          "sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada"
+        }
+      ],
+      "unrelated_uncertainties_retained": 167
+    },
+    "migration-stage-accepted-loss": {
+      "all_references_resolve_to_protected_intake": true,
+      "candidate_file_entries": 51,
+      "file_count": 34414,
+      "migration_snapshot_sha256": "c8979c9a53956abd749e638466e1f88009f2e0ce8e725d674bf26ff0335ed430",
+      "resource_count": 2086,
+      "source_video_reference_count": 1429,
+      "unique_protected_paths": [
+        {
+          "path": "data/intake/recordings/5a1f4037-d8ad-48da-9950-2ed2272811a5/videos/video-5a1f4037-d8ad-48da-9950-2ed2272811a5.mov",
+          "reference_count": 33,
+          "sha256": "6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0090/videos/video-cardeventnet-IMG_0090.mov",
+          "reference_count": 31,
+          "sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0091/videos/video-cardeventnet-IMG_0091.mov",
+          "reference_count": 38,
+          "sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0092/videos/video-cardeventnet-IMG_0092.mov",
+          "reference_count": 18,
+          "sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0095/videos/video-cardeventnet-IMG_0095.mov",
+          "reference_count": 53,
+          "sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0096/videos/video-cardeventnet-IMG_0096.mov",
+          "reference_count": 34,
+          "sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0097/videos/video-cardeventnet-IMG_0097.mov",
+          "reference_count": 41,
+          "sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0635/videos/video-cardeventnet-IMG_0635.mov",
+          "reference_count": 17,
+          "sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0636/videos/video-cardeventnet-IMG_0636.mov",
+          "reference_count": 41,
+          "sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0637/videos/video-cardeventnet-IMG_0637.mov",
+          "reference_count": 31,
+          "sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0638/videos/video-cardeventnet-IMG_0638.mov",
+          "reference_count": 33,
+          "sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0639/videos/video-cardeventnet-IMG_0639.mov",
+          "reference_count": 27,
+          "sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0640/videos/video-cardeventnet-IMG_0640.mov",
+          "reference_count": 33,
+          "sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0641/videos/video-cardeventnet-IMG_0641.mov",
+          "reference_count": 30,
+          "sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0642/videos/video-cardeventnet-IMG_0642.mov",
+          "reference_count": 25,
+          "sha256": "bed363c2d52f6c141f8ddcac09a20ec42328834dbd635e9c0922ac1cf52f821c"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0643/videos/video-cardeventnet-IMG_0643.mov",
+          "reference_count": 33,
+          "sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0644/videos/video-cardeventnet-IMG_0644.mov",
+          "reference_count": 26,
+          "sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0645/videos/video-cardeventnet-IMG_0645.mov",
+          "reference_count": 31,
+          "sha256": "47707b79140338f5393b59c52ab7c0078b23ed889fc7da01423b7734f3ac15f8"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0646/videos/video-cardeventnet-IMG_0646.mov",
+          "reference_count": 24,
+          "sha256": "232c707df9474ceae51c581ec55ae274f12e09e871e5a5867cab1ea75d73c033"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0648/videos/video-cardeventnet-IMG_0648.mov",
+          "reference_count": 26,
+          "sha256": "6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0649/videos/video-cardeventnet-IMG_0649.mov",
+          "reference_count": 26,
+          "sha256": "5b48dcad8a7faa34748ac2631f55352ea8219c6c5b54474bd887fed93b62f6ed"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0650/videos/video-cardeventnet-IMG_0650.mov",
+          "reference_count": 66,
+          "sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0651/videos/video-cardeventnet-IMG_0651.mov",
+          "reference_count": 32,
+          "sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0652/videos/video-cardeventnet-IMG_0652.mov",
+          "reference_count": 27,
+          "sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0653/videos/video-cardeventnet-IMG_0653.mov",
+          "reference_count": 42,
+          "sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0654/videos/video-cardeventnet-IMG_0654.mov",
+          "reference_count": 34,
+          "sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0655/videos/video-cardeventnet-IMG_0655.mov",
+          "reference_count": 30,
+          "sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0656/videos/video-cardeventnet-IMG_0656.mov",
+          "reference_count": 24,
+          "sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+          "reference_count": 39,
+          "sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0658/videos/video-cardeventnet-IMG_0658.mov",
+          "reference_count": 27,
+          "sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0659/videos/video-cardeventnet-IMG_0659.mov",
+          "reference_count": 19,
+          "sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0660/videos/video-cardeventnet-IMG_0660.mov",
+          "reference_count": 33,
+          "sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0661/videos/video-cardeventnet-IMG_0661.mov",
+          "reference_count": 51,
+          "sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+          "reference_count": 50,
+          "sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov",
+          "reference_count": 16,
+          "sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov",
+          "reference_count": 19,
+          "sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov",
+          "reference_count": 17,
+          "sha256": "43685d181346b93cc865b5ece77702081c75091771b01f5972f7ee0f1883fa69"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0673/videos/video-cardeventnet-IMG_0673.mov",
+          "reference_count": 15,
+          "sha256": "3b8aa89940cb14af8383da13b18fc9dbe2c1dc593e8b088e33a6b47119c01ce3"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_0674/videos/video-cardeventnet-IMG_0674.mov",
+          "reference_count": 12,
+          "sha256": "26fb63d873129ab65988a3bba3ca0546b690f66556cefeab291f1c4ec0f3dc14"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.mov",
+          "reference_count": 4,
+          "sha256": "ccb1c0ca78558691af4a37c18eaac76a64d782aadc105cd0c779a5296e311e81"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.mov",
+          "reference_count": 4,
+          "sha256": "9a9ccbdf365bd2addd919617fb28513e9700395b83b0b8b913713cb21da4a029"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.mov",
+          "reference_count": 4,
+          "sha256": "3c4e2da8d5381aa5648e832ebc31efea09e20008cd7f72fc9b4e33a719660f93"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.mov",
+          "reference_count": 4,
+          "sha256": "1c801078b400622dd91d43fd57f209ab5f364169dd07b0b6d4487d71dab9f046"
+        },
+        {
+          "path": "data/intake/recordings/cardeventnet-IMG_2781/videos/video-cardeventnet-IMG_2781.mov",
+          "reference_count": 2,
+          "sha256": "d851b5dd347ec9b91adefac2a641b27a3f8c80d308de8e320ad93f927ed458ee"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+          "reference_count": 56,
+          "sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-08-20-01-002/videos/game-2026-08-20-01-002-video.mov",
+          "reference_count": 4,
+          "sha256": "5e8018e24a1328e796d1546dc9a9b05f157007a727c831383d38676e640feb88"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-08-20-01-003/videos/game-2026-08-20-01-003-video.mov",
+          "reference_count": 28,
+          "sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov",
+          "reference_count": 15,
+          "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-09-18-01-001/videos/game-2026-09-18-01-001-video.mov",
+          "reference_count": 40,
+          "sha256": "a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-09-18-01-002/videos/game-2026-09-18-01-002-video.mov",
+          "reference_count": 23,
+          "sha256": "bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65"
+        },
+        {
+          "path": "data/intake/recordings/game-2026-09-18-01-003/videos/game-2026-09-18-01-003-video.mov",
+          "reference_count": 41,
+          "sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada"
+        }
+      ],
+      "unrelated_uncertainties_retained": 156
+    }
+  },
+  "unknowns": {
+    "disposition": "Preserved; outside the verified recovery-video family.",
+    "migration-stage": 167,
+    "migration-stage-accepted-loss": 156
+  }
+}

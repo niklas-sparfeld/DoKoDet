@@ -156,7 +156,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 | M0 | Storage inventory, cost baseline, retention roots, and ranked targets | Complete |
 | M1 | Tested recovery of retained authority and an exact cleanup manifest | Complete |
 | M2 | Bounded cleanup planner and apply mechanism | Complete |
-| M3 | Retire verified redundant migration and recovery trees | Not started |
+| M3 | Retire verified redundant migration and recovery trees | Complete |
 | M4 | Remove one ranked family of unused runtime intermediates | Not started |
 | M5 | Specify and prove isolated worktree data access | Not started |
 | M6 | Cut over Git tracking and development setup to the verified layout | Not started |
@@ -168,7 +168,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 
 ## Execution handoff
 
-- **Run:** requested 11 milestones; completed 2; remaining 9.
+- **Run:** requested 11 milestones; completed 3; remaining 8.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -193,10 +193,34 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   references, and per-candidate authorization. It checks current open files with `lsof` and fails
   closed when that check is unavailable. Apply removes only regular, single-link files under the
   selected root. M2 adds tooling only; it does not authorize or perform M3 cleanup.
-- **Next:** M3 — audit all recovery-tree references and run the recovery drill before deciding
-  whether any exact candidate can be retired.
-- **Commit boundary:** M2 tool, focused tests, report, epic, board, and handoff in one focused
-  commit.
+- **M2 handoff:** M3 audited all recovery-tree references and completed the required recovery
+  checks before retiring one exact candidate family.
+- **M2 commit boundary:** The M2 tool, focused tests, report, epic, board, and handoff were grouped
+  in its own focused commit.
+
+- **M3:** Complete. The [M3 report](../../reports/0115-M3_Recovery_Tree_Retirement.md) records
+  the exact reference audit, guarded retirement of 51 duplicate recovery videos, retained-content
+  audit, protected originals, recovery drills, live review restart, and measured directory and
+  volume changes.
+- **Changes:** Retired only the 51 manifest-bound recording-video copies. Preserved the accepted-loss
+  recovery stage, earlier stage, migration source, intake originals, and unknown histories. The M2
+  tool now allows hard-linked protected references while retaining single-link candidate checks;
+  its focused regression tests cover both cases. The [durable receipt](../../reports/0115-M3_Recovery_Tree_Retirement.artifacts/retirement-receipt.json)
+  lists every removed path and digest.
+- **Checks:** M2 tests passed (12); Ruff and format passed. The M1 verifier passed after apply with
+  the same accepted-loss snapshot digest. The 51-file family reconstructed and hash-checked from
+  intake after apply. The real backend served two representative independent-review revisions and
+  50 records across restart. The exact retained-tree digest, file count, and logical bytes matched
+  before and after. The M2 apply receipt reports all 51 files removed.
+- **Decisions and limits:** The available volume space changed by -1,488 KiB between immediate
+  pre-apply and post-apply observations, and by -14,740 KiB from pre-apply to a later sample after
+  temporary drill cleanup. The 0108 root directory fell from 25,308,296 KiB to 11,132,028 KiB.
+  These are measured values; no savings are predicted. The full copied-store drill
+  remained too slow because of deep JSON serialization, so it was stopped in temporary storage.
+  Unknown histories and unrelated uncertainty remain retained.
+- **Next:** M4 — remove one ranked family of unused runtime intermediates.
+- **Commit boundary:** M2 tool correction, focused regression tests, M3 report and artifacts, epic,
+  board, and handoff in one focused milestone commit.
 
 ## M0 — Inventory and rank
 

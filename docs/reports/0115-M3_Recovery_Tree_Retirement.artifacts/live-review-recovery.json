@@ -1,0 +1,155 @@
+{
+  "protected_recordings_root": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings",
+  "result": "Exact revision content, 10 visible-card review records (9 accepted, 1 unusable), and 40 scene review records (40 pending) survived a real backend restart in isolated storage.",
+  "schema_version": "0115-m3-live-review-drill/v1",
+  "server_restarts": [
+    {
+      "decisions": {
+        "scene": {
+          "pending": 40
+        },
+        "visible": {
+          "accepted": 9,
+          "unusable": 1
+        }
+      },
+      "review_counts": {
+        "scene": 40,
+        "visible": 10
+      },
+      "scene_content_sha256": "89641b60662053049ca2c4f8566f97886f10afe82174097e1ab7a221ece41616",
+      "scene_review_ids": [
+        "03d9ec29-288a-5e5f-a0be-0efd1826e892",
+        "0c2127af-fdb4-5b1b-99af-a6d14a0c1e51",
+        "0d7ea82b-30d8-5ce9-b1c6-27db2a4e2454",
+        "157ed625-0846-54de-bf7e-ff1e04a2efae",
+        "15a81faa-7713-5f70-8160-796f8bc3c3de",
+        "171f6aab-71e9-53ac-9e5c-c7d954c29a5a",
+        "25c8bb62-2207-5b4b-aef5-ead728681d7c",
+        "260653ec-2655-579a-bd34-0b9aef0b2af9",
+        "2ecd6058-3940-51b4-8d2a-9699b00ea130",
+        "35186f21-eebb-5a5a-b39a-ed2e809f4efc",
+        "38904a60-eae0-5afc-97e4-62e9e0b10593",
+        "39ed0704-dd41-59d3-b386-7f21ba7f3282",
+        "3eb07a55-b291-5c29-b250-7b3281e8d314",
+        "4334d12b-409f-52ba-8756-e7e11823954d",
+        "48fa6914-f570-5435-b0b9-29e7e1429c1d",
+        "4f840e83-0fd7-5742-9f76-f6a4bffa6eae",
+        "50a00d72-a9b4-5ee2-b0a0-944c64bd7ac4",
+        "56413648-2632-5148-ac7f-f931d337c06f",
+        "6049bbc6-4752-5d45-a4db-0d243eeda6ab",
+        "68bc1642-01a3-5090-9ce0-79941984b065",
+        "72279431-7c28-51bb-98d0-b2a6b1818723",
+        "7392d71b-5a9d-592a-a68a-2902645558b1",
+        "7e4c17a0-d7d3-5b86-8ae7-afa104d49aa7",
+        "7e9fda99-f9ff-584b-8601-7df47c1cf374",
+        "827788d6-3b73-549c-85b7-bbca42610af8",
+        "89b36d52-4937-5302-b6f5-690c7f7dfa18",
+        "9b72d3b8-956c-5a8c-b27d-61d6d59c1461",
+        "9ee9d65b-2cdf-569f-8dde-bedfec17a9ac",
+        "a4ba7392-fd7f-5af0-9d3e-adbddded651b",
+        "a97c1ea3-4dbb-5dbc-8f48-4d1304202fb6",
+        "a9c30325-a047-5108-97ab-3343e7ff66c9",
+        "ac7b5987-9b8d-59bc-b16b-9d5cc02d9d81",
+        "b2933d8e-9b0d-517e-89d0-ebf650c89d39",
+        "c04395a9-193b-5de2-9abf-341eaffe194a",
+        "c45d975d-14ac-5052-919f-2a10d4dc2135",
+        "d5c83be6-b434-55d0-ac2f-d632e36393b4",
+        "d8d5c66d-c050-5a7f-b798-8ddbb1698abe",
+        "e93d1098-4b0c-5fac-b393-d2caf6aa3c33",
+        "eade95e9-dd91-55bc-9445-644c5df2151c",
+        "fb546690-ebd5-54de-8bcf-a12329dbf6df"
+      ],
+      "scene_revision_id": "2a8bf3d6-6e65-59d3-a0d0-e7048e566ce9",
+      "visible_content_sha256": "0ac8315d77f6014788e5bf3ad27278c890ce546f7431f242985f9d17404ff4d9",
+      "visible_review_ids": [
+        "202e161a-aa3f-58d8-900f-01b47f6a2149",
+        "41737a62-63b5-5866-afa2-384a595dbce3",
+        "6762069b-f200-5561-8331-e5d71229e5f2",
+        "bc6b29d5-6634-5e4f-afe6-a77825f131d1",
+        "bed19ec1-7f37-5709-ae01-ca4682760c40",
+        "bf70af91-1fc4-558a-8b7e-4c08278d652a",
+        "dc79faec-7bb4-5f82-8a31-6ad6e49a7c7b",
+        "e3447f77-ac22-58f4-a590-8329e380e3df",
+        "e7b64d35-5000-5918-99d4-5b0c47a974af",
+        "e91805cf-3cc0-523b-9c81-7af8cdeaaf66"
+      ],
+      "visible_revision_id": "9cd3a30c-6c95-5427-802d-35a4868b3c56"
+    },
+    {
+      "decisions": {
+        "scene": {
+          "pending": 40
+        },
+        "visible": {
+          "accepted": 9,
+          "unusable": 1
+        }
+      },
+      "review_counts": {
+        "scene": 40,
+        "visible": 10
+      },
+      "scene_content_sha256": "89641b60662053049ca2c4f8566f97886f10afe82174097e1ab7a221ece41616",
+      "scene_review_ids": [
+        "03d9ec29-288a-5e5f-a0be-0efd1826e892",
+        "0c2127af-fdb4-5b1b-99af-a6d14a0c1e51",
+        "0d7ea82b-30d8-5ce9-b1c6-27db2a4e2454",
+        "157ed625-0846-54de-bf7e-ff1e04a2efae",
+        "15a81faa-7713-5f70-8160-796f8bc3c3de",
+        "171f6aab-71e9-53ac-9e5c-c7d954c29a5a",
+        "25c8bb62-2207-5b4b-aef5-ead728681d7c",
+        "260653ec-2655-579a-bd34-0b9aef0b2af9",
+        "2ecd6058-3940-51b4-8d2a-9699b00ea130",
+        "35186f21-eebb-5a5a-b39a-ed2e809f4efc",
+        "38904a60-eae0-5afc-97e4-62e9e0b10593",
+        "39ed0704-dd41-59d3-b386-7f21ba7f3282",
+        "3eb07a55-b291-5c29-b250-7b3281e8d314",
+        "4334d12b-409f-52ba-8756-e7e11823954d",
+        "48fa6914-f570-5435-b0b9-29e7e1429c1d",
+        "4f840e83-0fd7-5742-9f76-f6a4bffa6eae",
+        "50a00d72-a9b4-5ee2-b0a0-944c64bd7ac4",
+        "56413648-2632-5148-ac7f-f931d337c06f",
+        "6049bbc6-4752-5d45-a4db-0d243eeda6ab",
+        "68bc1642-01a3-5090-9ce0-79941984b065",
+        "72279431-7c28-51bb-98d0-b2a6b1818723",
+        "7392d71b-5a9d-592a-a68a-2902645558b1",
+        "7e4c17a0-d7d3-5b86-8ae7-afa104d49aa7",
+        "7e9fda99-f9ff-584b-8601-7df47c1cf374",
+        "827788d6-3b73-549c-85b7-bbca42610af8",
+        "89b36d52-4937-5302-b6f5-690c7f7dfa18",
+        "9b72d3b8-956c-5a8c-b27d-61d6d59c1461",
+        "9ee9d65b-2cdf-569f-8dde-bedfec17a9ac",
+        "a4ba7392-fd7f-5af0-9d3e-adbddded651b",
+        "a97c1ea3-4dbb-5dbc-8f48-4d1304202fb6",
+        "a9c30325-a047-5108-97ab-3343e7ff66c9",
+        "ac7b5987-9b8d-59bc-b16b-9d5cc02d9d81",
+        "b2933d8e-9b0d-517e-89d0-ebf650c89d39",
+        "c04395a9-193b-5de2-9abf-341eaffe194a",
+        "c45d975d-14ac-5052-919f-2a10d4dc2135",
+        "d5c83be6-b434-55d0-ac2f-d632e36393b4",
+        "d8d5c66d-c050-5a7f-b798-8ddbb1698abe",
+        "e93d1098-4b0c-5fac-b393-d2caf6aa3c33",
+        "eade95e9-dd91-55bc-9445-644c5df2151c",
+        "fb546690-ebd5-54de-8bcf-a12329dbf6df"
+      ],
+      "scene_revision_id": "2a8bf3d6-6e65-59d3-a0d0-e7048e566ce9",
+      "visible_content_sha256": "0ac8315d77f6014788e5bf3ad27278c890ce546f7431f242985f9d17404ff4d9",
+      "visible_review_ids": [
+        "202e161a-aa3f-58d8-900f-01b47f6a2149",
+        "41737a62-63b5-5866-afa2-384a595dbce3",
+        "6762069b-f200-5561-8331-e5d71229e5f2",
+        "bc6b29d5-6634-5e4f-afe6-a77825f131d1",
+        "bed19ec1-7f37-5709-ae01-ca4682760c40",
+        "bf70af91-1fc4-558a-8b7e-4c08278d652a",
+        "dc79faec-7bb4-5f82-8a31-6ad6e49a7c7b",
+        "e3447f77-ac22-58f4-a590-8329e380e3df",
+        "e7b64d35-5000-5918-99d4-5b0c47a974af",
+        "e91805cf-3cc0-523b-9c81-7af8cdeaaf66"
+      ],
+      "visible_revision_id": "9cd3a30c-6c95-5427-802d-35a4868b3c56"
+    }
+  ],
+  "source_root": "main data/operations/pipeline-nodes, cloned only the two exact M1 independent-review nodes and their 50 revision-bound records",
+  "temporary_operations_root": "/tmp/0115-m3-review/data/operations"
+}

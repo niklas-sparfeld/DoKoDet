@@ -132,6 +132,31 @@ def test_unknown_references_and_changed_protected_dependency_reject_apply_or_pla
         _plan(repo2, manifest_path2)
 
 
+def test_hardlinked_protected_reference_is_read_only_and_allowed(tmp_path: Path) -> None:
+    repo, root, manifest_path, _ = _fixture(tmp_path)
+    reference = repo / "data/intake/recordings/clip.mov"
+    alias = reference.with_name("clip-alias.mov")
+    os.link(reference, alias)
+
+    plan_relative = _plan(repo, manifest_path)
+    _apply(repo, plan_relative)
+
+    assert not (root / "clip.mov").exists()
+    assert reference.read_bytes() == b"recovery copy"
+    assert alias.read_bytes() == b"recovery copy"
+    assert reference.stat().st_ino == alias.stat().st_ino
+
+
+def test_hardlinked_candidate_is_rejected(tmp_path: Path) -> None:
+    repo, root, manifest_path, _ = _fixture(tmp_path)
+    candidate = root / "clip.mov"
+    os.link(candidate, root / "clip-alias.mov")
+
+    with pytest.raises(cleanup_0115.CleanupError, match="candidate must be a single-link"):
+        _plan(repo, manifest_path)
+    assert candidate.exists()
+
+
 def test_changed_manifest_rejects_stale_plan(tmp_path: Path) -> None:
     repo, root, manifest_path, manifest = _fixture(tmp_path)
     plan_relative = _plan(repo, manifest_path)

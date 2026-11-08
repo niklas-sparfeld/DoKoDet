@@ -1,0 +1,16 @@
+{
+  "after_apply": {
+    "all_sizes_and_sha256_match": true,
+    "source": "protected data/intake originals"
+  },
+  "before_apply": {
+    "all_sizes_and_sha256_match": true,
+    "source": "exact frozen recovery-video candidate paths"
+  },
+  "candidate_count": 51,
+  "candidate_manifest": "recording-video-candidates.json",
+  "logical_bytes": 14516434567,
+  "protected_intake_originals_retained": 51,
+  "retirement_receipt": "retirement-receipt.json",
+  "schema_version": "0115-m3-family-recovery/v1"
+}

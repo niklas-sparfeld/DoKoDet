@@ -1,0 +1,440 @@
+{
+  "candidate_count": 51,
+  "candidate_identities": [
+    {
+      "bytes": 478743464,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/5a1f4037-d8ad-48da-9950-2ed2272811a5/videos/video-5a1f4037-d8ad-48da-9950-2ed2272811a5.mov",
+      "intake": "data/intake/recordings/5a1f4037-d8ad-48da-9950-2ed2272811a5/videos/video-5a1f4037-d8ad-48da-9950-2ed2272811a5.mov",
+      "sha256": "6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a"
+    },
+    {
+      "bytes": 149163581,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0090/videos/video-cardeventnet-IMG_0090.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0090/videos/video-cardeventnet-IMG_0090.mov",
+      "sha256": "d902eb5b18f70a7109cff05163f17847f4361b5a5598f61549c731e529faf1ef"
+    },
+    {
+      "bytes": 134705169,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0091/videos/video-cardeventnet-IMG_0091.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0091/videos/video-cardeventnet-IMG_0091.mov",
+      "sha256": "fd0af537e9f25f84ef515f94dff25454cf6ec5c8de116ab349091a12ae83d61f"
+    },
+    {
+      "bytes": 126875766,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0092/videos/video-cardeventnet-IMG_0092.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0092/videos/video-cardeventnet-IMG_0092.mov",
+      "sha256": "099d7a2b2cec127435abf2c7821bd211f31c227c1f4398e0b796cd7994aac5ac"
+    },
+    {
+      "bytes": 334940123,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0095/videos/video-cardeventnet-IMG_0095.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0095/videos/video-cardeventnet-IMG_0095.mov",
+      "sha256": "34610c528a17117cf60dafd4137cf3531836c2bfdf422d391060249ce8da7bc7"
+    },
+    {
+      "bytes": 321820778,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0096/videos/video-cardeventnet-IMG_0096.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0096/videos/video-cardeventnet-IMG_0096.mov",
+      "sha256": "6a56ed43b2c5dedc67852d80b6927d03d5e06d1dd9006bdddf0773e015c08a0d"
+    },
+    {
+      "bytes": 302191126,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0097/videos/video-cardeventnet-IMG_0097.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0097/videos/video-cardeventnet-IMG_0097.mov",
+      "sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b"
+    },
+    {
+      "bytes": 329117529,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0635/videos/video-cardeventnet-IMG_0635.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0635/videos/video-cardeventnet-IMG_0635.mov",
+      "sha256": "a64864ff57b37d505b2f794e4b360f2e4200a466c2ebc7d9f70f024e743386d6"
+    },
+    {
+      "bytes": 265216840,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0636/videos/video-cardeventnet-IMG_0636.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0636/videos/video-cardeventnet-IMG_0636.mov",
+      "sha256": "92afbb0be69e295c929e3bdb0cecef82ccdee88f52c4e7fd346ed0485af9d5ad"
+    },
+    {
+      "bytes": 129432156,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0637/videos/video-cardeventnet-IMG_0637.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0637/videos/video-cardeventnet-IMG_0637.mov",
+      "sha256": "f6ddd4bac0b429c2b0a27d64164f74c408fc468b8d0d710a76db09b87777a9c2"
+    },
+    {
+      "bytes": 161154751,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0638/videos/video-cardeventnet-IMG_0638.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0638/videos/video-cardeventnet-IMG_0638.mov",
+      "sha256": "2c384eef50d6dd0fe1b8e49ae4b406bb654d4f4bc704aad5ecc9de9be75567e5"
+    },
+    {
+      "bytes": 132769108,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0639/videos/video-cardeventnet-IMG_0639.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0639/videos/video-cardeventnet-IMG_0639.mov",
+      "sha256": "20d7fce90b586b1bf360fd04279a13ede1d193a866fc826fb2ea9c2896f71e5f"
+    },
+    {
+      "bytes": 149142154,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0640/videos/video-cardeventnet-IMG_0640.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0640/videos/video-cardeventnet-IMG_0640.mov",
+      "sha256": "bba4b614c9640917b37a57c1e21730d3d0370c0c55c80010e9eed2d716fb0014"
+    },
+    {
+      "bytes": 159644121,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0641/videos/video-cardeventnet-IMG_0641.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0641/videos/video-cardeventnet-IMG_0641.mov",
+      "sha256": "5a28fb330800b0a8bd0eedb251a7e70e16e002a9d2f56eb3340cb9d3cd2b5dc3"
+    },
+    {
+      "bytes": 158996461,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0642/videos/video-cardeventnet-IMG_0642.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0642/videos/video-cardeventnet-IMG_0642.mov",
+      "sha256": "bed363c2d52f6c141f8ddcac09a20ec42328834dbd635e9c0922ac1cf52f821c"
+    },
+    {
+      "bytes": 166119136,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0643/videos/video-cardeventnet-IMG_0643.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0643/videos/video-cardeventnet-IMG_0643.mov",
+      "sha256": "301b37331ce5431852d7a2ce898c46e2888b82470b95928b925af4315e9a4b58"
+    },
+    {
+      "bytes": 252227791,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0644/videos/video-cardeventnet-IMG_0644.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0644/videos/video-cardeventnet-IMG_0644.mov",
+      "sha256": "8975d066c5e9d9160a91f7158b5544f008db590166167c9ca67e34889902af05"
+    },
+    {
+      "bytes": 259520711,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0645/videos/video-cardeventnet-IMG_0645.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0645/videos/video-cardeventnet-IMG_0645.mov",
+      "sha256": "47707b79140338f5393b59c52ab7c0078b23ed889fc7da01423b7734f3ac15f8"
+    },
+    {
+      "bytes": 307897642,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0646/videos/video-cardeventnet-IMG_0646.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0646/videos/video-cardeventnet-IMG_0646.mov",
+      "sha256": "232c707df9474ceae51c581ec55ae274f12e09e871e5a5867cab1ea75d73c033"
+    },
+    {
+      "bytes": 172686963,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0648/videos/video-cardeventnet-IMG_0648.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0648/videos/video-cardeventnet-IMG_0648.mov",
+      "sha256": "6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c"
+    },
+    {
+      "bytes": 183090255,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0649/videos/video-cardeventnet-IMG_0649.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0649/videos/video-cardeventnet-IMG_0649.mov",
+      "sha256": "5b48dcad8a7faa34748ac2631f55352ea8219c6c5b54474bd887fed93b62f6ed"
+    },
+    {
+      "bytes": 127322550,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0650/videos/video-cardeventnet-IMG_0650.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0650/videos/video-cardeventnet-IMG_0650.mov",
+      "sha256": "8237f0ca22c2e8ee336b77b3ac1e3c0b4d4928c37e96f1b707e7f00db34b9e7b"
+    },
+    {
+      "bytes": 159476349,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0651/videos/video-cardeventnet-IMG_0651.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0651/videos/video-cardeventnet-IMG_0651.mov",
+      "sha256": "f7ccad3c49ab6cdf4a682c7320ef596d07989d7553b15a7cc229995f2e110f08"
+    },
+    {
+      "bytes": 130173534,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0652/videos/video-cardeventnet-IMG_0652.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0652/videos/video-cardeventnet-IMG_0652.mov",
+      "sha256": "7c2be6aac9c4515883b57b6601946fa2ce17fc43dad6648172922c025c42e7b1"
+    },
+    {
+      "bytes": 164793007,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0653/videos/video-cardeventnet-IMG_0653.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0653/videos/video-cardeventnet-IMG_0653.mov",
+      "sha256": "2a5f9b0f7ef38e8a57e2200a00bc563e791ea28d676b9fd1b7089b3b0d760001"
+    },
+    {
+      "bytes": 135762950,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0654/videos/video-cardeventnet-IMG_0654.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0654/videos/video-cardeventnet-IMG_0654.mov",
+      "sha256": "c78f8b1eccf1fedcb14b411dbd0033961b462b5d4b4b8204b33c0558dae335d1"
+    },
+    {
+      "bytes": 147455393,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0655/videos/video-cardeventnet-IMG_0655.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0655/videos/video-cardeventnet-IMG_0655.mov",
+      "sha256": "0391ed6f5784eb36ff87b4bf6afd2316c2f0fc22aefd7f1fc2ae87ac768c968d"
+    },
+    {
+      "bytes": 142891847,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0656/videos/video-cardeventnet-IMG_0656.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0656/videos/video-cardeventnet-IMG_0656.mov",
+      "sha256": "c1f08a3645b582a5c450ca7e2b4667dece594d416458303e1ea85afa513b4925"
+    },
+    {
+      "bytes": 149744950,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0657/videos/video-cardeventnet-IMG_0657.mov",
+      "sha256": "23df5b4dbf0d0d80c79161ba32c1f4c4db8473f053fdd9b63508c66e38d3658b"
+    },
+    {
+      "bytes": 131761671,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0658/videos/video-cardeventnet-IMG_0658.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0658/videos/video-cardeventnet-IMG_0658.mov",
+      "sha256": "807989e6deb343858a88229f753f4d05c81ff27f13516fcb2f4125dee372ae30"
+    },
+    {
+      "bytes": 138300811,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0659/videos/video-cardeventnet-IMG_0659.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0659/videos/video-cardeventnet-IMG_0659.mov",
+      "sha256": "77493bb970f30f302e442e41ae476157f820dfa979da23654bd5a70c22d3d64e"
+    },
+    {
+      "bytes": 139254088,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0660/videos/video-cardeventnet-IMG_0660.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0660/videos/video-cardeventnet-IMG_0660.mov",
+      "sha256": "468f83ec4a2114f5d6e5a514445422b85b8ea55f594956f158f40ebcb48958fc"
+    },
+    {
+      "bytes": 151493812,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0661/videos/video-cardeventnet-IMG_0661.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0661/videos/video-cardeventnet-IMG_0661.mov",
+      "sha256": "a4008da47306da5bc71e6fc6b5c70303cee7324c321852932e02904c165946cd"
+    },
+    {
+      "bytes": 158680194,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0662/videos/video-cardeventnet-IMG_0662.mov",
+      "sha256": "2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7"
+    },
+    {
+      "bytes": 708244420,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0669/videos/video-cardeventnet-IMG_0669.mov",
+      "sha256": "b5862fb56af31aa41ecb4182f6459cf22a6b442d4c79369ee1c46ae516ea6ec6"
+    },
+    {
+      "bytes": 869798284,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0670/videos/video-cardeventnet-IMG_0670.mov",
+      "sha256": "cbb3cf82c18d70e9b9e9c8fa8f29edb8232012ffb7889436509c92eab99ba1e0"
+    },
+    {
+      "bytes": 678222998,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0671/videos/video-cardeventnet-IMG_0671.mov",
+      "sha256": "43685d181346b93cc865b5ece77702081c75091771b01f5972f7ee0f1883fa69"
+    },
+    {
+      "bytes": 515588593,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0673/videos/video-cardeventnet-IMG_0673.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0673/videos/video-cardeventnet-IMG_0673.mov",
+      "sha256": "3b8aa89940cb14af8383da13b18fc9dbe2c1dc593e8b088e33a6b47119c01ce3"
+    },
+    {
+      "bytes": 418502146,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_0674/videos/video-cardeventnet-IMG_0674.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_0674/videos/video-cardeventnet-IMG_0674.mov",
+      "sha256": "26fb63d873129ab65988a3bba3ca0546b690f66556cefeab291f1c4ec0f3dc14"
+    },
+    {
+      "bytes": 420346149,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.mov",
+      "sha256": "ccb1c0ca78558691af4a37c18eaac76a64d782aadc105cd0c779a5296e311e81"
+    },
+    {
+      "bytes": 347808185,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.mov",
+      "sha256": "9a9ccbdf365bd2addd919617fb28513e9700395b83b0b8b913713cb21da4a029"
+    },
+    {
+      "bytes": 390784854,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.mov",
+      "sha256": "3c4e2da8d5381aa5648e832ebc31efea09e20008cd7f72fc9b4e33a719660f93"
+    },
+    {
+      "bytes": 499382267,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.mov",
+      "sha256": "1c801078b400622dd91d43fd57f209ab5f364169dd07b0b6d4487d71dab9f046"
+    },
+    {
+      "bytes": 244885260,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/cardeventnet-IMG_2781/videos/video-cardeventnet-IMG_2781.mov",
+      "intake": "data/intake/recordings/cardeventnet-IMG_2781/videos/video-cardeventnet-IMG_2781.mov",
+      "sha256": "d851b5dd347ec9b91adefac2a641b27a3f8c80d308de8e320ad93f927ed458ee"
+    },
+    {
+      "bytes": 557067308,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+      "intake": "data/intake/recordings/game-2026-08-20-01-001/videos/game-2026-08-20-01-001-video.mov",
+      "sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa"
+    },
+    {
+      "bytes": 625609570,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-002/videos/game-2026-08-20-01-002-video.mov",
+      "intake": "data/intake/recordings/game-2026-08-20-01-002/videos/game-2026-08-20-01-002-video.mov",
+      "sha256": "5e8018e24a1328e796d1546dc9a9b05f157007a727c831383d38676e640feb88"
+    },
+    {
+      "bytes": 459868428,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-003/videos/game-2026-08-20-01-003-video.mov",
+      "intake": "data/intake/recordings/game-2026-08-20-01-003/videos/game-2026-08-20-01-003-video.mov",
+      "sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8"
+    },
+    {
+      "bytes": 1061930405,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov",
+      "intake": "data/intake/recordings/game-2026-08-20-01-005/videos/game-2026-08-20-01-005-video.mov",
+      "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73"
+    },
+    {
+      "bytes": 63211536,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-09-18-01-001/videos/game-2026-09-18-01-001-video.mov",
+      "intake": "data/intake/recordings/game-2026-09-18-01-001/videos/game-2026-09-18-01-001-video.mov",
+      "sha256": "a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789"
+    },
+    {
+      "bytes": 54234848,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-09-18-01-002/videos/game-2026-09-18-01-002-video.mov",
+      "intake": "data/intake/recordings/game-2026-09-18-01-002/videos/game-2026-09-18-01-002-video.mov",
+      "sha256": "bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65"
+    },
+    {
+      "bytes": 48382535,
+      "candidate": "data/operations-recovery/0108-m10-20261105/recording-videos/data/intake/recordings/game-2026-09-18-01-003/videos/game-2026-09-18-01-003-video.mov",
+      "intake": "data/intake/recordings/game-2026-09-18-01-003/videos/game-2026-09-18-01-003-video.mov",
+      "sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada"
+    }
+  ],
+  "candidate_logical_bytes": 14516434567,
+  "candidate_manifest_sha256": "8de6e1b4ee5eb867027ccffa5cdd28bc13cab30a039ada500ec8459b2b917ae9",
+  "directory_du_k_before": [
+    "25308248\t/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105",
+    "14176304\t/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos"
+  ],
+  "git_check": {
+    "git_operation_in_progress": false,
+    "main_head": "cd0ad95050be562394cd0cd61867a64befbb9a4f",
+    "main_preexisting_modified_paths": [
+      "AGENTS.md",
+      "docs/workflows/epic-execution.md"
+    ],
+    "secondary_head": "5cf97c81e677f583836cf67ffb6508c81b9a6077",
+    "secondary_was_clean_before_M3_changes": true
+  },
+  "m1_recovery_verifier_before": {
+    "active_pipeline_nodes": {
+      "bytes": 1700808685,
+      "files": 27654,
+      "manifest_sha256": "7152b452c98bec2b0e512f8a5e5a9126f861566107fe242b635cfc01989100c7"
+    },
+    "migration_package": {
+      "activation_ready": true,
+      "files": 34414,
+      "resources": 2086
+    },
+    "plan_sha256": "9bf7bd2979ff3d20026e8509ed6f41b172e1fba8c4aab1002e395fd0bb68febc",
+    "raw_model_source": {
+      "bytes": 86430287,
+      "files": 8,
+      "manifest_sha256": "5b2f89c99fcc904a55e13941f5a10b6fa4fba5bbb56c450f2f5aa295416ca018"
+    },
+    "representative_recording": {
+      "bytes": 129435020,
+      "files": 4,
+      "manifest_sha256": "5790726918641f8b1134e061770f2e2f7645fc500035ad96ea6a1112e45d08ac"
+    },
+    "retained_records": {
+      "embedded_bytes": 145675545,
+      "files_exact": 441,
+      "resource_total": 150,
+      "resources": {
+        "calibration_draft": 13,
+        "independent_review": 11,
+        "maintained_draft": 126
+      }
+    },
+    "runtime_model_bundle": {
+      "bytes": 172911952,
+      "files": 8,
+      "manifest_sha256": "dc016eef9926eaaa61f79d5ad9da245b1f3f1fbaeb45764b2d7724b4ad94e092"
+    },
+    "schema_version": "0115-recovery-validation/v1",
+    "snapshot_sha256": "c8979c9a53956abd749e638466e1f88009f2e0ce8e725d674bf26ff0335ed430"
+  },
+  "m2_dry_run": {
+    "apply_permitted": true,
+    "candidate_count": 51,
+    "plan_file_sha256": "c224ddb70484ff538dc6da177828949c919c0c56b04d8c3ed8bbc7be8824e422",
+    "plan_sha256": "82e5a27cd97ac55f237b6e77c9072d65d400db25905fb3a4bbf78ae3e933798d",
+    "source_manifest_sha256": "8de6e1b4ee5eb867027ccffa5cdd28bc13cab30a039ada500ec8459b2b917ae9",
+    "source_revision": "cd0ad95050be562394cd0cd61867a64befbb9a4f"
+  },
+  "migration_stage_audit": {
+    "migration-stage": {
+      "files": 32219,
+      "resources": 1903,
+      "snapshot_sha256": "d85acd8ca675e3c6fade359359416bda1e3d49a436397d2e895a75c0052c4909",
+      "source_video_references": 1429,
+      "unique_source_video_paths": 51,
+      "unrelated_uncertainties_retained": 167,
+      "video_file_entries": 51
+    },
+    "migration-stage-accepted-loss": {
+      "files": 34414,
+      "resources": 2086,
+      "snapshot_sha256": "c8979c9a53956abd749e638466e1f88009f2e0ce8e725d674bf26ff0335ed430",
+      "source_video_references": 1429,
+      "unique_source_video_paths": 51,
+      "unrelated_uncertainties_retained": 156,
+      "video_file_entries": 51
+    }
+  },
+  "retained_directory_count_before": 11776,
+  "retained_recovery_tree_before": {
+    "file_count": 142695,
+    "logical_bytes": 11091939040,
+    "manifest_sha256": "67b0f903076797ca5f81d8937e44c90611940e2d94321543bda95fdbe0e2502e"
+  },
+  "schema_version": "0115-m3-preflight-audit/v1",
+  "scope_decision": "Only recovery video copies are candidates. The accepted-loss stage, earlier stage, source snapshot, operations snapshot, evidence packages, import workspaces, current stores, and intake originals stay retained.",
+  "source_location_aliases": [
+    {
+      "key": "data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.m4v",
+      "physical_path": "data/intake/recordings/cardeventnet-IMG_2777/videos/video-cardeventnet-IMG_2777.mov"
+    },
+    {
+      "key": "data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.m4v",
+      "physical_path": "data/intake/recordings/cardeventnet-IMG_2778/videos/video-cardeventnet-IMG_2778.mov"
+    },
+    {
+      "key": "data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.m4v",
+      "physical_path": "data/intake/recordings/cardeventnet-IMG_2779/videos/video-cardeventnet-IMG_2779.mov"
+    },
+    {
+      "key": "data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.m4v",
+      "physical_path": "data/intake/recordings/cardeventnet-IMG_2780/videos/video-cardeventnet-IMG_2780.mov"
+    }
+  ],
+  "source_location_keys": 55,
+  "source_root_config_path": "/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/recording-videos",
+  "volume_df_k_before": [
+    "/dev/disk3s3",
+    "971350180",
+    "869214084",
+    "76400320",
+    "92%",
+    "2465484",
+    "764003200",
+    "0%",
+    "/System/Volumes/Data"
+  ],
+  "writer_check": {
+    "active_backend_or_cleanup_process": false,
+    "method": "lsof +D against the 0108 recovery root; process inventory checked",
+    "open_recovery_root_files": 0,
+    "unrelated_frontend_process": "Vite only"
+  }
+}

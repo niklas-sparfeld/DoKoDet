@@ -82,9 +82,13 @@ def _read_json(path: Path) -> tuple[dict[str, Any], bytes]:
     return value, raw
 
 
-def _stable_file(path: Path) -> tuple[int, str, tuple[int, int, int, int, int, int]]:
+def _stable_file(
+    path: Path, *, require_single_link: bool = True
+) -> tuple[int, str, tuple[int, int, int, int, int, int]]:
     before = path.lstat()
-    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+    if not stat.S_ISREG(before.st_mode):
+        raise CleanupError(f"expected a regular file: {path}")
+    if require_single_link and before.st_nlink != 1:
         raise CleanupError(f"candidate must be a single-link regular file: {path}")
     descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     digest = hashlib.sha256()
@@ -186,7 +190,7 @@ def _candidate_rows(
                     f"protected dependency is inside cleanup root: {reference_path}"
                 )
             dependency = _contained(repo, reference_path)
-            size, digest, identity = _stable_file(dependency)
+            size, digest, identity = _stable_file(dependency, require_single_link=False)
             if size != reference.get("bytes") or digest != reference.get("sha256"):
                 raise CleanupError(f"protected dependency changed: {reference_path}")
             reference_rows.append(
@@ -638,7 +642,9 @@ def _apply_validated(
             dependency = _contained(
                 repo, _relative_path(reference["path"], "reference path")
             )
-            ref_size, ref_digest, ref_identity = _stable_file(dependency)
+            ref_size, ref_digest, ref_identity = _stable_file(
+                dependency, require_single_link=False
+            )
             if (
                 ref_size != reference["bytes"]
                 or ref_digest != reference["sha256"]
