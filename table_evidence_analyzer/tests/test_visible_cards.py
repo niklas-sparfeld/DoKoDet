@@ -2,6 +2,7 @@ import json
 import multiprocessing
 import os
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -35,11 +36,40 @@ from table_evidence_analyzer.visible_cards import (
 )
 
 
-def _provider_cache_store_worker(root: str, started: object, finished: object) -> None:
+def _provider_cache_reader_worker(
+    root: str,
+    path: str,
+    started: object,
+    release: object,
+    results: object,
+) -> None:
     lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
-    started.set()
-    lifecycle.stored()
-    finished.set()
+    cache_path = Path(path)
+
+    def loader() -> str:
+        started.set()
+        if not release.wait(timeout=10):
+            raise TimeoutError("reader release was not signaled")
+        return cache_path.read_text(encoding="utf-8")
+
+    results.put(lifecycle.load(cache_path, loader))
+
+
+def _crash_visible_cache_writer(root: str, ready: object) -> None:
+    def block_publish(*_args, **_kwargs) -> None:
+        ready.set()
+        while True:
+            time.sleep(1)
+
+    visible_cards_module.os.replace = block_publish
+    request = _request()
+    lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
+    cached = CachedVisibleCardProvider(
+        FakeVisibleCardProvider({request.image_sha256: _prediction()}),
+        Path(root) / "visible-cards",
+        lifecycle=lifecycle,
+    )
+    cached.propose_fresh(request)
 
 
 def _prediction() -> dict:
@@ -431,25 +461,71 @@ def test_provider_cache_prune_recovers_after_interruption(tmp_path: Path, monkey
     assert entries[2].exists()
 
 
-def test_provider_cache_lifecycle_uses_process_lock(tmp_path: Path) -> None:
+def test_provider_cache_serializes_independent_process_reader_and_writer(tmp_path: Path) -> None:
+    context = multiprocessing.get_context("spawn")
+    root = tmp_path / "cache"
+    path = root / "visible-cards" / "entry.json"
+    path.parent.mkdir(parents=True)
+    path.write_text("old", encoding="utf-8")
+    lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
+    started = context.Event()
+    release = context.Event()
+    results = context.Queue()
+    process = context.Process(
+        target=_provider_cache_reader_worker,
+        args=(str(root), str(path), started, release, results),
+    )
+    process.start()
+    assert started.wait(timeout=10)
+    writer_started = threading.Event()
+    writer_finished = threading.Event()
+
+    def write_new_value() -> None:
+        writer_started.set()
+        lifecycle.store(path, lambda: path.write_text("new", encoding="utf-8"))
+        writer_finished.set()
+
+    writer = threading.Thread(target=write_new_value)
+    writer.start()
+    assert writer_started.wait(timeout=2)
+    assert not writer_finished.is_set()
+    release.set()
+    process.join(timeout=10)
+    assert process.exitcode == 0
+    writer.join(timeout=10)
+    assert writer_finished.is_set()
+    assert results.get(timeout=2) == "old"
+    assert path.read_text(encoding="utf-8") == "new"
+
+
+def test_killed_provider_write_leaves_replayable_old_response(tmp_path: Path) -> None:
     context = multiprocessing.get_context("spawn")
     root = tmp_path / "cache"
     lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
-    started = context.Event()
-    finished = context.Event()
-    process = context.Process(
-        target=_provider_cache_store_worker,
-        args=(str(root), started, finished),
+    request = _request()
+    cached = CachedVisibleCardProvider(
+        FakeVisibleCardProvider({request.image_sha256: _prediction()}),
+        root / "visible-cards",
+        lifecycle=lifecycle,
     )
+    original = cached.propose(request)
+    path = cached._cache_path(request)
+    original_bytes = path.read_bytes()
 
-    with lifecycle.access():
-        process.start()
-        assert started.wait(timeout=10)
-        assert not finished.wait(timeout=0.1)
-
+    ready = context.Event()
+    process = context.Process(target=_crash_visible_cache_writer, args=(str(root), ready))
+    process.start()
+    assert ready.wait(timeout=10)
+    process.terminate()
     process.join(timeout=10)
-    assert process.exitcode == 0
-    assert finished.is_set()
+    assert process.exitcode is not None and process.exitcode != 0
+
+    lifecycle.stored()
+    assert path.read_bytes() == original_bytes
+    assert not list(path.parent.glob(f".{path.name}.*"))
+    replay = cached.propose(request)
+    assert replay.cache_hit is True
+    assert replay.proposals == original.proposals
 
 
 def test_interrupted_provider_cache_write_keeps_previous_response(

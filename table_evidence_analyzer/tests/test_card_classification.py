@@ -1,7 +1,9 @@
 import json
+import multiprocessing
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from table_evidence_analyzer.card_classification import (
     FACE_DOWN_CARD,
@@ -37,6 +39,27 @@ def _blocking_response(request: object) -> _Response:
     schema = payload["generationConfig"]["responseJsonSchema"]
     body = {"card": "HEARTS_TEN"} if "card" in schema.get("properties", {}) else {"cards": []}
     return _Response({"candidates": [{"content": {"parts": [{"text": json.dumps(body)}]}}]})
+
+
+def _crash_classifier_cache_writer(root: str, cache_dir: str, crop: bytes, ready: object) -> None:
+    def block_publish(_path: Path, _target: str | Path) -> Path:
+        ready.set()
+        while True:
+            time.sleep(1)
+
+    Path.replace = block_publish
+
+    class _NewClassifierVersion:
+        name = "gemini"
+        version = "gemini-card-classification/v3"
+        calibration = "uncalibrated"
+        model = "gemini-3.8-flash"
+
+        def classify(self, _request: CardClassificationRequest) -> CardClassificationResult:
+            return CardClassificationResult(status="ok", classification="unknown")
+
+    lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
+    CachedCardClassifier(_NewClassifierVersion(), cache_dir, lifecycle=lifecycle).classify_ppm(crop)
 
 
 def test_gemini_classifier_sends_transformed_ppm_as_png_and_returns_identity() -> None:
@@ -192,6 +215,44 @@ def test_pinned_classifier_receipt_survives_version_mismatch_and_replays(tmp_pat
     result = replay.classify_ppm(crop)
     assert result.cache_hit is True
     assert result.candidates == original.candidates
+
+
+def test_killed_classifier_write_cleans_temp_and_replays_old_version(tmp_path) -> None:
+    context = multiprocessing.get_context("spawn")
+    root = tmp_path / "runtime-cache"
+    cache_dir = root / "card-classification"
+    lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
+    crop = b"P6\n4 4\n255\n" + bytes([255, 0, 0] * 16)
+    original_classifier = GeminiCardClassifier(
+        api_key="runtime-secret",
+        urlopen=lambda _request, timeout: _Response(
+            {"candidates": [{"content": {"parts": [{"text": '{"card":"HEARTS_TEN"}'}]}}]}
+        ),
+        sleep=lambda _seconds: None,
+    )
+    original_cache = CachedCardClassifier(original_classifier, cache_dir, lifecycle=lifecycle)
+    original = original_cache.classify_ppm(crop)
+    request = CardClassificationRequest(crop_bytes=crop, model=original_classifier.model)
+    path = cache_dir / request.request_key[:2] / f"{request.request_key}.json"
+    original_bytes = path.read_bytes()
+
+    ready = context.Event()
+    process = context.Process(
+        target=_crash_classifier_cache_writer,
+        args=(str(root), str(cache_dir), crop, ready),
+    )
+    process.start()
+    assert ready.wait(timeout=10)
+    process.terminate()
+    process.join(timeout=10)
+    assert process.exitcode is not None and process.exitcode != 0
+
+    lifecycle.stored()
+    assert path.read_bytes() == original_bytes
+    assert not list(path.parent.glob(f".{path.name}.*"))
+    replay = original_cache.classify_ppm(crop)
+    assert replay.cache_hit is True
+    assert replay.candidates == original.candidates
 
 
 def test_shared_gemini_limiter_bounds_detector_and_identity_http_calls() -> None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fcntl
 import os
+import re
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -14,6 +15,7 @@ from typing import Any
 
 _LOCKS_GUARD = threading.Lock()
 _PROCESS_LOCKS: dict[str, threading.RLock] = {}
+_TEMP_RESPONSE_PATTERN = re.compile(r"^\.[0-9a-f]{64}\.json\..+$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +78,7 @@ class ProviderResponseCacheLifecycle:
         """Load one hit under lock, refresh its idle timestamp, and sweep periodically."""
 
         with self.access():
+            self._remove_orphaned_temporary_files(path.parent, path.name)
             now = self.retention.clock()
             if self._expired(path, now):
                 path.unlink(missing_ok=True)
@@ -137,6 +140,7 @@ class ProviderResponseCacheLifecycle:
         os.utime(marker, (now, now), follow_symlinks=False)
 
     def _prune(self, now: float) -> None:
+        self._remove_orphaned_temporary_files()
         files = [
             path for path in self.root.rglob("*.json") if path.is_file() and not path.is_symlink()
         ]
@@ -159,6 +163,24 @@ class ProviderResponseCacheLifecycle:
                 break
             path.unlink(missing_ok=True)
             total -= size
+
+    def _remove_orphaned_temporary_files(
+        self,
+        directory: Path | None = None,
+        cache_name: str | None = None,
+    ) -> None:
+        candidates = (
+            directory.glob(f".{cache_name}.*")
+            if directory is not None and cache_name is not None
+            else self.root.rglob(".*.json.*")
+        )
+        for path in candidates:
+            if (
+                path.is_file()
+                and not path.is_symlink()
+                and _TEMP_RESPONSE_PATTERN.fullmatch(path.name)
+            ):
+                path.unlink(missing_ok=True)
 
 
 __all__ = ["ProviderResponseCacheLifecycle", "ProviderResponseCacheRetention"]

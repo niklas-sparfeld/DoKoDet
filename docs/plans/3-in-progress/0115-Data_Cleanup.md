@@ -506,12 +506,13 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   behavior, and the policy limits. It measured 18,655 JSON files and 2.697 GiB before applying
   the new policy.
 - **Changes:** Added thread/process locking for cache reads, writes, and pruning; hourly expiry
-  sweeps, oldest-first unpinned eviction, and `.json.pin` protection. Writes preserve pinned
-  response bytes when a provider/classifier version changes. Backend visible-card
+  sweeps, oldest-first unpinned eviction, `.json.pin` protection, and cleanup of orphaned atomic
+  write files after a process crash. Writes preserve pinned response bytes when a
+  provider/classifier version changes. Backend visible-card
   responses and Gemini identity responses share the lifecycle. The 209 exact responses needed by
   the 0088 M2 cache-only replay are pinned; their request keys, crop digests, response digests,
   byte sizes, and recorded costs are in the [pin manifest](../../reports/0115-M13_Growth_Bounds.artifacts/provider-cache-pins.json).
-- **Checks:** 30 provider/classifier tests and 16 backend construction/integration tests passed;
+- **Checks:** 32 provider/classifier tests and 16 backend construction/integration tests passed;
   Ruff, Ruff format, and `git diff --check` passed. Tests used fake providers; no paid Gemini
   request was made. The full `backend/tests/test_app.py` has a separate failure in
   `test_factory_converts_interrupted_round_analysis_to_failed` (`queued` instead of `failed`);

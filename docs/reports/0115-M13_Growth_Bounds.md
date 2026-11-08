@@ -172,23 +172,25 @@ Lock and sweep-marker files are outside the byte count.
 
 The lifecycle lock protects entry reads, writes, and pruning across threads and processes. Provider
 requests run outside the lock; their request and response remain in memory while in flight. Writes
-retain the cache API's atomic file replacement. The next access can repeat interrupted pruning.
-Files can be protected by a sibling `.json.pin` marker. Pinned entries are excluded from expiry and
-budget eviction. The exact 209 response files used by the 0088 M2 cache-only replay were checked
+retain the cache API's atomic file replacement. After a process restart, the next access removes
+orphaned atomic-write temporary files. An interrupted prune can be repeated. Files can be protected
+by a sibling `.json.pin` marker. Pinned entries are excluded from expiry and budget eviction. The
+exact 209 response files used by the 0088 M2 cache-only replay were checked
 against the report's request keys, crop digests, classifier version, status, and receipt costs, then
 pinned. They total 632,958 bytes. The [pin manifest](0115-M13_Growth_Bounds.artifacts/provider-cache-pins.json)
 records each response digest and the source report digest. Other provider cache entries remain
 regenerable by the current request path, at the possible cost of another Gemini request.
 
 Focused lifecycle checks cover deterministic idle expiry, oldest-first budget eviction with pin
-preservation, waiting for active cache access in another process, recovery after interrupted
-pruning, and recovery after an interrupted atomic write. Cache replay tests confirm a new wrapper
-replays a stored result without calling its provider. A classifier version mismatch test confirms
-that a fresh result cannot overwrite a pinned exact response and that the old classifier can still
-replay it. Backend integration checks confirm the cache wrappers use the configured runtime root
-and policy. These tests use fake providers; no paid provider request was made.
+preservation, and a separate-process reader blocking a writer until the read completes. Tests kill
+a writer process after it creates a temporary response file for both the visible-card and
+classifier caches. A fresh lifecycle removes each orphan and replays the prior published response.
+An interrupted prune also completes on the next access. A classifier version mismatch test
+confirms that a fresh result cannot overwrite a pinned exact response and that the old classifier
+can still replay it. Backend integration checks confirm the cache wrappers use the configured
+runtime root and policy. Tests use fake providers; no paid provider request was made.
 
-Checks: 30 provider and classifier tests passed; 16 backend construction and integration tests
+Checks: 32 provider and classifier tests passed; 16 backend construction and integration tests
 passed; Ruff check, Ruff format check, and `git diff --check` passed. The full
 `backend/tests/test_app.py` run had one unrelated failure in
 `test_factory_converts_interrupted_round_analysis_to_failed`: it observed `queued` instead of
