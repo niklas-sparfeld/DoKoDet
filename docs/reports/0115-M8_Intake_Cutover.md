@@ -104,10 +104,11 @@ claims.
 Keep all 239 intake paths tracked for now. Independent backup identities match the full candidate,
 and API restore/readback passed on two representative bundles. The existing importer and canonical
 bundle schema support the bounded restore without a new storage contract. Do not change tracking
-while the initializing iOS worktree has an active index lock and staged intake deletions. Coordinate
-with its owner, wait until the operation ends, verify its candidate copy and status, then apply the
-tested backup/merge/restore procedure to each checkout that must retain local copies. No main operator
-data or existing worktree state was changed.
+while the initializing iOS worktree has an index lock and staged intake deletions. These facts do not
+establish whether a Git operation is live. Wait for evidence that the operation ended or the lock is
+stale. Do not remove the lock or alter that checkout on current evidence. Then verify its candidate
+status and retained copies, and apply the tested backup/merge/restore procedure to each checkout that
+must retain local copies. No main operator data or existing worktree state was changed.
 
 ## Current run recheck
 
@@ -115,6 +116,7 @@ On 2026-11-08, read-only inspection found the registered
 `ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4` checkout still marked `locked`. Its `.git/index.lock`
 exists, all 239 `data/intake/recordings/**` entries are staged for deletion, and 226 candidate paths
 are present as untracked files. `lsof` returned no lock owner. No owner/status channel is available
-in this run. The locked checkout was not modified. M8's all-worktree protection gate remains unmet,
-so this run leaves all intake paths tracked and M8 incomplete. Resume only after the operation ends
-and the checkout's candidate status and retained copies can be verified.
+in this run. This does not prove whether a Git operation is live. The checkout was not modified.
+M8's all-worktree protection gate remains unmet, so this run leaves all intake paths tracked and M8
+incomplete. Resume after evidence shows the operation ended or the lock is stale; then verify the
+checkout's candidate status and retained copies before cutover.

@@ -346,21 +346,26 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 - **Decisions and limits:** Keep all 239 candidate paths tracked. Independent media and metadata
   restore sources are verified. No new API or storage schema is needed for a bounded cutover using
   the existing importer. The disposable backup/merge/restore procedure passed, but no live checkout
-  was changed. The active locked iOS operation overlaps all intake paths and blocks all-worktree
-  protection. No activation, history rewrite, or cleanup occurred.
-- **Next:** Coordinate with the owner of the locked initializing iOS worktree. Wait for its Git
-  operation to finish, then recheck candidate status. Apply the tested backup/merge/restore procedure
-  to the existing checkouts before changing tracking.
+  was changed. The initializing iOS worktree has an index lock and overlapping staged and untracked
+  intake changes. The lock does not establish whether a Git operation is live, but the checkout's
+  state is unresolved and blocks all-worktree protection. No activation, history rewrite, or cleanup
+  occurred.
+- **Next:** Wait for evidence that the Git operation ended or that the lock is stale. Do not remove
+  the lock or alter that checkout on current evidence. Then verify its candidate status and retained
+  copies, protect retained files in every existing checkout with the tested backup/merge/restore
+  procedure, and only then reconsider tracking.
 - **Commit boundary:** M8 assessment and activation inventory, epic, board, and handoff only; no
   tracking or data changes.
 - **Current run result:** M8 remains incomplete. A fresh read-only check on 2026-11-08 found the
   registered `ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4` checkout still marked locked, with
   `.git/index.lock`, all 239 intake paths staged for deletion, and 226 candidate paths untracked.
-  No lock owner was exposed by `lsof`, and no owner/status channel is available in this run.
+  These facts do not establish whether a Git operation is live. No lock owner was exposed by `lsof`,
+  and no owner/status channel is available in this run.
   Because the M8 pre-integration gate requires protecting retained files in every existing
-  checkout, the live operation still blocks all-worktree protection. The checkout was not changed.
-  Do not weaken the gate or change intake tracking until the lock is cleared and its owner confirms
-  the checkout state. This run therefore completed 0 of 8 requested milestones; 8 remain.
+  checkout, this unresolved checkout state blocks all-worktree protection. The checkout was not
+  changed. Do not weaken the gate or alter the checkout. First obtain evidence that the operation
+  ended or the lock is stale; then verify candidate status and protect retained copies before any
+  tracking change. This run therefore completed 0 of 8 requested milestones; 8 remain.
 
 ## M0 — Inventory and rank
 
