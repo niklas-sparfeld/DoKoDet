@@ -289,7 +289,9 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   (1,701,015,169 bytes). Fifteen automated-run idempotency records remain a separate tracked family.
 - **Changes:** Added a path/blob-ID/size inventory artifact and recorded authority, representative
   schemas, current readers/writers, replacement owners, restore dependencies, and M7–M9 gates and
-  commit boundaries. No data, tracking, or authority changed. 0112 code ownership and 0114 final
+  commit boundaries, with exact setup and command templates in the report's
+  [Frozen setup commands for M7–M9](../../reports/0115-M6_Cutover_Inventory.md#frozen-setup-commands-for-m7m9).
+  No data, tracking, or authority changed. 0112 code ownership and 0114 final
   qualification remain separate boundaries. The report records the four registered worktrees,
   including the one with staged repository-wide deletion and untracked checkout state.
 - **Checks:** `git lfs fsck --objects` passed. Representative schema and owner lookups passed.

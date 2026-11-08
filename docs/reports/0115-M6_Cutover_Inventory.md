@@ -142,6 +142,92 @@ Each later milestone repeats inventory and restore checks against its activation
 not authorize tracking changes. The source and active human corpus remain available until those
 gates pass.
 
+## Frozen setup commands for M7–M9
+
+Use the exact clean-checkout setup sequence in the [M5 disposable checkout command block](0115-M5_Worktree_Storage_Contract.md#disposable-checkout-to-ready-measurements).
+For each milestone, replace its example revision and root with that milestone's committed revision
+and two distinct temporary worktree/state roots. Run setup once in each checkout:
+
+```sh
+/usr/bin/time -p git worktree add --detach "$WORKTREE" "$REVISION"
+(cd "$WORKTREE" && /usr/bin/time -p mise install)
+(cd "$WORKTREE" && /usr/bin/time -p mise exec -- uv sync --project backend)
+(cd "$WORKTREE/web" && /usr/bin/time -p mise exec -- npm ci)
+(cd "$WORKTREE/web" && /usr/bin/time -p mise exec -- npm run build)
+(cd "$WORKTREE" && DOKO_STORAGE_ROOT="$STATE_ROOT" mise exec -- uv run --project backend python -c \
+  'from dokodetector_backend.app import create_app; create_app()')
+```
+
+This is the same measured sequence as M5: checkout, tool install, backend sync, frontend install
+and build, then backend app initialization. It creates no second package or app setup contract.
+
+### M7 setup and API checks
+
+Run the M5 fixture workflow selectors in both checkouts, with separate `STATE_ROOT` values:
+
+```sh
+(cd "$WORKTREE" && DOKO_STORAGE_ROOT="$STATE_ROOT" mise exec -- uv run --project backend pytest \
+  backend/tests/test_worktree_storage_contract.py backend/tests/test_operator_corpus_import.py)
+```
+
+Keep `data/operations/pipeline-nodes` and the old mutable paths outside each new state root. The
+test checks API edit, saved revision and source readback after restart. Compare source fixture hashes
+and both state roots after each run.
+
+### M8 intake-specific checks
+
+Before rehearsal, freeze the tracked index entries for the M8 candidate and run the local LFS check:
+
+```sh
+git ls-files -s -- data/intake/recordings > "$SNAPSHOT_DIR/intake-index.txt"
+git lfs fsck --objects
+```
+
+Use the already validated explicit importer from the [M5 contract](0115-M5_Worktree_Storage_Contract.md#contract)
+for each recording ID selected by the activation snapshot. The importer takes one or more IDs, and
+must leave the source root unchanged:
+
+```sh
+DOKO_STORAGE_ROOT="$STATE_ROOT" mise exec -- uv run --project backend \
+  dokodetector-import-operator-recordings \
+  --operator-corpus-root "$OPERATOR_CORPUS/data/intake/recordings" \
+  --recording-id "$RECORDING_ID"
+```
+
+Then run the M5 test command above and the current service checks for `GET
+/v1/recordings/{recording_id}` and `GET /v1/repository-bundles/{recording_id}` through the real
+backend. Add `backend/tests/test_0115_intake_cutover.py` to bind the selected IDs to those API reads,
+exact source and imported bundle fingerprints, file hashes, readback and restart results. Run it
+with the M5 selectors. A failed or missing independent restore keeps that recording tracked.
+
+### M9 pipeline-specific checks
+
+Freeze the exact candidate entries before a disposable rehearsal. Run the M1 dependency/recovery
+verifier against the selected source and state roots:
+
+```sh
+git ls-files -s -- data/operations/pipeline/revisions data/operations/pipeline/runs \
+  data/operations/pipeline/selections > "$SNAPSHOT_DIR/pipeline-index.txt"
+mise exec -- uv run --project backend python scripts/verify_0115_recovery.py \
+  --data-root "$SOURCE_ROOT/data" --runtime-root "$STATE_ROOT/runtime" \
+  --output "$RECEIPT_DIR/recovery-validation.json"
+```
+
+Run the existing pipeline contract and lineage suites, plus the new exact cutover API/restart test
+added by M9:
+
+```sh
+DOKO_STORAGE_ROOT="$STATE_ROOT" mise exec -- uv run --project backend pytest \
+  backend/tests/test_pipeline_api.py backend/tests/test_pipeline_reference.py \
+  backend/tests/test_pipeline_lineage_writer.py backend/tests/test_pipeline_node_store.py \
+  backend/tests/test_0115_pipeline_cutover.py
+```
+
+The new test must read exact old input revisions, dependencies and selected references through
+services, edit/save a node, preserve applicable review decisions, restart, then compare exact
+content and dependency IDs with the frozen snapshot. The M9 recovery receipt binds those results to
+the snapshot digest. Keep `automated-runs/**` tracked and verify it remains unchanged.
+
 ## Checks
 
 - Bounded Git inventory of the two candidate roots — 239 intake paths and 31,536 pipeline paths;
