@@ -131,6 +131,20 @@ recording workspace. It is separate from processor input selection and maintaine
 Switching processing steps preserves the lineage selection. Missing results remain missing; the
 workspace does not substitute a result from another branch.
 
+### Recording state snapshot
+
+An immutable description of one recording's selected pipeline state. It contains exact node and
+revision references for each applicable content type, separate generated and completed-reference
+selections, and explicit empty or stale states. It can reference independent review work without
+merging its decisions. It does not contain the full revision history or grant review authority.
+
+### Recording HEAD
+
+The single durable pointer to a recording's current recording state snapshot. An explicit state
+change replaces this pointer with a concurrency check. Recording HEAD is separate from a pipeline
+data node's latest saved revision and from the lineage selection currently inspected by one
+operator. Historical snapshots and data revisions remain addressable when HEAD changes.
+
 ### Data revision
 
 One immutable saved version of a pipeline data set. It records content, source references, coverage,
