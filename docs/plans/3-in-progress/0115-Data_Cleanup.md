@@ -161,7 +161,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M5 | Specify and prove isolated worktree data access | Complete |
 | M6 | Freeze cutover inventory, replacement owners, recovery evidence, and test-failure disposition | Complete |
 | M7 | Make isolated development storage and setup the normal path | Complete |
-| M8 | Cut over tracked intake after proving source access and recovery | Not started |
+| M8 | Cut over tracked intake after proving source access and recovery | In progress |
 | M9 | Cut over the selected tracked pipeline family after dependency and recovery checks | Not started |
 | M10 | Evaluate safe Git and LFS maintenance and record history costs | Not started |
 | M11 | Measure compact storage candidates and select at most one bounded format change | Not started |
@@ -327,6 +327,28 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 - **Next:** M8 — cut over only the selected tracked intake family after source and recovery proof.
 - **Commit boundary:** M7 backend cache-root change and regression test, setup documentation, report,
   epic, board, and handoff in one focused commit.
+
+- **M8:** In progress; no intake tracking changed. The [M8 assessment](../../reports/0115-M8_Intake_Cutover.md)
+  records the activation inventory at `969d9a6159dbdc412de8b605c12d7fdf06ff626c`. Its index digest is
+  `23eabc8abbb482fbe8565cc7a7b48614b9b2a5ec687e9f885b1ef262b7f18d8f` for 239 entries. Of 58
+  recording originals, 43 have exact filename, size, and SHA-256 matches in the sibling raw-media
+  corpus; 15 have no verified independent source. The sibling directory has no bundle metadata and
+  the current importer cannot restore its raw files into a service-readable bundle. Metadata remains
+  only in the tracked intake.
+- **Checks:** `git lfs fsck --objects` passed locally. The M5 worktree/import fixture selector passed
+  (3 tests) with the old mutable path disabled; it did not read operator media. Main intake checkout
+  is about 15 GiB; shared `.git` is about 31 GiB and `.git/lfs` about 17 GiB. All worktrees were
+  inspected. The `.codex/worktrees/6203` checkout has staged repository-wide deletion including
+  intake, so no checkout or merge rehearsal or tracking change was safe. `git count-objects -vH`
+  reports 11.35 GiB packed objects and 2.65 GiB temporary garbage; M10 owns any Git/LFS maintenance.
+- **Decisions and limits:** Keep all 239 candidate paths tracked. The local LFS check and raw-video
+  matches do not prove a usable operator restore. Keep all operator data and all existing worktree
+  states intact. No history rewrite, cleanup, or activation occurred. M8 remains incomplete until a
+  supported bundle restore can use the verified raw source and retained metadata, all missing
+  originals are resolved or remain tracked, and every existing checkout is protected by a rehearsal.
+- **Next:** Continue M8 from a supported restore workflow and safe checkout/merge protection evidence.
+- **Commit boundary:** M8 assessment and activation inventory, epic, board, and handoff only; no
+  tracking or data changes.
 
 ## M0 — Inventory and rank
 
