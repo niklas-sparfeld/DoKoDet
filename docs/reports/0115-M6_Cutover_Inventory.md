@@ -218,7 +218,7 @@ added by M9:
 
 ```sh
 DOKO_STORAGE_ROOT="$STATE_ROOT" mise exec -- uv run --project backend pytest \
-  backend/tests/test_pipeline_api.py backend/tests/test_pipeline_reference.py \
+  backend/tests/test_pipeline_api.py backend/tests/test_pipeline_node_selection_store.py \
   backend/tests/test_pipeline_lineage_writer.py backend/tests/test_pipeline_node_store.py \
   backend/tests/test_0115_pipeline_cutover.py
 ```
