@@ -180,10 +180,11 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   apply requires an explicit authorization and complete-reference declaration.
 - **Changes:** Added a manifest-bound plan and apply CLI, exact file and protected-reference
   identity checks, symlink and open-file rejection, durable per-file receipts, and interruption-safe
-  repeat handling. Added temporary fixtures for each required safety case. No retained user data
-  was changed.
-- **Checks:** The focused fixture suite passed (7 tests). Ruff check, Ruff format check, and
-  `git diff --check` passed. The M1 manifest remains dry-run only because it does not authorize
+  repeat handling. Receipt validation now checks its exact candidate list and planned identities
+  against the plan and current filesystem before it reports completion. Added temporary fixtures
+  for each required safety case. No retained user data was changed.
+- **Checks:** The focused fixture suite passed (8 tests), including three altered-receipt cases.
+  Ruff check, Ruff format check, and `git diff --check` passed. The M1 manifest remains dry-run only because it does not authorize
   deletion and it records unresolved references. Its production candidate root is absent from this
   checkout, so no plan or apply ran against retained data.
 - **Decisions and limits:** Apply requires `deletion_authorized`, `references_complete`, no unknown

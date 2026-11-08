@@ -373,19 +373,12 @@ def _load_plan(repo: Path, plan_relative_value: str) -> tuple[dict[str, Any], Pa
     if planned_revision is not None and _git_revision(repo) != planned_revision:
         raise CleanupError("repository revision changed since planning")
     _require_manifest_authority(manifest)
-    receipt_path = root / ".cleanup-receipts" / f"{claimed}.json"
+    receipt_relative = root_relative / ".cleanup-receipts" / f"{claimed}.json"
+    receipt_path = _contained(repo, receipt_relative, allow_missing=True)
     recovery_rows: dict[str, dict[str, Any]] = {}
     if receipt_path.exists():
         receipt, _ = _read_json(receipt_path)
-        if receipt.get("plan_sha256") != claimed:
-            raise CleanupError("receipt does not match plan")
-        recovery_rows = {
-            item["path"]: next(
-                row for row in plan["candidates"] if row["path"] == item["path"]
-            )
-            for item in receipt.get("candidates", [])
-            if item.get("status") in {"deleting", "removed"}
-        }
+        recovery_rows = _validate_receipt(receipt, plan, repo, root)
     expected = _candidate_rows(
         manifest,
         repo,
@@ -396,6 +389,103 @@ def _load_plan(repo: Path, plan_relative_value: str) -> tuple[dict[str, Any], Pa
     if expected != plan.get("candidates"):
         raise CleanupError("candidate paths or identities changed since planning")
     return plan, root
+
+
+def _validate_receipt(
+    receipt: dict[str, Any], plan: dict[str, Any], repo: Path, root: Path
+) -> dict[str, dict[str, Any]]:
+    """Check that receipt progress matches this plan and current candidate presence."""
+    if (
+        receipt.get("schema_version") != "0115-cleanup-receipt/v1"
+        or receipt.get("plan_sha256") != plan["plan_sha256"]
+        or receipt.get("source_manifest_sha256") != plan["source_manifest_sha256"]
+        or receipt.get("source_revision") != plan["source_revision"]
+        or receipt.get("cleanup_root") != plan["cleanup_root"]
+        or receipt.get("retained_roots") != plan["retained_roots"]
+        or receipt.get("action") != "unlink exact regular files"
+    ):
+        raise CleanupError("receipt metadata does not match plan")
+    receipt_status = receipt.get("status")
+    if receipt_status not in {"in_progress", "complete"}:
+        raise CleanupError("invalid receipt status")
+
+    entries = receipt.get("candidates")
+    planned = plan.get("candidates")
+    if (
+        not isinstance(entries, list)
+        or not isinstance(planned, list)
+        or len(entries) != len(planned)
+    ):
+        raise CleanupError("receipt candidate list does not match plan")
+
+    recovery_rows: dict[str, dict[str, Any]] = {}
+    statuses: list[str] = []
+    for entry, candidate in zip(entries, planned, strict=True):
+        if not isinstance(entry, dict) or set(entry) != {
+            "path",
+            "expected_bytes",
+            "expected_sha256",
+            "planned_identity",
+            "status",
+        }:
+            raise CleanupError("invalid receipt candidate entry")
+        if (
+            entry.get("path") != candidate["path"]
+            or entry.get("expected_bytes") != candidate["bytes"]
+            or entry.get("expected_sha256") != candidate["sha256"]
+            or entry.get("planned_identity") != candidate["identity"]
+        ):
+            raise CleanupError("receipt candidate list does not match plan")
+        status = entry.get("status")
+        if status not in {"pending", "deleting", "removed"}:
+            raise CleanupError("invalid receipt candidate status")
+        statuses.append(status)
+        candidate_path = _contained(
+            repo,
+            _relative_path(candidate["path"], "candidate path"),
+            allow_missing=True,
+        )
+        exists = candidate_path.exists()
+        if status == "pending" and not exists:
+            raise CleanupError(f"pending candidate is absent: {candidate['path']}")
+        if status == "removed" and exists:
+            raise CleanupError(
+                f"receipt marks an existing candidate removed: {candidate['path']}"
+            )
+        if not exists and status in {"deleting", "removed"}:
+            recovery_rows[candidate["path"]] = candidate
+    if receipt_status == "complete" and (
+        any(status != "removed" for status in statuses)
+        or len(recovery_rows) != len(planned)
+    ):
+        raise CleanupError("complete receipt does not match candidate state")
+
+    observed = receipt.get("observed")
+    if not isinstance(observed, list):
+        raise CleanupError("invalid receipt observations")
+    allowed_paths = {candidate["path"] for candidate in planned}
+    observed_paths: set[str] = set()
+    for item in observed:
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"path", "result"}
+            or item.get("path") not in allowed_paths
+            or item.get("result") not in {"removed", "removed_after_interruption"}
+            or item["path"] in observed_paths
+        ):
+            raise CleanupError("invalid receipt observation")
+        position = next(
+            i
+            for i, candidate in enumerate(planned)
+            if candidate["path"] == item["path"]
+        )
+        if statuses[position] != "removed":
+            raise CleanupError("receipt observation conflicts with candidate status")
+        observed_paths.add(item["path"])
+    for candidate, status in zip(planned, statuses, strict=True):
+        if (status == "removed") != (candidate["path"] in observed_paths):
+            raise CleanupError("receipt observation is missing for removed candidate")
+    return recovery_rows
 
 
 def _apply(args: argparse.Namespace) -> None:
@@ -417,6 +507,7 @@ def _apply(args: argparse.Namespace) -> None:
     else:
         receipt = {
             "schema_version": "0115-cleanup-receipt/v1",
+            "status": "in_progress",
             "plan_sha256": plan_id,
             "source_manifest_sha256": plan["source_manifest_sha256"],
             "source_revision": plan["source_revision"],
@@ -427,6 +518,8 @@ def _apply(args: argparse.Namespace) -> None:
                 {
                     "path": item["path"],
                     "expected_bytes": item["bytes"],
+                    "expected_sha256": item["sha256"],
+                    "planned_identity": item["identity"],
                     "status": "pending",
                 }
                 for item in plan["candidates"]
@@ -436,6 +529,10 @@ def _apply(args: argparse.Namespace) -> None:
         _atomic_json(root, receipt_path, receipt)
 
     if all(item["status"] == "removed" for item in receipt["candidates"]):
+        if receipt.get("status") != "complete":
+            _assert_no_open_files(root)
+            receipt["status"] = "complete"
+            _atomic_json(root, receipt_path, receipt)
         print(
             json.dumps(
                 {

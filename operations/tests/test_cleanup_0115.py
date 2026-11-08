@@ -75,6 +75,31 @@ def _apply(repo: Path, plan: str) -> None:
     cleanup_0115._apply(args)
 
 
+def _receipt_document(plan: dict, *, status: str = "removed") -> dict:
+    candidates = [
+        {
+            "path": item["path"],
+            "expected_bytes": item["bytes"],
+            "expected_sha256": item["sha256"],
+            "planned_identity": item["identity"],
+            "status": status,
+        }
+        for item in plan["candidates"]
+    ]
+    return {
+        "schema_version": "0115-cleanup-receipt/v1",
+        "status": "complete",
+        "plan_sha256": plan["plan_sha256"],
+        "source_manifest_sha256": plan["source_manifest_sha256"],
+        "source_revision": plan["source_revision"],
+        "cleanup_root": plan["cleanup_root"],
+        "retained_roots": plan["retained_roots"],
+        "action": "unlink exact regular files",
+        "candidates": candidates,
+        "observed": [{"path": item["path"], "result": "removed"} for item in plan["candidates"]],
+    }
+
+
 def test_plan_is_dry_run_and_writes_only_inside_selected_root(tmp_path: Path) -> None:
     repo, root, manifest_path, _ = _fixture(tmp_path)
     before = (root / "clip.mov").read_bytes()
@@ -201,6 +226,33 @@ def test_interrupted_apply_resumes_and_repeated_apply_is_safe(
     _apply(repo, plan_relative)
     assert len(list((root / ".cleanup-receipts").glob("*.json"))) == 1
     assert all(entry["status"] == "removed" for entry in receipt["candidates"])
+
+
+def test_receipt_cannot_claim_present_or_unlisted_candidates_are_removed(
+    tmp_path: Path,
+) -> None:
+    for case in ("present", "extra", "missing_without_observation"):
+        repo, root, manifest_path, _ = _fixture(tmp_path / case)
+        plan_relative = _plan(repo, manifest_path)
+        plan = json.loads((repo / plan_relative).read_text())
+        receipt = _receipt_document(plan)
+        if case == "extra":
+            receipt["candidates"].append(dict(receipt["candidates"][0]))
+        if case == "missing_without_observation":
+            (root / "clip.mov").unlink()
+            receipt["observed"] = []
+        receipt_path = root / ".cleanup-receipts" / f"{plan['plan_sha256']}.json"
+        receipt_path.parent.mkdir()
+        receipt_path.write_text(json.dumps(receipt))
+
+        expected = {
+            "present": "receipt marks an existing candidate removed",
+            "extra": "candidate list does not match plan",
+            "missing_without_observation": "receipt observation is missing",
+        }[case]
+        with pytest.raises(cleanup_0115.CleanupError, match=expected):
+            _apply(repo, plan_relative)
+        assert (root / "clip.mov").exists() is (case != "missing_without_observation")
 
 
 def test_candidate_replacement_with_same_bytes_is_stale(tmp_path: Path) -> None:

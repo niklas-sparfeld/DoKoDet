@@ -35,13 +35,19 @@ drill, and any decision to authorize a real-data removal.
 
 ## Result
 
-The frozen focused fixture suite passed all 7 cases. Ruff check and format check passed, as did
-`git diff --check`. The M1 manifest cannot authorize apply: it has no explicit deletion approval,
+The focused fixture suite passed all 8 tests. It includes receipts that claim a present file was
+removed, contain an extra candidate, or omit the observation for a missing file. All three fail
+before mutation or completion. Ruff check and format check passed, as did `git diff --check`. The
+M1 manifest cannot authorize apply: it has no explicit deletion approval,
 does not declare a complete reference audit, and retains unresolved references. Its selected
 production root is absent from this checkout, so the only writes were temporary test-fixture plans
 and receipts. No real retained data changed.
 
 The tool refuses apply if `lsof` is unavailable or reports any open file below the selected root.
 It also refuses hard-linked candidates. It writes plans and receipts below the selected root and
-fsyncs progress before and after each removal. M3 must complete the reference audit and recovery
-drill before it can create an authorized manifest for the M1 candidates.
+fsyncs progress before and after each removal. Before resuming or returning a completed result, it
+checks receipt metadata, the exact candidate list and planned identities, and whether each file is
+present or absent as its recorded status requires. A file marked removed that is still present and
+any extra receipt candidate both fail closed. A file missing after a durable `deleting` status is
+treated as an interrupted removal and can be reconciled on the next apply. M3 must complete the
+reference audit and recovery drill before it can create an authorized manifest for the M1 candidates.
