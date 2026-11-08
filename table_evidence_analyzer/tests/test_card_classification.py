@@ -247,11 +247,15 @@ def test_killed_classifier_write_cleans_temp_and_replays_old_version(tmp_path) -
     process.join(timeout=10)
     assert process.exitcode is not None and process.exitcode != 0
 
-    lifecycle.stored()
+    replay_cache = CachedCardClassifier(
+        original_classifier,
+        cache_dir,
+        lifecycle=ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention()),
+    )
+    replay = replay_cache.classify_ppm(crop)
+    assert replay.cache_hit is True
     assert path.read_bytes() == original_bytes
     assert not list(path.parent.glob(f".{path.name}.*"))
-    replay = original_cache.classify_ppm(crop)
-    assert replay.cache_hit is True
     assert replay.candidates == original.candidates
 
 

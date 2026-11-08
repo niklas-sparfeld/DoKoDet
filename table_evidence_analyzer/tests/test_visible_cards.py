@@ -1,3 +1,4 @@
+import fcntl
 import json
 import multiprocessing
 import os
@@ -53,6 +54,32 @@ def _provider_cache_reader_worker(
         return cache_path.read_text(encoding="utf-8")
 
     results.put(lifecycle.load(cache_path, loader))
+
+
+def _provider_cache_writer_worker(
+    root: str,
+    path: str,
+    attempting: object,
+    entered_writer: object,
+    finished: object,
+) -> None:
+    lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
+    cache_path = Path(path)
+    original_flock = fcntl.flock
+
+    def flock_with_handshake(descriptor: int, operation: int) -> None:
+        if operation & fcntl.LOCK_EX:
+            attempting.set()
+        original_flock(descriptor, operation)
+
+    fcntl.flock = flock_with_handshake  # type: ignore[assignment]
+
+    def writer() -> None:
+        entered_writer.set()
+        cache_path.write_text("new", encoding="utf-8")
+
+    lifecycle.store(cache_path, writer)
+    finished.set()
 
 
 def _crash_visible_cache_writer(root: str, ready: object) -> None:
@@ -467,7 +494,6 @@ def test_provider_cache_serializes_independent_process_reader_and_writer(tmp_pat
     path = root / "visible-cards" / "entry.json"
     path.parent.mkdir(parents=True)
     path.write_text("old", encoding="utf-8")
-    lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
     started = context.Event()
     release = context.Event()
     results = context.Queue()
@@ -477,22 +503,25 @@ def test_provider_cache_serializes_independent_process_reader_and_writer(tmp_pat
     )
     process.start()
     assert started.wait(timeout=10)
-    writer_started = threading.Event()
-    writer_finished = threading.Event()
-
-    def write_new_value() -> None:
-        writer_started.set()
-        lifecycle.store(path, lambda: path.write_text("new", encoding="utf-8"))
-        writer_finished.set()
-
-    writer = threading.Thread(target=write_new_value)
+    writer_attempting = context.Event()
+    writer_entered = context.Event()
+    writer_finished = context.Event()
+    writer = context.Process(
+        target=_provider_cache_writer_worker,
+        args=(str(root), str(path), writer_attempting, writer_entered, writer_finished),
+    )
     writer.start()
-    assert writer_started.wait(timeout=2)
+    assert writer_attempting.wait(timeout=10)
+    # Keep the reader lock held for a sustained interval after the writer announces
+    # its lock attempt. The callback must remain unreachable during that interval.
+    assert not writer_entered.wait(timeout=0.25)
     assert not writer_finished.is_set()
     release.set()
     process.join(timeout=10)
     assert process.exitcode == 0
     writer.join(timeout=10)
+    assert writer.exitcode == 0
+    assert writer_entered.is_set()
     assert writer_finished.is_set()
     assert results.get(timeout=2) == "old"
     assert path.read_text(encoding="utf-8") == "new"
@@ -520,12 +549,24 @@ def test_killed_provider_write_leaves_replayable_old_response(tmp_path: Path) ->
     process.join(timeout=10)
     assert process.exitcode is not None and process.exitcode != 0
 
-    lifecycle.stored()
+    restarted = CachedVisibleCardProvider(
+        _NoVisibleCardProviderCall(),
+        root / "visible-cards",
+        lifecycle=ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention()),
+    )
+    replay = restarted.propose(request)
+    assert replay.cache_hit is True
     assert path.read_bytes() == original_bytes
     assert not list(path.parent.glob(f".{path.name}.*"))
-    replay = cached.propose(request)
-    assert replay.cache_hit is True
     assert replay.proposals == original.proposals
+
+
+class _NoVisibleCardProviderCall:
+    name = "fake"
+    version = "fake-v1"
+
+    def propose(self, _request: VisibleCardRequest) -> ProviderResult:
+        raise AssertionError("fresh-lifecycle recovery called the provider")
 
 
 def test_interrupted_provider_cache_write_keeps_previous_response(

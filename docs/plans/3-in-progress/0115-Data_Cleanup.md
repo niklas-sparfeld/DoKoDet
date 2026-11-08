@@ -168,14 +168,14 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M10 | Evaluate safe Git and LFS maintenance and record history costs | Complete |
 | M11 | Measure compact storage candidates and select at most one bounded format change | Complete |
 | M12 | Implement and convert the selected format family, if justified | Complete |
-| M13 | Complete provider-cache recovery and concurrency evidence; run combined checks for implemented cache policies | In Progress |
+| M13 | Complete provider-cache recovery and concurrency evidence; run combined checks for implemented cache policies | Complete |
 | M14 | Add a small maintained storage map from existing evidence | Not started |
 | M15 | Run essential integrated checks and publish an honest closure report | Not started |
 
 ## Execution handoff
 
-- **Run:** The approved replan starts at M13. Requested: 3. Completed: 0. Remaining: 3.
-  M13–M15 are the authorized milestones. M12 and earlier remain complete; see their reports.
+- **Run:** The approved replan starts at M13. Requested: 3. Completed: 1. Remaining: 2.
+  M14–M15 remain authorized. M12 and earlier remain complete; see their reports.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -504,7 +504,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   epic/handoff, and board update form one package commit. The run remains at 1/4 milestones
   complete and 3/4 remaining because M13 is not complete.
 
-- **M13 package 3:** The shared `.runtime/gemini-cache` lifecycle now enforces a 180-day idle
+- **M13 package 3:** Complete. The shared `.runtime/gemini-cache` lifecycle enforces a 180-day idle
   expiry and 4 GiB logical-byte budget. The report records active writers/readers, request replay
   behavior, and the policy limits. It measured 18,655 JSON files and 2.697 GiB before applying
   the new policy.
@@ -515,20 +515,29 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   responses and Gemini identity responses share the lifecycle. The 209 exact responses needed by
   the 0088 M2 cache-only replay are pinned; their request keys, crop digests, response digests,
   byte sizes, and recorded costs are in the [pin manifest](../../reports/0115-M13_Growth_Bounds.artifacts/provider-cache-pins.json).
-- **Checks:** 32 provider/classifier tests and 16 backend construction/integration tests passed;
-  Ruff, Ruff format, and `git diff --check` passed. Tests used fake providers; no paid Gemini
-  request was made. The full `backend/tests/test_app.py` has a separate failure in
+- **Checks:** 32 provider/classifier tests pass, including both killed-writer tests through a fresh
+  lifecycle and normal cache access. The separate-process reader/writer test holds the reader lock
+  for 250 ms after the writer announces its attempt; the writer callback remains blocked until
+  release. Combined checks pass: 36 derived-view tests; 19 backend API and 0114 media tests;
+  focused Ruff and format checks for both changed test files; and `git diff --check`. A broader
+  package Ruff check still reports two existing issues in untouched files:
+  `table_observation.py:187` (line length) and `test_visible_card_fine_prepass_fixtures.py:1`
+  (import order). Tests use fake providers; no paid Gemini request was made. The full
+  `backend/tests/test_app.py` has a separate failure in
   `test_factory_converts_interrupted_round_analysis_to_failed` (`queued` instead of `failed`);
   its focused repeat also failed. See the [M13 report](../../reports/0115-M13_Growth_Bounds.md)
   for exact evidence and the package limits.
 - **Decisions and limits:** The M2 replay depends on 209 exact provider receipts. These files are
   protected from overwrite, automatic expiry, and eviction. Other cache entries can be recreated through
   provider requests, which can incur cost. The 4 GiB budget excludes pinned files and metadata;
-  expiry runs on access and there is no background sweeper. M13 remains incomplete.
-- **Review status:** Package 3 remains under review. Test normal access with a fresh lifecycle after
-  killing each writer, and prove a concurrent writer waits with a sustained handshake. The existing
-  tests reuse the lifecycle and do not reliably establish that wait. Then run combined checks for
-  the implemented cache policies. Do not mark M13 complete until this evidence passes.
+  expiry runs on access and there is no background sweeper. These checks do not bound pinned-byte
+  growth, metadata and filesystem overhead, operational logs, recovery copies, or campaign
+  intermediates.
+- **Review status:** Package 3 is complete. After each writer process is killed, a newly constructed
+  lifecycle performs normal request access, removes the orphan temporary file, and replays the prior
+  response without calling its provider. The separate reader and writer processes use an explicit
+  attempt handshake and sustained lock interval. Combined checks cover cache budgets, expiry, pins,
+  regeneration, stale identities, restart, interrupted pruning, and 0114 media behavior.
 - **Scope decision:** The independent operational-log, recovery-copy, and campaign-intermediate
   lifecycle work is deferred to [Epic 0118](../4-blocked/0118-Operational_and_Recovery_Lifecycle.md).
   Preserve active-job logs, recovery evidence, pinned cache entries, human data, and model assets.
@@ -761,10 +770,11 @@ provider-cache recovery and concurrency evidence and combined checks pass.
    derived-view root. Preserve exact source-video identity and prove cache reconstruction, in-flight
    access, crash recovery, and 0114 cold/warm behavior. Do not assume the digest-entry cache policy
    covers this separate writer.
-3. **Provider-response cache (implemented; evidence under review).** Own only `.runtime/gemini-cache` and its `gemini_analyzer.py`
-   construction and cache API. First identify replay/cost behavior and exact readers. Freeze its
-   own expiry and budget before implementation; do not share derived-view eviction code without a
-   verified contract. Check deterministic expiry, active requests, restart, and replay behavior.
+3. **Provider-response cache (complete).** Own only `.runtime/gemini-cache` and its
+   `gemini_analyzer.py` construction and cache API. The package records exact replay and cost
+   behavior, its independent expiry and budget, fresh-lifecycle recovery after both writers are
+   killed, separate-process reader/writer coordination, and combined policy checks. See the
+   [M13 growth-bounds report](../../reports/0115-M13_Growth_Bounds.md).
 4. **Deferred operational logs.** See Epic 0118. This is outside M13 and is not required for M13
    completion.
 5. **Deferred recovery copies and campaign intermediates.** See Epic 0118. This is outside M13 and

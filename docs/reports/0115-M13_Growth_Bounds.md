@@ -1,7 +1,7 @@
 # Epic 0115 M13: growth bounds package plan
 
 Date: 2026-11-08
-Status: Packages 1 and 2 complete; package 3 under review; M13 remains in progress
+Status: M13 complete; packages 1, 2, and 3 complete
 Planning revision: `84a8835c`
 
 ## Why M13 has separate packages
@@ -9,8 +9,8 @@ Planning revision: `84a8835c`
 M13 combines stores with different writers and retention authority. A single expiry or size policy
 would risk removing data that is still needed for active work or recovery. The package boundaries
 below keep each change tied to its writer and its recovery checks. The approved replan keeps M13
-focused on the three implemented cache policies. M13 remains incomplete until package 3
-recovery/concurrency evidence and combined checks pass.
+focused on the three implemented cache policies. Package 3 recovery/concurrency evidence and
+combined checks passed; residual growth limits remain listed below.
 
 The M0 inventory ranks `.runtime/pipeline/derived-views` at 6.5 GiB and 71,804 files. It identifies
 `DerivedViewCache` as the active reader/writer and records a provisional 30-day idle expiry only
@@ -174,8 +174,8 @@ Lock and sweep-marker files are outside the byte count.
 The lifecycle lock protects entry reads, writes, and pruning across threads and processes. Provider
 requests run outside the lock; their request and response remain in memory while in flight. Writes
 retain the cache API's atomic file replacement. Access removes orphaned temporary files for the
-accessed key; a due sweep removes other keys' temporary files. Restart behavior still needs the
-fresh-lifecycle check below. An interrupted prune can be repeated. Files can be protected
+accessed key; a due sweep removes other keys' temporary files. Fresh-lifecycle restart behavior is
+verified in the completion evidence below. An interrupted prune can be repeated. Files can be protected
 by a sibling `.json.pin` marker. Pinned entries are excluded from expiry and budget eviction. The
 exact 209 response files used by the 0088 M2 cache-only replay were checked
 against the report's request keys, crop digests, classifier version, status, and receipt costs, then
@@ -184,11 +184,9 @@ records each response digest and the source report digest. Other provider cache 
 regenerable by the current request path, at the possible cost of another Gemini request.
 
 Focused lifecycle checks cover deterministic idle expiry, oldest-first budget eviction with pin
-preservation, and a separate-process reader/writer check. Tests kill
-a writer process after it creates a temporary response file for both the visible-card and
-classifier caches. The existing lifecycle removes each orphan and replays the prior published response.
-The tests do not yet prove this through a fresh lifecycle and normal access after restart. The
-reader/writer check also needs a sustained handshake to prove the writer actually waited.
+preservation, and a separate-process reader/writer check. The final M13 checks below replace the
+earlier review gaps: both killed-writer tests now construct a fresh lifecycle and recover through
+normal cache access, and the writer process stays blocked for a sustained lock-held interval.
 An interrupted prune also completes on the next access. A classifier version mismatch test
 confirms that a fresh result cannot overwrite a pinned exact response and that the old classifier
 can still replay it. Backend integration checks confirm the cache wrappers use the configured
@@ -208,10 +206,34 @@ or write, not in the background. Provider cache eviction can cause a new paid re
 repeats an uncached request. The 0088 M2 output remains the durable result; its exact raw receipts
 are separately pinned for cache-only replay.
 
-Package 3 remains under review until the fresh-restart and concurrent-writer checks above pass.
-After those checks, run combined checks for the implemented cache policies. Do not imply that this
-also bounds operational logs, recovery copies, campaign intermediates, pinned-byte growth, or
-metadata overhead.
+## M13 completion evidence
+
+On 2026-11-08, the focused provider/classifier modules passed 32 tests after the test changes.
+`test_killed_provider_write_leaves_replayable_old_response` and
+`test_killed_classifier_write_cleans_temp_and_replays_old_version` both kill a writer after it
+creates a temporary response file. Each test then creates a new `ProviderResponseCacheLifecycle`
+and performs ordinary provider/classifier cache access. The prior response is returned as a cache
+hit, the provider is not called, the published bytes remain exact, and the orphan temporary file is
+removed.
+
+`test_provider_cache_serializes_independent_process_reader_and_writer` holds the reader's process
+lock while a writer process announces its attempt. The writer's publish callback remains unentered
+for 250 ms, then enters and completes after the reader is released. The reader observes the old
+bytes; the writer publishes the new bytes. This verifies process coordination for normal access.
+
+Combined checks passed for the implemented cache policies. The commands and results were:
+
+- `mise exec -- uv run --project table_evidence_analyzer pytest -q table_evidence_analyzer/tests/test_visible_cards.py table_evidence_analyzer/tests/test_card_classification.py` — 32 passed.
+- `mise exec -- uv run --project operations pytest -q operations/tests/test_derived_view.py` — 36 passed. These cover digest-entry and sampled-frame budgets, expiry, pins, regeneration, stale identities, readers, and interrupted pruning.
+- `mise exec -- uv run --project backend pytest -q backend/tests/test_visible_card_pipeline_api.py backend/tests/test_interactive_ui_media_performance.py` — 19 passed, including cold/warm media behavior.
+- Focused Ruff check and format check passed for both changed provider test files; `git diff --check` passed.
+
+The broader package Ruff check reported existing findings in untouched files:
+`table_evidence_analyzer/src/table_evidence_analyzer/table_observation.py:187` (line length) and
+`table_evidence_analyzer/tests/test_visible_card_fine_prepass_fixtures.py:1` (import order).
+
+These results do not bound pinned-byte growth, metadata or filesystem overhead, operational logs,
+recovery copies, or campaign intermediates. Epic 0118 owns the deferred lifecycle work.
 
 ## Deferred lifecycle work
 
@@ -226,9 +248,8 @@ derived-view families.
 
 ## Run handoff
 
-The approved run requests three milestones (M13–M15). Completed: 0. Remaining: 3. Package 3 stays
-under review until fresh-lifecycle recovery and reliable concurrent reader/writer evidence pass;
-then combined cache-policy checks complete M13. M14 adds the small maintained storage map from
-existing evidence. M15 runs essential integrated checks and reports met and unmet original targets,
-measured savings, unchanged or relocated data, and named follow-ups. Epic 0118 owns the deferred
-log, recovery-copy, and campaign lifecycle work.
+The approved run requests three milestones (M13–M15). Completed: 1 (M13). Remaining: 2 (M14–M15).
+M13 package 3 recovery, process coordination, and combined checks pass. M14 adds the small
+maintained storage map from existing evidence. M15 runs essential integrated checks and reports
+met and unmet original targets, measured savings, unchanged or relocated data, and named follow-ups.
+Epic 0118 owns the deferred log, recovery-copy, and campaign lifecycle work.
