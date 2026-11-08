@@ -6,7 +6,8 @@
 - **Depends on:** 0108, 0110, 0112, and 0114 complete. Use the final 0112 storage boundaries and
   0114 qualification evidence. No unmet dependency for M6.
 - **Outcome:** Reduce retained disk bytes, worktree cost, application overhead from data growth,
-  and agent discovery cost. Preserve useful source material and human work. Prevent regrowth.
+  and agent discovery cost. Preserve useful source material and human work. Bound the selected
+  cache lifecycles and report unresolved growth risks for separate follow-up.
 - **Retention decision:** Confirmed by the user on 2026-11-07. Preserve original recordings, human
   review work, current model bundles, and the exact dependencies needed by active work. Old
   generated runs and migration backups are candidates after dependency checks.
@@ -123,9 +124,10 @@ input bytes can be reconstructed. Do not claim full run reproducibility when the
 unique evaluation evidence and active frozen inputs remain protected under the retention policy.
 
 M0 must rank both classes. M4 must explicitly account for old processed training inputs, including
-retained reasons for candidates it does not remove. M13 must cover cache eviction and the lifecycle
-of newly created training materializations. Preserve caches needed by 0114 qualification until a
-verified replacement exists; do not evict a shared asset merely because one run has ended.
+retained reasons for candidates it does not remove. M13 covers the selected cache eviction policies.
+Lifecycle bounds for newly created campaign materializations are deferred to 0118. Preserve caches
+needed by 0114 qualification until a verified replacement exists; do not evict a shared asset merely
+because one run has ended.
 
 ## Execution and acceptance contract
 
@@ -166,15 +168,14 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M10 | Evaluate safe Git and LFS maintenance and record history costs | Complete |
 | M11 | Measure compact storage candidates and select at most one bounded format change | Complete |
 | M12 | Implement and convert the selected format family, if justified | Complete |
-| M13 | Bound cache, log, and future recovery-copy growth | In Progress |
-| M14 | Add compact agent discovery and data-authority guidance | Not started |
-| M15 | Verify savings, workflows, performance, and recovery; close | Not started |
+| M13 | Complete provider-cache recovery and concurrency evidence; run combined checks for implemented cache policies | In Progress |
+| M14 | Add a small maintained storage map from existing evidence | Not started |
+| M15 | Run essential integrated checks and publish an honest closure report | Not started |
 
 ## Execution handoff
 
-- **Run:** M12 is complete and M13 is in progress in this 4-milestone run. Requested: 4.
-  Completed: 1. Remaining: 3. The preceding run completed M8 through M11; its count is recorded
-  in the M11 report.
+- **Run:** The approved replan starts at M13. Requested: 3. Completed: 0. Remaining: 3.
+  M13–M15 are the authorized milestones. M12 and earlier remain complete; see their reports.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -450,8 +451,8 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   changing the baseline or checked-in evidence.
 - **Commit boundary:** M12 implementation, focused tests, conversion and qualification evidence,
   report, epic/handoff, and board update form one focused milestone commit.
-- **Current run result:** M12 complete; this run has completed 1 of 4 requested milestones and
-  has 3 remaining.
+- **Prior run result:** M12 complete; the prior run completed 1 of 4 requested milestones before
+  stopping with M13–M15 remaining. The approved replan resets the current run count below.
 - **M13 package 1:** The bounded runtime derived-view cache is implemented. See the
   [M13 growth-bounds report](../../reports/0115-M13_Growth_Bounds.md) for exact package boundaries,
   limits, and the retained [0114 media samples](../../reports/0115-M13_Growth_Bounds.artifacts/0114-media.json).
@@ -522,11 +523,15 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   protected from overwrite, automatic expiry, and eviction. Other cache entries can be recreated through
   provider requests, which can incur cost. The 4 GiB budget excludes pinned files and metadata;
   expiry runs on access and there is no background sweeper. M13 remains incomplete.
-- **Next:** Finish package 3 review: test normal access with a fresh lifecycle after killing each
-  writer, and prove a concurrent writer waits with a sustained handshake. The existing tests reuse
-  the lifecycle and do not reliably establish that wait. Then proceed to package 4, package 5, and
-  combined M13 checks. The run stopped at its correction limit with 1/4 milestones complete and
-  3/4 remaining.
+- **Review status:** Package 3 remains under review. Test normal access with a fresh lifecycle after
+  killing each writer, and prove a concurrent writer waits with a sustained handshake. The existing
+  tests reuse the lifecycle and do not reliably establish that wait. Then run combined checks for
+  the implemented cache policies. Do not mark M13 complete until this evidence passes.
+- **Scope decision:** The independent operational-log, recovery-copy, and campaign-intermediate
+  lifecycle work is deferred to [Epic 0118](../0-to-specify/0118-Operational_and_Recovery_Lifecycle.md).
+  Preserve active-job logs, recovery evidence, pinned cache entries, human data, and model assets.
+  Retention and growth risks remain open until 0118 selects exact families and proves their
+  dependencies and recovery paths.
 - **Commit boundary:** Provider-cache lifecycle and backend wiring, focused tests, M2 replay pin
   evidence, report, epic/handoff, and board status form one focused package commit.
 
@@ -718,24 +723,25 @@ Checks: old path disabled, real API/service read and edit round trip, exact depe
 state, restart, conversion interruption, corruption, and recovery. Repeat the M11 size/access tests
 and affected 0114 cases on the same logical corpus. Record code revision and snapshot digest.
 
-## M13 — Prevent regrowth
+## M13 — Complete selected cache growth bounds
 
-Define and enforce bounded lifetimes/size budgets for the ranked derived-cache, log, and recovery
-families. Keep durable human work and pinned dependencies outside automatic eviction. Give derived
-views exact cache keys and a reconstruction path. Invalidate stale views after edits and restart.
-Document expiry of completed migration backups and campaign intermediates. Split independent
-writer contracts before assignment if this needs more than one small change.
+Complete fresh-lifecycle recovery and reliable concurrent reader/writer evidence for the provider
+response cache. Run combined checks for the implemented derived-view, sampled-frame, and provider
+cache policies. Keep durable human work and pinned dependencies outside automatic eviction. Confirm
+exact cache keys, reconstruction, stale-view handling, and restart behavior. Operational logs,
+recovery copies, and campaign intermediates are outside this milestone and are tracked in Epic 0118.
 
-Checks: deterministic budget/expiry tests, pinned entries, missing cache regeneration, stale views,
-active readers/writers, and crash recovery separately. Measure hot/cold application behavior with
-0114; moving all latency to cache misses is not sufficient. The result must bound new growth.
+Checks: fresh-lifecycle access after writer interruption, a sustained concurrent reader/writer
+handshake, and combined deterministic budget/expiry, pinned-entry, regeneration, stale-view, and
+crash-recovery checks for implemented policies. Rerun applicable 0114 behavior checks. Record
+unbounded metadata, pinned growth, and deferred families as unresolved risks; do not claim this
+milestone bounds them.
 
 ### M13 execution packages
 
-The acceptance above remains the M13 acceptance. Its ranked paths have independent writers and
-retention behavior, so implementation is split into sequential packages. A package is not a new
-milestone and does not change the authorized M12–M15 run limit. M13 stays incomplete until every
-package is complete and the combined checks pass.
+The revised acceptance above covers the three selected cache policies. A package is not a new
+milestone and does not change the authorized M13–M15 run limit. M13 stays incomplete until the
+provider-cache recovery and concurrency evidence and combined checks pass.
 
 1. **Digest-entry cache lifecycle (complete).** Own only the direct SHA-256-keyed
    `DerivedViewCache` entry directories under `.runtime/pipeline/derived-views`, through
@@ -753,52 +759,40 @@ package is complete and the combined checks pass.
    derived-view root. Preserve exact source-video identity and prove cache reconstruction, in-flight
    access, crash recovery, and 0114 cold/warm behavior. Do not assume the digest-entry cache policy
    covers this separate writer.
-3. **Provider-response cache (complete).** Own only `.runtime/gemini-cache` and its `gemini_analyzer.py`
+3. **Provider-response cache (implemented; evidence under review).** Own only `.runtime/gemini-cache` and its `gemini_analyzer.py`
    construction and cache API. First identify replay/cost behavior and exact readers. Freeze its
    own expiry and budget before implementation; do not share derived-view eviction code without a
    verified contract. Check deterministic expiry, active requests, restart, and replay behavior.
-4. **Operational logs.** Select and name one writer family, starting with per-job `logs.json` in
-   `backend/src/dokodetector_backend/job_persistence.py` if its M0 rank and current size justify
-   bounds. Preserve active-job logs and any records required for recovery. Check bounded writes,
-   concurrent append/read, and restart separately. Campaign command/output logs need their own
-   owner and retention decision before they enter this package.
-5. **Recovery copies and campaign intermediates.** Inventory one exact retained backup or campaign
-   family at a time. Record its writer, pin/dependency roots, reconstructability, expiry condition,
-   and recovery procedure. Never apply cache expiry to these paths. Check interrupted creation,
-   recovery, and exact retained human work before any expiry or cleanup.
+4. **Deferred operational logs.** See Epic 0118. This is outside M13 and is not required for M13
+   completion.
+5. **Deferred recovery copies and campaign intermediates.** See Epic 0118. This is outside M13 and
+   is not required for M13 completion.
 
-The [M13 growth-bounds report](../../reports/0115-M13_Growth_Bounds.md) records the package
-inventory and current phase boundary. A completed package can update its own checks and evidence,
-but cannot mark M13 complete while later packages remain.
+The [M13 growth-bounds report](../../reports/0115-M13_Growth_Bounds.md) records package evidence
+and current review gaps. The deferred families remain explicit unresolved growth risks.
 
-## M14 — Agent discovery and authority
+## M14 — Maintained storage map
 
-Add a compact maintained storage map with authority, schema, owner, lookup command, retention class,
-and example manifest for each retained family. Use bounded metadata indexes only if measurements
-justify them; a new index needs an explicit writer and freshness contract. Keep payloads and old
-backups out of default discovery through supported repository search/configuration mechanisms.
-Provide commands for targeted opt-in access. Explain what is tracked, shared, ignored, and recoverable.
+Add a small maintained storage map from existing inventories and reports. It must point to the
+authoritative evidence and state the owner, lookup path, retention class, and recovery status for
+the principal retained families. Do not add an index or perform a new inventory. Name known
+unknowns and point to Epic 0118 for deferred log, recovery-copy, and campaign lifecycle decisions.
 
-Checks: repeat M0 tasks to find a recording, a current human revision, an exact run input, a model
-bundle, and a cleanup reason. Record search bytes/lines and lookup correctness against frozen
-answers. Test that changed data does not leave a false authoritative pointer. Do not claim token
-or reasoning improvements from file-count reduction alone. Run Markdown link checks.
+Checks: verify every map link and lookup command against its existing report or repository path.
+Check that the map distinguishes durable authority, derived caches, shared assets, ignored local
+data, and recovery copies. Run Markdown link checks.
 
 ## M15 — Qualification and closure
 
-Repeat storage and worktree measurements on the same machine and declared retained corpus.
-Compare the original and final layouts with all retained logical inputs fixed; also report any
-intentional removal of generated history. Separate actual reclaimed disk, relocated bytes,
-compressed bytes, cache bytes that will regrow, and Git history that remains.
+Run the essential integrated checks for the implemented storage policies and verify the maintained
+storage map. Reconcile measured results against the original frozen targets and report each target
+as met, unmet, or not remeasured. Separate measured reclaimed physical space from logical removal,
+relocation, compression, cache limits, and unchanged Git/LFS or retained data. Do not claim physical
+space was reclaimed without direct evidence. Record workflows and recovery checks already completed
+in prior milestones without repeating successful broad audits. Name residual growth and retention
+risks, including the 0118 follow-up.
 
-Run the affected 0114 HTTP/startup/browser checks against pre-cleanup and cleaned snapshots, using
-the current code for both where possible. Check bounded parse/read counts as unrelated data grows.
-Do not compare a smaller, easier dataset with a larger one and call that a code optimization.
-Complete a real-backend review/edit/save/restart workflow and the recovery drill. Recheck pending
-review queues, active epic inputs, model loads, clean setup, and two-worktree isolation.
-
-Checks: combined affected automated tests, lint/format/types, storage-plan idempotence, manifest and
-exact lineage checks, local Markdown links, worktree and agent benchmarks. Meet frozen targets or
-record a concrete unresolved gap; do not close as Complete while acceptance is unmet. Publish
-before/after evidence, commands, retained backup expiry, ongoing budgets, and named follow-ups.
-Update the epic and board in the final focused commit.
+Checks: combined affected tests and static checks, manifest and exact-lineage checks where affected,
+Markdown links, and review of measured storage and worktree evidence. Publish commands, results,
+limitations, unmet targets, unchanged or relocated data, and named follow-ups. Close only the revised
+0115 scope and state explicitly which original goals remain unmet.

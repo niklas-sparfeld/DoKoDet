@@ -1,15 +1,16 @@
 # Epic 0115 M13: growth bounds package plan
 
 Date: 2026-11-08
-Status: Packages 1, 2, and 3 complete; M13 remains in progress
+Status: Packages 1 and 2 complete; package 3 under review; M13 remains in progress
 Planning revision: `84a8835c`
 
 ## Why M13 has separate packages
 
 M13 combines stores with different writers and retention authority. A single expiry or size policy
 would risk removing data that is still needed for active work or recovery. The package boundaries
-below keep each change tied to its writer and its recovery checks. The original M13 acceptance is
-unchanged. M13 remains incomplete until all packages and the combined checks pass.
+below keep each change tied to its writer and its recovery checks. The approved replan keeps M13
+focused on the three implemented cache policies. M13 remains incomplete until package 3
+recovery/concurrency evidence and combined checks pass.
 
 The M0 inventory ranks `.runtime/pipeline/derived-views` at 6.5 GiB and 71,804 files. It identifies
 `DerivedViewCache` as the active reader/writer and records a provisional 30-day idle expiry only
@@ -144,8 +145,8 @@ other cache lifecycle operations until the frame is published. The performance s
 test video and do not qualify large recordings or full 0114 application performance.
 
 Package 2 commit boundary: sampled-frame retention, backend wiring, focused tests, 0114 evidence,
-this report, epic, and handoff. M13 remains incomplete until the later writer packages and combined
-checks pass.
+this report, epic, and handoff. M13 remains incomplete until package 3 recovery/concurrency evidence
+and combined checks pass.
 
 ## Package 3: provider-response cache
 
@@ -208,24 +209,26 @@ repeats an uncached request. The 0088 M2 output remains the durable result; its 
 are separately pinned for cache-only replay.
 
 Package 3 remains under review until the fresh-restart and concurrent-writer checks above pass.
-M13 also remains incomplete until packages 4 and 5 and the combined M13 checks pass.
+After those checks, run combined checks for the implemented cache policies. Do not imply that this
+also bounds operational logs, recovery copies, campaign intermediates, pinned-byte growth, or
+metadata overhead.
 
-## Remaining M13 packages
+## Deferred lifecycle work
 
-1. Operational logs: select one ranked writer family. Preserve active-job logs and recovery
-   evidence; campaign logs need a separate retention decision.
-2. Recovery copies and campaign intermediates: select one exact family at a time and prove its
-   pins, dependencies, reconstruction or restore path, and expiry condition before cleanup.
+Operational logs, recovery copies, and campaign intermediates are deferred to
+[Epic 0118](../plans/0-to-specify/0118-Operational_and_Recovery_Lifecycle.md). They are not M13
+packages. Preserve active-job logs, recovery evidence, pinned provider responses, original media,
+human work, and model assets until an exact-family retention decision and recovery proof exist.
 
-These packages remain part of M13 and do not add to the four-milestone run limit. Package 1 bounds
-only direct digest entries and package 2 separately bounds sampled-frame JPEG bytes; together they
-do not bound lock/state/manifest overhead or other derived-view families. M14 and M15 remain within
-the authorized run.
+Package 1 bounds only direct digest entries and package 2 separately bounds sampled-frame JPEG
+bytes. These policies do not bound lock/state/manifest overhead, pinned-byte growth, or other
+derived-view families.
 
 ## Run handoff
 
-The active run requested four milestones (M12–M15). M12 is complete. M13 is the current milestone,
-so the run has completed 1/4 and has 3/4 remaining. M13 packages 1, 2, and 3 are complete. One
-selected operational-log writer and exact recovery or campaign families remain M13 packages. M14
-and M15 remain within this run's limit; these packages do not add milestones or authorize work past
-M15.
+The approved run requests three milestones (M13–M15). Completed: 0. Remaining: 3. Package 3 stays
+under review until fresh-lifecycle recovery and reliable concurrent reader/writer evidence pass;
+then combined cache-policy checks complete M13. M14 adds the small maintained storage map from
+existing evidence. M15 runs essential integrated checks and reports met and unmet original targets,
+measured savings, unchanged or relocated data, and named follow-ups. Epic 0118 owns the deferred
+log, recovery-copy, and campaign lifecycle work.
