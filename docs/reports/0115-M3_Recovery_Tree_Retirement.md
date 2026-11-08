@@ -26,8 +26,10 @@ records the retired physical recovery paths; it does not rewrite closed Epic 010
 Before apply: inspect the full 0108 migration manifests and source-root config; verify all 51
 candidate and intake hashes; confirm no writer has an open recovery-root file; hash every retained
 path outside the candidate subtree; run the M1 recovery verifier; and complete the isolated live
-recovery, edit, review, and restart workflow. Create a dry-run with `cleanup_0115.py` and require
-`apply_permitted: true` for the frozen set. Apply once through the M2 tool.
+recovery, edit, review, and restart workflow. The M1 real-backend workflow completed before the
+M3 apply; M3 preflight also read the frozen review revisions and decisions across two backend
+starts. Create a dry-run with `cleanup_0115.py` and require `apply_permitted: true` for the frozen
+set. Apply once through the M2 tool.
 
 After apply: verify its complete 51-file receipt; confirm all protected intake hashes and the full
 retained-tree manifest are unchanged; rerun the M1 recovery verifier and isolated live workflow;
@@ -70,8 +72,16 @@ The [family recovery record](0115-M3_Recovery_Tree_Retirement.artifacts/family-r
 captures both affected-family recovery checks. The 51-file family restored from the frozen copies before apply and from intake originals
 after apply. Both reconstructions passed every byte-length and SHA-256 check. The actual backend
 served the two selected M1 independent-review revisions and 50 persisted review records across two
-server starts. Review IDs, decisions, and revision content digests remained exact. See the
-[postflight review evidence](0115-M3_Recovery_Tree_Retirement.artifacts/live-review-recovery.json).
+server starts before apply. The M1 report records the pre-apply edit/save/readback/restart, from
+base revision `2a8bf3d6-6e65-59d3-a0d0-e7048e566ce9` to `8d67df70-6f7d-591f-8093-21ecdf5b31fb`.
+After apply, the same exact M1 base revisions and all 50 review records were copied into isolated
+storage. The real backend edited and saved a scene revision, read back the new and original
+revisions, and retained all review records and downstream selection digests across restart. The
+new scene revision is `381d56db-90c1-51e1-a990-8215f1321cad`; the pose center changed from
+`[-0.014023, 0.091126]` to `[-0.013023, 0.091126]`. See
+the [preflight read evidence](0115-M3_Recovery_Tree_Retirement.artifacts/live-review-recovery.json),
+[postflight edit evidence](0115-M3_Recovery_Tree_Retirement.artifacts/live-review-edit-restart-post.json),
+and [M1 edit evidence](0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json).
 A full copied-store import attempt ran for about 16 minutes and stayed on deep JSON serialization;
 it was stopped in temporary storage. It changed no source data. This limit is recorded in the
 [postflight audit](0115-M3_Recovery_Tree_Retirement.artifacts/postflight-audit.json).
@@ -91,7 +101,8 @@ estimate. APFS clones and other filesystem activity limit attribution.
 - M2 apply receipt reports complete for all 51 exact candidate files.
 - Postflight recovery verifier passed; accepted-loss snapshot digest and all retained M1 counts match.
 - Family recovery checks passed before and after apply; protected originals match all 51 frozen hashes.
-- Real backend review and restart checks passed for both representative revisions.
+- Pre-apply M1 edit/save/readback/restart passed; M3 preflight review reads and postflight edit,
+  save, readback, review reads, and restart passed for the representative revisions.
 - Retained-tree file count, logical bytes, and exact canonical manifest digest match the preflight.
 - Writer/open-file check passed immediately before apply; no backend or cleanup process was active.
 

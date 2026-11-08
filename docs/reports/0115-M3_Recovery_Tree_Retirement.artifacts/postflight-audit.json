@@ -1,18 +1,36 @@
 {
-  "schema_version": "0115-m3-postflight-audit/v1",
-  "retirement_receipt": "retirement-receipt.json",
+  "candidate_directory_after": {
+    "explanation": "Only the M2 plan, durable M2 receipt, and apply lock remain under recording-videos. The 51 candidate files are absent.",
+    "files": 3
+  },
+  "directory_du_kib": {
+    "after": {
+      "0108_root": 11132028,
+      "recording_videos": 84
+    },
+    "before": {
+      "0108_root": 25308296,
+      "recording_videos": 14176352
+    }
+  },
+  "post_apply_edit_workflow": "live-review-edit-restart-post.json",
+  "postflight_live_review": "live-review-recovery.json",
+  "postflight_recovery_verifier": "postflight-recovery.json",
+  "pre_apply_edit_workflow": {
+    "base_revision_id": "2a8bf3d6-6e65-59d3-a0d0-e7048e566ce9",
+    "details": "M1 real-backend edit, save, readback, and restart workflow completed before the M3 apply. M3 preflight also read the exact review revisions and decisions across two backend starts.",
+    "evidence": "../0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json",
+    "saved_revision_id": "8d67df70-6f7d-591f-8093-21ecdf5b31fb"
+  },
+  "recovery_drills": {
+    "candidate_family_after": "Reconstructed all 51 paths from protected data/intake originals into an isolated temporary tree; all byte lengths and SHA-256 values matched.",
+    "candidate_family_before": "Copied all 51 frozen candidates into an isolated temporary recovery tree and checked every byte length and SHA-256 against the frozen manifest.",
+    "full_package_attempt": "A full copied-store import attempt ran about 16 minutes at high CPU and was stopped after deep JSON serialization remained on the hot path. It did not modify source data. M3 uses the bounded affected-family restore plus the representative live-review restart workflow.",
+    "live_review_restart": "The actual backend app served two M1 independent-review nodes and 50 revision-bound records from isolated persisted storage across two server starts; exact revisions, content digests, IDs, and decisions matched."
+  },
   "removed_files": 51,
   "removed_logical_bytes": 14516434567,
-  "candidate_directory_after": {
-    "files": 3,
-    "explanation": "Only the M2 plan, durable M2 receipt, and apply lock remain under recording-videos. The 51 candidate files are absent."
-  },
   "retained_tree_comparison": {
-    "preflight": {
-      "files": 142695,
-      "logical_bytes": 11091939040,
-      "manifest_sha256": "67b0f903076797ca5f81d8937e44c90611940e2d94321543bda95fdbe0e2502e"
-    },
     "postflight": {
       "files": 142695,
       "logical_bytes": 11091939040,
@@ -23,33 +41,22 @@
       "M2 cleanup plan and receipt created by this apply",
       "M2 apply lock created during this apply"
     ],
+    "preflight": {
+      "files": 142695,
+      "logical_bytes": 11091939040,
+      "manifest_sha256": "67b0f903076797ca5f81d8937e44c90611940e2d94321543bda95fdbe0e2502e"
+    },
     "same_serialization_and_sort_order": true
   },
+  "retirement_receipt": "retirement-receipt.json",
+  "schema_version": "0115-m3-postflight-audit/v1",
   "volume_observations_kib": {
-    "filesystem": "/dev/disk3s3",
-    "available_immediately_before_apply": 76379940,
     "available_after_apply": 76378452,
-    "observed_available_delta": -1488,
     "available_after_temporary_drill_cleanup": 76365200,
-    "observed_delta_after_temporary_drill_cleanup": -14740,
-    "interpretation": "Observed values only. No savings estimate or causal attribution."
-  },
-  "directory_du_kib": {
-    "before": {
-      "0108_root": 25308296,
-      "recording_videos": 14176352
-    },
-    "after": {
-      "0108_root": 11132028,
-      "recording_videos": 84
-    }
-  },
-  "recovery_drills": {
-    "candidate_family_before": "Copied all 51 frozen candidates into an isolated temporary recovery tree and checked every byte length and SHA-256 against the frozen manifest.",
-    "candidate_family_after": "Reconstructed all 51 paths from protected data/intake originals into an isolated temporary tree; all byte lengths and SHA-256 values matched.",
-    "live_review_restart": "The actual backend app served two M1 independent-review nodes and 50 revision-bound records from isolated persisted storage across two server starts; exact revisions, content digests, IDs, and decisions matched.",
-    "full_package_attempt": "A full copied-store import attempt ran about 16 minutes at high CPU and was stopped after deep JSON serialization remained on the hot path. It did not modify source data. M3 uses the bounded affected-family restore plus the representative live-review restart workflow."
-  },
-  "postflight_recovery_verifier": "postflight-recovery.json",
-  "postflight_live_review": "live-review-recovery.json"
+    "available_immediately_before_apply": 76379940,
+    "filesystem": "/dev/disk3s3",
+    "interpretation": "Observed values only. No savings estimate or causal attribution.",
+    "observed_available_delta": -1488,
+    "observed_delta_after_temporary_drill_cleanup": -14740
+  }
 }

@@ -1,0 +1,45 @@
+{
+  "cleanup_state": "post-apply; only verified duplicate recovery videos were retired",
+  "edit_save_readback_restart": {
+    "backend_restarts": 2,
+    "center_after": [
+      -0.013023,
+      0.091126
+    ],
+    "center_before": [
+      -0.014023,
+      0.091126
+    ],
+    "downstream_selection_digest_map_unchanged": true,
+    "endpoint": "POST /api/pipeline/nodes/{node_id}/edit",
+    "frame_id": "cardeventnet-event-img_0097-000",
+    "old_revision_unchanged": true,
+    "review_ids_and_decisions_unchanged": true,
+    "saved_revision_id": "381d56db-90c1-51e1-a990-8215f1321cad"
+  },
+  "isolated_operations_root": "/var/folders/gv/yr_91p3x2_vctbq99586hjm80000gn/T/0115-m3-post-edit-review-u5jwjiud/data/operations",
+  "nodes": {
+    "scene": {
+      "base_revision_id": "2a8bf3d6-6e65-59d3-a0d0-e7048e566ce9",
+      "decisions": {
+        "pending": 40
+      },
+      "node_id": "b2b9577c-cb6e-5f20-a588-55c56899d9e2",
+      "review_records": 40
+    },
+    "visible": {
+      "decisions": {
+        "accepted": 9,
+        "unusable": 1
+      },
+      "node_id": "2ce0a4c8-d5f6-58d4-9067-da7e8446418a",
+      "review_records": 10,
+      "revision_id": "9cd3a30c-6c95-5427-802d-35a4868b3c56"
+    }
+  },
+  "protected_recordings_root": "/Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings",
+  "result": "Edit/save/readback through the real backend passed in isolated persisted storage. The new revision and original revision-bound reviews survived restart; the visible-card decisions, virtual-scene pending reviews, and IMG_0097 downstream selections remained unchanged.",
+  "schema_version": "0115-m3-live-review-edit-restart/v1",
+  "source_snapshot": "M1 exact revisions and 50 stored review records in main pipeline-nodes, copied read-only into isolated temporary operations storage",
+  "temp_root": "/var/folders/gv/yr_91p3x2_vctbq99586hjm80000gn/T/0115-m3-post-edit-review-u5jwjiud"
+}

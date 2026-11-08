@@ -210,8 +210,10 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 - **Checks:** M2 tests passed (12); Ruff and format passed. The M1 verifier passed after apply with
   the same accepted-loss snapshot digest. The 51-file family reconstructed and hash-checked from
   intake after apply. The real backend served two representative independent-review revisions and
-  50 records across restart. The exact retained-tree digest, file count, and logical bytes matched
-  before and after. The M2 apply receipt reports all 51 files removed.
+  50 records across restart. The pre-apply M1 evidence records an edit/save/readback/restart. A new
+  post-apply edit/save/readback/restart passed in isolated storage, with prior reviews and selection
+  digests intact. The exact retained-tree digest, file count, and logical bytes matched before and
+  after. The M2 apply receipt reports all 51 files removed.
 - **Decisions and limits:** The available volume space changed by -1,488 KiB between immediate
   pre-apply and post-apply observations, and by -14,740 KiB from pre-apply to a later sample after
   temporary drill cleanup. The 0108 root directory fell from 25,308,296 KiB to 11,132,028 KiB.
