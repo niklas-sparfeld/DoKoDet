@@ -48,23 +48,26 @@ the 0114 hard-fixture assets do not use this policy.
 The policy is enabled only for backend runtime digest-entry cache access. Other `DerivedViewCache`
 users keep their current unbounded test or campaign behavior. Reads refresh the cache entry's directory
 timestamp. A small retention state avoids a full tree scan per write; the cache rebuilds that state
-after an interrupted mutation. Writes remain atomic. A lifecycle lock serializes cache access
-across threads and processes. The next operation recovers a pending state, removes abandoned
-staging directories, and reapplies the budget. Exact cache keys still bind the source and view
-identity, so a changed source or revision misses the prior entry and regenerates through the
-existing API path.
+after an interrupted mutation. New entries use staging and atomic rename. For an unpinned
+replacement, the writer moves the prior entry to a temporary backup before publishing the staged
+entry. A lifecycle lock protects cache readers and writers across threads and processes. If
+interrupted, the next operation restores the backup when the destination is missing, or removes the
+backup when the new entry is present. A pinned entry is never replaced. Exact cache keys still bind
+the source and view identity, so a changed source or revision misses the prior entry and regenerates
+through the existing API path.
 
 Required checks: deterministic budget and idle-expiry behavior; pinned dependency preservation;
 missing-entry regeneration; stale source/revision behavior after restart; concurrent readers and
 writers; interruption/crash recovery as a separate check; and hot/cold 0114 behavior on the same
 fixture corpus. Record source revision, fixture digest, response correctness, and latency against
-the M12/M11 baseline. The focused tests cover expiry, pin/unpin, oldest-first eviction, concurrent
-readers and writers, and a pending-write/staging recovery state. Existing API tests cover a new
-identity revision, review save, and restart.
+the M12/M11 baseline. The 28 focused tests cover expiry, hourly-sweep-on-write, pin/unpin,
+oldest-first eviction, concurrent readers and writers, interruption before and after replacement
+publish, pinned replacement preservation, and pending-write/staging recovery. Existing API tests
+cover a new identity revision, review save, and restart.
 
 The 0114 media suite passed 13/13 cases. All 13 status, byte-count, and response-digest tuples match
-the retained 0114 M9 sample. Derived-frame cold/warm requests took 3.59/2.12 ms. Identity-crop
-cold/warm, new-revision, after-review, and after-restart requests took 70.93/5.08/70.99/4.04/115.94
+the retained 0114 M9 sample. Derived-frame cold/warm requests took 3.43/2.14 ms. Identity-crop
+cold/warm, new-revision, after-review, and after-restart requests took 70.44/4.27/70.46/3.88/89.85
 ms. These are single-run local samples, not a new latency baseline. The full 0114 qualifier was not
 rerun in this package.
 
@@ -72,14 +75,16 @@ The [0114 media result](0115-M13_Growth_Bounds.artifacts/0114-media.json) retain
 and timings. Their status, byte count, and response digest tuples match the checked-in 0114 M9
 sample. The hard-asset validator passed all 57 assets. Inventory validation passed with 76
 registered API operations and 70 planned UI cases. The code and test files have the SHA-256
-fingerprint `fbe294d7e6dc28f8cbbc53a09602f52288a6dfffd466bcefa4192aab20d37114` in the media
+fingerprint `aab188186390e942506702cb0efd50d1ed7ef0ab5b1fa798d864e040045ae1f7` in the media
 artifact.
 
 Limits: the 8 GiB limit applies to unpinned cache entry bytes, not lock/state files or explicitly
-pinned entries. Pinned cache entries can therefore exceed it. The 30-day expiry is lazy on read and
-is also applied by the hourly cache sweep while the cache is active. The cache root is disposable;
-if an evicted entry cannot be regenerated, its API request still fails under the existing source
-availability rules. The operator cache was not activated or modified.
+pinned entries. Pinned cache entries can therefore exceed it. A read expires its selected entry
+after 30 idle days. Writes also sweep expired entries when an hour has passed since the prior sweep
+or when the size budget is exceeded. An idle cache with no reads or writes is not swept in the
+background. The cache root is disposable; if an evicted entry cannot be regenerated, its API
+request still fails under the existing source availability rules. The operator cache was not
+activated or modified.
 
 Package 1 commit boundary: cache contract and backend wiring, focused tests, 0114 evidence, this
 report, epic, and handoff. Later packages have separate boundaries. Completing this package alone

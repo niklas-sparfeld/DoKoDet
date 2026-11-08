@@ -457,14 +457,15 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   limits, and the retained [0114 media samples](../../reports/0115-M13_Growth_Bounds.artifacts/0114-media.json).
 - **Changes:** Direct SHA-256-keyed runtime `DerivedViewCache` entries use a 30-day idle expiry and
   an 8 GiB unpinned logical-byte budget. Exact-key reads still regenerate missing or stale views.
-  Explicit `.pin` markers protect pinned entries. Atomic writes, a process and thread lifecycle
-  lock, and pending-state recovery protect concurrent readers/writers and interrupted cleanup.
+  Explicit `.pin` markers protect pinned entries. New entries publish by atomic rename. Replacement
+  uses a temporary backup, a process and thread lifecycle lock, and pending-state recovery to
+  restore the old entry or retain the new one after interruption.
   The separate `sampled-frames` writer, durable roots, and external 0114 hard-fixture cache are
   outside this eviction policy.
-- **Checks:** 24 derived-view tests, 18 visible-card and identity crop API tests, Ruff and format
-  checks, 57 hard assets, 76 API operations, 70 planned UI cases, and the 13-case 0114 media suite
-  passed. All 13 media response tuples match the retained 0114 M9 sample. See the M13 report for
-  hot/cold timings and limits.
+- **Checks:** 28 derived-view tests, one crop-cache conversion regression, 18 visible-card and
+  identity crop API tests, Ruff and format checks, 57 hard assets, 76 API operations, 70 planned UI
+  cases, and the 13-case 0114 media suite passed. All 13 media response tuples match the retained
+  0114 M9 sample. See the M13 report for hot/cold timings and limits.
 - **Decisions and limits:** M13 remains incomplete, and the 8 GiB policy bounds only direct
   digest-keyed entries in the derived-view root. `SampledFrameResolver` has an independent writer
   under `sampled-frames`; it is the next package. The provider-response cache, operational logs,

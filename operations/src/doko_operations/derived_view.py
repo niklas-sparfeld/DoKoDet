@@ -1223,19 +1223,22 @@ class DerivedViewCache:
         content: bytes,
     ) -> DerivedViewCacheEntry:
         with self._retention_lock():
+            destination = self.path(cache_key)
+            was_pinned = (destination / DERIVED_VIEW_CACHE_PIN_FILE).exists()
+            if was_pinned:
+                cached = self._read(cache_key)
+                if cached is not None:
+                    return cached
+                return DerivedViewCacheEntry(manifest=dict(manifest), content=content)
             if self.retention is not None:
                 self._ensure_retention_state()
-                destination = self.path(cache_key)
-                was_pinned = (destination / DERIVED_VIEW_CACHE_PIN_FILE).exists()
                 previous_size = self._entry_size(destination)
                 _write_fsync(self.root / ".maintenance-pending", b"pending\n")
             result = self._write(cache_key, manifest, content)
             if self.retention is not None:
                 destination = self.path(cache_key)
-                if was_pinned:
-                    _write_fsync(destination / DERIVED_VIEW_CACHE_PIN_FILE, b"pinned\n")
                 new_size = self._entry_size(destination)
-                self._adjust_retention_state(0 if was_pinned else new_size - previous_size)
+                self._adjust_retention_state(new_size - previous_size)
                 if (
                     self._retention_state_needs_sweep()
                     or self._retention_bytes() > self.retention.max_bytes
@@ -1282,15 +1285,28 @@ class DerivedViewCache:
         manifest_bytes = canonical_json_bytes(data)
         parent = self.root.resolve()
         staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=parent))
+        backup = self.root / f".replaced-{cache_key}" if self.retention is not None else None
         try:
             _write_fsync(staging / "manifest.json", manifest_bytes)
             _write_fsync(staging / filename, stored if compressed else content)
             if destination.is_symlink():
                 destination.unlink()
             elif destination.exists():
-                shutil.rmtree(destination)
-            os.replace(staging, destination)
+                if backup is not None:
+                    if backup.exists():
+                        raise DerivedViewCacheError("cache replacement recovery is pending")
+                    os.replace(destination, backup)
+                else:
+                    shutil.rmtree(destination)
+            try:
+                os.replace(staging, destination)
+            except OSError:
+                if backup is not None and backup.exists() and not destination.exists():
+                    os.replace(backup, destination)
+                raise
             staging = Path()
+            if backup is not None and backup.exists():
+                shutil.rmtree(backup)
             if self.retention is not None:
                 written_at = self.retention.clock()
                 os.utime(destination, (written_at, written_at), follow_symlinks=False)
@@ -1352,6 +1368,7 @@ class DerivedViewCache:
                 fcntl.flock(descriptor, fcntl.LOCK_EX)
                 pending = self.root / ".maintenance-pending"
                 if pending.exists():
+                    self._recover_replacements()
                     self._ensure_retention_state(force=True)
                     self._prune()
                     pending.unlink(missing_ok=True)
@@ -1404,6 +1421,17 @@ class DerivedViewCache:
             shutil.rmtree(path)
             total -= size
         self._write_retention_state(total, now)
+
+    def _recover_replacements(self) -> None:
+        for backup in self.root.glob(".replaced-*"):
+            suffix = backup.name.removeprefix(".replaced-")
+            if _CACHE_KEY.fullmatch(suffix) is None or not backup.is_dir() or backup.is_symlink():
+                raise DerivedViewCacheError("invalid derived-view replacement recovery entry")
+            destination = self.path(suffix)
+            if destination.exists() or destination.is_symlink():
+                shutil.rmtree(backup)
+            else:
+                os.replace(backup, destination)
 
     def _retention_state_path(self) -> Path:
         return self.root / ".retention-state.json"

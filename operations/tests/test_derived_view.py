@@ -387,6 +387,27 @@ def test_runtime_derived_view_cache_expires_idle_entries_and_keeps_pins(tmp_path
     assert cache.read(pinned_key) is None
 
 
+def test_runtime_derived_view_cache_sweeps_old_entries_on_due_write(tmp_path: Path) -> None:
+    now = [1000.0]
+    cache = DerivedViewCache(
+        tmp_path / "derived-views",
+        retention=DerivedViewCacheRetention(
+            max_bytes=100_000,
+            idle_seconds=100,
+            clock=lambda: now[0],
+        ),
+    )
+    old_key = "6" * 64
+    new_key = "7" * 64
+    _write_cache_entry(cache, old_key, b"old")
+    now[0] += 3601
+
+    _write_cache_entry(cache, new_key, b"new")
+
+    assert not cache.path(old_key).exists()
+    assert cache.read(new_key) is not None
+
+
 def test_runtime_derived_view_cache_evicts_oldest_until_under_budget(tmp_path: Path) -> None:
     root = tmp_path / "derived-views"
     first_key = "c" * 64
@@ -434,6 +455,38 @@ def test_runtime_derived_view_cache_keeps_pinned_entry_over_budget(tmp_path: Pat
     assert not bounded.path(new_key).exists()
 
 
+def test_runtime_derived_view_cache_does_not_replace_pinned_entry(tmp_path: Path) -> None:
+    cache = DerivedViewCache(
+        tmp_path / "derived-views",
+        retention=DerivedViewCacheRetention(
+            max_bytes=100_000,
+            idle_seconds=1000,
+            clock=lambda: 1000.0,
+        ),
+    )
+    key = "3" * 64
+    _write_cache_entry(cache, key, b"pinned bytes")
+    cache.pin(key)
+
+    with patch(
+        "doko_operations.derived_view.os.replace",
+        side_effect=AssertionError("pinned entry replacement was attempted"),
+    ):
+        cache.write(
+            key,
+            {
+                "schema_version": "derived-view-cache/v1",
+                "cache_key": key,
+                "view_kind": "test-view/v1",
+                "identity": {"test": key},
+            },
+            b"replacement bytes",
+        )
+
+    assert cache.read(key).content == b"pinned bytes"
+    assert not (cache.root / ".maintenance-pending").exists()
+
+
 def test_runtime_derived_view_cache_recovers_interrupted_staging(tmp_path: Path) -> None:
     root = tmp_path / "derived-views"
     cache = DerivedViewCache(
@@ -452,6 +505,74 @@ def test_runtime_derived_view_cache_recovers_interrupted_staging(tmp_path: Path)
     assert cache.read("e" * 64) is None
     assert not abandoned.exists()
     assert not (root / ".maintenance-pending").exists()
+
+
+def test_runtime_derived_view_cache_restores_old_entry_after_interrupted_replace(
+    tmp_path: Path,
+) -> None:
+    cache = DerivedViewCache(
+        tmp_path / "derived-views",
+        retention=DerivedViewCacheRetention(
+            max_bytes=100_000,
+            idle_seconds=1000,
+            clock=lambda: 1000.0,
+        ),
+    )
+    key = "4" * 64
+    _write_cache_entry(cache, key, b"before")
+    destination = cache.path(key)
+    original_replace = os.replace
+
+    def interrupt_publish(source, target):
+        if Path(target) == destination and Path(source).name.startswith(".staging-"):
+            raise RuntimeError("simulated interruption before publish")
+        return original_replace(source, target)
+
+    with (
+        patch("doko_operations.derived_view.os.replace", side_effect=interrupt_publish),
+        pytest.raises(RuntimeError, match="before publish"),
+    ):
+        _write_cache_entry(cache, key, b"after")
+
+    assert (cache.root / f".replaced-{key}").is_dir()
+    assert cache.read(key).content == b"before"
+    assert not (cache.root / f".replaced-{key}").exists()
+    assert not (cache.root / ".maintenance-pending").exists()
+
+
+def test_runtime_derived_view_cache_keeps_published_entry_after_interrupted_cleanup(
+    tmp_path: Path,
+) -> None:
+    cache = DerivedViewCache(
+        tmp_path / "derived-views",
+        retention=DerivedViewCacheRetention(
+            max_bytes=100_000,
+            idle_seconds=1000,
+            clock=lambda: 1000.0,
+        ),
+    )
+    key = "5" * 64
+    _write_cache_entry(cache, key, b"before")
+    original_rmtree = shutil.rmtree
+
+    def interrupt_backup_cleanup(path, *args, **kwargs):
+        if Path(path) == cache.root / f".replaced-{key}":
+            raise RuntimeError("simulated interruption after publish")
+        return original_rmtree(path, *args, **kwargs)
+
+    with (
+        patch(
+            "doko_operations.derived_view.shutil.rmtree",
+            side_effect=interrupt_backup_cleanup,
+        ),
+        pytest.raises(RuntimeError, match="after publish"),
+    ):
+        _write_cache_entry(cache, key, b"after")
+
+    assert (cache.root / f".replaced-{key}").is_dir()
+    assert cache.read(key).content == b"after"
+    assert not (cache.root / f".replaced-{key}").exists()
+    assert not (cache.root / ".maintenance-pending").exists()
 
 
 def test_runtime_derived_view_cache_serializes_concurrent_users(tmp_path: Path) -> None:
