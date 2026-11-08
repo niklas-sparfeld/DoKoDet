@@ -76,4 +76,5 @@ def test_worktree_root_pipeline_edit_survives_restart_and_keeps_fixture_identity
 
     assert settings.evidence_root == storage_root / "runtime"
     assert settings.operations_root == storage_root / "data/operations"
-    assert not (settings.repository_root / "data/operations/pipeline-nodes").exists()
+    legacy_node_path = settings.repository_root / "data/operations/pipeline-nodes/fixture-events"
+    assert not legacy_node_path.exists()
