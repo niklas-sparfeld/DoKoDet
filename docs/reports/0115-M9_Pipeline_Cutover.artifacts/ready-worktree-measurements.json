@@ -1,0 +1,73 @@
+{
+  "schema_version": "0115-ready-worktree-measurement/v1",
+  "code_revision": "b7098c782",
+  "setup_commands": [
+    "git worktree add --detach <path> b7098c78",
+    "mise install",
+    "mise exec -- uv sync --project backend",
+    "(cd web && mise exec -- npm ci)",
+    "(cd web && mise exec -- npm run build)",
+    "DOKO_STORAGE_ROOT=<unique-root> mise exec -- uv run --project backend python -c \"from dokodetector_backend.app import create_app; create_app()\"",
+    "DOKO_STORAGE_ROOT=<unique-root> mise exec -- uv run --project backend pytest backend/tests/test_worktree_storage_contract.py backend/tests/test_operator_corpus_import.py backend/tests/test_0115_pipeline_cutover.py -q"
+  ],
+  "worktrees": [
+    {
+      "name": "A",
+      "worktree_add_seconds": 1.0,
+      "mise_install_seconds": 0.07,
+      "backend_sync_seconds": 1.24,
+      "web_install_seconds": 2.26,
+      "web_build_seconds": 4.2,
+      "backend_init_seconds": 8.08,
+      "create_to_ready_seconds": 16.85,
+      "api_test_seconds": 13.47,
+      "checkout_kib": 1693656,
+      "state_kib": 40,
+      "ready_kib": 1693696,
+      "test_exit_code": 0
+    },
+    {
+      "name": "B",
+      "worktree_add_seconds": 0.93,
+      "mise_install_seconds": 0.03,
+      "backend_sync_seconds": 0.9,
+      "web_install_seconds": 2.02,
+      "web_build_seconds": 4.07,
+      "backend_init_seconds": 7.76,
+      "create_to_ready_seconds": 15.71,
+      "api_test_seconds": 13.48,
+      "checkout_kib": 1693656,
+      "state_kib": 40,
+      "ready_kib": 1693696,
+      "test_exit_code": 0
+    }
+  ],
+  "targets": {
+    "create_to_ready_seconds_max": 30,
+    "ready_kib_max": 2097152,
+    "passed": true,
+    "ready_margin_kib": 403456
+  },
+  "fresh_setup_test_results": {
+    "m5_storage_and_import_tests": 3,
+    "m9_selected_chain_api_restart_test": 1,
+    "passed": 4
+  },
+  "cross_worktree_isolation": {
+    "worktree_a_fresh_root_test_passed": true,
+    "worktree_b_state_files": 13,
+    "worktree_b_manifest_unchanged": true
+  },
+  "tracked_data_roots_after_cutover": {
+    "intake_recordings": 0,
+    "pipeline_revisions": 0,
+    "pipeline_runs": 0,
+    "pipeline_selections": 0,
+    "automated_runs": 15,
+    "all_data_and_runtime_paths": 284
+  },
+  "notes": [
+    "The 2 GiB target is for path allocation of checkout plus explicit state root. Shared .git and APFS clone accounting are separate.",
+    "The 1.615 GiB checkout and 40 KiB state root are measured path allocations."
+  ]
+}

@@ -9,7 +9,7 @@ The activation snapshot is the exact M6 inventory subset at revision `b294ffac4b
 
 The accepted-loss recovery package contains matching pipeline roots. Its verifier passed with migration snapshot `c8979c9a53956abd749e638466e1f88009f2e0ce8e725d674bf26ff0335ed430`. All 31,521 candidate files (1,701,015,169 bytes) matched the package byte for byte before and after cutover. The package records 835 revisions, 594 runs, and 136 selections. It also records 156 unresolved migration history items. These records and the full source files remain in the recovery package; M9 does not resolve or discard their histories.
 
-All candidate blob IDs match the `origin/main` tree at `21a1146b0e7ca3bcbc702dc358437b6609ecf482`. A fresh GitHub clone attempt returned `Repository not found`, so this report does not claim a current off-volume restore. The verified accepted-loss package is on the same volume. Git history was not rewritten.
+All candidate blob IDs match a fresh shallow GitHub clone at `21a1146b0e7ca3bcbc702dc358437b6609ecf482`. Its sparse checkout restored all 31,521 candidate files (1,701,015,169 bytes), and every restored blob matched M6. The independent restore took 33.56 seconds. The local accepted-loss package also matches every candidate file. Git history was not rewritten.
 
 ## Reader and writer audit
 
@@ -29,7 +29,9 @@ The M1 recovery verifier passed after cutover with the same migration package, n
 
 ## Measurement
 
-M5 measured a ready worktree at 18,670,260 / 18,673,008 KiB, with checkouts at 16.92 GiB and a 2 GiB target gap of 14.92 GiB. M9 repeats the frozen setup in two clean worktrees after cutover. The results, remaining tracked families, and updated target gap are recorded below after both setup runs.
+M9 repeated the frozen setup in two clean worktrees at commit `b7098c782`. Create-to-ready took 16.85 seconds in A and 15.71 seconds in B, against the 30-second target. Each checkout used 1,693,656 KiB; each explicit state root used 40 KiB. The 1,693,696 KiB ready total is 403,456 KiB below the 2 GiB target. These are path allocations. Shared `.git` bytes and APFS clone accounting are separate.
+
+The combined setup and selected API tests passed in both worktrees. Worktree A also ran the storage contract test with a fresh second state root. Worktree B's 13-file state manifest did not change. After cutover, zero intake recording paths and zero pipeline revision/run/selection paths are tracked; 15 automated-run idempotency paths remain tracked. The complete measurement receipt is in [ready-worktree-measurements.json](0115-M9_Pipeline_Cutover.artifacts/ready-worktree-measurements.json).
 
 ## Checks
 
@@ -39,4 +41,6 @@ M5 measured a ready worktree at 18,670,260 / 18,673,008 KiB, with checkouts at 1
 - Two detached-worktree archive/restore rehearsals: passed; each restored all candidate paths exactly and retained all 15 automated-run files.
 - `pytest` for pipeline API, node selection, lineage writer, node store, M9 cutover, worktree storage, and operator import: passed, 38 tests.
 - Ruff check, Ruff format check, and `git diff --check`: passed after import and format fixes.
-- Markdown links: pending final link pass after plan and board updates.
+- Markdown path and anchor links in the changed plan, board, and report: passed (219 links).
+
+One supplemental API test attempt reused worktree A's already populated state root and hit the expected existing-node conflict. The rerun used a fresh root and passed; the registered M9 setup test runs each clean worktree with its own fresh root.

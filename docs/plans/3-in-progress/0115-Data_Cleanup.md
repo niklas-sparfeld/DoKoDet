@@ -354,8 +354,8 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 - **Commit boundary:** Intake index removal, ignore rule, updated M8 inventory and assessment, epic,
   board, and handoff in one focused milestone commit. No pipeline tracking, source bytes, history, or
   Git/LFS object maintenance changed.
-- **Current run result:** M8 complete; this run has completed 1 of 8 requested milestones and has 7
-  remaining.
+- **Current run result:** M8 and M9 complete; this run has completed 2 of 8 requested milestones
+  and has 6 remaining.
 
 - **M9:** Complete. The [M9 report](../../reports/0115-M9_Pipeline_Cutover.md) freezes 31,521
   revision, run, and selection paths at activation digest `b275daba9c75b3d3deb047a61f8b6274acca10f370391eeeb4ba75abbc780c0e`.
@@ -369,10 +369,10 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   protection rehearsals restored all 31,521 files exactly and kept all 15 automated-run records
   tracked. Current worktree setup timing and allocation are in the M9 report.
 - **Decisions and limits:** No data file or Git history was deleted. The recovery package is on the
-  same volume. The GitHub clone attempt returned `Repository not found`, so no current off-volume
-  restore is claimed. The operator corpus is not copied to new isolated roots by default. Existing
+  same volume. A fresh shallow GitHub clone restored and verified all 31,521 candidate files. The operator corpus is not copied to new isolated roots by default. Existing
   detached worktrees remain unchanged; use the tested archive/restore procedure before a future
-  merge. The local 2 GiB ready-worktree allocation target remains open for M15.
+  merge. Two fresh worktrees pass the 2 GiB ready-allocation target by 403,456 KiB; M15 must repeat
+  final measurement.
 - **Next:** M10 — evaluate safe Git and LFS maintenance and record history costs.
 - **Commit boundary:** The pipeline index removal, ignore rules, exact chain test fixtures, M9
   evidence, epic, board, and handoff form one focused milestone commit.

@@ -49,6 +49,9 @@
     }
   ],
   "local_remote_tracking_tree_blob_match_count": 31521,
-  "live_remote_clone_verified": false,
-  "live_remote_clone_result": "SSH clone returned Repository not found; no off-volume restore claim"
+  "live_remote_clone_verified": true,
+  "live_remote_clone_result": "Shallow clone at the exact GitHub main revision; sparse checkout restored the full candidate family and matched every Git blob ID.",
+  "remote_restore_files_verified": 31521,
+  "remote_restore_bytes": 1701015169,
+  "remote_restore_checkout_seconds": 33.56
 }
