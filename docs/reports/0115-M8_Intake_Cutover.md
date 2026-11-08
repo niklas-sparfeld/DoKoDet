@@ -48,6 +48,17 @@ there are no staged intake changes or in-progress Git operation markers. Its unr
 must remain untouched. No cutover checkout or merge rehearsal was run, so preservation of intake
 files in those existing worktrees after they later merge an untracking commit remains unproven.
 
+For a media-only subset, the independent raw source and tracked metadata can restore one standard
+bundle through the existing importer; this did not require a new API or storage schema. A future
+selection could untrack only exact verified video paths while keeping all metadata and the 15
+unverified videos tracked. However, the same video paths remain present in the existing checkouts.
+There is no tested mechanism that preserves those per-checkout copies through a later merge without
+changing their state. The available external raw source can restore a copy, but using it after a
+merge would not prove that each checkout was protected before the merge. The staged worktree is not
+locked or running a Git operation, but its unrelated staged changes prohibit using it for rehearsal.
+The iOS worktree locked as `initializing` also cannot be treated as an available rehearsal target.
+No bounded subset currently meets every M8 gate.
+
 Current measurements are separate: the main intake checkout occupies about 15 GiB; shared `.git`
 occupies about 31 GiB, including about 17 GiB in `.git/lfs`. `git count-objects -vH` reports 11.35
 GiB in Git packs and 2.65 GiB of temporary garbage. M10 owns Git/LFS maintenance; M8 did not remove
@@ -67,7 +78,9 @@ claims.
 
 Keep all 239 intake paths tracked for now. The 43 verified raw originals can form a service-readable
 bundle when combined with tracked metadata; the 15 unresolved videos and all metadata must remain
-tracked. A bounded future selection could include only verified video paths, after the restore steps
-are repeatable for each selected ID and existing checkout copies have a tested protection plan.
-Rehearse checkout and merge effects before any integration. No main operator data or existing
-worktree state was changed.
+tracked. There is no bounded selection that passes checkout protection today. Before resuming M8,
+coordinate with the owners of the registered worktrees to settle a copy-preservation procedure,
+wait for the initializing checkout to finish, and clear or otherwise protect the unrelated staged
+worktree state without agent changes to it. Then rehearse the selected video-path merge in disposable
+storage and confirm that every existing checkout copy remains recoverable without overwriting local
+work. No main operator data or existing worktree state was changed.

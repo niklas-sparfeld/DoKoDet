@@ -346,12 +346,16 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   reports 11.35 GiB packed objects and 2.65 GiB temporary garbage; M10 owns any Git/LFS maintenance.
 - **Decisions and limits:** Keep all 239 candidate paths tracked. The local LFS check and raw-video
   matches prove restoration of one matched recording only. A bounded media-only cutover of the 43
-  verified paths may be feasible with metadata left tracked and the 15 unverified videos retained;
-  a repeatable raw-to-bundle materializer and existing-checkout protection are still unproven. Keep
-  all operator data and worktree states intact. No history rewrite, cleanup, or activation occurred.
-- **Next:** Repeat the disposable restore for selected IDs and design a safe rehearsal for existing
-  checkouts before changing tracking. If materialization needs a new restore tool contract, split it
-  into an explicit milestone first.
+  verified paths has a working one-recording restore path using the existing bundle format and
+  importer, with metadata kept tracked and the 15 unverified videos retained. No new API or storage
+  schema was needed. Repeatable batch restoration and preservation of the same files in all existing
+  worktrees are still unproven. No bounded subset currently meets every M8 gate. Keep all operator
+  data and worktree states intact. No history rewrite, cleanup, or activation occurred.
+- **Next:** Coordinate with the registered worktree owners on a preservation procedure. Wait for the
+  initializing checkout to finish and for the owner of `.codex/worktrees/6203` to confirm safe
+  handling of its unrelated staged work. Then rehearse a selected media-only merge in disposable
+  storage and verify all existing copies remain protected before changing tracking. A reusable
+  materializer would be a new tool contract; if required, split that work into an explicit milestone.
 - **Commit boundary:** M8 assessment and activation inventory, epic, board, and handoff only; no
   tracking or data changes.
 
