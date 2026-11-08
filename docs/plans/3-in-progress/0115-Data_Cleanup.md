@@ -155,7 +155,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 | --- | --- | --- |
 | M0 | Storage inventory, cost baseline, retention roots, and ranked targets | Complete |
 | M1 | Tested recovery of retained authority and an exact cleanup manifest | Complete |
-| M2 | Bounded cleanup planner and apply mechanism | Not started |
+| M2 | Bounded cleanup planner and apply mechanism | Complete |
 | M3 | Retire verified redundant migration and recovery trees | Not started |
 | M4 | Remove one ranked family of unused runtime intermediates | Not started |
 | M5 | Specify and prove isolated worktree data access | Not started |
@@ -168,14 +168,32 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 
 ## Execution handoff
 
-- **Run:** requested 11 milestones; completed 1; remaining 10.
+- **Run:** requested 11 milestones; completed 2; remaining 9.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
 - **Checks:** IMG_0097 loopback API returned five workspace stages, seven lineage nodes, and two exact processor runs across restart. The canonical review imported as one visible-card node and one scene node, retaining 9 accepted, 40 pending, and 1 unusable decision. Node-review APIs returned 10 visible-card and 40 scene records. Edit/save/readback created a new scene revision; old revision reviews and downstream selection remained unchanged after restart. Three focused web tests passed (12 cases), and three focused backend modules passed (20 tests). All 51 recovery-video files (14,516,434,567 logical bytes) match their accepted-stage digests and protected intake copies. Disk free space was 73 GiB before and after bounded restore. Existing IMG_0637 edit/save/readback/restart and offline DINOv3 loading checks remain recorded in the report.
 - **Decisions and limits:** 0108 M11 intentionally removed the legacy review-scoped HTTP routes. The supported path restores independent reviews as canonical visible-card and virtual-scene draft nodes through current workspace and node-review APIs; no new contract was added. The recovery set is local to the source volume; physical APFS allocation and full-root recovery cost are unknown. No deletion is approved. M3 must complete full recovery-tree reference checks and a recovery drill before any deletion.
-- **Next:** M2 — implement a bounded cleanup planner and apply mechanism. Preserve listed unknown references and do not delete data until the candidate manifest, writer check, and recovery drill pass.
-- **Commit boundary:** M1 recovery evidence, report, epic, board, and handoff in one focused commit.
+- **M2:** Complete. The [M2 report](../../reports/0115-M2_Bounded_Cleanup_Tooling.md) records
+  the frozen 51-file recovery-video candidate root, tool contract, and limits. The local
+  [cleanup planner/apply tool](../../../scripts/cleanup_0115.py) writes dry-run plans by default;
+  apply requires an explicit authorization and complete-reference declaration.
+- **Changes:** Added a manifest-bound plan and apply CLI, exact file and protected-reference
+  identity checks, symlink and open-file rejection, durable per-file receipts, and interruption-safe
+  repeat handling. Added temporary fixtures for each required safety case. No retained user data
+  was changed.
+- **Checks:** The focused fixture suite passed (7 tests). Ruff check, Ruff format check, and
+  `git diff --check` passed. The M1 manifest remains dry-run only because it does not authorize
+  deletion and it records unresolved references. Its production candidate root is absent from this
+  checkout, so no plan or apply ran against retained data.
+- **Decisions and limits:** Apply requires `deletion_authorized`, `references_complete`, no unknown
+  references, and per-candidate authorization. It checks current open files with `lsof` and fails
+  closed when that check is unavailable. Apply removes only regular, single-link files under the
+  selected root. M2 adds tooling only; it does not authorize or perform M3 cleanup.
+- **Next:** M3 — audit all recovery-tree references and run the recovery drill before deciding
+  whether any exact candidate can be retired.
+- **Commit boundary:** M2 tool, focused tests, report, epic, board, and handoff in one focused
+  commit.
 
 ## M0 — Inventory and rank
 
