@@ -613,6 +613,9 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
 
     @staticmethod
     def _log_invalid(path: Path, error: BaseException) -> None:
+        if str(error) == "processor run state uses the legacy single-file format":
+            LOGGER.debug("processor_run_catalog_skipped path=%s reason=%s", path, error)
+            return
         if str(error).startswith("run output revision is present but invalid:"):
             LOGGER.debug("processor_run_catalog_skipped path=%s reason=%s", path, error)
             return

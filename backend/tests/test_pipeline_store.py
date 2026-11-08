@@ -285,6 +285,20 @@ def test_legacy_state_without_metrics_is_read_only_by_migration_store(tmp_path: 
     assert migration_store.list() == (loaded,)
 
 
+def test_catalog_does_not_warn_for_retired_single_file_run_state(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    run_store = ProcessorRunStore(tmp_path / "runtime")
+    stored, _ = run_store.create(request())
+    run_store.items_path("run-01").rmdir()
+    run_store.state_path("run-01").write_bytes(canonical_processor_run_state_bytes(stored.state))
+
+    with caplog.at_level("WARNING"):
+        assert run_store.list_statuses() == ()
+
+    assert "processor_run_catalog_skipped" not in caplog.text
+
+
 def test_processor_run_store_splits_item_outcomes_on_disk(tmp_path: Path) -> None:
     run_store = ProcessorRunStore(tmp_path / "runtime")
     run_store.create(request())
