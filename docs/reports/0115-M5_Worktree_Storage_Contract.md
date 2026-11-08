@@ -1,7 +1,11 @@
 # Epic 0115 M5: worktree storage contract
 
-Date: 2026-11-08  
-Source revision: `5809f9dc7511308bc92fcd523bb3f03ed5767053`  
+Date: 2026-11-08
+
+Pre-M5 baseline revision: `5809f9dc7511308bc92fcd523bb3f03ed5767053`
+
+Tested implementation revision: `9f523c3eeb2b42bd11becf39c970c45cf8922c04`
+
 Scope: one configurable mutable storage root and its API persistence path. No retained operator data
 was changed.
 
@@ -124,9 +128,10 @@ KiB less after checkout B. The volume-wide free-space delta is not an exact per-
 allocation measure; background activity can affect it. `du` path allocation counts each checkout
 separately and does not claim unique physical or reclaimable bytes.
 
-Both create-to-ready sums meet the 30-second M0 time target. The byte target of at most 2 GiB per
-worktree fails by about 17.8 GiB at checkout and about 17.8 GiB when fully ready. M6 owns tracking
-cutover and must repeat this measurement after reducing tracked checkout contents.
+Both create-to-ready sums meet the 30-second M0 time target. The checkout allocations are 16.92 GiB,
+14.92 GiB above the 2 GiB target. Ready allocations are 17.80 GiB (A) and 17.81 GiB (B), which
+exceed the target by 15.80 GiB and 15.81 GiB. M6 owns tracking cutover and must repeat this
+measurement after reducing tracked checkout contents.
 
 The clean-checkout commands created one backend environment per worktree, built five local
 packages, and installed 61 Python packages. Each frontend install added 272 npm packages and the

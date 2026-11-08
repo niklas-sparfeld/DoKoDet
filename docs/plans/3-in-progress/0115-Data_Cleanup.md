@@ -265,8 +265,9 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   disposable worktrees with distinct roots. Exact bundle hashes matched; the source stayed
   unchanged. Full `mise install`, backend sync, frontend install/build, and backend app
   initialization measured 26.30 / 27.09 s. Total ready allocation was 18,670,260 / 18,673,008
-  KiB, about 17.8 GiB per checkout; this fails the M0 2 GiB target. M6 must complete tracking
-  cutover. A bounded app/pipeline test run passed 43 tests with one lifespan-related failure
+  KiB: 17.80 / 17.81 GiB, exceeding the M0 2 GiB target by 15.80 / 15.81 GiB. Checkout
+  allocation was 16.92 GiB, or 14.92 GiB over target. M6 must complete tracking cutover. A bounded
+  app/pipeline test run passed 43 tests with one lifespan-related failure
   recorded in the report. The legacy data defaults are still active when the explicit root is absent.
 - **Decisions and limits:** Explicit operator access copies selected validated bundles into the
   worktree intake. The source stays intact as the local restore copy. The create-to-ready time
