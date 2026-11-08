@@ -159,7 +159,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M3 | Retire verified redundant migration and recovery trees | Complete |
 | M4 | Remove one ranked family of unused runtime intermediates | Complete |
 | M5 | Specify and prove isolated worktree data access | Complete |
-| M6 | Freeze cutover inventory, replacement owners, recovery evidence, and test-failure disposition | Not started |
+| M6 | Freeze cutover inventory, replacement owners, recovery evidence, and test-failure disposition | Complete |
 | M7 | Make isolated development storage and setup the normal path | Not started |
 | M8 | Cut over tracked intake after proving source access and recovery | Not started |
 | M9 | Cut over the selected tracked pipeline family after dependency and recovery checks | Not started |
@@ -172,9 +172,9 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 
 ## Execution handoff
 
-- **Run:** The previous run stopped after M5. Its original remaining milestone count does not
-  authorize a new run. The 2026-11-08 replan splits the remaining work into M6–M15. Continue on
-  main in a fresh context; follow the user's next execution request and its run limit.
+- **Run:** M6 completed in a 10-milestone run. Requested: 10. Completed: 1. Remaining: 9.
+  The 2026-11-08 replan split M6–M15; this count authorizes no later milestone. Follow the next
+  user execution request and its run limit.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -279,9 +279,31 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   worktree intake. The source stays intact as the local restore copy. The create-to-ready time
   target passes; the 2 GiB worktree target remains unmet until tracking cutover. M5 does not
   relocate model bundles.
-- **Next:** M6 — freeze the cutover inventory and test-failure disposition.
+- **M5 handoff at that time:** M6 was next; M6 is complete below.
 - **Commit boundary:** Storage-root and corpus-copy code/tests, M5 report, this epic, and board
   entry in one focused milestone commit.
+
+- **M6:** Complete. The [M6 inventory and qualification report](../../reports/0115-M6_Cutover_Inventory.md)
+  freezes all tracked intake and legacy pipeline paths at `b294ffac4`. Intake contains 239 files
+  (15,633,971,412 bytes); legacy revisions, runs, and selections contain 31,521 files
+  (1,701,015,169 bytes). Fifteen automated-run idempotency records remain a separate tracked family.
+- **Changes:** Added a path/blob-ID/size inventory artifact and recorded authority, representative
+  schemas, current readers/writers, replacement owners, restore dependencies, and M7–M9 gates and
+  commit boundaries. No data, tracking, or authority changed. 0112 code ownership and 0114 final
+  qualification remain separate boundaries. The report records the four registered worktrees,
+  including the one with staged repository-wide deletion and untracked checkout state.
+- **Checks:** `git lfs fsck --objects` passed. Representative schema and owner lookups passed.
+  The named M5 failure was reproduced on baseline `9f523c3` and current `b294ffac4`; both returned
+  `queued` where the test expected `failed`. Commit `12bef8a6b` removed the factory's
+  `fail_non_terminal()` call. The recovery owner needs to decide if this remains factory behavior
+  or moves to managed-job recovery. Local links were checked.
+- **Decisions and limits:** M8 owns only tracked `data/intake/recordings/**`; M9 owns tracked
+  `revisions/**`, `runs/**`, and `selections/**`. Keep all 15 `automated-runs/**` records tracked.
+  A local LFS integrity check is not proof of remote/off-volume restore. Later cutovers must verify
+  every selected restore source and protect retained files in all worktrees. The 2 GiB target is
+  still unmet; no savings claim follows from this inventory.
+- **Next:** M7 — make isolated development storage and setup the normal path.
+- **Commit boundary:** M6 inventory artifact, report, epic, board, and handoff only.
 
 ## M0 — Inventory and rank
 
