@@ -120,6 +120,7 @@ The shared target architecture is
 
 | Epic                                                                                                              | Depends on                                                                                                                   | Outcome                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0117 — Workspace and startup performance](4-blocked/0117-Workspace_and_Startup_Performance.md) | 0114 complete; wait for 0115 M11 qualification and final storage layout | M0–M5 not started. Measure post-cleanup debt, prove validation-preserving workspace and startup boundaries, implement at most two bounded candidates, and qualify against retained 0114 evidence. |
 
 ### Closed
 
