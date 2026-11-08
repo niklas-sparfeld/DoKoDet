@@ -6,7 +6,7 @@
 - **Depends on:** 0114 complete. Wait for [0115](../3-in-progress/0115-Data_Cleanup.md)
   M15 qualification and its final storage map before M0. Stabilize any remaining changes to node
   storage, transactions, and isolated storage before implementation. The separate
-  [0118 lifecycle follow-up](../0-to-specify/0118-Operational_and_Recovery_Lifecycle.md) is not a
+  [0118 lifecycle follow-up](0118-Operational_and_Recovery_Lifecycle.md) is not a
   prerequisite unless M0 finds a direct storage-contract conflict.
 - **Outcome:** Give each recording one durable HEAD to its selected pipeline state. Make catalog
   and current-workspace reads independent of retained history. Load history on demand. Reduce

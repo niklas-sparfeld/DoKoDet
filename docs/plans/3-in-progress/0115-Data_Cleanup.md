@@ -377,8 +377,10 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 - **Decisions and limits:** No data file or Git history was deleted. The recovery package is on the
   same volume. A fresh shallow GitHub clone restored and verified all 31,521 candidate files. The operator corpus is not copied to new isolated roots by default. Existing
   detached worktrees remain unchanged; use the tested archive/restore procedure before a future
-  merge. Two fresh worktrees pass the 2 GiB ready-allocation target by 403,456 KiB; M15 must repeat
-  final measurement.
+  merge. Historical M9 evidence: two fresh worktrees passed the 2 GiB ready-allocation target by
+  403,456 KiB. M15 must reconcile this result with the frozen target and report whether final-state
+  evidence is comparable. Mark it unmet or not remeasured if the evidence does not establish the
+  final result; the revised M15 does not require repeating a measurement without that evidence gap.
 - **Commit boundary:** The pipeline index removal, ignore rules, exact chain test fixtures, M9
   evidence, epic, board, and handoff form one focused milestone commit.
 
@@ -528,7 +530,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   tests reuse the lifecycle and do not reliably establish that wait. Then run combined checks for
   the implemented cache policies. Do not mark M13 complete until this evidence passes.
 - **Scope decision:** The independent operational-log, recovery-copy, and campaign-intermediate
-  lifecycle work is deferred to [Epic 0118](../0-to-specify/0118-Operational_and_Recovery_Lifecycle.md).
+  lifecycle work is deferred to [Epic 0118](../4-blocked/0118-Operational_and_Recovery_Lifecycle.md).
   Preserve active-job logs, recovery evidence, pinned cache entries, human data, and model assets.
   Retention and growth risks remain open until 0118 selects exact families and proves their
   dependencies and recovery paths.

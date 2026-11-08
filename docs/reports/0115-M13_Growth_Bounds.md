@@ -216,7 +216,7 @@ metadata overhead.
 ## Deferred lifecycle work
 
 Operational logs, recovery copies, and campaign intermediates are deferred to
-[Epic 0118](../plans/0-to-specify/0118-Operational_and_Recovery_Lifecycle.md). They are not M13
+[Epic 0118](../plans/4-blocked/0118-Operational_and_Recovery_Lifecycle.md). They are not M13
 packages. Preserve active-job logs, recovery evidence, pinned provider responses, original media,
 human work, and model assets until an exact-family retention decision and recovery proof exist.
 

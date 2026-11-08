@@ -2,8 +2,8 @@
 
 ## Plan status
 
-- **Status:** To Specify
-- **Depends on:** Epic 0115 M15 storage map and closure evidence.
+- **Status:** Blocked
+- **Depends on:** Epic 0115 M15 storage map and closure evidence. Start M0 after that dependency is complete.
 - **Outcome:** Define safe, evidence-based retention and growth controls for selected operational
   logs, recovery copies, and campaign intermediates. Preserve active work, recovery evidence, and
   exact dependencies.
