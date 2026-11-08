@@ -1,0 +1,345 @@
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13563]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61351 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61352 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61353 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61354 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13563]
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13570]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61363 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61364 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61365 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61366 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13570]
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13593]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61375 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61376 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61377 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61378 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13593]
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13616]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61387 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61388 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61389 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61390 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13616]
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13623]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61399 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61400 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61401 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61402 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13623]
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13646]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61411 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61412 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61413 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61414 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13646]
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13653]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61423 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61424 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61425 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61426 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13653]
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13676]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61435 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61436 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61437 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61438 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13676]
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13699]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61449 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61450 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61451 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61452 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13699]
+/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-3e34d68c-fc82-4647-8565-e12e996798ef/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+INFO:     Started server process [13706]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:61341 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61461 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61462 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61463 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61464 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61479 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61480 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61481 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61483 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61486 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61488 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61494 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61493 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61502 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61504 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61500 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61508 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61496 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61513 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61511 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61518 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61520 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61514 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61532 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61533 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61534 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61536 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61539 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61541 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61543 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61549 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61548 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61557 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61559 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61555 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61563 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61551 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61562 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61570 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61568 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61575 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61577 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61571 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61579 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61589 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61591 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61590 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61596 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61593 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61598 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61600 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61606 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61605 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61614 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61616 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61612 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61620 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61619 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61608 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61627 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61625 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61632 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61634 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61636 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61628 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61646 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61647 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61648 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61650 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61653 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61655 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61657 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61663 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61662 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61671 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61669 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61673 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61665 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61677 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61675 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61684 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61682 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61689 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61691 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61693 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61685 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61703 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61704 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61705 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61707 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61710 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61712 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61714 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61719 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61720 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61730 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61729 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61726 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61734 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61733 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61722 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61739 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61737 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61744 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61746 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61748 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61740 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61758 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61760 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61759 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61762 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61767 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61769 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61775 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61774 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61783 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61785 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61781 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61777 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61787 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61793 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61792 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61799 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61801 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61795 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61803 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61813 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61815 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61814 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61817 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61822 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61824 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61826 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61831 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61832 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61842 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61841 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61838 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61846 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61845 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61834 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61853 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61851 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61858 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61860 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61862 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61854 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61872 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61873 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61874 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61879 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61875 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61881 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61883 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61889 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61888 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61897 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61895 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61903 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61902 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61891 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61910 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61908 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61915 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61917 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61919 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61911 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61929 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61930 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61931 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61933 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61936 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61938 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61940 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61946 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61945 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61954 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61956 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61952 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61960 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61959 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61948 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61967 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61965 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61972 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61974 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61976 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61968 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61986 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61987 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61988 - "GET /api/recordings/recording-both/pipeline?stage=visual_identities HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61993 - "GET /api/recordings/recording-both/pipeline/visual-identities/proposed-crop-inputs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61989 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61995 - "GET /v1/recordings/recording-both HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62001 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62000 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62009 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62011 - "GET /api/pipeline/nodes/data-38d9208b26e7d9ba7a9390cd761e571e/revisions/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62007 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62003 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62015 - "GET /api/recordings/recording-both/pipeline/derived-views/exact-event/100000?frame_index=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62013 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-ccf79004-21a9-4914-90e1-061430ddc287-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62022 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62020 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62027 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/reviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62029 - "GET /api/pipeline/nodes/data-f06b05f58b4471356170d6310c9d1284/revisions/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62023 - "GET /api/recordings/recording-both/pipeline/lineage HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62031 - "GET /api/recordings/recording-both/pipeline/derived-views/identity-crops/visual-identities-4e4fd48d-0b40-4ce9-981c-49a64777626a-attempt-1/card-classified?preview=browser HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13706]

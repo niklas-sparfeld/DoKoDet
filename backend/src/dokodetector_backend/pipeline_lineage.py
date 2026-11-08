@@ -324,9 +324,18 @@ class PipelineLineage:
     ) -> dict[str, Any]:
         nodes, revisions, edges = [], [], []
         known: set[tuple[str, ...]] = set()
-        for node in self.store.list_nodes():
-            if recording_id is not None and node.source.get("recording_id") != recording_id:
-                continue
+        selected_nodes = [
+            node
+            for node in self.store.list_nodes()
+            if recording_id is None or node.source.get("recording_id") == recording_id
+        ]
+        histories = {node.node_id: self.store.history(node.node_id) for node in selected_nodes}
+        revision_metadata = {
+            (node_id, revision.revision_id): revision.metadata
+            for node_id, history in histories.items()
+            for revision in history
+        }
+        for node in selected_nodes:
             nodes.append(
                 {
                     "node_id": node.node_id,
@@ -336,7 +345,7 @@ class PipelineLineage:
                     "head_revision_id": node.head_revision_id,
                 }
             )
-            for rev in self.store.history(node.node_id):
+            for rev in histories[node.node_id]:
                 key = ("revision", node.node_id, rev.revision_id)
                 known.add(key)
                 revisions.append(
@@ -367,14 +376,22 @@ class PipelineLineage:
                 restored = rev.metadata.get("restored_from")
                 previous_metadata = {}
                 if rev.parent_revision_id is not None:
-                    previous_metadata = self.store.read_revision(
-                        node.node_id, rev.parent_revision_id
-                    ).metadata
+                    previous_metadata = revision_metadata.get(
+                        (node.node_id, rev.parent_revision_id)
+                    )
+                    if previous_metadata is None:
+                        previous_metadata = self.store.read_revision(
+                            node.node_id, rev.parent_revision_id
+                        ).metadata
                 elif isinstance(rev.metadata.get("copied_from"), dict):
                     source = rev.metadata["copied_from"]
-                    previous_metadata = self.store.read_revision(
-                        source["node_id"], source["revision_id"]
-                    ).metadata
+                    previous_metadata = revision_metadata.get(
+                        (source["node_id"], source["revision_id"])
+                    )
+                    if previous_metadata is None:
+                        previous_metadata = self.store.read_revision(
+                            source["node_id"], source["revision_id"]
+                        ).metadata
                 if restored is not None and restored != previous_metadata.get("restored_from"):
                     edges.append(
                         {

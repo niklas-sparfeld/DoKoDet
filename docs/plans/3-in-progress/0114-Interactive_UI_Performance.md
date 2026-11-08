@@ -22,7 +22,7 @@ Source inspection on 2026-11-07 identifies these starting points:
 - [Recordings API](../../../backend/src/dokodetector_backend/recordings_api.py): the recordings
   list assembles the recording catalog and pipeline statuses before response serialization.
 - [Workspace service](../../../backend/src/dokodetector_backend/pipeline_workspace_service.py),
-  [revision storage](../../../backend/src/dokodetector_backend/pipeline_store.py), and
+  [revision storage](../../../backend/src/dokodetector_backend/pipeline_revision_store.py), and
   [node storage](../../../backend/src/dokodetector_backend/pipeline_node_store.py): listing,
   filesystem reads, lineage validation, and response assembly are profiling candidates.
 - [Jobs API](../../../backend/src/dokodetector_backend/jobs_api.py): history filtering and sorting
@@ -174,7 +174,10 @@ Deferring startup cost to the first UI request is not an improvement unless both
 - **M9:** Complete — add named real-backend media cases and verify cold/warm and saved-review, revision, and restart cache behavior.
 - **M10:** Complete — seven real-process Playwright scenarios passed across 70 fresh contexts; 10 backend startup processes passed. See the [M10 report](../../reports/0114-M10_Real_Process_Browser_and_Load.md).
 - **M11:** Complete — warm endpoints ran in three independent batches; the single-run and browser families ran in three sequential sessions. The baseline has 179 case budgets and 70 route keys; missing evidence and regressions fail qualification. See the [M11 report](../../reports/0114-M11_Baseline_and_Gates.md) and [baseline](../../reports/0114-M11_Performance_Baseline.json).
-- **M12:** Not started — profile and rank candidates, then implement candidate cycle one.
+- **M12:** Complete — the lineage profile found repeated parent-history traversals. The selected
+  one-request history lookup reduced hard-route cold and warm measurements by about 51%, while
+  the reserved workspace, startup probes, and real-process lineage browser scenario passed. See
+  the [M12 report](../../reports/0114-M12_Candidate_Profile_and_Cycle_One.md).
 - **M13:** Not started — implement candidate cycle two, qualify the full suite, and close the epic.
 
 ## M0 — Inventory routes and startup phases
@@ -361,9 +364,9 @@ generated, so these samples do not replace M11's full-corpus runs or enable a ba
 
 ## Execution handoff
 
-### Current state — M11 complete; M12 next
+### Current state — M12 complete; M13 next
 
-- M0–M11 are complete. Their reports and evidence remain linked in the board and prior milestone
+- M0–M12 are complete. Their reports and evidence remain linked in the board and prior milestone
   reports.
 - M11 retained 6,456 raw response and action samples on Mac14,10. Warm endpoints ran in three
   independent batches; the single-run and browser families ran in three sequential sessions.
@@ -444,7 +447,19 @@ generated, so these samples do not replace M11's full-corpus runs or enable a ba
   TypeScript, targeted Prettier, backend Ruff check, and backend Ruff format checks passed. HTTP
   errors, failed requests, timeouts, incorrect identities, and invalid range responses fail the
   runner. Intentional navigation cancellations are retained separately from request errors.
-- Next milestone: M12. Profile the highest-cost measured cases, rank candidates, and freeze a
-  numeric cycle-one improvement target before implementation.
-- Run authorization: 9 milestones requested, 7 completed, 2 remaining (M12–M13). This fixed run
+- M12 profiled hard lineage, workspace, and startup cases on the M11 Mac14,10 fixture. Ten lineage
+  history traversals accounted for 28.723 s of a 28.876 s measured hard request; workspace had five
+  traversals accounting for 14.325 s of a 20.351 s request. The process reached `backend_started`
+  in 0.39 s, while first useful startup probes dominated the 8.040 s startup-to-useful result.
+- M12 froze a 20% lineage target before implementation: cold median <=23.538 s and warm p95
+  <=23.655 s. The history lookup change measured 14.451 s cold median and 14.520 s maximum across
+  nine warm samples. The untouched full-workspace case, all ten hard startup trials, and the
+  real-process lineage revision-switch browser scenario passed. No baseline values changed. See
+  `docs/reports/0114-M12_Candidate_Profile_and_Cycle_One.md` and its sample files.
+- Cycle two selection: profile full-workspace revision-history parsing for a safe candidate that
+  preserves content validation; freeze its numeric target before any implementation. If the profile
+  does not support a safe bounded change, record the reason and run final qualification.
+- Next milestone: M13. Implement the next safe ranked candidate only after profiling and freezing a
+  numeric target, then run full qualification and close the epic.
+- Run authorization: 9 milestones requested, 8 completed, 1 remaining (M13). This fixed run
   limit does not authorize adding milestones.

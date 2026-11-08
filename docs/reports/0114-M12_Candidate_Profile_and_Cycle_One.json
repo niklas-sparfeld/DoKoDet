@@ -1,0 +1,35 @@
+{
+  "schema_version": "interactive-ui-profile-operation-counts/v1",
+  "machine": "MacBook Pro M2 Pro (Mac14,10), macOS 27.2, arm64, Python 3.13.18",
+  "fixture_manifest_sha256": "e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294",
+  "method": "Bounded wrappers around workspace JSON reads, node listing, node history, and run listing; one request per named hard route in disposable storage. Wall time includes request and response validation.",
+  "samples": [
+    {
+      "case": "workspace_full_hard",
+      "status": 200,
+      "response_bytes": 49286,
+      "wall_ns": 20351070667,
+      "operations": {
+        "node_list": {"calls": 1, "total_ns": 2298625},
+        "node_history": {"calls": 5, "total_ns": 14325243792},
+        "run_list": {"calls": 1, "total_ns": 193917}
+      }
+    },
+    {
+      "case": "lineage_hard",
+      "status": 200,
+      "response_bytes": 5615,
+      "wall_ns": 28875998250,
+      "operations": {
+        "node_list": {"calls": 1, "total_ns": 2118625},
+        "node_history": {"calls": 10, "total_ns": 28723393459}
+      }
+    }
+  ],
+  "startup_reference": {
+    "startup_to_useful_response_median_ns": 8040042750,
+    "recordings_first_use_median_ns": 3010093542,
+    "workspace_first_use_median_ns": 4450630979,
+    "backend_started_log_after_launch_ms": 387
+  }
+}

@@ -339,3 +339,19 @@ def test_recording_snapshot_validates_external_run_inputs(tmp_path: Path):
     (tmp_path / "external" / "revisions" / external.revision_id / "revision.json").write_text("{}")
     with pytest.raises(ValueError, match="missing revision"):
         lineage.snapshot("recording-01")
+
+
+def test_snapshot_resolves_parent_metadata_from_one_history_read(tmp_path: Path, monkeypatch):
+    store = PipelineNodeStore(tmp_path)
+    revision = node(store, "events", "events", event(1))
+    for start in range(2, 6):
+        revision = store.save("events", revision.revision_id, event(start), {})
+
+    def unexpected_parent_read(*_args, **_kwargs):
+        raise AssertionError("snapshot should reuse the node history for parent metadata")
+
+    monkeypatch.setattr(store, "read_revision", unexpected_parent_read)
+    snapshot = PipelineLineage(store).snapshot("recording-01")
+
+    assert len(snapshot["revisions"]) == 5
+    assert len([edge for edge in snapshot["edges"] if edge["kind"] == "revised"]) == 4

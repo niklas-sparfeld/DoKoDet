@@ -1,0 +1,8 @@
+
+> dokodetector-web@0.1.0 dev
+> vite --host 127.0.0.1 --port 61342 --strictPort
+
+
+  VITE v8.3.5  ready in 154 ms
+
+  ➜  Local:   http://127.0.0.1:61342/
