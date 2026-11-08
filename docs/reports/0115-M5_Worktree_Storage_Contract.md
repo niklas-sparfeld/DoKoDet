@@ -73,15 +73,15 @@ was written to the legacy checkout's pipeline-node root.
 Commands run from each disposable worktree:
 
 ```sh
-DOKO_STORAGE_ROOT=/tmp/0115-m5-run3-state-a mise exec -- uv run --project backend pytest \
-  backend/tests/test_worktree_storage_contract.py
-DOKO_STORAGE_ROOT=/tmp/0115-m5-run3-state-b mise exec -- uv run --project backend pytest \
-  backend/tests/test_worktree_storage_contract.py
+DOKO_STORAGE_ROOT=/tmp/0115-m5-final-a mise exec -- uv run --project backend pytest \
+  backend/tests/test_worktree_storage_contract.py backend/tests/test_operator_corpus_import.py
+DOKO_STORAGE_ROOT=/tmp/0115-m5-final-b mise exec -- uv run --project backend pytest \
+  backend/tests/test_worktree_storage_contract.py backend/tests/test_operator_corpus_import.py
 ```
 
-Both passed (1 test each). The importer tests passed (2 tests), including missing-bundle rejection,
-source immutability, exact target hash checks, no hard links, and exact replay. The missing local
-model behavior passed the existing provider availability test (`available=false`).
+Both commands passed (3 tests each). The importer tests include missing-bundle rejection, source
+immutability, exact target hash checks, no hard links, and exact replay. The missing local model
+behavior passed the existing provider availability test (`available=false`).
 
 The settings regression test verifies all five mutable roots resolve below the requested root. The
 current focused app and pipeline API run passed 43 tests and had one unrelated failure:
@@ -92,7 +92,8 @@ baseline before it is assigned to M5.
 Worktree creation began with `git worktree add --detach` at revision
 `2362e9b04fa63647b3cb77682d113c3c0c337bd2`. The first checkout took 17.97 seconds. Each checkout
 measured 17,739,124 KiB allocated before local Python setup. After `uv run` built the backend
-environment and the API workflow ran, totals were 18,453,996 and 18,453,972 KiB. This is far above
+environment and the API workflow ran, totals were 18,453,996 and 18,454,020 KiB. Each isolated
+storage root allocated 40 KiB. This is far above
 the M0 ceiling of 2 GiB per worktree. The checkout already contains large tracked data; M6 owns
 tracking cutover. The measurements did not include `npm ci` or the frontend build, so there is no
 full web create-to-ready result. The second checkout time was not captured separately.
