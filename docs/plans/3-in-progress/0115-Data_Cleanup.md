@@ -188,15 +188,15 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   accepted-stage digest and protected intake copy. Disk free space was 73 GiB before and after the
   bounded restore. Existing IMG_0637 edit/save/readback/restart and offline DINOv3 loading checks
   remain recorded in the report.
-- **Decisions and limits:** M1 remains In Progress. Do not add a review HTTP or storage contract in
-  M1. The independent review is readable through its existing store API but is not exposed through
-  a supported runtime HTTP path. This is the remaining acceptance gap. The durable recovery set is
-  local to the source volume; physical APFS allocation and full-root recovery cost are unknown. No
-  deletion is approved. All 51 duplicate video files are M3 candidates only; full recovery-tree
-  reference checks and the recovery drill remain required before deletion.
-- **Next:** Resolve the independent-review runtime-reader gap in a separately scoped change or
-  revise the M1 acceptance plan with the orchestrator. Keep M1 In Progress until the supported
-  reader and end-to-end recovery criteria pass. Do not begin M2 or delete data.
+- **Decisions and limits:** 0108 M11 intentionally removed the legacy review-scoped HTTP routes.
+  Restore the selected independent review as canonical visible-card and virtual-scene draft nodes;
+  read and edit them through the current workspace and node-review APIs. Do not add a new contract.
+  The durable recovery set is local to the source volume; physical APFS allocation and full-root
+  recovery cost are unknown. No deletion is approved. All 51 duplicate video files are M3 candidates
+  only; full recovery-tree reference checks and the recovery drill remain required before deletion.
+- **Next:** Verify the selected independent review's existing M11 import and current node API path in
+  isolated storage, including review decisions, scene content, edit/readback, and restart. Keep M1
+  In Progress until those acceptance checks pass. Do not begin M2 or delete data.
 - **Commit boundary:** Keep this incomplete M1 evidence update in one focused commit. Do not mark
   M1 complete.
 
@@ -227,12 +227,17 @@ Prefer one verified recovery set plus compact manifests over another full reposi
 Restore representative retained recordings, edited and independent reviews, calibration, lineage,
 and model loading into disposable storage. Include the hardest retained dependency chain.
 Reconcile 0108 activation and draft-stage snapshots with their current replacements, including
-original bytes that exist only in migration packages. Record any still-required unique evidence.
+original bytes that exist only in migration packages. Restore the selected independent review
+through the canonical draft and scene-node migration already used by 0108 M11. Use the current
+recording workspace, exact revision, edit, and node-review APIs. Do not recreate the retired
+review-scoped HTTP contract. Preserve separate review identities, exact input lineage, scene facts,
+review decisions, and downstream selection.
 
 Checks: real service/API reads, edit/save/readback, exact dependency and digest validation, restart,
-and restored review state. Produce a path-specific deletion plan with retained/excluded reasons,
-unknown references, recovery location, disk-space needs, and recovery expiry conditions.
-Do not mark unique data redundant from file counts or a successful directory copy.
+and restored review state through canonical node content and revision-bound review records. Produce
+a path-specific deletion plan with retained/excluded reasons, unknown references, recovery
+location, disk-space needs, and recovery expiry conditions. Do not mark unique data redundant from
+file counts or a successful directory copy.
 
 ## M2 — Safe bounded cleanup mechanism
 

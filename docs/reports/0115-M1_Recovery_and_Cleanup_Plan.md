@@ -74,11 +74,14 @@ All five exact revision endpoints returned the expected content. The same run gr
 were available after restart. The existing `VisibleCardReviewStore.list_reviews` reader returned
 the restored 50-item review before and after restart, with status `draft` and no commands.
 
-The independent review is not projected by the supported runtime HTTP API. The current OpenAPI
-document has no route for the `VisibleCardReviewStore` resource; the node-review routes serve a
-different review contract. I did not add a route or storage contract. This remains an M1 acceptance
-gap: the retained review is readable through the existing store API, but the current runtime HTTP
-workflow cannot read or edit that independent review.
+The legacy review-scoped HTTP routes were removed during 0108 M11. The current operator path uses
+canonical visible-card and virtual-scene data nodes, with revision-bound review records, the
+recording workspace, node edit routes, and node review routes. The offline `lineage_draft_migration`
+module maps each retained review to its own deterministic visible-card node and, when it contains
+scene facts, a separate virtual-scene node. This is the supported recovery path; it does not require
+a new HTTP or storage contract. The existing store API read alone did not prove this path. M1 stays
+incomplete until the selected review is restored through this importer and verified through the
+current workspace and node APIs, including restart and edit/readback.
 ## Exact cleanup plan
 
 The [machine-readable cleanup plan](0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json)
@@ -122,9 +125,9 @@ the test copy was removed. Do not treat this evidence as full-corpus recovery or
 
 ## Remaining acceptance gaps
 
-- The independent review's retained store state and dependencies restore, but the current runtime
-  HTTP API does not expose that review resource. Keep M1 In Progress until its supported reader is
-  established or the plan is revised outside M1; do not add a new contract here.
+- The selected independent review has not yet been restored as its canonical visible-card and
+  virtual-scene nodes and verified through the current workspace and node-review APIs. This uses
+  the existing 0108 M11 importer and contracts; no new route or storage contract is in scope.
 - The accepted-loss migration stage is the verified local recovery location. It shares the source
   volume, and its physical APFS allocation and full-root recovery cost remain unknown.
 - Full path-level reference analysis for the other recovery snapshots remains open. The 51 video
