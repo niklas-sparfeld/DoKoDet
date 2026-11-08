@@ -163,7 +163,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 | M7 | Make isolated development storage and setup the normal path | Complete |
 | M8 | Cut over tracked intake after proving source access and recovery | Complete |
 | M9 | Cut over the selected tracked pipeline family after dependency and recovery checks | Complete |
-| M10 | Evaluate safe Git and LFS maintenance and record history costs | Not started |
+| M10 | Evaluate safe Git and LFS maintenance and record history costs | Complete |
 | M11 | Measure compact storage candidates and select at most one bounded format change | Not started |
 | M12 | Implement and convert the selected format family, if justified | Not started |
 | M13 | Bound cache, log, and future recovery-copy growth | Not started |
@@ -172,8 +172,8 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 
 ## Execution handoff
 
-- **Run:** M8 and M9 completed in this 8-milestone run. Requested: 8. Completed: 2. Remaining: 6.
-  M10 is next; do not exceed the run limit. The previous run completed M7; its separate count is in the M7 record.
+- **Run:** M8, M9, and M10 completed in this 8-milestone run. Requested: 8. Completed: 3. Remaining: 5.
+  M11 is next; do not exceed the run limit. The previous run completed M7; its separate count is in the M7 record.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -350,12 +350,9 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 - **Decisions and limits:** The old worktree removal is not used as backup proof. The main checkout
   still has the full operator corpus, so M8 changes Git tracking but does not reclaim its local file
   bytes or rewrite history. The other registered worktrees remain at their original revisions.
-- **Next:** M9 — cut over the selected tracked pipeline family after dependency and recovery checks.
 - **Commit boundary:** Intake index removal, ignore rule, updated M8 inventory and assessment, epic,
   board, and handoff in one focused milestone commit. No pipeline tracking, source bytes, history, or
   Git/LFS object maintenance changed.
-- **Current run result:** M8 and M9 complete; this run has completed 2 of 8 requested milestones
-  and has 6 remaining.
 
 - **M9:** Complete. The [M9 report](../../reports/0115-M9_Pipeline_Cutover.md) freezes 31,521
   revision, run, and selection paths at activation digest `b275daba9c75b3d3deb047a61f8b6274acca10f370391eeeb4ba75abbc780c0e`.
@@ -380,11 +377,27 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   detached worktrees remain unchanged; use the tested archive/restore procedure before a future
   merge. Two fresh worktrees pass the 2 GiB ready-allocation target by 403,456 KiB; M15 must repeat
   final measurement.
-- **Next:** M10 — evaluate safe Git and LFS maintenance and record history costs.
 - **Commit boundary:** The pipeline index removal, ignore rules, exact chain test fixtures, M9
   evidence, epic, board, and handoff form one focused milestone commit.
-- **Current run result:** M8 and M9 complete; this run has completed 2 of 8 requested milestones
-  and has 6 remaining.
+
+- **M10:** Complete. The [Git and LFS maintenance report](../../reports/0115-M10_Git_and_LFS_Maintenance.md)
+  records current worktree refs, temporary objects, LFS status, history cost, integrity results,
+  and the reason no objects were removed.
+- **Changes:** No Git or LFS object was changed. The report captures ten temporary object files
+  totaling the reported 2.65 GiB of Git garbage, 336 Codex refs, 771 local LFS objects, and the
+  pending LFS push object.
+- **Checks:** All three worktrees were clean. No Git/LFS process or lock was present.
+  `git fsck --full --connectivity-only` exited 0 and reported dangling objects. LFS remote-verified
+  dry runs returned different candidate hashes, and `git lfs status` showed a pending push; no prune
+  ran. The M9 archive/restore rehearsal remains the specific recovery evidence for detached worktrees.
+- **Decisions and limits:** Do not delete temporary objects or prune LFS from this inspection.
+  Exact ownership for dangling objects is unresolved, and the LFS candidate set was not stable.
+  Reconcile Git refs/reflogs/worktree HEADs and obtain a stable LFS candidate and remote-availability
+  inventory before any future maintenance. No history rewrite is proposed.
+- **Next:** M11 — benchmark up to two storage alternatives for one ranked large resource family.
+- **Commit boundary:** M10 report, epic status and handoff, and board update form one focused commit.
+- **Current run result:** M8–M10 complete; this run has completed 3 of 8 requested milestones
+  and has 5 remaining.
 
 ## M0 — Inventory and rank
 
