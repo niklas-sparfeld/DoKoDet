@@ -5,7 +5,7 @@ Date: 2026-11-08
 Code revision: `fc78bf8e12c6652fe4b09f7dba7262a0ac529410`
 
 Data source: `/Users/niklas.sparfeld/Developer/doko_detector/data`
-Result: **Incomplete. No deletion is authorized.**
+Result: **M1 complete. No deletion is authorized.**
 
 ## Verified recovery set
 
@@ -79,10 +79,14 @@ canonical visible-card and virtual-scene data nodes, with revision-bound review 
 recording workspace, node edit routes, and node review routes. The offline `lineage_draft_migration`
 module maps each retained review to its own deterministic visible-card node and, when it contains
 scene facts, a separate virtual-scene node. This is the supported recovery path; it does not require
-a new HTTP or storage contract. The existing store API read alone did not prove this path. M1 stays
-incomplete until the selected review is restored through this importer and verified through the
-current workspace and node APIs, including restart and edit/readback.
+a new HTTP or storage contract. The selected review was restored through this importer in isolated
+storage and verified through the current workspace, exact revision, edit, and node-review APIs
+across service restart. The lineage drawer and both node editors have focused UI tests confirming
+these node kinds are selectable and editable.
+
 ## Exact cleanup plan
+
+The [canonical independent-review restore evidence](0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json) records the selected package bytes, original review digests, node/revision IDs, decisions, API reads, edit/save/readback, and restart checks.
 
 The [machine-readable cleanup plan](0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json)
 lists each exact candidate path, digest, size, matching protected intake path, exclusions, unknown
@@ -123,14 +127,14 @@ and [video-comparisons.json](0115-M1_Recovery_and_Cleanup_Plan.artifacts/video-c
 The API process, restored run chain, review-store reads, and model loader were temporary checks;
 the test copy was removed. Do not treat this evidence as full-corpus recovery or deletion approval.
 
-## Remaining acceptance gaps
+## Limits carried to later milestones
 
-- The selected independent review has not yet been restored as its canonical visible-card and
-  virtual-scene nodes and verified through the current workspace and node-review APIs. This uses
-  the existing 0108 M11 importer and contracts; no new route or storage contract is in scope.
 - The accepted-loss migration stage is the verified local recovery location. It shares the source
   volume, and its physical APFS allocation and full-root recovery cost remain unknown.
 - Full path-level reference analysis for the other recovery snapshots remains open. The 51 video
   files match their intake originals, but M3 must still check all snapshot references and prove its
   recovery drill before any deletion.
-M1 remains **In Progress**. No data was deleted or changed in the authoritative store.
+- This recovery proves selected retained authority and the hardest selected dependency chain. It
+  does not claim full-corpus recovery or off-volume disaster recovery.
+
+M1 is **Complete**. No data was deleted or changed in the authoritative store.

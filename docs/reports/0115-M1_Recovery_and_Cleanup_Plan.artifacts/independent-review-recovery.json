@@ -1,0 +1,117 @@
+{
+  "api_restart_checks": [
+    {
+      "calibration_digest": "1c4edd408a30c222c72a690e2e245b99e55398181111ceffe871175303a54f86",
+      "legacy_review_route": false,
+      "lineage_nodes": 7,
+      "lineage_runs": 2,
+      "restart": 0,
+      "scene_node_id": "b2b9577c-cb6e-5f20-a588-55c56899d9e2",
+      "scene_review_records": 40,
+      "scene_revision_id": "2a8bf3d6-6e65-59d3-a0d0-e7048e566ce9",
+      "visible_node_id": "2ce0a4c8-d5f6-58d4-9067-da7e8446418a",
+      "visible_review_records": 10,
+      "visible_revision_id": "9cd3a30c-6c95-5427-802d-35a4868b3c56",
+      "workspace_stages": 5
+    },
+    {
+      "calibration_digest": "1c4edd408a30c222c72a690e2e245b99e55398181111ceffe871175303a54f86",
+      "legacy_review_route": false,
+      "lineage_nodes": 7,
+      "lineage_runs": 2,
+      "restart": 1,
+      "scene_node_id": "b2b9577c-cb6e-5f20-a588-55c56899d9e2",
+      "scene_review_records": 40,
+      "scene_revision_id": "2a8bf3d6-6e65-59d3-a0d0-e7048e566ce9",
+      "visible_node_id": "2ce0a4c8-d5f6-58d4-9067-da7e8446418a",
+      "visible_review_records": 10,
+      "visible_revision_id": "9cd3a30c-6c95-5427-802d-35a4868b3c56",
+      "workspace_stages": 5
+    }
+  ],
+  "edit_save_readback_restart": {
+    "base_revision_id": "2a8bf3d6-6e65-59d3-a0d0-e7048e566ce9",
+    "center_after": [
+      -0.013023,
+      0.091126
+    ],
+    "center_before": [
+      -0.014023,
+      0.091126
+    ],
+    "downstream_selection_unchanged": true,
+    "frame_id": "cardeventnet-event-img_0097-000",
+    "lineage_nodes_after_restart": 7,
+    "lineage_runs_after_restart": 2,
+    "old_revision_unchanged": true,
+    "operation": "POST /api/pipeline/nodes/{node_id}/edit",
+    "original_scene_review_records_retained": 40,
+    "saved_revision_id": "8d67df70-6f7d-591f-8093-21ecdf5b31fb",
+    "workspace_stages_after_restart": 5
+  },
+  "import": {
+    "result": {
+      "drafts": 1,
+      "scene_nodes": 1
+    },
+    "scene_content_sha256": "89641b60662053049ca2c4f8566f97886f10afe82174097e1ab7a221ece41616",
+    "scene_node_id": "b2b9577c-cb6e-5f20-a588-55c56899d9e2",
+    "scene_review_count": 40,
+    "scene_review_decisions": {
+      "pending": 40
+    },
+    "scene_revision_id": "2a8bf3d6-6e65-59d3-a0d0-e7048e566ce9",
+    "verify_active_files": 4,
+    "verify_staged": {
+      "drafts": 1,
+      "reviews": 50,
+      "scene_nodes": 1
+    },
+    "visible_content_sha256": "0ac8315d77f6014788e5bf3ad27278c890ce546f7431f242985f9d17404ff4d9",
+    "visible_node_id": "2ce0a4c8-d5f6-58d4-9067-da7e8446418a",
+    "visible_review_count": 10,
+    "visible_review_decisions": {
+      "accepted": 9,
+      "unusable": 1
+    },
+    "visible_revision_id": "9cd3a30c-6c95-5427-802d-35a4868b3c56"
+  },
+  "legacy_review": {
+    "calibration_digest": "1c4edd408a30c222c72a690e2e245b99e55398181111ceffe871175303a54f86",
+    "calibration_revision_id": "calibration-1d154b1e75fe5bf0b788916d",
+    "decision_counts": {
+      "accepted": 9,
+      "pending": 40,
+      "unusable": 1
+    },
+    "items": 50,
+    "key": "independent_review/cardeventnet-IMG_0097/visible-cards-219ce6dc37ab4729acaaee5c8896203a",
+    "original_file_sha256": {
+      "commands.json": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "draft.json": "8509ebc5e9a5a244c3935b6b7cb09be2a9cf824b7bbf63d639ef12e804a700b5",
+      "review.json": "57940275641ebf72e1fc4fe3c884bd8bceb1d6afe5a195d8ca4335f7c677e532",
+      "state.json": "a74b7d69483822c4d5627408d570e1fd5e0830e66df47e3897590ee3e37be21b"
+    },
+    "proposal_revision_id": "card-scene-proposals-card-scene-proposal-1793787913577-attempt-1",
+    "review_id": "visible-cards-219ce6dc37ab4729acaaee5c8896203a",
+    "scene_items": 40,
+    "source_revision_id": "visible-cards-visible_cards-run-f9b6c6cf-577-attempt-1",
+    "status": "draft"
+  },
+  "resource_bytes": 12296934,
+  "resource_count": 11,
+  "revision_ids": [
+    "canonical-card-state-reference-events-570e225c1762370434597c1804347e5d",
+    "card-scene-proposals-card-scene-proposal-1793787913577-attempt-1",
+    "cardeventnet-events-img_0097",
+    "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9",
+    "visible-cards-visible_cards-run-f9b6c6cf-577-attempt-1"
+  ],
+  "run_ids": [
+    "card-scene-proposal-1793787913577",
+    "visible_cards-run-f9b6c6cf-577"
+  ],
+  "schema_version": "0115-independent-review-human-path/v1",
+  "snapshot_sha256": "c8979c9a53956abd749e638466e1f88009f2e0ce8e725d674bf26ff0335ed430",
+  "source_video_sha256": "f00d7c10c5b9bafd93245c0a9ca702d8b585caf651ff56e7a86a92a4fa7a8c2b"
+}

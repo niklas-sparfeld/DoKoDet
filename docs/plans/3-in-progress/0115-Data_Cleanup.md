@@ -154,7 +154,7 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 | Milestone | Observable result / commit boundary | State |
 | --- | --- | --- |
 | M0 | Storage inventory, cost baseline, retention roots, and ranked targets | Complete |
-| M1 | Tested recovery of retained authority and an exact cleanup manifest | In Progress |
+| M1 | Tested recovery of retained authority and an exact cleanup manifest | Complete |
 | M2 | Bounded cleanup planner and apply mechanism | Not started |
 | M3 | Retire verified redundant migration and recovery trees | Not started |
 | M4 | Remove one ranked family of unused runtime intermediates | Not started |
@@ -168,37 +168,14 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
 
 ## Execution handoff
 
-- **Run:** requested 11 milestones; completed 0; remaining 11.
+- **Run:** requested 11 milestones; completed 1; remaining 10.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
-- **Current milestone:** M1 — In Progress. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md)
-  records ignored node data and original migrated records, the representative edited review, an
-  independent review, calibration, the hardest selected run chain, model loading, 0108 snapshot
-  reconciliation, and the path-specific cleanup candidates. No authoritative data was deleted.
-- **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py),
-  [validation summary](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/recovery-validation.json),
-  [selected-chain checks](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/selected-chain-validation.json),
-  [video comparisons](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/video-comparisons.json),
-  [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and
-  M1 report. The accepted-loss stage remains the verified local recovery set on the source volume.
-- **Checks:** The IMG_0097 loopback API returned five workspace stages, five lineage nodes, and two
-  exact processor runs across restart. Five exact revision reads matched the migration graph.
-  `VisibleCardReviewStore.list_reviews` restored the independent 50-item draft before and after
-  restart. The runtime OpenAPI has no route for that independent-review store; node-review routes
-  use a different contract. All 51 recovery-video files (14,516,434,567 logical bytes) match their
-  accepted-stage digest and protected intake copy. Disk free space was 73 GiB before and after the
-  bounded restore. Existing IMG_0637 edit/save/readback/restart and offline DINOv3 loading checks
-  remain recorded in the report.
-- **Decisions and limits:** 0108 M11 intentionally removed the legacy review-scoped HTTP routes.
-  Restore the selected independent review as canonical visible-card and virtual-scene draft nodes;
-  read and edit them through the current workspace and node-review APIs. Do not add a new contract.
-  The durable recovery set is local to the source volume; physical APFS allocation and full-root
-  recovery cost are unknown. No deletion is approved. All 51 duplicate video files are M3 candidates
-  only; full recovery-tree reference checks and the recovery drill remain required before deletion.
-- **Next:** Verify the selected independent review's existing M11 import and current node API path in
-  isolated storage, including review decisions, scene content, edit/readback, and restart. Keep M1
-  In Progress until those acceptance checks pass. Do not begin M2 or delete data.
-- **Commit boundary:** Keep this incomplete M1 evidence update in one focused commit. Do not mark
-  M1 complete.
+- **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
+- **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
+- **Checks:** IMG_0097 loopback API returned five workspace stages, seven lineage nodes, and two exact processor runs across restart. The canonical review imported as one visible-card node and one scene node, retaining 9 accepted, 40 pending, and 1 unusable decision. Node-review APIs returned 10 visible-card and 40 scene records. Edit/save/readback created a new scene revision; old revision reviews and downstream selection remained unchanged after restart. Three focused web tests passed (12 cases), and three focused backend modules passed (20 tests). All 51 recovery-video files (14,516,434,567 logical bytes) match their accepted-stage digests and protected intake copies. Disk free space was 73 GiB before and after bounded restore. Existing IMG_0637 edit/save/readback/restart and offline DINOv3 loading checks remain recorded in the report.
+- **Decisions and limits:** 0108 M11 intentionally removed the legacy review-scoped HTTP routes. The supported path restores independent reviews as canonical visible-card and virtual-scene draft nodes through current workspace and node-review APIs; no new contract was added. The recovery set is local to the source volume; physical APFS allocation and full-root recovery cost are unknown. No deletion is approved. M3 must complete full recovery-tree reference checks and a recovery drill before any deletion.
+- **Next:** M2 — implement a bounded cleanup planner and apply mechanism. Preserve listed unknown references and do not delete data until the candidate manifest, writer check, and recovery drill pass.
+- **Commit boundary:** M1 recovery evidence, report, epic, board, and handoff in one focused commit.
 
 ## M0 — Inventory and rank
 
