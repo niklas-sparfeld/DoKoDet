@@ -92,10 +92,10 @@ def test_selected_legacy_chain_runs_from_isolated_root_across_api_restart(
         run_fingerprints[run_id] = edges
 
     selection_root = operations / "pipeline/selections" / RECORDING_ID
-    event_selection = parse_pipeline_selection_bytes((selection_root / "events.json").read_bytes())
-    card_selection = parse_pipeline_selection_bytes(
-        (selection_root / "visible_cards.json").read_bytes()
-    )
+    event_selection_bytes = (selection_root / "events.json").read_bytes()
+    visible_selection_bytes = (selection_root / "visible_cards.json").read_bytes()
+    event_selection = parse_pipeline_selection_bytes(event_selection_bytes)
+    card_selection = parse_pipeline_selection_bytes(visible_selection_bytes)
     assert event_selection.selected_completed_reference_revision_id == (
         "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9"
     )
@@ -191,6 +191,23 @@ def test_selected_legacy_chain_runs_from_isolated_root_across_api_restart(
         assert all(not root.exists() for root in legacy_checkout_roots)
 
     restarted_storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
+    restarted_selection_root = (
+        restarted_storage.operations_root / "pipeline/selections" / RECORDING_ID
+    )
+    restarted_event_selection_bytes = (restarted_selection_root / "events.json").read_bytes()
+    restarted_visible_selection_bytes = (
+        restarted_selection_root / "visible_cards.json"
+    ).read_bytes()
+    assert restarted_event_selection_bytes == event_selection_bytes
+    assert restarted_visible_selection_bytes == visible_selection_bytes
+    restarted_event_selection = parse_pipeline_selection_bytes(restarted_event_selection_bytes)
+    restarted_visible_selection = parse_pipeline_selection_bytes(restarted_visible_selection_bytes)
+    assert restarted_event_selection.selected_completed_reference_revision_id == (
+        "reference-events-c6478cd0fd7a716bf50f81fd6df34dc9"
+    )
+    assert restarted_visible_selection.selected_generated_revision_id == (
+        "visible-cards-visible_cards-run-f9b6c6cf-577-attempt-1"
+    )
     restarted_revision_store = PipelineRevisionStore(restarted_storage)
     restarted_run_store = LegacyProcessorRunStore(
         restarted_storage, revision_store=restarted_revision_store

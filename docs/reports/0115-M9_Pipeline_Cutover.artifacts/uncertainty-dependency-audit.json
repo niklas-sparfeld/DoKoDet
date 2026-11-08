@@ -12,13 +12,26 @@
     "unresolved_reference_count": 0,
     "unresolved_references": []
   },
-  "declared_lost_candidate_reference_count": 3,
+  "candidate_family_declared_lost_reference_count": 0,
+  "declared_lost_input_reference_count": 3,
+  "declared_lost_input_reference_scope": {
+    "candidate_family_references": 0,
+    "clarification": "These references are held by the three non-candidate calibration_revision resources. They name declared-lost pipeline revisions. No selected candidate revision, run, or selection references them.",
+    "count": 3,
+    "outside_candidate_family": true,
+    "resource_kind": "calibration_revision",
+    "revision_ids": [
+      "visible-cards-visible_cards-run-09ec3415-0ff-attempt-1",
+      "visible-cards-visible_cards-run-2c989303-99c-attempt-1",
+      "visible-cards-visible_cards-run-a839023f-e3f-attempt-1"
+    ]
+  },
   "declared_lost_inputs": [
     "visible-cards-visible_cards-run-09ec3415-0ff-attempt-1",
     "visible-cards-visible_cards-run-2c989303-99c-attempt-1",
     "visible-cards-visible_cards-run-a839023f-e3f-attempt-1"
   ],
-  "disposition": "All 156 records map to preserved non-candidate resources. 153 have exact links into candidate revisions/runs; three calibration revisions refer to the three explicitly declared lost revision IDs, and no selected candidate resource references those missing revisions. All candidate-family references resolve to preserved package resources or the explicit loss ledger. Keep all uncertainty records and all 15 automated-run files. No candidate paths were added back to tracking.",
+  "disposition": "All 156 records map to preserved non-candidate resources. 153 have exact links into candidate revisions/runs; three non-candidate calibration_revision resources refer to the three explicitly declared lost revision IDs; these are not candidate-family references, and no selected candidate resource references those missing revisions. All candidate-family references resolve to preserved package resources or the explicit loss ledger. Keep all uncertainty records and all 15 automated-run files. No candidate paths were added back to tracking.",
   "missing_separate_run_records": [
     {
       "resource_id": "165eb18a-f412-5def-9084-4e6bd095ef6d",
