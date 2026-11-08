@@ -1,0 +1,54 @@
+{
+  "schema_version": "0115-pipeline-activation-inventory/v1",
+  "activation_revision": "cae7c6676c0aea0729f2596f2d3babd72a1c9c0a",
+  "m6_inventory_revision": "b294ffac4b37acc233a212e079ae094b44610888",
+  "m6_manifest_sha256": "5a1ebcc06b73707697bce76e29a095b9f1cf3107ee766536114628a4b361c653",
+  "candidate_roots": [
+    "data/operations/pipeline/revisions/**",
+    "data/operations/pipeline/runs/**",
+    "data/operations/pipeline/selections/**"
+  ],
+  "entry_count": 31521,
+  "working_tree_bytes": 1701015169,
+  "canonical_manifest_sha256": "b275daba9c75b3d3deb047a61f8b6274acca10f370391eeeb4ba75abbc780c0e",
+  "verified_working_tree_blob_count": 31521,
+  "independent_remote_revision": "21a1146b0e7ca3bcbc702dc358437b6609ecf482",
+  "independent_remote_blob_count": 31521,
+  "remote_blob_match_count": 31521,
+  "automated_runs_tracked_outside_candidate": 15,
+  "automated_runs_bytes_outside_candidate": 88395,
+  "recovery_source": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss",
+  "recovery_snapshot_sha256": "c8979c9a53956abd749e638466e1f88009f2e0ce8e725d674bf26ff0335ed430",
+  "recovery_exact_match_count": 31521,
+  "recovery_exact_match_bytes": 1701015169,
+  "m1_recovery_verifier": "recovery-validation.json",
+  "m1_recovery_verifier_result": "passed",
+  "accepted_package_counts": {
+    "pipeline_revisions": 835,
+    "processor_runs": 594,
+    "selections": 136,
+    "uncertainty_records": 156,
+    "resources_with_unknown_history": 1429
+  },
+  "checkout_protection": [
+    {
+      "head": "0f46b9ad25f3a3bf111b2f56cf0bf6f74395fcd3",
+      "candidate_paths": 31521,
+      "clean": true,
+      "archive_sha256": "c2ae7e121c10ba49d82b9151fb227e71c3ae6bcf5428ab274198ccc866eef868",
+      "archive_bytes": 376498392,
+      "restore_files_verified": 31521
+    },
+    {
+      "head": "b7ebf2390f1cec1406aea0819c797f6da1869c4e",
+      "candidate_paths": 31521,
+      "clean": true,
+      "archive_sha256": "075ff76b630e6b6532f848a8b490fe495df2d13835fc68d2d0f8d11fcc546447",
+      "archive_bytes": 376502358,
+      "restore_files_verified": 31521
+    }
+  ],
+  "local_remote_tracking_tree_blob_match_count": 31521,
+  "live_remote_clone_verified": false,
+  "live_remote_clone_result": "SSH clone returned Repository not found; no off-volume restore claim"
+}

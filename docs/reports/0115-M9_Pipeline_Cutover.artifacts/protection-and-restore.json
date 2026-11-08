@@ -1,0 +1,35 @@
+{
+  "schema_version": "0115-worktree-protection/v1",
+  "procedure": "Before a future main merge, save each checkout candidate with git archive at its current HEAD; merge; restore the saved archive; compare every restored blob to the frozen M6 inventory.",
+  "candidate_count": 31521,
+  "candidate_bytes": 1701015169,
+  "simulated_cutover": "git rm --cached for revisions, runs, and selections; commit; remove the now-untracked candidate paths; extract the pre-merge archive; verify path, blob, and automated-run status.",
+  "worktrees": [
+    {
+      "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-081e0695-1310-4cd1-99f7-3b0ad27ad408/doko_detector",
+      "head": "0f46b9ad25f3a3bf111b2f56cf0bf6f74395fcd3",
+      "initial_status": "clean",
+      "archive_sha256": "c2ae7e121c10ba49d82b9151fb227e71c3ae6bcf5428ab274198ccc866eef868",
+      "archive_bytes": 376498392,
+      "restore_test_commit": "39d5fa82ab862303d1ea1d325ac66e77d871d877",
+      "restored_exact_paths": 31521,
+      "restored_exact_bytes": 1701015169,
+      "mismatches": 0,
+      "automated_runs_tracked_after_restore": 15
+    },
+    {
+      "path": "/Users/niklas.sparfeld/.codex/worktrees/6203/doko_detector",
+      "head": "b7ebf2390f1cec1406aea0819c797f6da1869c4e",
+      "initial_status": "clean",
+      "archive_sha256": "075ff76b630e6b6532f848a8b490fe495df2d13835fc68d2d0f8d11fcc546447",
+      "archive_bytes": 376502358,
+      "restore_test_commit": "61524d9c3a77d3b300f52eccc179e7f76e2139a3",
+      "restored_exact_paths": 31521,
+      "restored_exact_bytes": 1701015169,
+      "mismatches": 0,
+      "automated_runs_tracked_after_restore": 15
+    }
+  ],
+  "live_worktrees_modified": false,
+  "live_worktrees_after_test": "Both remain at original HEAD with clean candidate status and exact tracked OIDs."
+}

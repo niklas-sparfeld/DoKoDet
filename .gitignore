@@ -53,3 +53,6 @@
 
 # Operator source recordings stay local; restore from the verified intake sources when needed.
 /data/intake/recordings/**
+/data/operations/pipeline/revisions/**
+/data/operations/pipeline/runs/**
+/data/operations/pipeline/selections/**
