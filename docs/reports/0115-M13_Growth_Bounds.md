@@ -163,8 +163,9 @@ replay data, not the durable M2 report or saved pipeline/review output.
 The runtime cache had 18,655 JSON files and 2,896,399,193 logical bytes (2.697 GiB) at this
 package's measurement. Entry ages ranged from 3.21 to 70.02 days, so none exceeded the selected
 idle limit. The policy gives this cache root a 180-day idle expiry and a 4 GiB logical-byte budget
-across both subdirectories. The budget adds 1,398,568,103 bytes of headroom over the measured
-contents. When a write pushes the root over budget, the policy removes least-recently-used
+for unpinned JSON entries across both subdirectories. The measured unpinned entries use
+2,895,766,235 bytes, leaving 1,399,201,061 bytes of headroom. The 632,958 pinned bytes are outside
+the budget. When a write pushes unpinned entries over budget, the policy removes least-recently-used
 unpinned JSON entries first. A cache hit refreshes its idle timestamp. Expiry runs on access; a
 whole-root sweep runs at most hourly, and writes enforce the budget. There is no background task.
 Lock and sweep-marker files are outside the byte count.
@@ -179,13 +180,15 @@ pinned. They total 632,958 bytes. The [pin manifest](0115-M13_Growth_Bounds.arti
 records each response digest and the source report digest. Other provider cache entries remain
 regenerable by the current request path, at the possible cost of another Gemini request.
 
-Three focused lifecycle tests cover deterministic idle expiry, oldest-first budget eviction with
-pin preservation, and waiting for an active cache access. A cache replay test creates a new cache
-wrapper over the stored response and confirms it returns the same output without invoking its
-provider. Backend integration checks confirm the cache wrappers use the configured runtime root
+Focused lifecycle checks cover deterministic idle expiry, oldest-first budget eviction with pin
+preservation, waiting for active cache access in another process, recovery after interrupted
+pruning, and recovery after an interrupted atomic write. Cache replay tests confirm a new wrapper
+replays a stored result without calling its provider. A classifier version mismatch test confirms
+that a fresh result cannot overwrite a pinned exact response and that the old classifier can still
+replay it. Backend integration checks confirm the cache wrappers use the configured runtime root
 and policy. These tests use fake providers; no paid provider request was made.
 
-Checks: 26 provider and classifier tests passed; 16 backend construction and integration tests
+Checks: 30 provider and classifier tests passed; 16 backend construction and integration tests
 passed; Ruff check, Ruff format check, and `git diff --check` passed. The full
 `backend/tests/test_app.py` run had one unrelated failure in
 `test_factory_converts_interrupted_round_analysis_to_failed`: it observed `queued` instead of

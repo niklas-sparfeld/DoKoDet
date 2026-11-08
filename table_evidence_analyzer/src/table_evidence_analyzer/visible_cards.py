@@ -1598,9 +1598,7 @@ class CachedVisibleCardProvider:
         if self.lifecycle is None:
             self._store(cache_path, request, result)
         else:
-            with self.lifecycle.access():
-                self._store(cache_path, request, result)
-            self.lifecycle.stored()
+            self.lifecycle.store(cache_path, lambda: self._store(cache_path, request, result))
         return result
 
     def _cache_path(self, request: VisibleCardRequest) -> Path:

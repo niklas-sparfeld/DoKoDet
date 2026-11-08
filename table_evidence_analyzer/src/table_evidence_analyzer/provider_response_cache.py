@@ -93,6 +93,18 @@ class ProviderResponseCacheLifecycle:
             self._prune(now)
             self._mark_sweep(now)
 
+    def store(self, path: Path, writer: Callable[[], None]) -> bool:
+        """Publish a cache entry unless that exact stored response is pinned."""
+
+        with self.access():
+            if self._is_pinned(path) and path.is_file():
+                return False
+            writer()
+            now = self.retention.clock()
+            self._prune(now)
+            self._mark_sweep(now)
+            return True
+
     def _expired(self, path: Path, now: float) -> bool:
         if self._is_pinned(path):
             return False
@@ -138,8 +150,8 @@ class ProviderResponseCacheLifecycle:
             if self._expired(path, now):
                 path.unlink(missing_ok=True)
                 continue
-            total += stat.st_size
             if not self._is_pinned(path):
+                total += stat.st_size
                 live.append((stat.st_mtime, path, stat.st_size))
 
         for _, path, size in sorted(live):

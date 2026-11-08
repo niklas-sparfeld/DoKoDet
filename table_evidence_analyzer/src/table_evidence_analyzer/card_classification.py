@@ -409,9 +409,7 @@ class CachedCardClassifier:
         if self.lifecycle is None:
             self._store(path, request, result)
         else:
-            with self.lifecycle.access():
-                self._store(path, request, result)
-            self.lifecycle.stored()
+            self.lifecycle.store(path, lambda: self._store(path, request, result))
         return result
 
     def _load(

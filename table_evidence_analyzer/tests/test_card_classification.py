@@ -6,9 +6,15 @@ from concurrent.futures import ThreadPoolExecutor
 from table_evidence_analyzer.card_classification import (
     FACE_DOWN_CARD,
     CachedCardClassifier,
+    CardClassificationRequest,
+    CardClassificationResult,
     GeminiCardClassifier,
 )
 from table_evidence_analyzer.gemini_concurrency import GeminiRequestLimiter
+from table_evidence_analyzer.provider_response_cache import (
+    ProviderResponseCacheLifecycle,
+    ProviderResponseCacheRetention,
+)
 from table_evidence_analyzer.visible_cards import GeminiVisibleCardProvider, VisibleCardRequest
 
 
@@ -138,6 +144,54 @@ def test_cached_classifier_does_not_repeat_a_transformed_crop_request(tmp_path) 
     assert classifier.classify_ppm(crop).cache_hit is False
     assert classifier.classify_ppm(crop).cache_hit is True
     assert len(calls) == 1
+
+
+def test_pinned_classifier_receipt_survives_version_mismatch_and_replays(tmp_path) -> None:
+    crop = b"P6\n4 4\n255\n" + bytes([255, 0, 0] * 16)
+    cache_dir = tmp_path / "runtime-cache" / "card-classification"
+    lifecycle = ProviderResponseCacheLifecycle(
+        tmp_path / "runtime-cache",
+        ProviderResponseCacheRetention(max_bytes=1024 * 1024),
+    )
+    first_classifier = GeminiCardClassifier(
+        api_key="runtime-secret",
+        urlopen=lambda _request, timeout: _Response(
+            {"candidates": [{"content": {"parts": [{"text": '{"card":"HEARTS_TEN"}'}]}}]}
+        ),
+        sleep=lambda _seconds: None,
+    )
+    first = CachedCardClassifier(first_classifier, cache_dir, lifecycle=lifecycle)
+    original = first.classify_ppm(crop)
+    request = CardClassificationRequest(crop_bytes=crop, model=first_classifier.model)
+    path = cache_dir / request.request_key[:2] / f"{request.request_key}.json"
+    path.with_name(path.name + ".pin").write_text("retained M2 replay evidence\n")
+    original_bytes = path.read_bytes()
+
+    class _NewClassifierVersion:
+        name = "gemini"
+        version = "gemini-card-classification/v3"
+        calibration = "uncalibrated"
+        model = first_classifier.model
+
+        def classify(self, _request: CardClassificationRequest) -> CardClassificationResult:
+            return CardClassificationResult(status="ok", classification="unknown")
+
+    updated = CachedCardClassifier(_NewClassifierVersion(), cache_dir, lifecycle=lifecycle)
+    refreshed = updated.classify_ppm(crop)
+    assert refreshed.cache_hit is False
+    assert path.read_bytes() == original_bytes
+
+    replay_classifier = GeminiCardClassifier(
+        api_key="runtime-secret",
+        urlopen=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("the pinned replay called the provider")
+        ),
+        sleep=lambda _seconds: None,
+    )
+    replay = CachedCardClassifier(replay_classifier, cache_dir, lifecycle=lifecycle)
+    result = replay.classify_ppm(crop)
+    assert result.cache_hit is True
+    assert result.candidates == original.candidates
 
 
 def test_shared_gemini_limiter_bounds_detector_and_identity_http_calls() -> None:

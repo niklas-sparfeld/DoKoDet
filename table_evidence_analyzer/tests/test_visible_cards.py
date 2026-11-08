@@ -1,10 +1,12 @@
 import json
+import multiprocessing
 import os
 import threading
 from pathlib import Path
 
 import pytest
 
+from table_evidence_analyzer import visible_cards as visible_cards_module
 from table_evidence_analyzer.provider_response_cache import (
     ProviderResponseCacheLifecycle,
     ProviderResponseCacheRetention,
@@ -31,6 +33,13 @@ from table_evidence_analyzer.visible_cards import (
     record_review,
     render_overlay_svg,
 )
+
+
+def _provider_cache_store_worker(root: str, started: object, finished: object) -> None:
+    lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
+    started.set()
+    lifecycle.stored()
+    finished.set()
 
 
 def _prediction() -> dict:
@@ -345,7 +354,7 @@ def test_provider_cache_expiry_and_budget_preserve_pins(tmp_path: Path) -> None:
     now = [1_000_000.0]
     root = tmp_path / "cache"
     retention = ProviderResponseCacheRetention(
-        max_bytes=8,
+        max_bytes=4,
         idle_seconds=100,
         clock=lambda: now[0],
         sweep_interval_seconds=10,
@@ -381,6 +390,95 @@ def test_provider_cache_expiry_and_budget_preserve_pins(tmp_path: Path) -> None:
     )
     assert stale_value is None
     assert not stale.exists()
+
+
+def test_provider_cache_prune_recovers_after_interruption(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "cache"
+    lifecycle = ProviderResponseCacheLifecycle(
+        root,
+        ProviderResponseCacheRetention(
+            max_bytes=4,
+            idle_seconds=1000,
+            clock=lambda: 1_000_010.0,
+        ),
+    )
+    now = 1_000_000.0
+    entries = [root / "visible-cards" / f"{index:02}.json" for index in range(3)]
+    for index, path in enumerate(entries):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("data", encoding="utf-8")
+        os.utime(path, (now + index, now + index))
+
+    real_unlink = Path.unlink
+    interrupted = False
+
+    def unlink_with_interruption(path: Path, *args, **kwargs) -> None:
+        nonlocal interrupted
+        if path == entries[1] and not interrupted:
+            interrupted = True
+            raise OSError("simulated interruption during cache pruning")
+        real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink_with_interruption)
+    with pytest.raises(OSError, match="simulated interruption"):
+        lifecycle.stored()
+    assert not entries[0].exists()
+    assert entries[1].exists() and entries[2].exists()
+
+    lifecycle.stored()
+    assert not entries[0].exists()
+    assert not entries[1].exists()
+    assert entries[2].exists()
+
+
+def test_provider_cache_lifecycle_uses_process_lock(tmp_path: Path) -> None:
+    context = multiprocessing.get_context("spawn")
+    root = tmp_path / "cache"
+    lifecycle = ProviderResponseCacheLifecycle(root, ProviderResponseCacheRetention())
+    started = context.Event()
+    finished = context.Event()
+    process = context.Process(
+        target=_provider_cache_store_worker,
+        args=(str(root), started, finished),
+    )
+
+    with lifecycle.access():
+        process.start()
+        assert started.wait(timeout=10)
+        assert not finished.wait(timeout=0.1)
+
+    process.join(timeout=10)
+    assert process.exitcode == 0
+    assert finished.is_set()
+
+
+def test_interrupted_provider_cache_write_keeps_previous_response(
+    tmp_path: Path, monkeypatch
+) -> None:
+    request = _request()
+    cache_root = tmp_path / "cache"
+    lifecycle = ProviderResponseCacheLifecycle(cache_root, ProviderResponseCacheRetention())
+    cached = CachedVisibleCardProvider(
+        FakeVisibleCardProvider({request.image_sha256: _prediction()}),
+        cache_root / "visible-cards",
+        lifecycle=lifecycle,
+    )
+    cached.propose(request)
+    path = cached._cache_path(request)
+    original = path.read_bytes()
+
+    def interrupt_replace(*_args, **_kwargs) -> None:
+        raise OSError("simulated interruption before cache publish")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(visible_cards_module.os, "replace", interrupt_replace)
+        with pytest.raises(OSError, match="simulated interruption"):
+            cached.propose_fresh(request)
+
+    assert path.read_bytes() == original
+    assert not list(path.parent.glob(f".{path.name}.*"))
+    replay = cached.propose(request)
+    assert replay.cache_hit is True
 
 
 def test_provider_cache_lifecycle_waits_for_active_cache_access(tmp_path: Path) -> None:

@@ -506,18 +506,19 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   behavior, and the policy limits. It measured 18,655 JSON files and 2.697 GiB before applying
   the new policy.
 - **Changes:** Added thread/process locking for cache reads, writes, and pruning; hourly expiry
-  sweeps, oldest-first unpinned eviction, and `.json.pin` protection. Backend visible-card
+  sweeps, oldest-first unpinned eviction, and `.json.pin` protection. Writes preserve pinned
+  response bytes when a provider/classifier version changes. Backend visible-card
   responses and Gemini identity responses share the lifecycle. The 209 exact responses needed by
   the 0088 M2 cache-only replay are pinned; their request keys, crop digests, response digests,
   byte sizes, and recorded costs are in the [pin manifest](../../reports/0115-M13_Growth_Bounds.artifacts/provider-cache-pins.json).
-- **Checks:** 26 provider/classifier tests and 16 backend construction/integration tests passed;
+- **Checks:** 30 provider/classifier tests and 16 backend construction/integration tests passed;
   Ruff, Ruff format, and `git diff --check` passed. Tests used fake providers; no paid Gemini
   request was made. The full `backend/tests/test_app.py` has a separate failure in
   `test_factory_converts_interrupted_round_analysis_to_failed` (`queued` instead of `failed`);
   its focused repeat also failed. See the [M13 report](../../reports/0115-M13_Growth_Bounds.md)
   for exact evidence and the package limits.
 - **Decisions and limits:** The M2 replay depends on 209 exact provider receipts. These files are
-  protected from automatic expiry and eviction. Other cache entries can be recreated through
+  protected from overwrite, automatic expiry, and eviction. Other cache entries can be recreated through
   provider requests, which can incur cost. The 4 GiB budget excludes pinned files and metadata;
   expiry runs on access and there is no background sweeper. M13 remains incomplete.
 - **Next:** M13 package 4 — select one operational-log writer family and preserve active-job and
