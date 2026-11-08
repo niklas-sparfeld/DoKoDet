@@ -89,19 +89,51 @@ current focused app and pipeline API run passed 43 tests and had one unrelated f
 application lifespan. The failure is independent of root selection and needs confirmation from the
 baseline before it is assigned to M5.
 
-Worktree creation began with `git worktree add --detach` at revision
-`2362e9b04fa63647b3cb77682d113c3c0c337bd2`. The first checkout took 17.97 seconds. Each checkout
-measured 17,739,124 KiB allocated before local Python setup. After `uv run` built the backend
-environment and the API workflow ran, totals were 18,453,996 and 18,454,020 KiB. Each isolated
-storage root allocated 40 KiB. This is far above
-the M0 ceiling of 2 GiB per worktree. The checkout already contains large tracked data; M6 owns
-tracking cutover. The measurements did not include `npm ci` or the frontend build, so there is no
-full web create-to-ready result. The second checkout time was not captured separately.
+## Disposable checkout to ready measurements
 
-The clean-checkout test command created the backend environment, built five local packages,
-installed 61 packages, and passed. The imported recording bundle is the recovery copy for this
-workflow, and the operator source remains available and unchanged. No retained operator asset was
-moved. The M0 size target remains unmet and must be measured again after M6 tracking cutover.
+I created two clean detached worktrees at revision `9f523c3eeb2b42bd11becf39c970c45cf8922c04`.
+The readiness boundary matches the M0 baseline: `git worktree add`, `mise install`, backend
+`uv sync`, frontend `npm ci`, frontend build, then backend `create_app()` initialization. The
+fixture API edit/save/restart test ran after readiness and passed in each worktree.
+
+Commands, run sequentially per worktree:
+
+```sh
+/usr/bin/time -p git worktree add --detach /private/tmp/doko-0115-m5-qual-a <revision>
+/usr/bin/time -p mise install
+/usr/bin/time -p mise exec -- uv sync --project backend
+(cd web && /usr/bin/time -p mise exec -- npm ci)
+(cd web && /usr/bin/time -p mise exec -- npm run build)
+DOKO_STORAGE_ROOT=/private/tmp/doko-0115-m5-qual-a-state \
+  mise exec -- uv run --project backend python -c \
+  'from dokodetector_backend.app import create_app; create_app()'
+DOKO_STORAGE_ROOT=/private/tmp/doko-0115-m5-qual-a-state \
+  mise exec -- uv run --project backend pytest \
+  backend/tests/test_worktree_storage_contract.py backend/tests/test_operator_corpus_import.py
+```
+
+| Worktree | Checkout | `mise install` | Backend sync | `npm ci` | Frontend build | Backend ready | Create to ready sum | Checkout allocation | Ready allocation | Setup growth |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A | 17.94 s | 0.02 s | 1.13 s | 2.60 s | 4.07 s | 0.54 s | 26.30 s | 17,739,140 KiB | 18,670,260 KiB | 931,120 KiB / 953,466,880 bytes |
+| B | 17.09 s | 0.03 s | 1.03 s | 4.33 s | 4.07 s | 0.54 s | 27.09 s | 17,739,140 KiB | 18,673,008 KiB | 933,868 KiB / 956,280,832 bytes |
+
+Each isolated storage root allocated 40 KiB after its API workflow. The full additional path
+allocation per ready worktree was 19,118,346,240 bytes (A) and 19,121,160,192 bytes (B), including
+the checkout. `df -k /tmp` showed 17,764,776 KiB less free space after checkout A and 17,764,968
+KiB less after checkout B. The volume-wide free-space delta is not an exact per-file APFS physical
+allocation measure; background activity can affect it. `du` path allocation counts each checkout
+separately and does not claim unique physical or reclaimable bytes.
+
+Both create-to-ready sums meet the 30-second M0 time target. The byte target of at most 2 GiB per
+worktree fails by about 17.8 GiB at checkout and about 17.8 GiB when fully ready. M6 owns tracking
+cutover and must repeat this measurement after reducing tracked checkout contents.
+
+The clean-checkout commands created one backend environment per worktree, built five local
+packages, and installed 61 Python packages. Each frontend install added 272 npm packages and the
+production build passed, with the existing >500 kB chunk warning. The API workflow passed 3 tests
+per worktree. The imported bundle remains the local copy for this workflow; the source fixture is
+unchanged. The earlier post-setup values (18,453,996 and 18,454,020 KiB) came from a setup without
+frontend dependencies and are superseded by this complete measurement.
 
 ## Commit boundary and handoff
 

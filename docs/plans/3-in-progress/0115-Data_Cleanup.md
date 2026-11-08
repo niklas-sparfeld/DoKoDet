@@ -263,15 +263,15 @@ extraction and 0114 fixtures; do not alter their contracts concurrently without 
   and recording asset, restarts, and repeats both reads.
 - **Checks:** The fixture-backed API edit/save/readback/restart test passed in two detached
   disposable worktrees with distinct roots. Exact bundle hashes matched; the source stayed
-  unchanged. Worktree storage was
-  17,739,124 KiB at checkout in each and 18,453,996 / 18,453,972 KiB after Python setup. This fails
-  the M0 2 GiB target; M6 must complete tracking cutover. A bounded app/pipeline test run passed 43
-  tests with one lifespan-related failure recorded in the report. The legacy data defaults are
-  still active when the explicit root is absent.
+  unchanged. Full `mise install`, backend sync, frontend install/build, and backend app
+  initialization measured 26.30 / 27.09 s. Total ready allocation was 18,670,260 / 18,673,008
+  KiB, about 17.8 GiB per checkout; this fails the M0 2 GiB target. M6 must complete tracking
+  cutover. A bounded app/pipeline test run passed 43 tests with one lifespan-related failure
+  recorded in the report. The legacy data defaults are still active when the explicit root is absent.
 - **Decisions and limits:** Explicit operator access copies selected validated bundles into the
-  worktree intake. The source stays intact as the local restore copy. The 2 GiB worktree target
-  remains unmet until M6 tracking cutover. M5 does not relocate model bundles or verify full
-  frontend readiness.
+  worktree intake. The source stays intact as the local restore copy. The create-to-ready time
+  target passes; the 2 GiB worktree target remains unmet until M6 tracking cutover. M5 does not
+  relocate model bundles.
 - **Next:** M6 — tracking and setup cutover.
 - **Commit boundary:** Storage-root and corpus-copy code/tests, M5 report, this epic, and board
   entry in one focused milestone commit.
