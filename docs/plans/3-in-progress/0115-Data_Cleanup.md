@@ -466,17 +466,39 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   identity crop API tests, Ruff and format checks, 57 hard assets, 76 API operations, 70 planned UI
   cases, and the 13-case 0114 media suite passed. All 13 media response tuples match the retained
   0114 M9 sample. See the M13 report for hot/cold timings and limits.
-- **Decisions and limits:** M13 remains incomplete, and the 8 GiB policy bounds only direct
-  digest-keyed entries in the derived-view root. `SampledFrameResolver` has an independent writer
-  under `sampled-frames`; it is the next package. The provider-response cache, operational logs,
-  and recovery/campaign families also require their own bounded packages. Pinned entries are
-  excluded from the budget. No operator cache or retained human work was changed.
-- **Next:** M13 package 2 — bound the `SampledFrameResolver` per-recording cache under
-  `.runtime/pipeline/derived-views/sampled-frames` and coordinate its lifecycle with the parent
-  root.
+- **Decisions and limits:** M13 remains incomplete. The 8 GiB policy bounds only direct
+  digest-keyed entries in the derived-view root. `SampledFrameResolver` now has its own bounded
+  policy under `sampled-frames`; package 3 covers the provider-response cache, then operational
+  logs and recovery/campaign families. Pinned entries are excluded from the package 1 budget. No
+  operator cache or retained human work was changed.
+- **Next:** M13 package 3 — inspect provider-cache replay and cost behavior before setting its
+  independent budget and expiry.
 - **Commit boundary:** The cache writer contract and backend wiring, focused tests, 0114 evidence,
-  report, epic/handoff, and board update form one package commit. This does not complete M13 or
-  advance the requested run count.
+  report, epic/handoff, and board update form package 1's focused commit. It did not complete M13.
+
+- **M13 package 2:** The sampled-frame cache now has its own 2 GiB JPEG-byte limit, 30-day idle
+  expiry, and 2,048-frame per-recording/transform limit. Its writer shares the parent
+  `derived-views/.lifecycle.lock` with package 1. The manifest binds video SHA-256 and byte length,
+  decoder version, and transform version. See the [package 2 evidence](../../reports/0115-M13_Growth_Bounds.md#package-2-sampled-frame-cache)
+  and [sampled-frame cold/warm result](../../reports/0115-M13_Growth_Bounds.artifacts/sampled-frame-cold-warm.json).
+- **Changes:** Added bounded frame-level pruning, stale cache regeneration, atomic manifest publish,
+  and orphan cleanup after interruption. Concurrent misses use the shared lifecycle lock. Backend
+  sampled-frame requests enable the policy; source, review, model, and hard-fixture roots remain
+  outside it.
+- **Checks:** 33 operations derived-view tests and 16 visible-card API tests passed. Ruff check,
+  Ruff format, and `git diff --check` passed. The 13-case 0114 media suite passed and all response
+  status/length/digest tuples match M9. Sampled-frame cold/warm API responses both returned HTTP 200
+  with the same digest and frame time; the local samples were 119.27/2.89 ms. These are one-run
+  timings on a generated 1-second, 64x64 video.
+- **Decisions and limits:** M13 remains incomplete. The sampled-frame limit covers JPEG frame bytes;
+  manifests and lifecycle lock files are outside its 2 GiB count. Idle expiry runs on cache access,
+  with no background sweep. A cache miss regenerates from the accepted source video. No operator
+  cache or retained human work was changed.
+- **Next:** M13 package 3 — inspect provider-cache replay and cost behavior before setting its
+  independent budget and expiry.
+- **Commit boundary:** Sampled-frame retention, backend wiring, tests, 0114 evidence, report,
+  epic/handoff, and board update form one package commit. The run remains at 1/4 milestones
+  complete and 3/4 remaining because M13 is not complete.
 
 ## M0 — Inventory and rank
 
@@ -685,7 +707,7 @@ retention behavior, so implementation is split into sequential packages. A packa
 milestone and does not change the authorized M12–M15 run limit. M13 stays incomplete until every
 package is complete and the combined checks pass.
 
-1. **Digest-entry cache lifecycle (current package).** Own only the direct SHA-256-keyed
+1. **Digest-entry cache lifecycle (complete).** Own only the direct SHA-256-keyed
    `DerivedViewCache` entry directories under `.runtime/pipeline/derived-views`, through
    `operations/src/doko_operations/derived_view.py` and its backend readers and writers. Freeze
    exact-key regeneration, bounded idle expiry and total size, safe eviction with concurrent
@@ -695,7 +717,7 @@ package is complete and the combined checks pass.
    Check deterministic expiry/budget, active readers/writers, interruption/restart, missing-entry
    regeneration, stale revision behavior, and hot/cold 0114 cases. Commit this exact writer's
    contract, implementation, tests, evidence report, and updated handoff together.
-2. **Sampled-frame cache.** Own only
+2. **Sampled-frame cache (complete).** Own only
    `.runtime/pipeline/derived-views/sampled-frames` and the `SampledFrameResolver` read/write
    contract. Bound its per-recording frame cache and coordinate its lifecycle with the parent
    derived-view root. Preserve exact source-video identity and prove cache reconstruction, in-flight

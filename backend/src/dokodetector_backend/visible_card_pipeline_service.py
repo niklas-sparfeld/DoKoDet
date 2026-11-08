@@ -20,6 +20,7 @@ from doko_operations.derived_view import (
     FFmpegFrameResolver,
     FrameResolver,
     ResolvedFrame,
+    SampledFrameCacheRetention,
     SampledFrameResolver,
     resolve_exact_event,
 )
@@ -215,6 +216,7 @@ class VisibleCardPipelineService:
                 resolver=SampledFrameResolver(
                     self.storage.derived_views_root / "sampled-frames",
                     interval_us=SAMPLED_FRAME_INTERVAL_US,
+                    retention=SampledFrameCacheRetention(),
                 ),
                 output_encoding="jpeg",
                 validate_source=False,

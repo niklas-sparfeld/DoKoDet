@@ -1,7 +1,7 @@
 # Epic 0115 M13: growth bounds package plan
 
 Date: 2026-11-08
-Status: Package 1 complete; M13 remains in progress
+Status: Packages 1 and 2 complete; M13 remains in progress
 Planning revision: `84a8835c`
 
 ## Why M13 has separate packages
@@ -25,7 +25,7 @@ The current implementation has at least these independent writers:
 | Package | Writer and owned path | Required boundary |
 | --- | --- | --- |
 | Digest-entry derived-view cache | `DerivedViewCache` in `operations/src/doko_operations/derived_view.py`; direct SHA-256-keyed directories in `.runtime/pipeline/derived-views` | Exact cache-key reconstruction, budget and idle expiry, in-flight access protection, crash-safe eviction, and 0114 hot/cold evidence. Keep the separate hard-fixture cache and durable roots outside this writer. |
-| Sampled-frame cache | `SampledFrameResolver` in `operations/src/doko_operations/derived_view.py`; `.runtime/pipeline/derived-views/sampled-frames` | Independent per-recording manifest/frame writer. It is excluded from package 1 and requires its own bounds and parent-root coordination. |
+| Sampled-frame cache | `SampledFrameResolver` in `operations/src/doko_operations/derived_view.py`; `.runtime/pipeline/derived-views/sampled-frames` | Independent per-recording manifest/frame writer. It has a separate 2 GiB JPEG-byte budget, 30-day idle expiry, 2,048-frame cap per recording/transform, and shares the parent lifecycle lock. |
 | Provider-response cache | `backend/src/dokodetector_backend/gemini_analyzer.py`; `.runtime/gemini-cache` | Identify request replay and provider-cost effects, then define independent expiry, budget, active-request, and restart behavior. |
 | Operational logs | `backend/src/dokodetector_backend/job_persistence.py` writes per-job `logs.json`; campaign tools also write command and output logs | Select one bounded writer family after ranking. Keep active-job logs and logs needed for restart/recovery. Campaign logs need a separate owner and retention decision. |
 | Recovery copies and campaign intermediates | Migration/recovery tooling and campaign materialization/training writers; exact roots vary by operation | Name one exact family at a time, then record pins, dependencies, reconstructability, expiry condition, and a tested recovery procedure. Cache expiry does not apply. |
@@ -90,25 +90,74 @@ Package 1 commit boundary: cache contract and backend wiring, focused tests, 011
 report, epic, and handoff. Later packages have separate boundaries. Completing this package alone
 does not complete M13.
 
+## Package 2: sampled-frame cache
+
+The backend `VisibleCardPipelineService` enables a separate policy for `SampledFrameResolver` under
+`.runtime/pipeline/derived-views/sampled-frames`. The policy keeps at most 2 GiB of JPEG frame bytes
+across active cache directories, 2,048 frames per source/transform directory, and expires cache
+directories after 30 idle days. Reads and writes refresh frame and directory timestamps. Pruning
+runs on sampled-cache access; there is no background worker. The 2 GiB count excludes manifests,
+lock files, and filesystem allocation overhead. It does not include package 1 entries or explicit
+hard-fixture caches.
+
+The source-video SHA-256 selects the recording directory and the manifest also checks the exact
+source byte length. The manifest binds the sample interval, maximum dimension, decoder version,
+and transform version. A different video identity or transform therefore regenerates into a new
+cache identity. Existing schema entries are cache misses. The accepted source video remains the
+only input.
+
+The sampled-frame writer shares `derived-views/.lifecycle.lock` with the package 1 digest-entry
+writer. The lock coordinates both policies across threads and processes and protects cold misses,
+frame publication, and eviction from concurrent access. Frames are flushed before an atomic manifest
+replacement. A later access removes orphan frame files and abandoned temporary manifests. A missing
+or invalid frame makes the entry a cache miss and the requested sample is decoded again. Cache
+eviction does not touch source media, review work, models, or recovery families.
+
+The focused tests cover per-recording frame limits, root-byte eviction, idle expiry, orphan cleanup,
+restart regeneration, source-identity changes, and concurrent same-frame misses. The backend API
+test checks the sampled preview's cold, warm, and second-frame behavior. The 0114 media suite passed
+13/13 cases; all status, response-byte, and response-digest tuples match the retained M9 sample.
+Derived-event cold/warm requests took 3.68/2.17 ms; these exercise the regular derived-view path.
+The separate sampled-frame API cold/warm requests on a generated one-second 64x64 video both
+returned HTTP 200 and the same 245-byte response digest, with frame time 250,000 us. Their one-run
+times were 119.27/2.89 ms. These are local samples, not a new latency baseline.
+
+See [the sampled cold/warm result](0115-M13_Growth_Bounds.artifacts/sampled-frame-cold-warm.json)
+and [the 0114 media result](0115-M13_Growth_Bounds.artifacts/0114-media-package2.json). The 0114
+artifact contains all 13 response tuples and timings. The separate sampled-frame artifact records
+the generated source-video digest, route, cache policy, response identities, and timings. Both
+artifacts bind the implementation files to fingerprint
+`3c75d24d8993c8ee0280234a24501dbad6fc2952b2a34833d21a3dda1d15aa79`; the checked-in M9 response
+corpus remains unchanged.
+
+Limits: size is bounded by JPEG payload bytes, while manifest and filesystem overhead are excluded.
+The per-recording limit is frame count, not bytes. A 30-day expiry is enforced only when the
+sampled cache is accessed. A cold miss decodes while holding the shared parent lock, so it blocks
+other cache lifecycle operations until the frame is published. The performance samples use a tiny
+test video and do not qualify large recordings or full 0114 application performance.
+
+Package 2 commit boundary: sampled-frame retention, backend wiring, focused tests, 0114 evidence,
+this report, epic, and handoff. M13 remains incomplete until the later writer packages and combined
+checks pass.
+
 ## Remaining M13 packages
 
-1. Sampled-frame cache: inspect its per-recording writer and readers, then define a separate bound
-   coordinated with the parent derived-view cache root.
-2. Provider-response cache: confirm the active request/cache readers and replay/cost behavior before
+1. Provider-response cache: confirm the active request/cache readers and replay/cost behavior before
    setting its own budget and expiry.
-3. Operational logs: select one ranked writer family. Preserve active-job logs and recovery
+2. Operational logs: select one ranked writer family. Preserve active-job logs and recovery
    evidence; campaign logs need a separate retention decision.
-4. Recovery copies and campaign intermediates: select one exact family at a time and prove its
+3. Recovery copies and campaign intermediates: select one exact family at a time and prove its
    pins, dependencies, reconstruction or restore path, and expiry condition before cleanup.
 
 These packages remain part of M13 and do not add to the four-milestone run limit. Package 1 bounds
-only direct digest entries; it does not bound the entire derived-view root. M14 and M15 remain
-within the authorized run.
+only direct digest entries and package 2 separately bounds sampled-frame JPEG bytes; together they
+do not bound lock/state/manifest overhead or other derived-view families. M14 and M15 remain within
+the authorized run.
 
 ## Run handoff
 
 The active run requested four milestones (M12–M15). M12 is complete. M13 is the current milestone,
-so the run has completed 1/4 and has 3/4 remaining. The first M13 package is derived-view cache
-lifecycle. The provider-response cache, one selected operational-log writer, and exact recovery or
-campaign families remain future M13 packages. M14 and M15 remain within this run's limit; these
-packages do not add milestones or authorize work past M15.
+so the run has completed 1/4 and has 3/4 remaining. M13 packages 1 and 2 are complete. The
+provider-response cache, one selected operational-log writer, and exact recovery or campaign
+families remain future M13 packages. M14 and M15 remain within this run's limit; these packages do
+not add milestones or authorize work past M15.

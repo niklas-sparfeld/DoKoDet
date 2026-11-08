@@ -1494,15 +1494,22 @@ def test_sampled_event_frame_route_reuses_one_250_ms_cache(tmp_path: Path) -> No
     )
     with TestClient(app) as client:
         first = client.get(first_path)
+        warm = client.get(first_path)
         second = client.get(second_path)
 
     assert first.status_code == 200
+    assert warm.status_code == 200
     assert second.status_code == 200
     assert first.headers["x-dokodetector-frame-interval-us"] == "250000"
     assert first.headers["x-dokodetector-requested-time-us"] == "100000"
     assert first.headers["x-dokodetector-frame-time-us"] == "250000"
     assert first.headers["x-dokodetector-frame-width"] == "64"
     assert first.headers["x-dokodetector-frame-height"] == "64"
+    assert warm.content == first.content
+    assert (
+        warm.headers["x-dokodetector-frame-time-us"]
+        == first.headers["x-dokodetector-frame-time-us"]
+    )
     assert second.headers["x-dokodetector-frame-time-us"] == "500000"
     cache_root = tmp_path / "runtime" / "pipeline" / "derived-views" / "sampled-frames"
     assert len(list(cache_root.rglob("manifest.json"))) == 1

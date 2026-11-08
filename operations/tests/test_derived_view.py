@@ -28,6 +28,7 @@ from doko_operations.derived_view import (
     PredictedVisibleRegionGeometry,
     ResolvedFrame,
     ReviewedVisibleRegionGeometry,
+    SampledFrameCacheRetention,
     SampledFrameResolver,
     VisibleRegionCropRequest,
     VisibleRegionExclusionInput,
@@ -323,6 +324,120 @@ def test_sampled_frame_resolver_extracts_requested_samples_and_reuses_them(
     assert len(list((tmp_path / "sampled-frames").rglob("*.jpg"))) == 2
     assert all("-ss" in call.args[0] for call in run.call_args_list)
     assert all("fps=" not in " ".join(call.args[0]) for call in run.call_args_list)
+
+
+def test_sampled_frame_cache_bounds_frames_and_recovers_orphans(tmp_path: Path) -> None:
+    video = tmp_path / "cfr.mp4"
+    _make_cfr_video(video, duration_s=1.0)
+    source = _source(video, duration_us=1_000_000)
+    resolver = SampledFrameResolver(
+        tmp_path / "derived-views" / "sampled-frames",
+        retention=SampledFrameCacheRetention(max_frames_per_recording=2),
+    )
+    for requested_time_us in (0, 250_000, 500_000):
+        resolver.resolve(ExactEventRequest(source, requested_time_us), video)
+
+    cache = resolver._cache_path(source)
+    manifest = json.loads((cache / "manifest.json").read_text())
+    assert len(manifest["frames"]) == 2
+    assert len(list((cache / "frames").glob("*.jpg"))) == 2
+    orphan = cache / "frames" / "999999.jpg"
+    orphan.write_bytes(b"interrupted frame write")
+
+    resolver.resolve(ExactEventRequest(source, 500_000), video)
+
+    assert not orphan.exists()
+    assert len(list((cache / "frames").glob("*.jpg"))) == 2
+    assert (tmp_path / "derived-views" / ".lifecycle.lock").is_file()
+
+
+def test_sampled_frame_cache_identity_change_regenerates(tmp_path: Path) -> None:
+    video = tmp_path / "cfr.mp4"
+    _make_cfr_video(video, duration_s=1.0)
+    source = _source(video, duration_us=1_000_000)
+    resolver = SampledFrameResolver(
+        tmp_path / "derived-views" / "sampled-frames",
+        retention=SampledFrameCacheRetention(),
+    )
+    first = resolver.resolve(ExactEventRequest(source, 0), video)
+    video.write_bytes(video.read_bytes() + b"changed")
+    changed = _source(video, duration_us=1_000_000)
+    second = resolver.resolve(ExactEventRequest(changed, 0), video)
+
+    assert first.source_video_sha256 != second.source_video_sha256
+    assert resolver._cache_path(source) != resolver._cache_path(changed)
+    assert second.image_bytes == first.image_bytes
+
+
+def test_sampled_frame_cache_restarts_and_regenerates_missing_frame(tmp_path: Path) -> None:
+    video = tmp_path / "cfr.mp4"
+    _make_cfr_video(video, duration_s=1.0)
+    source = _source(video, duration_us=1_000_000)
+    root = tmp_path / "derived-views" / "sampled-frames"
+    retention = SampledFrameCacheRetention()
+    first_resolver = SampledFrameResolver(root, retention=retention)
+    first = first_resolver.resolve(ExactEventRequest(source, 0), video)
+    cache = first_resolver._cache_path(source)
+    manifest = json.loads((cache / "manifest.json").read_text())
+    frame_path = cache / manifest["frames"][0]["relative_path"]
+    frame_path.unlink()
+
+    restarted_resolver = SampledFrameResolver(root, retention=retention)
+    regenerated = restarted_resolver.resolve(ExactEventRequest(source, 0), video)
+
+    assert regenerated.image_bytes == first.image_bytes
+    assert frame_path.is_file()
+
+
+def test_sampled_frame_cache_coordinates_in_flight_misses(tmp_path: Path) -> None:
+    video = tmp_path / "cfr.mp4"
+    _make_cfr_video(video, duration_s=1.0)
+    source = _source(video, duration_us=1_000_000)
+    resolver = SampledFrameResolver(
+        tmp_path / "derived-views" / "sampled-frames",
+        retention=SampledFrameCacheRetention(),
+    )
+    with (
+        patch.object(resolver, "_decode_sample", wraps=resolver._decode_sample) as decode,
+        ThreadPoolExecutor(max_workers=2) as pool,
+    ):
+        results = list(
+            pool.map(
+                lambda _: resolver.resolve(ExactEventRequest(source, 0), video),
+                range(2),
+            )
+        )
+
+    assert decode.call_count == 1
+    assert results[0].image_bytes == results[1].image_bytes
+
+
+def test_sampled_frame_cache_enforces_root_bytes_and_idle_expiry(tmp_path: Path) -> None:
+    video = tmp_path / "cfr.mp4"
+    _make_cfr_video(video, duration_s=1.0)
+    source = _source(video, duration_us=1_000_000)
+    now = [1_000.0]
+    root = tmp_path / "derived-views" / "sampled-frames"
+    bounded = SampledFrameResolver(
+        root,
+        retention=SampledFrameCacheRetention(max_bytes=1, clock=lambda: now[0]),
+    )
+    bounded.resolve(ExactEventRequest(source, 0), video)
+    assert not bounded._cache_path(source).exists()
+
+    expiring = SampledFrameResolver(
+        root,
+        retention=SampledFrameCacheRetention(
+            max_bytes=10_000_000,
+            idle_seconds=10,
+            clock=lambda: now[0],
+        ),
+    )
+    expiring.resolve(ExactEventRequest(source, 0), video)
+    now[0] += 11
+    expiring.resolve(ExactEventRequest(source, 250_000), video)
+    manifest = json.loads((expiring._cache_path(source) / "manifest.json").read_text())
+    assert [entry["frame_index"] for entry in manifest["frames"]] == [1]
 
 
 def test_exact_event_missing_frame_and_corrupt_cache_regenerate(tmp_path: Path) -> None:

@@ -35,7 +35,7 @@ from PIL import Image, UnidentifiedImageError
 from .pipeline_data import RecordingVideoSource, canonical_json_bytes
 
 EXACT_EVENT_SCHEMA = "exact-event/v1"
-SAMPLED_FRAME_CACHE_SCHEMA = "sampled-frame-cache/v2"
+SAMPLED_FRAME_CACHE_SCHEMA = "sampled-frame-cache/v3"
 VISIBLE_REGION_CROP_SCHEMA = "visible-region-crop/v1"
 CROP_JPEG_PREVIEW_SCHEMA = "visible-region-crop-jpeg-preview/v1"
 DERIVED_VIEW_CACHE_SCHEMA = "derived-view-cache/v1"
@@ -1092,6 +1092,28 @@ class DerivedViewCacheRetention:
             raise DerivedViewCacheError("retention clock must be callable")
 
 
+@dataclass(frozen=True, slots=True)
+class SampledFrameCacheRetention:
+    """Bounds sampled frames while sharing the parent derived-view lifecycle lock."""
+
+    max_bytes: int = 2 * 1024 * 1024 * 1024
+    max_frames_per_recording: int = 2048
+    idle_seconds: float = 30 * 24 * 60 * 60
+    clock: Any = time.time
+
+    def __post_init__(self) -> None:
+        _require_int(self.max_bytes, "sampled-frame max_bytes", minimum=1)
+        _require_int(self.max_frames_per_recording, "max_frames_per_recording", minimum=1)
+        if (
+            isinstance(self.idle_seconds, bool)
+            or not isinstance(self.idle_seconds, (int, float))
+            or self.idle_seconds <= 0
+        ):
+            raise DerivedViewCacheError("sampled-frame idle_seconds must be positive")
+        if not callable(self.clock):
+            raise DerivedViewCacheError("sampled-frame clock must be callable")
+
+
 class DerivedViewCache:
     """A disposable, digest-verified cache below ``derived-views``."""
 
@@ -1756,18 +1778,29 @@ class SampledFrameResolver:
         max_dimension: int = SAMPLED_FRAME_MAX_DIMENSION,
         ffmpeg_binary: str = "ffmpeg",
         decoder_version: str = DEFAULT_DECODER_VERSION,
+        retention: SampledFrameCacheRetention | None = None,
     ) -> None:
         self.cache_root = Path(cache_root).expanduser()
         self.interval_us = _require_int(interval_us, "interval_us", minimum=1)
         self.max_dimension = _require_int(max_dimension, "max_dimension", minimum=1)
         self.ffmpeg_binary = _require_text(ffmpeg_binary, "ffmpeg_binary")
         self.decoder_version = _require_text(decoder_version, "decoder_version")
+        self.retention = retention
         self.transform_version = (
             f"ffmpeg-mjpeg/{FFMPEG_TOOLCHAIN_VERSION}/sampled-"
             f"{self.interval_us}us-max-{self.max_dimension}/v2"
         )
 
     def resolve(self, request: ExactEventRequest, video_path: Path) -> ResolvedFrame:
+        if self.retention is None:
+            return self._resolve_locked(request, video_path)
+        with self._lifecycle_lock():
+            self._prune()
+            result = self._resolve_locked(request, video_path)
+            self._prune()
+            return result
+
+    def _resolve_locked(self, request: ExactEventRequest, video_path: Path) -> ResolvedFrame:
         if not isinstance(request, ExactEventRequest):
             raise DerivedViewError("frame resolver needs an exact-event request")
         if request.output_encoding != "jpeg":
@@ -1776,7 +1809,10 @@ class SampledFrameResolver:
         if not path.is_file():
             raise DerivedViewSourceError(f"source video does not exist: {path}")
         destination = self._cache_path(request.source)
-        frames = self._read_cache(destination, request.source) or []
+        cached_frames = self._read_cache(destination, request.source)
+        frames = cached_frames or []
+        if cached_frames is None and destination.exists():
+            shutil.rmtree(destination)
         last_sample_index = max(
             0,
             (request.source.duration_us + self.interval_us - 1) // self.interval_us - 1,
@@ -1799,10 +1835,19 @@ class SampledFrameResolver:
             )
             frames.append(selected)
             self._write_cache(destination, request.source, frames, image_bytes)
+            if self.retention is not None:
+                now = self.retention.clock()
+                os.utime(destination / selected[4], (now, now), follow_symlinks=False)
+                os.utime(destination, (now, now), follow_symlinks=False)
         else:
             frame_index, timestamp_us, width, height, relative_path = selected
             try:
-                image_bytes = (destination / relative_path).read_bytes()
+                frame_path = destination / relative_path
+                image_bytes = frame_path.read_bytes()
+                if self.retention is not None:
+                    now = self.retention.clock()
+                    os.utime(frame_path, (now, now), follow_symlinks=False)
+                    os.utime(destination, (now, now), follow_symlinks=False)
             except OSError as error:
                 raise DerivedViewProbeError("sampled frame cache could not be read") from error
         frame_index, timestamp_us, width, height, relative_path = selected
@@ -1897,6 +1942,8 @@ class SampledFrameResolver:
                 "byte_length": source.byte_length,
                 "interval_us": self.interval_us,
                 "max_dimension": self.max_dimension,
+                "decoder_version": self.decoder_version,
+                "transform_version": self.transform_version,
                 "frames": [
                     {
                         "frame_index": frame_index,
@@ -1910,7 +1957,9 @@ class SampledFrameResolver:
                     )
                 ],
             }
-            _write_fsync(destination / "manifest.json", canonical_json_bytes(manifest))
+            temporary_manifest = destination / ".manifest.tmp"
+            _write_fsync(temporary_manifest, canonical_json_bytes(manifest))
+            os.replace(temporary_manifest, destination / "manifest.json")
         except OSError as error:
             raise DerivedViewProbeError("sampled frame cache could not be written") from error
 
@@ -1933,6 +1982,8 @@ class SampledFrameResolver:
             or manifest.get("byte_length") != source.byte_length
             or manifest.get("interval_us") != self.interval_us
             or manifest.get("max_dimension") != self.max_dimension
+            or manifest.get("decoder_version") != self.decoder_version
+            or manifest.get("transform_version") != self.transform_version
             or not isinstance(manifest.get("frames"), list)
         ):
             return None
@@ -1965,6 +2016,106 @@ class SampledFrameResolver:
         if not entries or len(frame_indices) != len(set(frame_indices)):
             return None
         return sorted(entries, key=lambda entry: entry[0])
+
+    @contextmanager
+    def _lifecycle_lock(self):
+        """Share the parent root lock with digest-entry retention and coordinate misses."""
+
+        parent = self.cache_root.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        with _DERIVED_VIEW_CACHE_PROCESS_LOCK:
+            descriptor = os.open(parent / ".lifecycle.lock", os.O_CREAT | os.O_RDWR, 0o600)
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+                yield
+            finally:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+                os.close(descriptor)
+
+    def _prune(self) -> None:
+        """Expire idle recording caches, cap each recording, then enforce the root byte budget."""
+
+        assert self.retention is not None
+        now = self.retention.clock()
+        if not self.cache_root.exists():
+            return
+        caches = [
+            path for path in self.cache_root.glob("*/*") if path.is_dir() and not path.is_symlink()
+        ]
+        live: list[tuple[float, Path, int]] = []
+        for cache in caches:
+            try:
+                modified = cache.stat(follow_symlinks=False).st_mtime
+            except OSError:
+                continue
+            if now - modified >= self.retention.idle_seconds:
+                shutil.rmtree(cache)
+                continue
+            self._prune_recording(cache)
+            try:
+                size = sum(
+                    frame.stat(follow_symlinks=False).st_size
+                    for frame in (cache / "frames").glob("*.jpg")
+                    if frame.is_file() and not frame.is_symlink()
+                )
+                live.append((modified, cache, size))
+            except OSError:
+                continue
+        total = sum(size for _, _, size in live)
+        for _, cache, size in sorted(live, key=lambda entry: entry[0]):
+            if total <= self.retention.max_bytes:
+                break
+            shutil.rmtree(cache)
+            total -= size
+
+    def _prune_recording(self, cache: Path) -> None:
+        assert self.retention is not None
+        (cache / ".manifest.tmp").unlink(missing_ok=True)
+        frames_dir = cache / "frames"
+        if not frames_dir.is_dir() or frames_dir.is_symlink():
+            return
+        frames = [
+            frame
+            for frame in frames_dir.glob("*.jpg")
+            if frame.is_file() and not frame.is_symlink()
+        ]
+        try:
+            manifest = json.loads((cache / "manifest.json").read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            shutil.rmtree(cache)
+            return
+        entries = manifest.get("frames") if isinstance(manifest, dict) else None
+        if not isinstance(entries, list):
+            shutil.rmtree(cache)
+            return
+        referenced = {
+            Path(str(entry.get("relative_path", ""))).name
+            for entry in entries
+            if isinstance(entry, dict)
+        }
+        for frame in frames:
+            if frame.name not in referenced:
+                frame.unlink()
+        frames = [frame for frame in frames if frame.name in referenced]
+        if len(frames) <= self.retention.max_frames_per_recording:
+            return
+        recent = sorted(
+            frames,
+            key=lambda path: path.stat(follow_symlinks=False).st_mtime,
+            reverse=True,
+        )[: self.retention.max_frames_per_recording]
+        keep = {path.name for path in recent}
+        kept_entries = [
+            entry
+            for entry in entries
+            if isinstance(entry, dict) and Path(str(entry.get("relative_path", ""))).name in keep
+        ]
+        for frame in frames:
+            if frame.name not in keep:
+                frame.unlink()
+        tmp = cache / ".manifest.tmp"
+        _write_fsync(tmp, canonical_json_bytes({**manifest, "frames": kept_entries}))
+        os.replace(tmp, cache / "manifest.json")
 
 
 class OpenCVFrameResolver:
@@ -2828,6 +2979,7 @@ __all__ = [
     "DerivedViewCache",
     "DerivedViewCacheEntry",
     "DerivedViewCacheError",
+    "DerivedViewCacheRetention",
     "DerivedViewError",
     "DerivedViewMissingFrameError",
     "DerivedViewProbeError",
@@ -2842,6 +2994,7 @@ __all__ = [
     "SAMPLED_FRAME_INTERVAL_US",
     "SAMPLED_FRAME_MAX_DIMENSION",
     "SampledFrameResolver",
+    "SampledFrameCacheRetention",
     "PILLOW_TOOLCHAIN_VERSION",
     "PixelBounds",
     "ResolvedCrop",
