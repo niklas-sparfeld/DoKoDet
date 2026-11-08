@@ -28,8 +28,8 @@ conversion to the same 8,571-entry M11 snapshot. Its identity digest is
 length, and identity checks. The 128-key sample digest matches M11.
 
 The converted family uses 798,392,320 allocated bytes across exactly 17,142 files, a 61.7% drop
-from the M11 baseline of 2,083,942,400 allocated bytes. Average encode and write time was 1.99 ms
-per entry. Cold and warm random-read p95 were 1.58 ms and 1.60 ms. Both are under the M11 limits.
+from the M11 baseline of 2,083,942,400 allocated bytes. Average encode and write time was 1.97 ms
+per entry. Cold and warm random-read p95 were 1.63 ms and 1.57 ms. Both are under the M11 limits.
 These measurements use the same local filesystem and corpus as the M11 experiment.
 
 Interruption and recovery ran on a two-entry disposable source. An injected stop after the first

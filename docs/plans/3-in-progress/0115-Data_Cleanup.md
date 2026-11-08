@@ -437,7 +437,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   destination and verifies every converted entry.
 - **Checks:** All 8,571 entries converted and restored exactly, retaining the M11 identity digest
   and 128-key sample. The rehearsal used 798,392,320 allocated bytes across 17,142 files (61.7%
-  below M11), averaged 1.99 ms per entry for encode/write, and measured 1.58/1.60 ms cold/warm
+  below M11), averaged 1.97 ms per entry for encode/write, and measured 1.63/1.57 ms cold/warm
   random-read p95. Two backend API modules passed (3 tests); focused cache modules passed (18).
   The current 35-case hard pipeline run passed 70 samples and matched all M11 response digests.
   Four M0 I/O cases passed with no live reads. The 0114 hard fixture, inventory, and rebased-copy

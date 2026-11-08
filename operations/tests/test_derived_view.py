@@ -341,6 +341,26 @@ def test_exact_event_missing_frame_and_corrupt_cache_regenerate(tmp_path: Path) 
         resolve_exact_event(tmp_path / "missing.mp4", source=source, requested_time_us=0)
 
 
+@pytest.mark.parametrize("missing_field", ["content_sha256", "byte_length"])
+def test_cache_manifest_missing_content_field_is_a_miss(tmp_path: Path, missing_field: str) -> None:
+    cache = DerivedViewCache(tmp_path / "derived-views")
+    key = "a" * 64
+    entry = cache.path(key)
+    entry.mkdir()
+    manifest = {
+        "schema_version": "derived-view-cache/v1",
+        "cache_key": key,
+        "view_kind": "exact-event/v1",
+        "identity": {},
+        "content_sha256": "b" * 64,
+        "byte_length": 1,
+    }
+    del manifest[missing_field]
+    (entry / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    assert cache.read(key) is None
+
+
 def test_geometry_tags_keep_detector_boxes_separate_from_disconnected_reviewed_regions(
     tmp_path: Path,
 ) -> None:

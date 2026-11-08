@@ -1102,15 +1102,27 @@ class DerivedViewCache:
         }
         if manifest.get("cache_key") != cache_key:
             return None
+        schema = manifest.get("schema_version")
+        if schema == DERIVED_VIEW_CACHE_SCHEMA:
+            expected = common
+        elif schema == DERIVED_VIEW_CACHE_COMPRESSED_SCHEMA:
+            expected = common | {
+                "storage_codec",
+                "stored_content_sha256",
+                "stored_byte_length",
+            }
+        else:
+            return None
+        if set(manifest) != expected:
+            return None
         try:
             digest = _require_digest(manifest["content_sha256"], "cache content_sha256")
             length = _require_int(manifest["byte_length"], "cache byte_length", minimum=0)
         except DerivedViewError:
             return None
-        schema = manifest.get("schema_version")
         identity = manifest.get("identity")
         if schema == DERIVED_VIEW_CACHE_SCHEMA:
-            if set(manifest) != common or not isinstance(identity, dict):
+            if not isinstance(identity, dict):
                 return None
             # PPM crop entries use the selected v2 representation. Reject old entries so
             # callers regenerate them instead of silently continuing to use the old path.
