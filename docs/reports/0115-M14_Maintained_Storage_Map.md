@@ -41,7 +41,7 @@ rg --no-ignore -n '"schema_version"|"node_id"' \
 rg --files --no-ignore data/operations/pipeline-nodes/<node-id>/revisions/<revision-id>
 
 # One report or artifact with an exact known name
-rg --files docs/reports | rg '0115-M13_Growth_Bounds(\.artifacts/provider-cache-pins\.json)?$'
+rg --files docs/reports | rg '0115-M13_Growth_Bounds(\.md|\.artifacts/provider-cache-pins\.json)$'
 
 # Recursively verify the recovery package and named retained roots
 mise exec -- uv run --project backend python scripts/verify_0115_recovery.py \
