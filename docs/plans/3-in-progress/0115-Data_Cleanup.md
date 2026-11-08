@@ -384,12 +384,15 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   records current worktree refs, temporary objects, LFS status, history cost, integrity results,
   and the reason no objects were removed.
 - **Changes:** No Git or LFS object was changed. The report captures ten temporary object files
-  totaling the reported 2.65 GiB of Git garbage, 336 Codex refs, 771 local LFS objects, and the
-  pending LFS push object.
+  totaling 2,852,835,412 bytes, exact ref names and target IDs, 70,456 unreachable objects, 771 local
+  LFS objects, and the pending LFS push object. The current-audit artifact records matching before
+  and after Git state and actual free-space samples.
 - **Checks:** All three worktrees were clean. No Git/LFS process or lock was present.
-  `git fsck --full --connectivity-only` exited 0 and reported dangling objects. LFS remote-verified
-  dry runs returned different candidate hashes, and `git lfs status` showed a pending push; no prune
-  ran. The M9 archive/restore rehearsal remains the specific recovery evidence for detached worktrees.
+  `git fsck --full --connectivity-only` exited 0 and reported dangling objects. Four LFS
+  remote-verified dry runs returned different exact candidates; `git lfs status` showed a pending
+  push. The read-only before/after audit preserved refs, unreachable counts, temporary objects, and
+  pack counts; available volume space changed from 81,133,948 KiB to 81,133,576 KiB. No prune ran.
+  The M9 archive/restore rehearsal remains the specific recovery evidence for detached worktrees.
 - **Decisions and limits:** Do not delete temporary objects or prune LFS from this inspection.
   Exact ownership for dangling objects is unresolved, and the LFS candidate set was not stable.
   Reconcile Git refs/reflogs/worktree HEADs and obtain a stable LFS candidate and remote-availability

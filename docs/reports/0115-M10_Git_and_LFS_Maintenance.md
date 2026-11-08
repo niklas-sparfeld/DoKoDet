@@ -6,8 +6,30 @@ cleanup set.
 
 ## Scope and observed state
 
-The main checkout was clean at `b42cafa35e051c569bdfb47beffd34a6f1169445` before this report.
-It is 107 commits ahead of `origin/main`. The two registered detached worktrees were also clean:
+The original inspection was clean at `b42cafa35e051c569bdfb47beffd34a6f1169445` and 107 commits
+ahead of `origin/main`. After the M10 report commit, I ran a second read-only audit at
+`4f43372221c2adbeaa77929edb204d18439993e9`. The exact 345 ref names and target object IDs, worktree
+HEADs, temporary object names and sizes, LFS dry-run outputs, and before/after state are in the
+[audit artifact](0115-M10_Git_and_LFS_Maintenance.artifacts/current-audit.json). It contains IDs and
+metadata only; it does not contain payloads.
+
+The audit's before and after snapshots had the same Git state. No maintenance ran between them:
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| Captured time (UTC) | 2026-11-08 15:40:56 | 2026-11-08 15:42:52 |
+| Main HEAD | `4f43372221c2adbeaa77929edb204d18439993e9` | same |
+| Main ahead of `origin/main` | 108 commits | 108 commits |
+| Refs and target IDs | 345 | 345, unchanged |
+| Objects unreachable without reflogs | 70,456 | 70,456, unchanged |
+| Git temporary files | 10 / 2,852,835,412 bytes | 10 / 2,852,835,412 bytes |
+| Git reported garbage | 2.65 GiB | 2.65 GiB |
+| Available volume space | 81,133,948 KiB | 81,133,576 KiB |
+
+Available space fell by 372 KiB during the read-only audit. This is observed filesystem variation,
+not reclaimed space. Git pack count, unreachable count, temporary file set, and refs did not change.
+
+The two registered detached worktrees were also clean:
 
 | Checkout | HEAD | State |
 | --- | --- | --- |
@@ -46,13 +68,18 @@ ownership and recovery mapping. No pack temporary or unreachable object was remo
 
 `.git/lfs/objects` contains 771 files and uses 17,627,216 KiB (reported as 16.8 GiB); the LFS cache
 uses 4 KiB. `git lfs ls-files --all --long` lists 63 pointers. `git lfs prune --dry-run` reported 64
-retained objects. Two separate `git lfs prune --dry-run --verify-remote --verbose` checks returned
-different candidate hashes (`5abad8f866625b3dc24f1106f2cbc359f639ed7e5c3f20d48228702e124563ba`
-at 5,617,631 bytes and
-`fb770328cfb44f597943a0b1ebb0eec3d8c67aa1cdda60a193941dd3edf49f5f` at 458 KiB), while neither
-showed a remote verification error. `git lfs status` also reports an empty-file LFS object
-pending push. The candidate set is not stable across dry runs, and a pending push is explicit local
-work. No LFS object was pruned.
+retained objects. Four remote-verified dry runs returned these exact candidate hashes:
+
+| LFS object ID | Dry-run size |
+| --- | ---: |
+| `5abad8f866625b3dc24f1106f2cbc359f639ed7e5c3f20d48228702e124563ba` | 5,617,631 bytes |
+| `fb770328cfb44f597943a0b1ebb0eec3d8c67aa1cdda60a193941dd3edf49f5f` | 458 KiB |
+| `87887e24e7c8435e4fc4deca0921697408ab98ff4b50722a79c29c5cd2be6caf` | 500 KB |
+| `141b8168f35e3ef32e96070169359b2fabe6c90bcb92c9afa091d3b58f6b2052` | 505 KB |
+
+The remote verification checks returned exit code 0 and no error. The changing candidate output does
+not establish one frozen candidate set or its full ref mapping. `git lfs status` also reports an
+empty-file LFS object pending push. No LFS object was pruned.
 
 The LFS prune tool can verify candidate availability at the remote, but this observation does not
 establish a frozen, complete object-to-ref map for safe deletion. Recheck this after pending pushes
@@ -66,11 +93,14 @@ proposed.
 - `ps -axo pid,ppid,command`; lock-file search under `.git`: no active Git/LFS operation or lock.
 - `git count-objects -vH`: seven packs, 10 garbage files, 2.65 GiB reported garbage.
 - `git fsck --full --connectivity-only`: exit 0; dangling objects reported, no integrity error.
+- `git fsck --full --unreachable --no-reflogs`: 70,456 unreachable object IDs across 66,214 blobs,
+  3,885 trees, and 357 commits. The artifact records the count and a digest of sorted IDs; exact
+  refs and target IDs are listed there. No unreachable object was deleted.
 - `git lfs env`, `git lfs ls-files --all --long`, `git lfs prune --dry-run`, and
   `git lfs prune --dry-run --verify-remote --verbose`: LFS inventory and dry-run only.
 - `git lfs status`: one LFS object pending push.
-- `df -k .`: free-space samples varied by 208 KiB during inspection; no storage operation occurred,
-  so no reclaimed-space claim is made.
+- `df -k .`: before 81,133,948 KiB available; after 81,133,576 KiB available. No storage operation
+  occurred, so the 372 KiB decrease is not attributed to this work.
 
 ## Follow-up
 
