@@ -114,23 +114,27 @@ or invalid frame makes the entry a cache miss and the requested sample is decode
 eviction does not touch source media, review work, models, or recovery families.
 
 The focused tests cover per-recording frame limits, root-byte eviction, idle expiry, orphan cleanup,
-restart regeneration, truncated-JPEG regeneration, source-identity changes, and same-frame misses.
+restart regeneration, full JPEG decode validation, source-identity changes, and same-frame misses.
+The corruption regression keeps the JPEG dimensions and scan header readable, truncates the scan
+data, and proves that the cached image is rejected and regenerated.
 Separate processes verify that eviction waits while a reader holds the shared lock. An interruption
 test stops pruning after frame deletion but before manifest replacement, then checks recovery on
 the next access. The backend API test checks the sampled preview's cold, warm, and second-frame
 behavior. The 0114 media suite passed
 13/13 cases; all status, response-byte, and response-digest tuples match the retained M9 sample.
-Derived-event cold/warm requests took 4.13/2.36 ms; these exercise the regular derived-view path.
+Derived-event cold/warm requests took 3.51/2.62 ms; these exercise the regular derived-view path.
 The separate sampled-frame API cold/warm requests on a generated one-second 64x64 video both
 returned HTTP 200 and the same 245-byte response digest, with frame time 250,000 us. Their one-run
-times were 119.82/2.76 ms. These are local samples, not a new latency baseline.
+times were 121.97/2.79 ms. Full JPEG decode validation adds to the sampled-frame cache-hit path;
+the recorded warm sample includes that validation. These are local samples, not a new latency
+baseline.
 
 See [the sampled cold/warm result](0115-M13_Growth_Bounds.artifacts/sampled-frame-cold-warm.json)
 and [the 0114 media result](0115-M13_Growth_Bounds.artifacts/0114-media-package2.json). The 0114
 artifact contains all 13 response tuples and timings. The separate sampled-frame artifact records
 the generated source-video digest, route, cache policy, response identities, and timings. Both
 artifacts bind the implementation files to fingerprint
-`c472d1b8d28f8e402a615c700cc63142812ece86cfec78382df924401dbfd471`; the checked-in M9 response
+`9d52392cba5ed1142eb82099cb2564cc872ef69ddcc99e89e06d0716ad226c72`; the checked-in M9 response
 corpus remains unchanged.
 
 Limits: size is bounded by JPEG payload bytes, while manifest and filesystem overhead are excluded.

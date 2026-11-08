@@ -493,7 +493,14 @@ def test_sampled_frame_cache_regenerates_truncated_jpeg(tmp_path: Path) -> None:
     cache = resolver._cache_path(source)
     manifest = json.loads((cache / "manifest.json").read_text())
     frame_path = cache / manifest["frames"][0]["relative_path"]
-    frame_path.write_bytes(first.image_bytes[:16])
+    scan_start = first.image_bytes.find(b"\xff\xda")
+    assert scan_start > 0
+    truncated = first.image_bytes[: scan_start + 100]
+    with Image.open(BytesIO(truncated)) as image:
+        assert image.size == (first.width, first.height)
+        with pytest.raises(OSError, match="truncated"):
+            image.load()
+    frame_path.write_bytes(truncated)
 
     regenerated = resolver.resolve(ExactEventRequest(source, 0), video)
 

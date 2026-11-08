@@ -1826,6 +1826,7 @@ class SampledFrameResolver:
             timestamp_us = sample_index * self.interval_us
             image_bytes = self._decode_sample(path, timestamp_us)
             width, height = _image_dimensions(image_bytes)
+            actual_dimensions = (width, height)
             selected = (
                 sample_index,
                 timestamp_us,
@@ -1844,7 +1845,7 @@ class SampledFrameResolver:
             try:
                 frame_path = destination / relative_path
                 image_bytes = frame_path.read_bytes()
-                actual_dimensions = _image_dimensions(image_bytes)
+                actual_dimensions = _image_dimensions(image_bytes, verify_complete=True)
                 if actual_dimensions != (width, height):
                     raise DerivedViewProbeError("sampled frame dimensions do not match the cache")
                 if self.retention is not None:
@@ -1857,6 +1858,7 @@ class SampledFrameResolver:
                 shutil.rmtree(destination)
                 image_bytes = self._decode_sample(path, timestamp_us)
                 width, height = _image_dimensions(image_bytes)
+                actual_dimensions = (width, height)
                 selected = (
                     frame_index,
                     timestamp_us,
@@ -1871,8 +1873,7 @@ class SampledFrameResolver:
                     os.utime(destination / selected[4], (now, now), follow_symlinks=False)
                     os.utime(destination, (now, now), follow_symlinks=False)
         frame_index, timestamp_us, width, height, relative_path = selected
-        actual_width, actual_height = _image_dimensions(image_bytes)
-        if (actual_width, actual_height) != (width, height):
+        if actual_dimensions != (width, height):
             raise DerivedViewProbeError("sampled frame dimensions do not match the cache")
         return ResolvedFrame(
             requested_time_us=request.requested_time_us,
@@ -2850,10 +2851,13 @@ def _display_dimensions(stream: Mapping[str, Any]) -> tuple[int, int]:
     return width, height
 
 
-def _image_dimensions(image_bytes: bytes) -> tuple[int, int]:
+def _image_dimensions(image_bytes: bytes, *, verify_complete: bool = False) -> tuple[int, int]:
     try:
         with Image.open(BytesIO(image_bytes)) as image:
-            return image.size
+            dimensions = image.size
+            if verify_complete:
+                image.load()
+            return dimensions
     except (UnidentifiedImageError, OSError) as error:
         raise DerivedViewProbeError("decoded frame is not a readable image") from error
 
