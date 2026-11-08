@@ -172,9 +172,9 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 
 ## Execution handoff
 
-- **Run:** M7 completed in the same 10-milestone run. Requested: 10. Completed: 2. Remaining: 8.
-  The 2026-11-08 replan split M6–M15; this count authorizes no later milestone. Follow the next
-  user execution request and its run limit.
+- **Run:** M8 is blocked and incomplete in this 8-milestone run. Requested: 8. Completed: 0.
+  Remaining: 8. M9–M15 remain unauthorized until the next requested run starts at the next
+  incomplete milestone. The previous run completed M7; its separate count is in the M7 record.
 - **M0:** Complete in the prior run. See [the M0 report](../../reports/0115-M0_Storage_Inventory_and_Ranked_Targets.md).
 - **M1:** Complete. The [M1 report](../../reports/0115-M1_Recovery_and_Cleanup_Plan.md) records ignored node data and original migrated records, representative edited and independent reviews, calibration, lineage, the hardest selected run chain, model loading, 0108 snapshot reconciliation, and path-specific cleanup candidates. No authoritative data was deleted.
 - **Changes:** Added the read-only [recovery verifier](../../../scripts/verify_0115_recovery.py), validation summaries, selected-chain and video checks, a path-specific [cleanup plan](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/cleanup-plan.json), and [canonical independent-review restore evidence](../../reports/0115-M1_Recovery_and_Cleanup_Plan.artifacts/independent-review-recovery.json). The accepted-loss stage remains the verified local recovery set on the source volume.
@@ -353,6 +353,14 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   to the existing checkouts before changing tracking.
 - **Commit boundary:** M8 assessment and activation inventory, epic, board, and handoff only; no
   tracking or data changes.
+- **Current run result:** M8 remains incomplete. A fresh read-only check on 2026-11-08 found the
+  registered `ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4` checkout still marked locked, with
+  `.git/index.lock`, all 239 intake paths staged for deletion, and 226 candidate paths untracked.
+  No lock owner was exposed by `lsof`, and no owner/status channel is available in this run.
+  Because the M8 pre-integration gate requires protecting retained files in every existing
+  checkout, the live operation still blocks all-worktree protection. The checkout was not changed.
+  Do not weaken the gate or change intake tracking until the lock is cleared and its owner confirms
+  the checkout state. This run therefore completed 0 of 8 requested milestones; 8 remain.
 
 ## M0 — Inventory and rank
 
