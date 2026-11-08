@@ -35,10 +35,11 @@ drill, and any decision to authorize a real-data removal.
 
 ## Result
 
-The focused fixture suite passed all 8 tests. It includes receipts that claim a present file was
-removed, contain an extra candidate, or omit the observation for a missing file. All three fail
-before mutation or completion. Ruff check and format check passed, as did `git diff --check`. The
-M1 manifest cannot authorize apply: it has no explicit deletion approval,
+The focused fixture suite passed all 10 tests. It includes receipt replacement after preflight,
+concurrent apply rejection, and receipts that claim a present file was removed, contain an extra
+candidate, or omit the observation for a missing file. These fail before mutation or completion.
+Ruff check and format check passed, as did `git diff --check`. The M1 manifest cannot authorize
+apply: it has no explicit deletion approval,
 does not declare a complete reference audit, and retains unresolved references. Its selected
 production root is absent from this checkout, so the only writes were temporary test-fixture plans
 and receipts. No real retained data changed.
@@ -49,5 +50,8 @@ fsyncs progress before and after each removal. Before resuming or returning a co
 checks receipt metadata, the exact candidate list and planned identities, and whether each file is
 present or absent as its recorded status requires. A file marked removed that is still present and
 any extra receipt candidate both fail closed. A file missing after a durable `deleting` status is
-treated as an interrupted removal and can be reconciled on the next apply. M3 must complete the
-reference audit and recovery drill before it can create an authorized manifest for the M1 candidates.
+treated as an interrupted removal and can be reconciled on the next apply. Apply acquires an
+exclusive lock for the cleanup root, reloads and validates the receipt under that lock, then uses
+that validated receipt in memory. This serializes cleanup applies and prevents stale preflight state
+from authorizing a second apply. M3 must complete the reference audit and recovery drill before it
+can create an authorized manifest for the M1 candidates.

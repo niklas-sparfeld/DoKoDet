@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -172,6 +173,7 @@ def test_active_open_file_blocks_apply(tmp_path: Path) -> None:
     ):
         _apply(repo, plan_relative)
     assert (root / "clip.mov").exists()
+    assert not (root / ".cleanup-receipts").exists()
 
 
 def test_interrupted_apply_resumes_and_repeated_apply_is_safe(
@@ -253,6 +255,39 @@ def test_receipt_cannot_claim_present_or_unlisted_candidates_are_removed(
         with pytest.raises(cleanup_0115.CleanupError, match=expected):
             _apply(repo, plan_relative)
         assert (root / "clip.mov").exists() is (case != "missing_without_observation")
+
+
+def test_receipt_replacement_after_preflight_is_revalidated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, root, manifest_path, _ = _fixture(tmp_path)
+    plan_relative = _plan(repo, manifest_path)
+    plan = json.loads((repo / plan_relative).read_text())
+    real_acquire = cleanup_0115._acquire_apply_lock
+
+    def replace_receipt_before_lock(selected_root: Path) -> tuple[int, Path]:
+        receipt_path = selected_root / ".cleanup-receipts" / f"{plan['plan_sha256']}.json"
+        receipt_path.parent.mkdir()
+        receipt_path.write_text(json.dumps(_receipt_document(plan)))
+        return real_acquire(selected_root)
+
+    monkeypatch.setattr(cleanup_0115, "_acquire_apply_lock", replace_receipt_before_lock)
+    with pytest.raises(cleanup_0115.CleanupError, match="existing candidate removed"):
+        _apply(repo, plan_relative)
+    assert (root / "clip.mov").exists()
+
+
+def test_concurrent_apply_lock_rejects_second_writer(tmp_path: Path) -> None:
+    repo, root, manifest_path, _ = _fixture(tmp_path)
+    plan_relative = _plan(repo, manifest_path)
+    descriptor, _ = cleanup_0115._acquire_apply_lock(root)
+    try:
+        with pytest.raises(cleanup_0115.CleanupError, match="another cleanup apply"):
+            _apply(repo, plan_relative)
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+    assert (root / "clip.mov").exists()
 
 
 def test_candidate_replacement_with_same_bytes_is_stale(tmp_path: Path) -> None:

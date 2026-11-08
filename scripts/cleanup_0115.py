@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -262,18 +263,61 @@ def _fsync_directory(path: Path) -> None:
         os.close(directory_fd)
 
 
-def _assert_no_open_files(root: Path) -> None:
+def _assert_no_open_files(
+    root: Path, *, ignored_paths: set[Path] | None = None
+) -> None:
     executable = shutil.which("lsof")
     if executable is None:
         raise CleanupError("cannot check current open-file state; lsof is required")
     result = subprocess.run(
-        [executable, "+D", str(root)], capture_output=True, text=True, check=False
+        [executable, "-F0n", "+D", str(root)], capture_output=True, check=False
     )
-    output_rows = result.stdout.splitlines()[1:] if result.stdout else []
-    if any(row.strip() for row in output_rows):
+    if result.returncode not in {0, 1} or result.stderr.strip():
+        raise CleanupError(
+            f"open-file check failed: {result.stderr.decode(errors='replace').strip()}"
+        )
+    ignored = {path.resolve() for path in ignored_paths or set()}
+    open_paths = [
+        Path(field[1:].decode(errors="surrogateescape"))
+        for field in result.stdout.split(b"\0")
+        if field.startswith(b"n")
+    ]
+    if any(path.resolve() not in ignored for path in open_paths):
         raise CleanupError("open files exist under selected cleanup root")
-    if result.returncode not in {0, 1}:
-        raise CleanupError(f"open-file check failed: {result.stderr.strip()}")
+
+
+def _acquire_apply_lock(root: Path) -> tuple[int, Path]:
+    lock_path = root / ".cleanup.apply.lock"
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise CleanupError("cannot safely open apply lock without O_NOFOLLOW")
+    try:
+        descriptor = os.open(
+            lock_path,
+            os.O_CREAT | os.O_RDWR | nofollow,
+            0o600,
+        )
+    except OSError as error:
+        raise CleanupError(f"cannot open apply lock: {error}") from error
+    opened = os.fstat(descriptor)
+    try:
+        current = lock_path.lstat()
+    except OSError:
+        os.close(descriptor)
+        raise CleanupError("apply lock path changed while opening") from None
+    if (
+        not stat.S_ISREG(opened.st_mode)
+        or stat.S_ISLNK(current.st_mode)
+        or (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino)
+    ):
+        os.close(descriptor)
+        raise CleanupError("apply lock is not a stable regular file")
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        os.close(descriptor)
+        raise CleanupError("another cleanup apply is active for this root") from error
+    return descriptor, lock_path
 
 
 def _plan(args: argparse.Namespace) -> Path:
@@ -344,7 +388,9 @@ def _plan(args: argparse.Namespace) -> Path:
     return output
 
 
-def _load_plan(repo: Path, plan_relative_value: str) -> tuple[dict[str, Any], Path]:
+def _load_plan(
+    repo: Path, plan_relative_value: str
+) -> tuple[dict[str, Any], Path, dict[str, Any] | None]:
     plan_relative = _relative_path(plan_relative_value, "plan path")
     path = _contained(repo, plan_relative)
     plan, _ = _read_json(path)
@@ -376,6 +422,7 @@ def _load_plan(repo: Path, plan_relative_value: str) -> tuple[dict[str, Any], Pa
     receipt_relative = root_relative / ".cleanup-receipts" / f"{claimed}.json"
     receipt_path = _contained(repo, receipt_relative, allow_missing=True)
     recovery_rows: dict[str, dict[str, Any]] = {}
+    receipt = None
     if receipt_path.exists():
         receipt, _ = _read_json(receipt_path)
         recovery_rows = _validate_receipt(receipt, plan, repo, root)
@@ -388,7 +435,7 @@ def _load_plan(repo: Path, plan_relative_value: str) -> tuple[dict[str, Any], Pa
     )
     if expected != plan.get("candidates"):
         raise CleanupError("candidate paths or identities changed since planning")
-    return plan, root
+    return plan, root, receipt
 
 
 def _validate_receipt(
@@ -490,9 +537,30 @@ def _validate_receipt(
 
 def _apply(args: argparse.Namespace) -> None:
     repo = args.repo_root.resolve(strict=True)
-    plan, root = _load_plan(repo, args.plan)
+    plan, root, _ = _load_plan(repo, args.plan)
     if not plan.get("apply_permitted"):
         raise CleanupError("plan is dry-run only; manifest does not authorize apply")
+    lock_descriptor, lock_path = _acquire_apply_lock(root)
+    try:
+        # Reload under the root lock so apply consumes the receipt it just validated.
+        plan, root, receipt = _load_plan(repo, args.plan)
+        if not plan.get("apply_permitted"):
+            raise CleanupError(
+                "plan is dry-run only; manifest does not authorize apply"
+            )
+        _apply_validated(repo, plan, root, receipt, lock_path)
+    finally:
+        fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+        os.close(lock_descriptor)
+
+
+def _apply_validated(
+    repo: Path,
+    plan: dict[str, Any],
+    root: Path,
+    receipt: dict[str, Any] | None,
+    lock_path: Path,
+) -> None:
     plan_id = plan["plan_sha256"]
     receipt_relative = (
         PurePosixPath(plan["cleanup_root"]) / ".cleanup-receipts" / f"{plan_id}.json"
@@ -500,11 +568,8 @@ def _apply(args: argparse.Namespace) -> None:
     receipt_path = _contained(repo, receipt_relative, allow_missing=True)
     if not receipt_path.is_relative_to(root):
         raise CleanupError("receipt path escaped selected root")
-    if receipt_path.exists():
-        receipt, _ = _read_json(receipt_path)
-        if receipt.get("plan_sha256") != plan_id:
-            raise CleanupError("receipt does not match plan")
-    else:
+    if receipt is None:
+        _assert_no_open_files(root, ignored_paths={lock_path})
         receipt = {
             "schema_version": "0115-cleanup-receipt/v1",
             "status": "in_progress",
@@ -530,7 +595,7 @@ def _apply(args: argparse.Namespace) -> None:
 
     if all(item["status"] == "removed" for item in receipt["candidates"]):
         if receipt.get("status") != "complete":
-            _assert_no_open_files(root)
+            _assert_no_open_files(root, ignored_paths={lock_path})
             receipt["status"] = "complete"
             _atomic_json(root, receipt_path, receipt)
         print(
@@ -543,7 +608,7 @@ def _apply(args: argparse.Namespace) -> None:
             )
         )
         return
-    _assert_no_open_files(root)
+    _assert_no_open_files(root, ignored_paths={lock_path})
     for receipt_item, candidate in zip(
         receipt["candidates"], plan["candidates"], strict=True
     ):
@@ -580,7 +645,7 @@ def _apply(args: argparse.Namespace) -> None:
                 or list(ref_identity) != reference["identity"]
             ):
                 raise CleanupError(f"protected dependency changed: {reference['path']}")
-        _assert_no_open_files(root)
+        _assert_no_open_files(root, ignored_paths={lock_path})
         receipt_item["status"] = "deleting"
         _atomic_json(root, receipt_path, receipt)
         path.unlink()
