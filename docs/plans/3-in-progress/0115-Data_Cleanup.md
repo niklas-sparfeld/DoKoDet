@@ -330,32 +330,27 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
 
 - **M8:** In progress; no intake tracking changed. The [M8 assessment](../../reports/0115-M8_Intake_Cutover.md)
   records the activation inventory at `969d9a6159dbdc412de8b605c12d7fdf06ff626c`. Its index digest is
-  `23eabc8abbb482fbe8565cc7a7b48614b9b2a5ec687e9f885b1ef262b7f18d8f` for 239 entries. Of 58
-  recording originals, 43 have exact filename, size, and SHA-256 matches in the sibling raw-media
-  corpus; 15 have no verified independent source. A disposable `cardeventnet-IMG_0641` restore used
-  the exact retained metadata plus the independent original, passed the canonical bundle validator
-  and importer, and returned exact recording and video hashes through real APIs before and after
-  restart. See the [restore receipt](../../reports/0115-M8_Intake_Cutover.artifacts/single-recording-restore.json).
-  Metadata remains tracked.
-- **Checks:** `git lfs fsck --objects` passed locally. The M5 worktree/import fixture selector passed
-  (3 tests) with the old mutable path disabled; it did not read operator media. Main intake checkout
-  is about 15 GiB; shared `.git` is about 31 GiB and `.git/lfs` about 17 GiB. All worktrees were
-  inspected. The `.codex/worktrees/6203` checkout has staged repository-wide deletions outside
-  intake; all 239 intake files remain tracked and present there. No checkout or merge protection
-  rehearsal was run. `git count-objects -vH`
-  reports 11.35 GiB packed objects and 2.65 GiB temporary garbage; M10 owns any Git/LFS maintenance.
-- **Decisions and limits:** Keep all 239 candidate paths tracked. The local LFS check and raw-video
-  matches prove restoration of one matched recording only. A bounded media-only cutover of the 43
-  verified paths has a working one-recording restore path using the existing bundle format and
-  importer, with metadata kept tracked and the 15 unverified videos retained. No new API or storage
-  schema was needed. Repeatable batch restoration and preservation of the same files in all existing
-  worktrees are still unproven. No bounded subset currently meets every M8 gate. Keep all operator
-  data and worktree states intact. No history rewrite, cleanup, or activation occurred.
-- **Next:** Coordinate with the registered worktree owners on a preservation procedure. Wait for the
-  initializing checkout to finish and for the owner of `.codex/worktrees/6203` to confirm safe
-  handling of its unrelated staged work. Then rehearse a selected media-only merge in disposable
-  storage and verify all existing copies remain protected before changing tracking. A reusable
-  materializer would be a new tool contract; if required, split that work into an explicit milestone.
+  `23eabc8abbb482fbe8565cc7a7b48614b9b2a5ec687e9f885b1ef262b7f18d8f` for 239 entries. All 239
+  Git blobs match remote `origin/main` at `21a1146b0e7ca3bcbc702dc358437b6609ecf482`. The 43 sibling
+  raw videos and 15 remote LFS videos match their manifest sizes and hashes. One remote-only bundle,
+  including a proposal file, restored through the existing importer and real APIs before and after
+  restart. A disposable merge rehearsal preserved an unrelated staged deletion and untracked file,
+  and restored the selected video from an exact backup. See
+  [M8 evidence](../../reports/0115-M8_Intake_Cutover.artifacts/remote-and-rehearsal.json).
+- **Checks:** `git lfs fsck --objects` passed locally. The M5 fixture selector passed (3 tests). Main
+  intake checkout is about 15 GiB; shared `.git` about 31 GiB, `.git/lfs` about 17 GiB. The main,
+  first iOS, and `.codex/worktrees/6203` checkouts have no intake changes. The second iOS checkout is
+  locked initializing, has `index.lock`, all 239 candidate paths staged deleted, and 226 untracked
+  candidate files. Its selected video remains present with the exact digest. `git count-objects -vH`
+  reports 11.35 GiB packed objects and 2.65 GiB temporary garbage; M10 owns Git/LFS maintenance.
+- **Decisions and limits:** Keep all 239 candidate paths tracked. Independent media and metadata
+  restore sources are verified. No new API or storage schema is needed for a bounded cutover using
+  the existing importer. The disposable backup/merge/restore procedure passed, but no live checkout
+  was changed. The active locked iOS operation overlaps all intake paths and blocks all-worktree
+  protection. No activation, history rewrite, or cleanup occurred.
+- **Next:** Coordinate with the owner of the locked initializing iOS worktree. Wait for its Git
+  operation to finish, then recheck candidate status. Apply the tested backup/merge/restore procedure
+  to the existing checkouts before changing tracking.
 - **Commit boundary:** M8 assessment and activation inventory, epic, board, and handoff only; no
   tracking or data changes.
 

@@ -1,0 +1,184 @@
+{
+  "cutover_decision": "No tracked paths changed. Do not merge or cut over while the locked initializing iOS worktree has index.lock and all 239 candidate paths staged deleted with 226 untracked files. External coordination is required.",
+  "disposable_checkout_merge_rehearsal": {
+    "backup_restored_video_sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
+    "base_commit": "750071df49fa90fcf120bd8cb97d90d25fc20d73",
+    "external_backup_sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
+    "final_video_state": "untracked copy, exact digest; index remains deleted",
+    "merge_removed_tracked_video": true,
+    "repository_path": "/private/tmp/doko-0115-m8-merge-rehearsal-local",
+    "selected_video_path": "data/intake/recordings/94bf648d-9f13-43e4-977a-700b64b67b90/videos/video-94bf648d-9f13-43e4-977a-700b64b67b90.mov",
+    "test_commit": "e1923b7be845e56eb253491ff2e9ccdde0cfa767",
+    "unrelated_staged_deletion_before_after": "D docs/glossary.md",
+    "untracked_file_preserved": true
+  },
+  "registered_checkout_inspection": [
+    {
+      "candidate_status_line_count": 0,
+      "git_locked_initializing": false,
+      "index_lock_present": false,
+      "name": "main",
+      "path": "/Users/niklas.sparfeld/Developer/doko_detector",
+      "selected_file_exists": true,
+      "selected_file_sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
+      "staged_candidate_change_count": 0,
+      "tracked_candidate_count": 239
+    },
+    {
+      "candidate_status_line_count": 0,
+      "git_locked_initializing": false,
+      "index_lock_present": false,
+      "name": "ios-clean",
+      "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-081e0695-1310-4cd1-99f7-3b0ad27ad408/doko_detector",
+      "selected_file_exists": true,
+      "selected_file_sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
+      "staged_candidate_change_count": 0,
+      "tracked_candidate_count": 239
+    },
+    {
+      "candidate_status_line_count": 465,
+      "git_locked_initializing": true,
+      "index_lock_present": true,
+      "name": "ios-initializing",
+      "path": "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-ea2238c1-eaa1-46e6-a9bc-ebd15fdbb3d4/doko_detector",
+      "selected_file_exists": true,
+      "selected_file_sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
+      "staged_candidate_change_count": 239,
+      "tracked_candidate_count": 0
+    },
+    {
+      "candidate_status_line_count": 0,
+      "git_locked_initializing": false,
+      "index_lock_present": false,
+      "name": "codex-6203",
+      "path": "/Users/niklas.sparfeld/.codex/worktrees/6203/doko_detector",
+      "selected_file_exists": true,
+      "selected_file_sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
+      "staged_candidate_change_count": 0,
+      "tracked_candidate_count": 239
+    }
+  ],
+  "remote": {
+    "candidate_blob_count": 239,
+    "candidate_tree_equal_to_local_HEAD": true,
+    "independent_metadata_and_git_blob_restore": "all 239 candidate blobs match the fetched remote tree",
+    "main_commit": "21a1146b0e7ca3bcbc702dc358437b6609ecf482",
+    "shallow_clone_path": "/private/tmp/doko-0115-m8-remote-restore.git",
+    "url": "git@github.com:niklas-sparfeld/DoKoDet.git"
+  },
+  "remote_lfs_restore": {
+    "objects": [
+      {
+        "bytes": 70586153,
+        "recording_id": "34d4d5ba-90de-4a94-b4aa-1ce98a29c592",
+        "remote_lfs_object_verified": true,
+        "sha256": "12b6ee3404ec5bd3c14fabddc397f763ac0800ab3e1a8b354a8435b27cece807"
+      },
+      {
+        "bytes": 158918571,
+        "recording_id": "4a26f9f6-18db-4328-9fc8-64e1ed6bfbeb",
+        "remote_lfs_object_verified": true,
+        "sha256": "c49c88d598a6a49e2faba4e7f931ea1cbb990837ee5e8f9e71cce61636c998b2"
+      },
+      {
+        "bytes": 478743464,
+        "recording_id": "5a1f4037-d8ad-48da-9950-2ed2272811a5",
+        "remote_lfs_object_verified": true,
+        "sha256": "6858bab62e856bcea060f17bbfc7c81c41d47878e16fdfe3d23f3f453bef163a"
+      },
+      {
+        "bytes": 75653516,
+        "recording_id": "6afd91fd-42a5-423c-acd9-eae8059aea0f",
+        "remote_lfs_object_verified": true,
+        "sha256": "143980518cf0aae5837d83ef2c08f83eea8d39b3bdbda806ed4b42935d220451"
+      },
+      {
+        "bytes": 35568670,
+        "recording_id": "94bf648d-9f13-43e4-977a-700b64b67b90",
+        "remote_lfs_object_verified": true,
+        "sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f"
+      },
+      {
+        "bytes": 44773760,
+        "recording_id": "9bd59673-da9e-40b7-8ffd-5feaf15b3fe2",
+        "remote_lfs_object_verified": true,
+        "sha256": "21b6b0076042cdec14bc07cd0c143baf64a3854fc65ee891718b9c31da82a7c0"
+      },
+      {
+        "bytes": 94150530,
+        "recording_id": "de976d1f-dad0-4ca5-b220-dcc9240be2f4",
+        "remote_lfs_object_verified": true,
+        "sha256": "e5784ee2fe4728181dcf6c3f27843399089135b13eeee6c43ae07b5c02f1ff66"
+      },
+      {
+        "bytes": 557067308,
+        "recording_id": "game-2026-08-20-01-001",
+        "remote_lfs_object_verified": true,
+        "sha256": "2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa"
+      },
+      {
+        "bytes": 625609570,
+        "recording_id": "game-2026-08-20-01-002",
+        "remote_lfs_object_verified": true,
+        "sha256": "5e8018e24a1328e796d1546dc9a9b05f157007a727c831383d38676e640feb88"
+      },
+      {
+        "bytes": 459868428,
+        "recording_id": "game-2026-08-20-01-003",
+        "remote_lfs_object_verified": true,
+        "sha256": "4e6c98c53d601dd723e74d52bdd8d7d626cee1e2388e1ace77643a6806197ed8"
+      },
+      {
+        "bytes": 637371800,
+        "recording_id": "game-2026-08-20-01-004",
+        "remote_lfs_object_verified": true,
+        "sha256": "617e48224c72568d2d36526022a8da1562e1744cbd378593a0ac87d25a35d29d"
+      },
+      {
+        "bytes": 1061930405,
+        "recording_id": "game-2026-08-20-01-005",
+        "remote_lfs_object_verified": true,
+        "sha256": "b8daa5ac29ce330c5859d4c8825a60457e734b4b11d1b8e3ab6556217268ce73"
+      },
+      {
+        "bytes": 63211536,
+        "recording_id": "game-2026-09-18-01-001",
+        "remote_lfs_object_verified": true,
+        "sha256": "a82c3dffd32d07403115a369b0d6e494d0a27733752c95c5c2b3497b37333789"
+      },
+      {
+        "bytes": 54234848,
+        "recording_id": "game-2026-09-18-01-002",
+        "remote_lfs_object_verified": true,
+        "sha256": "bfe8017841ba0644349fb65285efb375fba3b0b26b1561754c2df33967499e65"
+      },
+      {
+        "bytes": 48382535,
+        "recording_id": "game-2026-09-18-01-003",
+        "remote_lfs_object_verified": true,
+        "sha256": "d793749efdf571e0da6b61d4b9c438a763e74ebe6ae126d0cd6041fd592caada"
+      }
+    ],
+    "total_bytes": 4466071094,
+    "total_previously_unmatched_count": 15,
+    "verified_count": 15
+  },
+  "remote_only_service_restore": {
+    "bundle_file_count": 5,
+    "bundle_fingerprint": "5c71e2153e45de9b88a3c5c2652ed92ae3b23ec4769d6903df1ead0eca836013",
+    "imported_with_existing_cli": true,
+    "includes_proposal_generator_run": true,
+    "real_app_get_bundle_status": [
+      200,
+      200
+    ],
+    "real_app_get_recording_status": [
+      200,
+      200
+    ],
+    "real_app_video_sha256": "2665b31193d72d9df42c5b782705748278862deca9b54c6454fb97f52a2e990f",
+    "recording_id": "94bf648d-9f13-43e4-977a-700b64b67b90",
+    "verified_after_app_restart": true
+  },
+  "schema_version": "0115-m8-remote-restore-and-worktree-rehearsal/v1"
+}

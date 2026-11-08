@@ -32,32 +32,55 @@ after app restart. The video endpoint returned bytes with the expected SHA-256. 
 hash was unchanged. Exact details are in
 [`single-recording-restore.json`](0115-M8_Intake_Cutover.artifacts/single-recording-restore.json).
 
-This proves the canonical bundle and API path for one matched recording, with its metadata still
-tracked. It does not prove the other 42 matches, restore the 15 missing originals, or create an
-independent copy of metadata. No new persistence or API contract was needed for this one-off proof.
-A repeatable materializer for the sibling raw-media layout would be a new tool contract; plan that
-work before implementation. The M5 fixture workflow alone does not prove access to operator media.
+This proves the canonical bundle and API path for one recording restored from the sibling raw corpus.
+The remote proof below covers a second recording with a proposal file. Both use the existing bundle
+schema and importer; no new persistence or API contract was needed. No reusable materializer was
+created. The M5 fixture workflow alone does not prove access to operator media.
+
+## Independent backup and checkout rehearsal
+
+A shallow clone of GitHub `origin/main` at `21a1146b0e7ca3bcbc702dc358437b6609ecf482` contains the
+same Git blob for every one of the 239 intake paths as local `HEAD`. The sibling raw corpus verifies
+43 media originals by exact size and SHA-256. I fetched the remaining 15 originals from remote LFS
+into the disposable clone; all 15 objects match their manifest sizes and SHA-256 values. Thus the
+candidate's metadata and other ordinary Git files have an independent remote Git copy, 43 original
+videos have an independent local copy, and the other 15 original videos have verified remote LFS
+copies.
+
+I restored `94bf648d-9f13-43e4-977a-700b64b67b90` using its remote metadata, remote LFS video, and
+proposal-generator file. The canonical bundle passed the existing importer. The real app returned
+HTTP 200 for the recording and bundle endpoints before and after restart; the video endpoint
+returned the expected digest. No new persistence or API contract was needed.
+
+A disposable merge rehearsal removed only that video's tracked path. Before the merge, it saved the
+exact file to an independent backup. The merge preserved an unrelated staged deletion and an
+untracked file. After the merge, restoring the saved video produced the exact digest as an untracked
+file. This is a usable preservation procedure, but it requires a pre-merge backup and a post-merge
+restore in each checkout that must retain a local copy.
+
+Exact remote hashes, restore results, rehearsal state, and checkout inspection are in
+[`remote-and-rehearsal.json`](0115-M8_Intake_Cutover.artifacts/remote-and-rehearsal.json).
 
 ## Checkout protection and cost
 
-All registered worktrees were inspected without changing them. The main checkout has the candidate
-intact. The two iOS worktrees have 239 and 226 files under the candidate path; one is locked while
-initializing. The `.codex/worktrees/6203` checkout has staged repository-wide deletions outside
-`data/intake/recordings`; its intake index and working directory both still contain 239 files, and
-there are no staged intake changes or in-progress Git operation markers. Its unrelated staged state
-must remain untouched. No cutover checkout or merge rehearsal was run, so preservation of intake
-files in those existing worktrees after they later merge an untracking commit remains unproven.
+All registered worktrees were inspected without changing them. The main checkout has 239 tracked
+candidate entries and no candidate changes. The first iOS worktree also has 239 tracked entries and
+no candidate changes. The `.codex/worktrees/6203` checkout has 239 tracked entries and no candidate
+changes; its unrelated staged deletions remain untouched.
 
-For a media-only subset, the independent raw source and tracked metadata can restore one standard
-bundle through the existing importer; this did not require a new API or storage schema. A future
-selection could untrack only exact verified video paths while keeping all metadata and the 15
-unverified videos tracked. However, the same video paths remain present in the existing checkouts.
-There is no tested mechanism that preserves those per-checkout copies through a later merge without
-changing their state. The available external raw source can restore a copy, but using it after a
-merge would not prove that each checkout was protected before the merge. The staged worktree is not
-locked or running a Git operation, but its unrelated staged changes prohibit using it for rehearsal.
-The iOS worktree locked as `initializing` also cannot be treated as an available rehearsal target.
-No bounded subset currently meets every M8 gate.
+The second iOS worktree is locked as `initializing`. Its Git directory has an `index.lock`, all 239
+candidate paths are staged for deletion, and 226 candidate files are present as untracked files. The
+selected 94bf video is present with the exact expected digest but is staged deleted and untracked.
+This is an active operation on the same intake family. Do not merge into, clean, or otherwise modify
+that checkout. Git metadata does not expose its owner. Coordinate with its owner and wait for the lock
+and staged operation to finish before cutover. No bounded cutover can meet the all-worktree gate while
+that operation remains active.
+
+The disposable procedure proves that a selected video can be restored after a merge while preserving
+unrelated staged and untracked work. It does not authorize changing the active iOS worktree. That
+checkout has all intake paths staged for deletion and an index lock, so no bounded subset can be
+integrated safely until its owner confirms the operation is complete. The `.codex/worktrees/6203`
+checkout has unrelated staged changes only; its intake remains clean. Do not modify either checkout.
 
 Current measurements are separate: the main intake checkout occupies about 15 GiB; shared `.git`
 occupies about 31 GiB, including about 17 GiB in `.git/lfs`. `git count-objects -vH` reports 11.35
@@ -69,18 +92,19 @@ claims.
 
 - `git ls-files -s -- data/intake/recordings`: 239 entries; activation digest recorded above.
 - `git lfs fsck --objects`: passed for the local object store; this is not independent restore proof.
-- External source check: 43 of 58 video originals matched exact length and SHA-256; 15 were missing.
+- Independent source checks: 43 local originals and 15 remote LFS originals match exact size and SHA-256; all 239 remote Git blobs match the activation tree.
 - Disposable restore: one matched original was combined with exact tracked metadata, passed canonical bundle validation, imported through the existing CLI, and read by the real app before and after restart. The video API returned the expected SHA-256.
+- Remote restore: one bundle with a proposal file was rebuilt from remote Git metadata and LFS, imported through the existing CLI, and read by the real app before and after restart.
+- Disposable merge rehearsal: the selected media file was removed from the index by a test merge, then restored from an exact backup. An unrelated staged deletion and untracked file stayed unchanged.
 - `DOKO_STORAGE_ROOT=/private/tmp/doko-0115-m8-state mise exec -- uv run --project backend pytest backend/tests/test_worktree_storage_contract.py backend/tests/test_operator_corpus_import.py -q`: 3 passed. This exercises fixture import and API read/write/restart with the old mutable path disabled; it does not read the 43 operator recordings.
-- No activation or checkout/merge protection rehearsal was performed. One standard-bundle restore passed, but coverage of the other recordings and protection of existing checkout copies remain open.
+- No live checkout or merge was performed. The procedure is proven in a disposable repository, but applying it to all registered checkouts is blocked by the locked iOS worktree's staged changes and `index.lock`.
 
 ## Decision and next step
 
-Keep all 239 intake paths tracked for now. The 43 verified raw originals can form a service-readable
-bundle when combined with tracked metadata; the 15 unresolved videos and all metadata must remain
-tracked. There is no bounded selection that passes checkout protection today. Before resuming M8,
-coordinate with the owners of the registered worktrees to settle a copy-preservation procedure,
-wait for the initializing checkout to finish, and clear or otherwise protect the unrelated staged
-worktree state without agent changes to it. Then rehearse the selected video-path merge in disposable
-storage and confirm that every existing checkout copy remains recoverable without overwriting local
-work. No main operator data or existing worktree state was changed.
+Keep all 239 intake paths tracked for now. Independent backup identities match the full candidate,
+and API restore/readback passed on two representative bundles. The existing importer and canonical
+bundle schema support the bounded restore without a new storage contract. Do not change tracking
+while the initializing iOS worktree has an active index lock and staged intake deletions. Coordinate
+with its owner, wait until the operation ends, verify its candidate copy and status, then apply the
+tested backup/merge/restore procedure to each checkout that must retain local copies. No main operator
+data or existing worktree state was changed.
