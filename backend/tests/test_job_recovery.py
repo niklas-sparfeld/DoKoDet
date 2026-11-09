@@ -19,7 +19,16 @@ def request() -> dict:
 
 
 @pytest.mark.parametrize(
-    "point", ["intent", "domain_run", "accepted_use", "participant", "job", "queue", "commit"]
+    "point",
+    [
+        "intent",
+        "domain_run",
+        "accepted_use",
+        "participant",
+        "job_transition_index",
+        "job",
+        "commit",
+    ],
 )
 def test_acceptance_recovers_each_write(tmp_path: Path, point: str) -> None:
     key = str(uuid4())
@@ -48,7 +57,9 @@ def test_recover_lost_queue_and_report_unknown(tmp_path: Path) -> None:
     participant = FakeParticipant(tmp_path / "domain")
     with JobManager(tmp_path, participant) as manager:
         job = manager.accept(str(uuid4()), request())
-    (tmp_path / "jobs" / "queue.json").unlink()
+        manager.persistence.projection_authority.index.replace_queue(
+            manager.queue().model_copy(update={"groups": []}), ready=False
+        )
     with JobManager(tmp_path, participant) as manager:
         assert manager.queue().job_ids == [job.id]
 

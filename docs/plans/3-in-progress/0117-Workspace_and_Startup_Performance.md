@@ -60,7 +60,12 @@
   adds M6b1a for a durable bounded queue and acceptance authority with recovery and growth checks.
   M6b2 owns bounded pages, explicit rebuild for an incomplete legacy index, growth/corruption checks,
   and an active API inventory follow-up; it depends on M6b1a. To keep the 14-slot cap, M8 moves
-  outside this run. The rejected M6b route stays disabled until M6b2.
+  outside this run. Replan 12 splits M6b1a because queue membership must commit with job transitions
+  before acceptance can rely on it. M6b1a adds the ordered queue authority and bounded per-job
+  queue deltas to the existing M6a journal and M6b1 SQLite transaction. M6b1b then adds bounded
+  acceptance-key, sequence, and parent-step authority on that store. M6b2 depends on both. To keep
+  the 14-slot cap at nine completed milestones, M7 moves outside this run; the five remaining slots
+  are M6b1a, M6b1b, M6b2, M6c, and M6d. The rejected M6b route stays disabled until M6b2.
 
 ## Evidence and scope
 
@@ -224,11 +229,12 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M6a | Durable Job Manager authority and journaled job-record transitions | Complete; [report](../../reports/0117-M6a_Job_Projection_Authority.md) |
 | M6b | Bounded active-job projections over the M6a authority | Incomplete; split by replan 10 |
 | M6b1 | Bounded incremental per-recording job-index publication and recovery | Complete for index publication; no end-to-end transition bound claimed; correction 1/2; [report](../../reports/0117-M6b1_Job_Index_Publication.md) |
-| M6b1a | Durable bounded queue and acceptance authority with recovery | Not started; replan 11 prerequisite for M6b2 |
-| M6b2 | Bounded job pages, explicit rebuild, growth/corruption checks, and active API inventory | Not started; depends on M6b1a |
+| M6b1a | Durable ordered queue authority, per-job transition deltas, and explicit startup repair | Complete; [report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) |
+| M6b1b | Bounded acceptance key, sequence, and parent-step authority with recovery | Not started; depends on M6b1a; acceptance remains unbounded until this milestone |
+| M6b2 | Bounded job pages, explicit rebuild, growth/corruption checks, and active API inventory | Not started; depends on M6b1a and M6b1b |
 | M6c | Bounded analysis and package metadata pages | Not started |
 | M6d | Recording catalog from verified HEAD and compact metadata | Not started |
-| M7 | Current workspace API with exact stage loading | Not started |
+| M7 | Current workspace API with exact stage loading | Not started; outside current run after replan 12 |
 | M8 | Web current-state, history, and explicit HEAD-switch flow | Not started; outside current run after replan 11 |
 | M9 | Selection and review/edit writers publish the selected working state | Not started; outside current run after replan 10 |
 | M10 | Processor and orchestration requests freeze snapshot inputs | Not started |
@@ -274,12 +280,12 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 9; remaining: 5. The revised cap
-  covers M5a, M5b1, M5b2, M5c1–M5c4, M6a, M6b1, M6b1a, M6b2, M6c–M6d, and M7. M8–M16 are
+- Requested run: 14 milestones, starting at M5a; completed: 10; remaining: 4. The revised cap
+  covers M5a, M5b1, M5b2, M5c1–M5c4, M6a, M6b1, M6b1a, M6b1b, M6b2, and M6c–M6d. M7–M16 are
   outside this run.
-- Next: M6b1a. M6b replan count: 2/5; M6b1 correction count: 1/2. M6a replan count: 0/5; M6a
+- Next: M6b1b. M6b replan count: 3/5; M6b1a correction count: 0/2; M6b1 correction count: 1/2. M6a replan count: 0/5; M6a
   correction count: 2/2; M5c replan count: 2/5; this run
-  replan count: 6/10. M5c4 correction count:
+  replan count: 7/10. M5c4 correction count:
   0/2. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
@@ -296,10 +302,18 @@ while history and unrelated recordings grow 10x.
   disabled. M6b1 journals per-recording ordered index deltas with each M6a transition. SQLite
   applies the changed job row and recording generation atomically before global authority advances.
   Recovery replays the index update idempotently. Its bound covers index publication only: transition
-  reconciliation and acceptance still scan intent history and the full queue. M6b1a must establish
-  bounded queue and acceptance publication plus recovery before M6b2 can serve pages. Legacy indexes
-  remain not ready until M6b2's explicit rebuild. See the [M6b1 report](../../reports/0117-M6b1_Job_Index_Publication.md).
-  M6b1a is next; five run milestones remain. M8 is outside this run.
+  reconciliation and acceptance still scan intent history and the full queue. M6b1a publishes
+  ordered queue membership and parent-child sequence/state through the M6a journal and M6b1 SQLite
+  transaction. Ordinary transitions now use point job, group, child, and dependency lookups. Startup
+  runs explicit queue repair, then removes the imported legacy `queue.json`. Acceptance still scans
+  intents for idempotency, sequence, and parent-step uniqueness; M6b1b owns that boundary. Scheduler
+  candidate discovery and startup recovery still enumerate their queue or intent sets. The queue
+  transition test checks 20 child jobs, exactly two target-intent reads, disabled history enumeration,
+  and indexed first-child/dependency queries. Crash-boundary replay, legacy rebuild, cancellation,
+  parent reorder, scheduler, concurrent queue readers, and API tests pass. See the
+  [M6b1a report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) and the
+  [M6b1 report](../../reports/0117-M6b1_Job_Index_Publication.md). M6b1b is next; four run
+  milestones remain through M6d. M7–M16 are outside this run.
 - M5b2 result: complete after the resumed authority-loss fix. The four history routes use M5b1's stable collection order and frozen
   sequence roots. HMAC cursors bind recording, collection, empty-filter digest, generation,
   sequence, full stable key, and page size. The private cursor key and local digest record use
@@ -720,34 +734,50 @@ replay an already-applied index update once, reject an unrelated index row or ge
 reads unavailable while a legacy index is incomplete. Ordinary job transitions update only the
 affected index row and recording generation with point queries; index publication does not enumerate
 job or intent history. This does not bound the full Job Manager transition. M6b1a owns transition
-and acceptance scan removal and growth proof. M6b2 will rebuild an incomplete index from
-authoritative jobs before serving bounded pages.
+scan removal; M6b1b owns acceptance scan removal and growth proof. M6b2 will rebuild an incomplete
+index from authoritative jobs before serving bounded pages.
 
 Checks: inject a crash after every journal boundary, including index publication; verify restart,
 idempotence, per-recording and global sequences, reader/writer serialization, point-query index
 publication without job-history enumeration, corrupt database and row handling, and legacy-not-ready
-behavior. These checks do not bound the full transition path; M6b1a owns transition and acceptance
-scan removal and growth proof. Commit: the versioned job transition and ordered index
-publication/recovery implementation with tests and this plan/report. The rejected M6b route stays
-disabled.
+behavior. These checks do not bound the full transition path; M6b1a owns transition scan removal,
+and M6b1b owns acceptance scan removal and growth proof. Commit: the versioned job transition and
+ordered index publication/recovery implementation with tests and this plan/report. The rejected M6b
+route stays disabled.
 
-## M6b1a — Bound queue and acceptance authority
+## M6b1a — Publish bounded queue membership with job transitions
 
-Depends on M6b1.
+Depends on M6b1. Extend the existing M6b1 SQLite store and M6a job-transition journal with durable
+ordered queue groups and ordered child membership. One job transition must publish its active-job
+index delta and exact queue membership delta in the same SQLite transaction. Replace ordinary
+transition reconciliation with point updates for the changed job and its parent group. Acceptance
+uses this queue authority to add membership, but continues to scan intent history for idempotency,
+sequence allocation, and parent/step uniqueness until M6b1b. Do not claim bounded acceptance.
 
-Replace history scans in ordinary job acceptance and transition paths with durable bounded lookup
-and publication. Cover idempotency keys, acceptance sequence, parent/step uniqueness, queue membership,
-and queue reconciliation. Journal coordinated queue and acceptance changes so restart recovery can
-apply them once, reject conflicts, and preserve queue order and job eligibility. Keep startup repair
-explicit; ordinary accepted-job writes must not rebuild global state.
+Preserve dispatch eligibility, queue order, parent waiting-to-queued tail reorder, child ordering,
+cancellation, scheduler reads, explicit operator queue moves, and concurrent readers. Startup repair
+is explicit and crash-safe; ordinary job writes must not rebuild global queue state. Keep legacy
+queue/index state unavailable until repair completes. The recovery path may scan authoritative job
+records and intents.
 
-Before assignment, split this milestone further if the queue and acceptance authority cannot fit one
-Luna phase. Define the exact stores, readers, writers, and failure boundaries in that split.
+Checks: prove ordinary job transitions stay bounded as queue, jobs, intents, and unrelated
+recordings grow 10x; inject a crash at each job-journal boundary and verify queue/index recovery,
+idempotent replay, order, eligibility and maintained revision; exercise startup repair, corruption,
+concurrent readers/writers, scheduler dispatch, parent/child cancellation and explicit reordering.
+Commit: ordered queue authority, journal integration, explicit repair, tests, and report.
 
-Checks: prove ordinary transition and acceptance reads stay bounded as intents, jobs, and unrelated
-recordings grow 10x; verify idempotency, sequence allocation, parent/step uniqueness, queue
-correctness, concurrent readers/writers, crash recovery at every journal boundary, replay, and
-corruption rejection. Commit: bounded queue/acceptance authority, recovery, tests, and report.
+## M6b1b — Bound acceptance lookup and allocation
+
+Depends on M6b1a. Add durable point lookups for idempotency keys, acceptance sequence allocation,
+and parent/step uniqueness to the M6b1 SQLite authority. Extend the existing acceptance/job journal
+so recovery commits the intent, job record, queue membership, and acceptance authority once. Reject
+conflicts before mutation. Keep startup repair explicit; ordinary accepted-job writes must not scan
+intent history or rebuild global state. M6b1b does not change the ordered queue contract from M6b1a.
+
+Checks: prove acceptance reads stay bounded as intents, jobs, queue members, and unrelated recordings
+grow 10x; verify idempotency replay and conflict, unique sequence allocation, parent/step uniqueness,
+queue correctness, concurrent readers/writers, crash recovery at every journal boundary, replay, and
+corruption rejection. Commit: bounded acceptance authority, recovery, tests, and report.
 
 ## M6b2 — Expose bounded active-job pages
 

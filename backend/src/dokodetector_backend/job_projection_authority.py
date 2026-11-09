@@ -70,8 +70,9 @@ class JobProjectionAuthorityStore:
         index_deltas = self.index.prepare_transition(
             old_job, job, authority, next_authority, old_digest
         )
+        queue_delta = self.index.prepare_queue_delta(old_job, job)
         record = {
-            "schema_version": "job-record-transition/v2",
+            "schema_version": "job-record-transition/v3",
             "job_id": job.id,
             "old_job_sha256": old_digest,
             "new_job_sha256": next_digest,
@@ -79,6 +80,7 @@ class JobProjectionAuthorityStore:
             "old_authority": authority.model_dump(mode="json"),
             "new_authority": next_authority.model_dump(mode="json"),
             "index_deltas": index_deltas,
+            "queue_delta": queue_delta,
         }
         atomic_replace_json(self.transition_path, record)
         self.after_write("job_transition_prepared")
@@ -154,9 +156,10 @@ class JobProjectionAuthorityStore:
             "old_authority",
             "new_authority",
             "index_deltas",
+            "queue_delta",
         }:
             raise ValueError("transition fields are invalid")
-        if record["schema_version"] != "job-record-transition/v2":
+        if record["schema_version"] != "job-record-transition/v3":
             raise ValueError("transition version is invalid")
         job = Job.model_validate(record["new_job"])
         if job.id != record["job_id"]:
@@ -177,6 +180,101 @@ class JobProjectionAuthorityStore:
             raise ValueError("prior job digest is invalid")
         if not isinstance(record["index_deltas"], list) or len(record["index_deltas"]) > 1:
             raise ValueError("job index deltas are invalid")
+        queue_delta = record["queue_delta"]
+        if not isinstance(queue_delta, dict) or set(queue_delta) != {
+            "ready",
+            "old_revision",
+            "new_revision",
+            "old_group",
+            "new_group",
+            "old_child",
+            "new_child",
+            "old_parent_child",
+            "new_parent_child",
+        }:
+            raise ValueError("job queue delta is invalid")
+        if (
+            type(queue_delta["ready"]) is not bool
+            or type(queue_delta["old_revision"]) is not int
+            or type(queue_delta["new_revision"]) is not int
+            or queue_delta["old_revision"] < 0
+            or queue_delta["new_revision"]
+            not in {queue_delta["old_revision"], queue_delta["old_revision"] + 1}
+        ):
+            raise ValueError("job queue revision is invalid")
+        for name in ("old_group", "new_group"):
+            value = queue_delta[name]
+            if value is not None and (
+                not isinstance(value, dict)
+                or set(value) != {"group_id", "position"}
+                or value["group_id"] != record["job_id"]
+                or type(value["position"]) is not int
+                or value["position"] < 0
+            ):
+                raise ValueError("job queue group delta is invalid")
+        for name in ("old_child", "new_child"):
+            value = queue_delta[name]
+            if value is not None and (
+                not isinstance(value, dict)
+                or set(value) != {"parent_id", "child_id", "sequence"}
+                or value["child_id"] != record["job_id"]
+                or not isinstance(value["parent_id"], str)
+                or not value["parent_id"]
+                or type(value["sequence"]) is not int
+                or value["sequence"] < 1
+            ):
+                raise ValueError("job queue child delta is invalid")
+        for name in ("old_parent_child", "new_parent_child"):
+            value = queue_delta[name]
+            if value is not None and (
+                not isinstance(value, dict)
+                or set(value) != {"parent_id", "child_id", "sequence", "state"}
+                or value["child_id"] != record["job_id"]
+                or not isinstance(value["parent_id"], str)
+                or not value["parent_id"]
+                or type(value["sequence"]) is not int
+                or value["sequence"] < 1
+                or value["state"]
+                not in {
+                    "queued",
+                    "running",
+                    "waiting",
+                    "cancelling",
+                    "succeeded",
+                    "failed",
+                    "cancelled",
+                    "interrupted",
+                }
+            ):
+                raise ValueError("parent-child queue delta is invalid")
+        if not queue_delta["ready"] and any(
+            queue_delta[name] is not None
+            for name in (
+                "old_group",
+                "new_group",
+                "old_child",
+                "new_child",
+                "old_parent_child",
+                "new_parent_child",
+            )
+        ):
+            raise ValueError("unready queue cannot publish membership deltas")
+        expected_parent_child = queue_delta["new_parent_child"]
+        if queue_delta["ready"] and (job.parent_id is None) != (expected_parent_child is None):
+            raise ValueError("parent-child authority does not match new job")
+        if expected_parent_child is not None and (
+            expected_parent_child["parent_id"] != job.parent_id
+            or expected_parent_child["state"] != job.state
+        ):
+            raise ValueError("parent-child authority state does not match new job")
+        new_group = queue_delta["new_group"]
+        expected_group = JobProjectionIndexStore._queue_group_eligible(job)
+        if expected_group != (new_group is not None) and queue_delta["ready"]:
+            raise ValueError("queue group does not match new job eligibility")
+        new_child = queue_delta["new_child"]
+        expected_child = JobProjectionIndexStore._queue_child_eligible(job)
+        if expected_child != (new_child is not None) and queue_delta["ready"]:
+            raise ValueError("queue child does not match new job eligibility")
         for delta in record["index_deltas"]:
             if not isinstance(delta, dict) or set(delta) != {
                 "recording_id",

@@ -127,8 +127,11 @@ class JobManager:
         return self.persistence.logs(*args, **kwargs)
 
     def queue(self) -> Queue:
-        self._owned()
-        return self.persistence.queue()
+        with self._lock:
+            self._owned()
+            if not self.persistence.projection_authority.index.queue_ready():
+                raise JobStorageError("job queue authority is not ready")
+            return self.persistence.queue()
 
     def _set_queue(self, queue: Queue) -> None:
         self._owned()
@@ -198,10 +201,6 @@ class JobManager:
         self._owned()
         self.persistence.initialize_projection_authority()
         JobRecovery(self.persistence.recovery_operations()).recover()
-
-    def _reconcile(self, intents: list[Intent]) -> None:
-        self._owned()
-        JobRecovery(self.persistence.recovery_operations()).reconcile(intents)
 
     def accept(
         self,
@@ -297,27 +296,24 @@ class JobManager:
             target = "cancelled" if job.state == "queued" else "cancelling"
             updated = self.transition(job.id, target)
             if job.type == "automated_pipeline" and target == "cancelling":
-                group = next(
-                    (item for item in self.queue().groups if item.group_id == job.id), None
-                )
                 child_ids = {
                     step.child_job_id
                     for step in self.get(job.id).steps
                     if step.child_job_id is not None
                 }
                 child_ids.update(
-                    child.id for child in self.list_jobs() if child.parent_id == job.id
+                    self.persistence.projection_authority.index.parent_children(job.id)
                 )
-                if group is not None:
-                    child_ids.update(group.child_job_ids)
                 for child_id in child_ids:
                     child = self.get(child_id)
                     if child.state not in _TERMINAL and child.state != "cancelling":
                         self.cancel(child_id)
-                if job.state == "waiting" and self.get(job.id).state == "cancelling":
-                    children = [child for child in self.list_jobs() if child.parent_id == job.id]
-                    if all(child.state in _TERMINAL for child in children):
-                        updated = self.transition(job.id, "cancelled")
+                if (
+                    job.state == "waiting"
+                    and self.get(job.id).state == "cancelling"
+                    and not self.has_active_children(job.id)
+                ):
+                    updated = self.transition(job.id, "cancelled")
             if target == "cancelling" and self._scheduler is not None:
                 request_cancel = getattr(self._scheduler, "request_cancel", None)
                 if request_cancel is not None:
@@ -434,19 +430,54 @@ class JobManager:
         """Require earlier children of a parent to have succeeded."""
         if job.parent_id is None:
             return True
-        intents = self._intents()
-        for intent in intents:
-            if intent.job.id == job.id:
-                return True
-            if intent.job.parent_id == job.parent_id:
-                if not intent.committed:
-                    return False
-                try:
-                    if self.get(intent.job.id).state != "succeeded":
-                        return False
-                except JobStorageError:
-                    return False
-        return False
+        try:
+            intent = self.persistence.get_intent(job.id)
+            indexed = self.persistence.projection_authority.index.parent_child_sequence(job.id)
+            if not intent.committed or indexed != (job.parent_id, intent.sequence, job.state):
+                return False
+            return not self.persistence.projection_authority.index.preceding_child_not_succeeded(
+                job.parent_id, intent.sequence
+            )
+        except JobStorageError:
+            return False
+
+    def _is_dispatchable(self, job: Job) -> bool:
+        """Check one job against durable queue and acceptance authority."""
+        try:
+            intent = self.persistence.get_intent(job.id)
+            if not intent.committed:
+                return False
+            if job.parent_id is None:
+                candidate = self.persistence.projection_authority.index.queue_group_exists(job.id)
+            else:
+                parent = self.get(job.parent_id)
+                candidate = (
+                    parent.type == "automated_pipeline"
+                    and parent.state == "waiting"
+                    and self.persistence.projection_authority.index.queue_first_child(parent.id)
+                    == job.id
+                )
+            request = {"type": job.type, "context": job.context, "request": job.request}
+            request_hash = _digest(
+                JobRequest.model_validate(
+                    {
+                        **request,
+                        "parent_id": job.parent_id,
+                        "parent_step_id": job.parent_step_id,
+                    }
+                )
+            )
+            return (
+                candidate
+                and job.state == "queued"
+                and job.request_hash == intent.job.request_hash
+                and request_hash == intent.job.request_hash
+                and job.idempotency_key == intent.job.idempotency_key
+                and self.participant.verify(job.id, request)
+            )
+        except JobStorageError as error:
+            self.diagnostics.append(str(error))
+            return False
 
     def transition(self, job_id: str, state: State) -> Job:
         with self._lock:
@@ -457,7 +488,7 @@ class JobManager:
             if state == "waiting" and job.type != "automated_pipeline":
                 raise JobStateError("only parent jobs may wait")
             if state == "running" and (
-                job.id not in self.dispatchable() or not self.dependencies_ready(job)
+                not self._is_dispatchable(job) or not self.dependencies_ready(job)
             ):
                 raise JobStateError("job is not dispatchable")
             now = _now()
@@ -480,7 +511,6 @@ class JobManager:
                         if state == "interrupted":
                             step.message = "interrupted during restart"
             self._write_job(job)
-            self._reconcile(self._intents())
             self.append_log(job.id, f"job_{state}", f"Job state changed to {state}.")
             if job.parent_id is not None and state in _TERMINAL:
                 parent = self.get(job.parent_id)
@@ -489,17 +519,10 @@ class JobManager:
                         parent.id, "cancelled" if state == "cancelled" else "queued"
                     )
                     if parent.state == "queued" and isinstance(parent.request.get("run_id"), str):
-                        queue = self.queue()
-                        group = next(
-                            (item for item in queue.groups if item.group_id == parent.id), None
+                        self.persistence.projection_authority.index.move_queue_group_to_end(
+                            parent.id
                         )
-                        if group is not None and queue.groups[-1] is not group:
-                            queue.groups.remove(group)
-                            queue.groups.append(group)
-                            queue.revision += 1
-                            self._set_queue(queue)
                 elif parent.state == "cancelling":
-                    siblings = [child for child in self.list_jobs() if child.parent_id == parent.id]
-                    if all(child.state in _TERMINAL for child in siblings):
+                    if not self.has_active_children(parent.id):
                         self.transition(parent.id, "cancelled")
             return job

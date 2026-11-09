@@ -49,6 +49,7 @@ def test_job_authority_transition_recovers_after_each_boundary(tmp_path: Path, p
         recovered = manager.get(job.id)
         authority = manager.projection_authority()
         assert recovered.state == "interrupted"
+        assert manager.queue().job_ids == []
         assert authority.sequence == initial_sequence + 2
         index_state = manager.persistence.projection_authority.index.state(authority, "r1")
         assert index_state["global_sequence"] == authority.sequence
@@ -81,10 +82,13 @@ def test_job_transition_reader_waits_for_authority_commit(tmp_path: Path) -> Non
             writing = pool.submit(manager.transition, job.id, "running")
             assert prepared.wait(5)
             reading = pool.submit(manager.get, job.id)
+            queue_reading = pool.submit(manager.queue)
             assert not reading.done()
+            assert not queue_reading.done()
             release.set()
             assert writing.result(timeout=5).state == "running"
             assert reading.result(timeout=5).state == "running"
+            assert queue_reading.result(timeout=5).job_ids == []
         authority = manager.projection_authority()
         assert authority.sequence == 3
         index_state = manager.persistence.projection_authority.index.state(authority, "r1")
@@ -254,6 +258,88 @@ def test_ordinary_job_transitions_do_not_scan_committed_jobs(tmp_path: Path, mon
         assert r1["active_count"] == 1
         assert r2["active_count"] == 1
         assert manager.get(second.id).state == "queued"
+
+
+def test_child_transition_uses_bounded_queue_and_dependency_lookups(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "r1"},
+                "request": {"input": "parent"},
+            },
+        )
+        manager.transition(parent.id, "running")
+        manager.transition(parent.id, "waiting")
+        children = [
+            manager.accept(
+                str(uuid4()),
+                {
+                    "type": "fake",
+                    "context": {"recording_id": "r1"},
+                    "request": {"input": str(i)},
+                    "parent_id": parent.id,
+                    "parent_step_id": str(i),
+                },
+            )
+            for i in range(20)
+        ]
+
+        def fail_history_scan():
+            raise AssertionError("child transition scanned intent history")
+
+        monkeypatch.setattr(manager.persistence, "_intents", fail_history_scan)
+        intent_reads = []
+        read_intent = manager.persistence._read_intent
+
+        def count_intent_reads(job_id: str):
+            intent_reads.append(job_id)
+            return read_intent(job_id)
+
+        monkeypatch.setattr(manager.persistence, "_read_intent", count_intent_reads)
+        manager.transition(children[0].id, "running")
+        assert intent_reads == [children[0].id, children[0].id]
+        next_sequence = manager.persistence.projection_authority.index.parent_child_sequence(
+            children[1].id
+        )[1]
+        assert manager.persistence.projection_authority.index.preceding_child_not_succeeded(
+            parent.id, next_sequence
+        )
+        manager.transition(children[0].id, "succeeded")
+        assert not manager.persistence.projection_authority.index.preceding_child_not_succeeded(
+            parent.id, next_sequence
+        )
+        with sqlite3.connect(
+            tmp_path / "jobs" / "recording-projections" / "active-jobs.sqlite3"
+        ) as connection:
+            query_plan = connection.execute(
+                "EXPLAIN QUERY PLAN SELECT 1 FROM parent_children WHERE parent_id = ? "
+                "AND sequence < ? AND state != 'succeeded' ORDER BY sequence LIMIT 1",
+                (parent.id, next_sequence),
+            ).fetchall()
+            assert any("parent_children_dependency" in str(row) for row in query_plan)
+            queue_plan = connection.execute(
+                "EXPLAIN QUERY PLAN SELECT child_id FROM queue_children WHERE parent_id = ? "
+                "ORDER BY sequence LIMIT 1",
+                (parent.id,),
+            ).fetchall()
+            assert any("queue_child_order" in str(row) for row in queue_plan)
+
+
+def test_missing_queue_authority_table_fails_closed(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        manager.accept(str(uuid4()), _request())
+    with sqlite3.connect(
+        tmp_path / "jobs" / "recording-projections" / "active-jobs.sqlite3"
+    ) as connection:
+        connection.execute("DROP TABLE queue_children")
+    with pytest.raises(JobStorageError, match="queue authority schema is incomplete"):
+        JobManager(tmp_path, participant).__enter__()
 
 
 def test_corrupt_active_index_row_blocks_write_before_job_mutation(tmp_path: Path) -> None:

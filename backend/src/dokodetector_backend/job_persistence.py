@@ -7,9 +7,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
-from dokodetector_backend.filesystem import atomic_replace_json
+from dokodetector_backend.filesystem import _sync_directory, atomic_replace_json
 from dokodetector_backend.job_models import (
-    _TERMINAL,
     Intent,
     Job,
     JobLogEntry,
@@ -19,7 +18,6 @@ from dokodetector_backend.job_models import (
     Participant,
     Publication,
     Queue,
-    QueueGroup,
     _digest,
     _mapping_digest,
     _now,
@@ -57,21 +55,7 @@ class JobPersistence:
         result = []
         for item in sorted(path.glob("*.json")):
             try:
-                intent = Intent.model_validate_json(item.read_bytes())
-                if item.stem != _uuid(intent.job.id):
-                    raise ValueError("intent ID mismatch")
-                _uuid(intent.job.idempotency_key)
-                parsed = JobRequest(
-                    type=intent.job.type,
-                    context=intent.job.context,
-                    request=intent.job.request,
-                    parent_id=intent.job.parent_id,
-                    parent_step_id=intent.job.parent_step_id,
-                )
-                if _digest(parsed) != intent.job.request_hash:
-                    raise ValueError("intent request hash mismatch")
-                if _mapping_digest(intent.submitted_request) != intent.submitted_hash:
-                    raise ValueError("submitted request hash mismatch")
+                intent = self._read_intent(item.stem)
                 result.append(intent)
             except (OSError, ValueError) as error:
                 self.diagnostics.append(f"invalid intent {item.name}: {error}")
@@ -81,6 +65,31 @@ class JobPersistence:
         ) != len(result):
             raise JobStorageError("duplicate intent sequence or key")
         return sorted(result, key=lambda i: i.sequence)
+
+    def _read_intent(self, job_id: str) -> Intent:
+        try:
+            normalized_id = _uuid(job_id)
+            intent = Intent.model_validate_json(
+                (self.root / "intents" / f"{normalized_id}.json").read_bytes()
+            )
+            if normalized_id != intent.job.id:
+                raise ValueError("intent ID mismatch")
+            _uuid(intent.job.idempotency_key)
+            parsed = JobRequest(
+                type=intent.job.type,
+                context=intent.job.context,
+                request=intent.job.request,
+                parent_id=intent.job.parent_id,
+                parent_step_id=intent.job.parent_step_id,
+            )
+            if _digest(parsed) != intent.job.request_hash:
+                raise ValueError("intent request hash mismatch")
+            if _mapping_digest(intent.submitted_request) != intent.submitted_hash:
+                raise ValueError("submitted request hash mismatch")
+            return intent
+        except (OSError, ValueError, TypeError) as error:
+            self.diagnostics.append(f"invalid intent {job_id}: {error}")
+            raise JobStorageError("invalid intent blocks job operation") from error
 
     def _write_intent(self, intent: Intent) -> None:
         atomic_replace_json(self.root / "intents" / f"{intent.job.id}.json", intent.model_dump())
@@ -92,6 +101,14 @@ class JobPersistence:
     def initialize_projection_authority(self) -> None:
         with self._lock:
             self.projection_authority.initialize()
+            index = self.projection_authority.index
+            legacy_queue = self.root / "queue.json"
+            if index.needs_legacy_queue_import and legacy_queue.exists():
+                try:
+                    queue = Queue.model_validate_json(legacy_queue.read_bytes())
+                except (OSError, ValueError, TypeError) as error:
+                    raise JobStorageError("invalid legacy queue blocks startup repair") from error
+                index.replace_queue(queue, ready=False)
 
     def read_projection_authority(self) -> JobProjectionAuthority:
         with self._lock:
@@ -126,9 +143,7 @@ class JobPersistence:
 
     def has_active_children(self, parent_id: str) -> bool:
         """Return whether an automated parent still owns non-terminal child work."""
-        return any(
-            job.parent_id == parent_id and job.state not in _TERMINAL for job in self.list_jobs()
-        )
+        return bool(self.projection_authority.index.parent_children(parent_id, active_only=True))
 
     def append_log(
         self,
@@ -179,29 +194,29 @@ class JobPersistence:
         }
 
     def queue(self) -> Queue:
-        path = self.root / "queue.json"
-        if not path.exists():
-            return Queue()
         try:
-            queue = Queue.model_validate_json(path.read_bytes())
+            queue = self.projection_authority.index.queue()
             if len(set(queue.job_ids)) != len(queue.job_ids):
-                raise ValueError("duplicate queue member")
+                raise ValueError("duplicate queue group")
             members = [member for group in queue.groups for member in group.child_job_ids]
             if len(set(members + queue.job_ids)) != len(members) + len(queue.job_ids):
                 raise ValueError("duplicate queue member")
-            for member in members:
+            for member in members + queue.job_ids:
                 if _uuid(member) != member:
-                    raise ValueError("invalid child queue member")
-            for job_id in queue.job_ids:
-                if _uuid(job_id) != job_id:
                     raise ValueError("invalid queue member")
             return queue
-        except (OSError, ValueError) as error:
+        except (OSError, ValueError, TypeError) as error:
             self.diagnostics.append(f"invalid queue: {error}")
             raise JobStorageError("invalid queue blocks dispatch") from error
 
+    def get_intent(self, job_id: str) -> Intent:
+        with self._lock:
+            return self._read_intent(job_id)
+
     def _set_queue(self, queue: Queue) -> None:
-        atomic_replace_json(self.root / "queue.json", queue.model_dump())
+        self.projection_authority.index.replace_queue(
+            queue, ready=self.projection_authority.index.queue_ready()
+        )
 
     def _finish_intent(self, intent: Intent) -> None:
         job = intent.job
@@ -226,23 +241,6 @@ class JobPersistence:
             self._write_job(job)
             self.after_write("job")
             self.append_log(job.id, "job_accepted", "Job accepted and queued.")
-        queue = self.queue()
-        current = self.get(job.id)
-        if current.state == "queued":
-            if job.parent_id is None and job.id not in queue.job_ids:
-                queue.groups.append(QueueGroup(group_id=job.id))
-                queue.revision += 1
-                self._set_queue(queue)
-                self.after_write("queue")
-            elif job.parent_id is not None:
-                group = next((g for g in queue.groups if g.group_id == job.parent_id), None)
-                if group is None:
-                    raise JobStorageError("parent queue group is missing")
-                if job.id not in group.child_job_ids:
-                    group.child_job_ids.append(job.id)
-                    queue.revision += 1
-                    self._set_queue(queue)
-                    self.after_write("queue")
         if not intent.committed:
             intent.committed = True
             self._write_intent(intent)
@@ -277,6 +275,8 @@ class JobPersistence:
             write_job=self._write_job,
             queue=self.queue,
             set_queue=self._set_queue,
+            mark_queue_ready=self._mark_queue_ready,
+            rebuild_parent_children=self._rebuild_parent_children,
             read_publication=self._read_publication,
             write_publication=self._write_publication,
             verify_publication=self.verify_publication,
@@ -284,3 +284,22 @@ class JobPersistence:
             diagnostic=self.diagnostics.append,
             ensure_owned=self.ensure_owned,
         )
+
+    def _mark_queue_ready(self) -> None:
+        self.projection_authority.index.mark_queue_ready()
+        legacy_queue = self.root / "queue.json"
+        if legacy_queue.exists():
+            legacy_queue.unlink()
+            _sync_directory(self.root)
+
+    def _rebuild_parent_children(self, intents: list[Intent]) -> None:
+        rows = []
+        for intent in intents:
+            if not intent.committed or intent.job.parent_id is None:
+                continue
+            try:
+                job = self.get(intent.job.id)
+            except JobStorageError:
+                continue
+            rows.append((job.parent_id, job.id, intent.sequence, job.state))
+        self.projection_authority.index.rebuild_parent_children(rows)

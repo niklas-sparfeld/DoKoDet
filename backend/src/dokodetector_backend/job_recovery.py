@@ -25,6 +25,8 @@ class JobRecoveryOperations:
     write_job: Callable[[Job], None]
     queue: Callable[[], Queue]
     set_queue: Callable[[Queue], None]
+    mark_queue_ready: Callable[[], None]
+    rebuild_parent_children: Callable[[list[Intent]], None]
     read_publication: Callable[[str], Publication | None]
     write_publication: Callable[[Publication], None]
     verify_publication: Callable[[Job, list[dict]], bool]
@@ -45,7 +47,7 @@ class JobRecovery:
         known = {intent.job.id for intent in intents}
         for directory in self.operations.unknown_job_directories(known):
             self.operations.diagnostic(f"unknown job directory {directory}")
-        self.reconcile(intents)
+        self.rebuild_queue(intents)
         for intent in intents:
             try:
                 self.operations.finish_intent(intent)
@@ -125,7 +127,7 @@ class JobRecovery:
                 parent.updated_at = parent.finished_at
                 parent.revision += 1
                 self.operations.write_job(parent)
-        self.reconcile(intents)
+        self.rebuild_queue(intents)
         for intent in intents:
             if not intent.committed:
                 continue
@@ -146,9 +148,12 @@ class JobRecovery:
                 parent.updated_at = _now()
                 parent.revision += 1
                 self.operations.write_job(parent)
-        self.reconcile(intents)
+        self.rebuild_queue(intents)
+        self.operations.rebuild_parent_children(intents)
+        self.operations.mark_queue_ready()
 
-    def reconcile(self, intents: list[Intent]) -> None:
+    def rebuild_queue(self, intents: list[Intent]) -> None:
+        """Repair the full queue from durable jobs during explicit manager startup recovery."""
         self.operations.ensure_owned()
         queue = self.operations.queue()
         valid = {i.job.id: i for i in intents if i.committed}

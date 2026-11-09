@@ -366,7 +366,15 @@ def test_late_child_joins_moved_group(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "point", ["intent", "domain_run", "accepted_use", "job", "queue", "commit"]
+    "point",
+    [
+        "intent",
+        "domain_run",
+        "accepted_use",
+        "job_transition_index",
+        "job",
+        "commit",
+    ],
 )
 def test_child_acceptance_recovers_in_parent_group(tmp_path: Path, point: str) -> None:
     participant = FakeParticipant(tmp_path / "domain")
