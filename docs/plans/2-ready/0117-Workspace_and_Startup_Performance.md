@@ -190,15 +190,20 @@ and noise. Commit: measurement tools, inventory, report, board, and plan only.
 
 **M0 result — 2026-11-09:** Complete. The post-cleanup hard workspace median is 20.983 seconds
 cold and 20.941 seconds warm. Three independent startup processes have a 9.603-second median to
-useful response. The current catalog enumerates 12 nodes and traverses 11 histories; the current
+useful response in the original capture. A named omission required a replay of those three startup
+processes with a visual-identities stage-open request. The corrected process samples report 3.272
+seconds for catalog first use, 4.986 seconds for workspace first use, 3.265 seconds for stage-open,
+and 8.928 seconds to the first useful response. This replay adds no capture set and does not change
+frozen gates. The current catalog enumerates 12 nodes and traverses 11 histories; the current
 workspace enumerates the same 12 nodes and traverses five histories. A deterministic fixture holds
 current content and sibling review fixed while history and unrelated recordings grow 10x. Its
 returned history records grow from 3 to 21. The measured evidence supports the HEAD hypothesis.
 The [M0 report](../../reports/0117-M0_Post_Cleanup_Baseline.md) records the reader/writer/schema
 inventory, separate history and full-payload reads, revision and node-manifest validation counts,
 lineage scans, parser counts, empty/stale persisted cases, frozen ceilings and targets, trial limit,
-and measurement limits. The growth fixture asserts payload, validation, parser, lineage and latency
-counters while history and unrelated recordings grow 10x.
+and measurement limits. It maps each current route to the 0114 case inventory and names two missing
+comparisons. The growth fixture asserts payload, validation, parser, lineage and latency counters
+while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
@@ -208,11 +213,14 @@ counters while history and unrelated recordings grow 10x.
   trial protocol.
 - Checks: hard-fixture validator; M0 boundary profiler (catalog, workspace, stage, graph, exact
   revision, empty stage, stale selection, processor launch); focused backend tests; Ruff check and
-  format; three cold/warm sessions and three fresh startup processes. Results are in the M0 report.
+  format; three cold/warm sessions and three corrected fresh startup processes with catalog,
+  workspace, and stage-open first-use samples. Results are in the M0 report.
 - Decisions: HEAD hypothesis supported. Freeze 27.1 s cold, 25.5 s warm, and 17.2 s startup
   no-regression ceilings; plan for 16.0 s workspace and 8.0 s startup medians. Limit hard
   performance captures to three sets; M16 may use at most two sets.
-- Limits: OS filesystem cache was not flushed. Revision and manifest validation counters measure
+- Limits: OS filesystem cache was not flushed. The hard cold/warm workspace tests and startup
+  first-use tests use distinct recordings from the same hard manifest. 0114 has no startup
+  stage-open case and no direct hard API timing case for processor-launch POST. Revision and manifest validation counters measure
   actual store validation methods, not each field check separately. The processor launch profile
   uses a deterministic provider stub. Instrumented catalog and stage timings are single requests;
   the independent three-session startup/workspace samples remain the gates.

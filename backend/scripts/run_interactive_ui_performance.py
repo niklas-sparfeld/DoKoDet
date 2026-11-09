@@ -315,6 +315,7 @@ def _seed_interrupted_job(root: Path) -> str:
     from uuid import NAMESPACE_URL, uuid5
 
     import dokodetector_backend.job_store as job_store
+
     sys.path.insert(0, str(ROOT / "backend/tests"))
     from support.job_participants import FakeParticipant
 
@@ -384,8 +385,11 @@ def run_startup_profile(
     command: list[str] | None = None,
     hard_cache: Path | None = None,
     hard_cache_validated: bool = False,
+    include_stage_first_use: bool = False,
 ) -> dict[str, Any]:
     """Launch one isolated loopback backend and time readiness through useful responses."""
+    if include_stage_first_use and profile != "hard_populated":
+        raise ValueError("stage first-use timing requires the hard_populated profile")
     root = root.resolve()
     root.mkdir(parents=True, exist_ok=True)
     recording_id: str | None = None
@@ -432,6 +436,7 @@ def run_startup_profile(
     )
     launch = command or [sys.executable, "-m", "dokodetector_backend.server"]
     started = time.perf_counter_ns()
+    startup_to_useful_ns: int | None = None
     output_path = root / "backend-output.log"
     with output_path.open("wb") as output:
         process = subprocess.Popen(
@@ -483,6 +488,29 @@ def run_startup_profile(
                 )
                 if status != 200:
                     raise RuntimeError(f"workspace useful response returned HTTP {status}")
+                startup_to_useful_ns = time.perf_counter_ns() - started
+                if include_stage_first_use:
+                    stage_path = f"/api/recordings/{recording_id}/pipeline?stage=visual_identities"
+                    stage_start = time.perf_counter_ns()
+                    status, body = _wait_http(base + stage_path, timeout)
+                    stage_payload = json.loads(body) if status == 200 else {}
+                    stage_opened = any(
+                        item.get("key") == "visual_identities"
+                        for item in stage_payload.get("stages", [])
+                        if isinstance(item, dict)
+                    )
+                    samples.append(
+                        _raw_sample(
+                            "stage_open_first_use",
+                            time.perf_counter_ns() - stage_start,
+                            status,
+                            body,
+                        )
+                    )
+                    if status != 200 or not stage_opened:
+                        raise RuntimeError(
+                            "visual-identities stage first-use response did not contain its stage"
+                        )
             if recovery_job_id:
                 recovery_start = time.perf_counter_ns()
                 status, body = _wait_http(base + f"/api/jobs/{recovery_job_id}", timeout)
@@ -502,7 +530,7 @@ def run_startup_profile(
                     raise RuntimeError(
                         "interrupted recovery profile did not recover the seeded running job"
                     )
-            duration = time.perf_counter_ns() - started
+            duration = startup_to_useful_ns or time.perf_counter_ns() - started
             samples.append(
                 _loopback_sample(
                     "jobs_json", base + "/api/jobs", timeout=timeout, max_bytes=64 * 1024 * 1024
@@ -527,6 +555,16 @@ def run_startup_profile(
                     "timeout_seconds": timeout,
                     "startup_to_useful_ns": duration,
                     "probes": ["/health/live", "/health/ready", "/v1/recordings"],
+                    "first_use_routes": (
+                        [
+                            "/v1/recordings",
+                            f"/api/recordings/{recording_id}/pipeline",
+                            f"/api/recordings/{recording_id}/pipeline?stage=visual_identities",
+                        ]
+                        if recording_id and include_stage_first_use
+                        else []
+                    ),
+                    "stage_open_first_use_included": include_stage_first_use,
                     "launch_command": launch,
                     "environment": "isolated temporary roots",
                     "process_group_cleanup_timeout_seconds": 30,
@@ -606,8 +644,8 @@ def _loopback_sample(
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise TimeoutError(f"response exceeded {timeout:.3f}s")
-                read_size = 1 if first_byte_ns is None else min(
-                    64 * 1024, max_bytes + 1 - response_bytes
+                read_size = (
+                    1 if first_byte_ns is None else min(64 * 1024, max_bytes + 1 - response_bytes)
                 )
                 chunk = response.read(read_size)
                 if not chunk:
@@ -720,6 +758,7 @@ def run_startup_trials(
     repeats: int = DEFAULT_STARTUP_PROCESSES,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     hard_cache: Path | None = None,
+    include_stage_first_use: bool = False,
 ) -> dict[str, Any]:
     """Run fresh, isolated processes for each cold startup trial."""
     trial_root = root / uuid.uuid4().hex[:8]
@@ -737,6 +776,7 @@ def run_startup_trials(
             timeout=timeout,
             hard_cache=hard_cache,
             hard_cache_validated=profile == "hard_populated",
+            include_stage_first_use=include_stage_first_use,
         )
         for index in range(repeats)
     ]
@@ -753,6 +793,7 @@ def run_startup_trials(
             "warmups": 0,
             "cache_reset": "fresh process and temporary roots for every cold trial",
             "timeout_seconds_per_trial": timeout,
+            "stage_open_first_use_included": include_stage_first_use,
             "process_runs": [run["protocol"] for run in runs],
         },
         artifacts={"trial_logs": [run["artifacts"]["log"] for run in runs]},
@@ -812,6 +853,11 @@ def main() -> int:
     parser.add_argument("--warmups", type=int, default=DEFAULT_WARMUPS)
     parser.add_argument("--batches", type=int, default=DEFAULT_BATCHES)
     parser.add_argument("--startup-processes", type=int, default=DEFAULT_STARTUP_PROCESSES)
+    parser.add_argument(
+        "--include-stage-first-use",
+        action="store_true",
+        help="Time visual-identities stage open in each hard startup process.",
+    )
     parser.add_argument("--compare", type=Path)
     args = parser.parse_args()
     if (
@@ -822,6 +868,10 @@ def main() -> int:
         or args.startup_processes < 1
     ):
         parser.error("timeout, repeats, batches, and startup processes must be positive")
+    if args.include_stage_first_use and (
+        args.mode != "startup" or args.profile != "hard_populated"
+    ):
+        parser.error("--include-stage-first-use requires startup mode and --profile hard_populated")
     if args.mode == "http":
         result = run_controlled_http(
             repeats=args.repeats,
@@ -839,6 +889,7 @@ def main() -> int:
             repeats=args.startup_processes,
             timeout=args.timeout,
             hard_cache=args.hard_cache if args.profile == "hard_populated" else None,
+            include_stage_first_use=args.include_stage_first_use,
         )
     export_result(result, args.output)
     if args.compare:

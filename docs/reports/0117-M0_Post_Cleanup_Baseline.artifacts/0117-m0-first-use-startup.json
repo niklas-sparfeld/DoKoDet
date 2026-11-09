@@ -1,0 +1,502 @@
+{
+  "artifacts": {
+    "trial_logs": [
+      "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-459f922a-51ce-43b0-96c6-3d62520406d4/doko_detector/docs/reports/0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-first-use-startup.artifacts/hard_populated/2a7d5b54/trial-00/backend-output.log",
+      "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-459f922a-51ce-43b0-96c6-3d62520406d4/doko_detector/docs/reports/0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-first-use-startup.artifacts/hard_populated/2a7d5b54/trial-01/backend-output.log",
+      "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-459f922a-51ce-43b0-96c6-3d62520406d4/doko_detector/docs/reports/0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-first-use-startup.artifacts/hard_populated/2a7d5b54/trial-02/backend-output.log"
+    ]
+  },
+  "created_at": "2026-11-09T09:57:43.334465+00:00",
+  "distributions": [
+    {
+      "batch": 0,
+      "case": "health_live",
+      "max_completion_ns": 668685708,
+      "median_completion_ns": 658848541,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 655225125,
+      "p90_completion_ns": 668685708,
+      "p90_first_byte_ns": null,
+      "samples": 3
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "max_completion_ns": 4018417,
+      "median_completion_ns": 3994709,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 3855666,
+      "p90_completion_ns": 4018417,
+      "p90_first_byte_ns": null,
+      "samples": 3
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "max_completion_ns": 1573125,
+      "median_completion_ns": 1338958,
+      "median_first_byte_ns": 1321625,
+      "min_completion_ns": 1326000,
+      "p90_completion_ns": 1573125,
+      "p90_first_byte_ns": 1549334,
+      "samples": 3
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "max_completion_ns": 3278836958,
+      "median_completion_ns": 3272110208,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 3255949542,
+      "p90_completion_ns": 3278836958,
+      "p90_first_byte_ns": null,
+      "samples": 3
+    },
+    {
+      "batch": 0,
+      "case": "stage_open_first_use",
+      "max_completion_ns": 3267566792,
+      "median_completion_ns": 3264578791,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 3250657792,
+      "p90_completion_ns": 3267566792,
+      "p90_first_byte_ns": null,
+      "samples": 3
+    },
+    {
+      "batch": 0,
+      "case": "video_range",
+      "max_completion_ns": 65944458,
+      "median_completion_ns": 64006000,
+      "median_first_byte_ns": 63925959,
+      "min_completion_ns": 63160125,
+      "p90_completion_ns": 65944458,
+      "p90_first_byte_ns": 65867083,
+      "samples": 3
+    },
+    {
+      "batch": 0,
+      "case": "workspace_first_use",
+      "max_completion_ns": 5042250959,
+      "median_completion_ns": 4986056500,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 4952047709,
+      "p90_completion_ns": 5042250959,
+      "p90_first_byte_ns": null,
+      "samples": 3
+    },
+    {
+      "batch": 0,
+      "case": "startup_to_useful_response",
+      "max_completion_ns": 8970963333,
+      "median_completion_ns": 8927704583,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 8883502250,
+      "p90_completion_ns": 8970963333,
+      "p90_first_byte_ns": null,
+      "samples": 3
+    }
+  ],
+  "kind": "loopback_startup",
+  "metadata": {
+    "fixture": {
+      "profile": "hard_populated",
+      "source_manifest_sha256": "e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294"
+    },
+    "machine": {
+      "cpu_count": 12,
+      "machine": "arm64",
+      "processor": "arm",
+      "python": "3.13.18",
+      "release": "27.2.0",
+      "system": "Darwin"
+    }
+  },
+  "profile_script_sha256": "20a8f908b6dab7089fdffb6965b389557181324bb71aedd6518f576568f723dd",
+  "profile_source_commit": "6db1d4862fb2d4b3e00ed1e3fa0f5f96f9c89ab3",
+  "protocol": {
+    "cache_reset": "fresh process and temporary roots for every cold trial",
+    "fresh_processes": 3,
+    "process_runs": [
+      {
+        "environment": "isolated temporary roots",
+        "first_use_routes": [
+          "/v1/recordings",
+          "/api/recordings/cardeventnet-IMG_0650/pipeline",
+          "/api/recordings/cardeventnet-IMG_0650/pipeline?stage=visual_identities"
+        ],
+        "launch_command": [
+          "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-459f922a-51ce-43b0-96c6-3d62520406d4/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "stage_open_first_use_included": true,
+        "startup_to_useful_ns": 8970963333,
+        "timeout_seconds": 180.0
+      },
+      {
+        "environment": "isolated temporary roots",
+        "first_use_routes": [
+          "/v1/recordings",
+          "/api/recordings/cardeventnet-IMG_0650/pipeline",
+          "/api/recordings/cardeventnet-IMG_0650/pipeline?stage=visual_identities"
+        ],
+        "launch_command": [
+          "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-459f922a-51ce-43b0-96c6-3d62520406d4/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "stage_open_first_use_included": true,
+        "startup_to_useful_ns": 8927704583,
+        "timeout_seconds": 180.0
+      },
+      {
+        "environment": "isolated temporary roots",
+        "first_use_routes": [
+          "/v1/recordings",
+          "/api/recordings/cardeventnet-IMG_0650/pipeline",
+          "/api/recordings/cardeventnet-IMG_0650/pipeline?stage=visual_identities"
+        ],
+        "launch_command": [
+          "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-459f922a-51ce-43b0-96c6-3d62520406d4/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "stage_open_first_use_included": true,
+        "startup_to_useful_ns": 8883502250,
+        "timeout_seconds": 180.0
+      }
+    ],
+    "repeats": 3,
+    "stage_open_first_use_included": true,
+    "timeout_seconds_per_trial": 180.0,
+    "warmups": 0
+  },
+  "run_id": "68e7c114-f919-46d2-982b-e36a48d788cf",
+  "runs": [
+    "5d2d8307-568c-4254-8696-6f03adff78c1",
+    "41d48344-b050-4c11-b4ad-b5c5b46c61a9",
+    "48eb3f67-0ee0-43a7-9898-9070b76baa31"
+  ],
+  "samples": [
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 668685708,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 3994709,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 3255949542,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 817,
+      "response_sha256": "238e26bcbcb6092fc42164d111120c7da10fa59f446258407ef0e88022ec7766",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "workspace_first_use",
+      "completion_ns": null,
+      "duration_ns": 5042250959,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 47943,
+      "response_sha256": "ca703f89764fe9fd2873be542cb7d99d1fee708cd9ee4c6bbbd54b0da0517b51",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "stage_open_first_use",
+      "completion_ns": null,
+      "duration_ns": 3250657792,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 47943,
+      "response_sha256": "ca703f89764fe9fd2873be542cb7d99d1fee708cd9ee4c6bbbd54b0da0517b51",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 1326000,
+      "duration_ns": 1326000,
+      "error": null,
+      "first_byte_ns": 1308125,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "video_range",
+      "completion_ns": 65944458,
+      "duration_ns": 65944458,
+      "error": null,
+      "first_byte_ns": 65867083,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 65536,
+      "response_sha256": "3c02e97b75b717d3fa408c4d7d9257a90249226b5b0910d2ce5ab965635e51d5",
+      "status_code": 206,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 658848541,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 1,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 3855666,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 1,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 3278836958,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 1,
+      "ok": true,
+      "response_bytes": 817,
+      "response_sha256": "238e26bcbcb6092fc42164d111120c7da10fa59f446258407ef0e88022ec7766",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "workspace_first_use",
+      "completion_ns": null,
+      "duration_ns": 4986056500,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 1,
+      "ok": true,
+      "response_bytes": 47943,
+      "response_sha256": "ca703f89764fe9fd2873be542cb7d99d1fee708cd9ee4c6bbbd54b0da0517b51",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "stage_open_first_use",
+      "completion_ns": null,
+      "duration_ns": 3264578791,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 1,
+      "ok": true,
+      "response_bytes": 47943,
+      "response_sha256": "ca703f89764fe9fd2873be542cb7d99d1fee708cd9ee4c6bbbd54b0da0517b51",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 1338958,
+      "duration_ns": 1338958,
+      "error": null,
+      "first_byte_ns": 1321625,
+      "iteration": 1,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "video_range",
+      "completion_ns": 63160125,
+      "duration_ns": 63160125,
+      "error": null,
+      "first_byte_ns": 63031125,
+      "iteration": 1,
+      "ok": true,
+      "response_bytes": 65536,
+      "response_sha256": "3c02e97b75b717d3fa408c4d7d9257a90249226b5b0910d2ce5ab965635e51d5",
+      "status_code": 206,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 655225125,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 2,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 4018417,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 2,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 3272110208,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 2,
+      "ok": true,
+      "response_bytes": 817,
+      "response_sha256": "238e26bcbcb6092fc42164d111120c7da10fa59f446258407ef0e88022ec7766",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "workspace_first_use",
+      "completion_ns": null,
+      "duration_ns": 4952047709,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 2,
+      "ok": true,
+      "response_bytes": 47943,
+      "response_sha256": "ca703f89764fe9fd2873be542cb7d99d1fee708cd9ee4c6bbbd54b0da0517b51",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "stage_open_first_use",
+      "completion_ns": null,
+      "duration_ns": 3267566792,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 2,
+      "ok": true,
+      "response_bytes": 47943,
+      "response_sha256": "ca703f89764fe9fd2873be542cb7d99d1fee708cd9ee4c6bbbd54b0da0517b51",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 1573125,
+      "duration_ns": 1573125,
+      "error": null,
+      "first_byte_ns": 1549334,
+      "iteration": 2,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "video_range",
+      "completion_ns": 64006000,
+      "duration_ns": 64006000,
+      "error": null,
+      "first_byte_ns": 63925959,
+      "iteration": 2,
+      "ok": true,
+      "response_bytes": 65536,
+      "response_sha256": "3c02e97b75b717d3fa408c4d7d9257a90249226b5b0910d2ce5ab965635e51d5",
+      "status_code": 206,
+      "warmup": false
+    }
+  ],
+  "schema_version": "interactive-ui-performance-result/v1"
+}

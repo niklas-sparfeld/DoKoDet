@@ -3,6 +3,8 @@
 Date: 2026-11-09  
 Hard-trial source revision: `fed9a15da5a9305d5811525c5588cac62e61a01c`. Boundary-profile source revision:
 `2bea6053d9c7f44243343b6791c7bc4b45005e82`.
+Startup first-use replay base commit: `6db1d4862fb2d4b3e00ed1e3fa0f5f96f9c89ab3`; the exact
+runner file digest is in the raw replay artifact.
 Machine: macOS 27.2, arm64, 12 CPUs, Python 3.13.18  
 Hard fixture manifest SHA-256: `e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294`
 
@@ -45,24 +47,58 @@ that normal workspace reads reconstruct more history than current-state UI needs
 
 ## Startup baseline
 
-Three new hard-populated backend processes used isolated temporary roots. No benchmark overlapped
-these trials. Startup means process launch through health readiness, the first recordings response,
-and the first workspace response.
+The first startup capture missed the visual-identities stage-open sample. I replayed exactly three
+hard-populated startup processes to add that required sample. This corrects the named measurement
+defect in capture set 1. It does not add a capture set or change the frozen trial budget. Each
+process used an isolated temporary root, the same hard fixture manifest, and the same recording for
+catalog, workspace, and stage-open. Startup-to-useful remains process launch through health
+readiness, the first recordings response, and the first workspace response. The stage-open request
+is measured immediately after workspace first use.
 
-| Session | Recordings first use | Workspace first use | Startup to useful response |
-| --- | ---: | ---: | ---: |
-| 1 | 3.098 s | 4.667 s | 11.267 s |
-| 2 | 3.227 s | 5.485 s | 9.603 s |
-| 3 | 3.107 s | 4.668 s | 8.336 s |
-| Median | 3.107 s | 4.668 s | 9.603 s |
+| Process | Recordings catalog first use | Workspace first use | Visual-identities stage-open first use | Startup to useful response |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 3.256 s | 5.042 s | 3.251 s | 8.971 s |
+| 2 | 3.279 s | 4.986 s | 3.265 s | 8.928 s |
+| 3 | 3.272 s | 4.952 s | 3.268 s | 8.884 s |
+| Median | 3.272 s | 4.986 s | 3.265 s | 8.928 s |
 
-Raw startup trials: [session 1](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-session-1-startup.json),
-[session 2](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-session-2-startup.json), and
-[session 3](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-session-3-startup.json).
+All first-use requests returned HTTP 200. Stage-open returned the same 47,943-byte response and
+SHA-256 in each process. The raw corrected series, CSV, summary CSV, process logs, route list, and
+fixture digest are in the
+[first-use startup artifact](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-first-use-startup.json),
+[sample CSV](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-first-use-startup.csv), and
+[summary CSV](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-first-use-startup.summary.csv).
+The JSON stores the exact runner digest used for capture. The runner received formatting-only edits
+after capture; they do not change its behavior.
+The earlier stage-less startup JSON files remain as original capture evidence; they are superseded
+for the combined first-use table.
 
-Startup MAD is 1.267 seconds. Session 1 spent 3.500 seconds in the first health-live probe. This is
-startup noise, not a workspace latency change. Keep the first useful response in the regression
-gate so deferring the same work to the first request cannot appear as a startup gain.
+The corrected startup-to-useful median is below the frozen 17.2-second ceiling. Keep the ceiling,
+planning target, and remaining trial count unchanged. The 0117 hard cold/warm workspace trials use
+`game-2026-08-20-01-001`; this startup profile uses `cardeventnet-IMG_0650`, as the existing 0114
+startup profile does. The four first-use measurements above share one recording and one process
+protocol, but they are not a substitute for the cold/warm workspace cases.
+
+## Mapping to the 0114 route and case inventory
+
+This table maps each measured 0117 boundary to its registered 0114 route budget and timed case.
+The API inventory is in the [0114 M0 operation map](0114-M0_Interactive_UI_Performance_Inventory.json);
+the named hard cases are in the [0114 M11 baseline](0114-M11_Performance_Baseline.json) and the
+startup process profile is in the [0114 M13 hard startup capture](0114-M13_Startup_Hard.json).
+
+| 0117 boundary | Request and 0114 route budget | 0114 timed case or exact gap |
+| --- | --- | --- |
+| Catalog | `GET /v1/recordings`; `api:GET:/v1/recordings` | `catalog/catalog_hard/hard`; also `startup/hard/recordings_first_use` for a fresh process. |
+| Full workspace | `GET /api/recordings/{recording_id}/pipeline`; `api:GET:/api/recordings/{recording_id}/pipeline` | `pipeline/workspace_full_hard/cold` and `/warm`; also `startup/hard/workspace_first_use`. |
+| Visual-identities stage-open | Same route with `?stage=visual_identities` | `pipeline/workspace_stage_visual_identities_hard/cold` and `/warm`. The new `stage_open_first_use` sample adds this route after workspace first use in each hard startup process; 0114 had no startup stage-open sample. |
+| History graph | `GET /api/recordings/{recording_id}/pipeline/lineage`; `api:GET:/api/recordings/{recording_id}/pipeline/lineage` | `pipeline/lineage_hard/cold` and `/warm`. The exact revision read maps to `pipeline/revision_max_identity_payload/cold` and `/warm`. |
+| Processor launch | `POST /api/jobs`; `api:POST:/api/jobs` | 0114 classifies this route under `browser/job_submission_visible_status`, but has no direct named hard API timing case for this POST. The 0117 sample is a deterministic stubbed launch diagnostic, not a comparable 0114 latency result. |
+| Startup to useful response | Fresh hard-populated backend process; readiness followed by catalog and full workspace | 0114 M13 `startup_to_useful_response`, with constituent `startup/hard/recordings_first_use` and `startup/hard/workspace_first_use` samples. The 0117 corrected profile adds stage-open as a separate request and keeps startup-to-useful at workspace first use. |
+
+This mapping identifies two coverage limits: 0114 has no startup stage-open sample, and it has no
+direct hard API timing case for processor-launch POST. The corrected M0 startup replay fills the
+first gap for this epic. The deterministic launch diagnostic records the second gap; it does not
+claim that the browser workflow is an equivalent API timing case.
 
 ## Boundary measurements
 
@@ -71,7 +107,10 @@ Each request is sequential and uses one disposable root. Its startup row include
 health, catalog, and workspace first-use work. One recording has an actually empty table-observation
 stage. The stale-selection case writes a missing visual-identity node/revision pointer to disposable
 persisted storage and checks for `invalid_selection`. Processor launch uses a deterministic event
-provider stub and returns HTTP 202.
+provider stub and returns HTTP 202. This is an in-process operation-count diagnostic using
+`game-2026-08-20-01-001`; its timing values are not first-use samples. First-use acceptance uses the
+fresh-process series above, with catalog, workspace, and stage-open requests on
+`cardeventnet-IMG_0650`.
 
 | Boundary | HTTP | Reads | JSON loads | Nodes enumerated | History traversals / revision records | Domain parses |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -159,7 +198,7 @@ and recovery limits are in the [0115 M14 map](0115-M14_Maintained_Storage_Map.md
 | Reviews and drafts: `pipeline-review/v1`, `visible-card-review/v1`, `frame-review-workflow/v1` | `PipelineNodeReviews`, `VisibleCardReviewStore`, frame-review workflow, lineage draft projection; node review GET route. Reads `.review-records/<node_id>/<review_id>.json`, visible-card reviews, and `data/operations/frame-review-queues/`. | Node review POST routes; visible-card/frame-review APIs and draft stores. | `mise exec -- uv run --project backend pytest -q backend/tests/test_pipeline_api.py backend/tests/test_lineage_draft_projection.py backend/tests/test_frame_review_lineage_target.py` |
 | Calibration: `table-plane-calibration/v1`, `table-plane-calibration-refinement/v1` | `CalibrationRefinementService`, calibration API. Reads calibration revisions, drafts and candidates under `data/operations/`; calibration GET routes. | Calibration-refinement POST, PUT, `/discard`, `/apply`; service publishes calibration and refinement records. | `mise exec -- uv run --project backend pytest -q backend/tests/test_calibration_refinement_service.py backend/tests/test_pipeline_api.py` |
 | Processor request/output/job: `processor-run-request/v1`, `automated-pipeline-run/v1`, Job Manager schemas | Stage GET APIs; `AutomatedPipelineRunService.read`; Job Manager status. Reads `data/operations/pipeline/runs/<run_id>/`, job records, and stage outputs. Routes: `GET /api/jobs/{job_id}`, pipeline run and stage GET. | `POST /api/jobs`; `POST /api/recordings/{recording_id}/pipeline/runs`; stage POST routes; durable job manager and processor stores. | `mise exec -- uv run --project backend pytest -q backend/tests/test_pipeline_run_api.py backend/tests/test_pipeline_api.py backend/tests/test_jobs_api.py backend/tests/test_job_store.py` |
-| Startup and recovery | App lifespan and durable job recovery read configured operations roots before `/health/ready`; first-use probes then read catalog and workspace. | Job recovery marks interrupted work and durable stores publish run/job transitions. No lifecycle retention writer is moved from 0118. | `mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_performance.py --mode startup --profile hard_populated --startup-processes 1 --timeout 180 --output /tmp/0117-startup.json` |
+| Startup and recovery | App lifespan and durable job recovery read configured operations roots before `/health/ready`; first-use probes then read catalog, workspace, and stage-open. | Job recovery marks interrupted work and durable stores publish run/job transitions. No lifecycle retention writer is moved from 0118. | `mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_performance.py --mode startup --profile hard_populated --startup-processes 3 --timeout 180 --include-stage-first-use --output /tmp/0117-startup.json` |
 
 The M14 storage map names local retained roots and recovery authority. M15 closed the selected cleanup
 scope; it did not close operational lifecycle work. Do not move 0118 lifecycle writers into this
@@ -167,11 +206,14 @@ epic unless they conflict directly with the recording-state contract.
 
 ## Frozen budgets and finite trials
 
-The M0 reference values are the three-session medians above. Noise uses the 0114 method:
+The frozen M0 gates use the original three-session startup medians retained in the stage-less
+startup artifacts: 9.603 seconds startup-to-useful, 3.107 seconds recordings first use, and 4.668
+seconds workspace first use. The corrected replay fills the missing stage-open sample. It does not
+replace the frozen gate inputs or change any threshold. Noise uses the 0114 method:
 `max(3 × 1.4826 × MAD, category floor)`. The floor is 2 ms for JSON and 25 ms for startup. The
 no-regression ceiling adds 20% of the reference plus the noise allowance. The rounded ceilings are:
 
-| Case | Reference | Noise allowance | No-regression ceiling | M16 planning target |
+| Case | Frozen reference | Noise allowance | Frozen no-regression ceiling | M16 planning target |
 | --- | ---: | ---: | ---: | ---: |
 | Hard workspace cold | 20.983 s | 1.878 s | 27.1 s | 16.0 s median |
 | Hard workspace warm | 20.941 s | 0.344 s | 25.5 s | 16.0 s median |
@@ -194,10 +236,12 @@ process retains a 180-second timeout. The separate 0114 route/browser suite rema
 ## Checks and limits
 
 - Hard fixture validator: `materialize_interactive_ui_performance_fixtures.py --require-hard` — passed, 57 assets.
+- 0114 route inventory checker — passed: 76 registered API operations, one documented UI URL gap, and 70 planned UI cases.
 - 0117 boundary profiler — passed all eight HTTP cases, with empty/stale response assertions; output in the linked artifacts.
-- Growth fixture and API tests — passed; includes accepted deterministic processor launch and persisted empty/stale state.
-- Focused Ruff check and format check — passed for new script and test.
-- Startup timings — three fresh hard-populated processes passed all first-use probes.
+- Growth fixture, first-use runner, and focused API tests — passed; include the 10x counters, deterministic processor launch, and persisted empty/stale state.
+- Focused Ruff check and format check — passed for the profile, startup runner, and both tests.
+- First-use startup replay — three fresh hard-populated processes passed catalog, workspace, and
+  visual-identities stage-open requests. Each sample uses the same recording in the same process.
 
 Revision validation counts cover the actual store method that checks revision schema, identity,
 canonical content, and digest. `_get_unrecovered` counts node-manifest validation. The profiler does
@@ -211,5 +255,6 @@ mise exec -- uv run --project backend python backend/scripts/materialize_interac
 mise exec -- uv run --project backend python backend/scripts/profile_0117_workspace_reads.py --output /tmp/0117-boundaries.json
 mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_pipeline_read_performance.py --warmups 0 --repeats 2 --batches 1 --timeout 180 --case workspace_full_hard --output /tmp/0117-session-pipeline.json
 mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_performance.py --mode startup --profile hard_populated --startup-processes 1 --timeout 180 --output /tmp/0117-session-startup.json
+mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_performance.py --mode startup --profile hard_populated --startup-processes 3 --timeout 180 --include-stage-first-use --output /tmp/0117-first-use-startup.json
 mise exec -- uv run --project backend pytest -q backend/tests/test_0117_workspace_growth_fixture.py backend/tests/test_pipeline_run_api.py backend/tests/test_pipeline_api.py::test_recording_pipeline_workspace_aggregates_persisted_stage_state backend/tests/test_pipeline_api.py::test_recording_pipeline_workspace_reports_invalid_selection_pointer
 ```

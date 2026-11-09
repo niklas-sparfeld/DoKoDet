@@ -6,6 +6,8 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import pytest
+
 SCRIPTS = Path(__file__).parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
@@ -85,6 +87,11 @@ def test_loopback_runner_reaches_useful_response_and_cleans_up(tmp_path: Path) -
     assert endpoint["response_bytes"] > 0
     assert endpoint["first_byte_ns"] > 0
     assert endpoint["completion_ns"] == endpoint["duration_ns"]
+
+
+def test_stage_first_use_requires_hard_populated_profile(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="hard_populated"):
+        run_startup_profile("empty", tmp_path / "isolated", include_stage_first_use=True)
 
 
 def test_loopback_runner_cleans_up_after_timeout(tmp_path: Path) -> None:
