@@ -30,7 +30,7 @@ Relocation is not reclaimed space. Record physical allocation only when directly
 | M0 | Inventory exact log, recovery-copy, and campaign-intermediate writers; identify retention roots, recovery evidence, and a small candidate scope | Complete; [report](../../reports/0118-M0_Lifecycle_Family_Inventory.md) |
 | M1 | Specify the managed-job operational-log family's retention and recovery contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M1_Managed_Job_Log_Audit.md) |
 | M2 | Specify one exact recovery-copy family's retention and restore contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md) |
-| M3 | Specify one exact campaign-intermediate family's retention and restore contract; keep it separate from recovery copies | Incomplete; [audit report](../../reports/0118-M3_0070_Synthetic_Training_View.md) |
+| M3 | Complete a bounded, read-only search for the 24 exact historical review-state and draft dependencies of the selected campaign view; distinguish their roles from matching immutable reviewed content; record a conservative retention and restore outcome | Incomplete; [audit report](../../reports/0118-M3_0070_Synthetic_Training_View.md) |
 | M4 | Implement and verify only the selected contracts, with preserved recovery and human-work evidence | Not started |
 
 ## M0 — Select exact lifecycle families
@@ -46,8 +46,8 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
 
 ## Execution handoff
 
-- Run: requested 4 milestones; completed 3; 1 remains in this run. M0–M4 are planned; M4 is
-  outside this run's authorization.
+- Run: requested 2 milestones; completed 0; 2 remain in this run. M3 and M4 are the remaining
+  planned milestones. Do not add milestones or expand this run.
 - Completed: M0 inventory and family selection; M1 managed-job log audit; M2 accepted-loss
   recovery-copy audit. M3 selected the 0070 M5 view but remains incomplete. See the
   [M0 report](../../reports/0118-M0_Lifecycle_Family_Inventory.md),
@@ -86,8 +86,18 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
   The active process root, live job set, log sizes, pins, expiry authority, and independent recovery
   source remain unknown. The existing rolling window is code behavior, not evidence that older
   entries are disposable. Off-volume recovery and physical APFS allocation remain unknown.
-- Next: M3 needs a safe disposition for its unresolved exact review-state and draft dependencies.
-  M4 is outside this run. Run count: requested 4; completed 3; 1 remains.
+- Replan: M3 is still incomplete. Its next step is a bounded, read-only search of plausible retained
+  sources named by the 0068 manifest, the M0/M2 reports, and existing recovery manifests. Check the
+  canonical reference root, the accepted-loss evidence root, and only other exact roots those
+  records declare. Do not scan unrelated filesystems or worktrees. For any candidate, verify the
+  expected hash for each of the 24 state and draft files. Explain what immutable reviewed revision
+  manifests and content establish, and what mutable reference state and review drafts establish,
+  using the applicable legacy schemas and reader contracts. Do not infer missing mutable bytes from
+  immutable content. If exact dependencies remain unavailable, record them as unavailable; preserve
+  the training view and every known review/recovery root, and state that no recovery or expiry was
+  verified or authorized. M4 remains the existing final milestone and must use that outcome without
+  deleting data when no safe contract is established.
+- Next: implement the revised M3 investigation only. Run count: requested 2; completed 0; 2 remain.
 
 ## M1 — Specify operational-log retention
 
@@ -123,17 +133,34 @@ package restore check, and matching prior API restart evidence. The package is o
 store's volume, its physical APFS allocation and off-volume recovery are unknown, and uncertainty
 records remain. No expiry condition is justified. No data was removed and no retention code changed.
 
-## M3 — Specify campaign-intermediate retention
+## M3 — Bound the campaign-intermediate dependency decision
 
-Select one exact campaign materialization family. Record its creator, campaign and source manifests,
-dependency and pin roots, reconstructability, expiry condition, and restore or regeneration
-procedure. Keep campaign command/output logs out of this contract unless evidence shows the same
-writer and retention authority. Keep compact provenance when removing reproducible materializations.
+Keep the selected 0070 M5 50/50 training view as the exact campaign-intermediate family. Resolve the
+known 0068 review-dependency gap with a bounded, read-only search. Use only plausible retained roots
+named by the 0068 manifest, the M0/M2 reports, and existing recovery manifests: the canonical
+reference root, the accepted-loss evidence root, and any other exact roots those records declare.
+Do not search unrelated filesystems or worktrees. For any candidate, verify each expected state and
+draft hash across all 24 recordings. Do not replace a missing historical file with a newer or
+different file.
 
-Checks: rehearse restore or regeneration in disposable storage. Verify exact source and review
-dependencies, model/run references, and restart reads. Record logical bytes, path allocation, and
-physical allocation separately when available. If one campaign contains independent writer or
-recovery contracts, split its specification before implementation.
+Use the applicable legacy schemas and readers to state the separate role of immutable reviewed
+revision manifests/content, mutable reference state, and mutable review drafts. Explain which
+training-view dependencies are established by the matching immutable content and which historical
+selection or resumable review facts require the exact mutable bytes. Do not infer those mutable
+facts from immutable reviewed content.
+
+If exact state/draft dependencies are found, report their exact roots, hashes, ownership, and the
+restore checks that they support. If any remain unavailable, record the precise search boundary and
+missing hashes. Preserve the training view and every known review/recovery root. Do not claim full
+recovery, exact regeneration, or an expiry condition. No deletion or expiry is authorized by this
+milestone. Keep campaign command/output logs out of this contract unless evidence shows the same
+writer and retention authority.
+
+Checks: record every searched root and its source; verify candidate hashes against the frozen 0068
+manifest; check the legacy state/draft schemas and the actual consumers that establish their role;
+retain the existing 0071 reader and immutable-view verification as separate evidence. Do not perform
+a recovery or regeneration action for missing mutable files. Run focused Markdown-link validation
+and `git diff --check` after the plan and report updates.
 
 Outcome: Incomplete. The [M3 report](../../reports/0118-M3_0070_Synthetic_Training_View.md) selects
 the exact 0070 M5 50/50 view and verifies its immutable revision contents, scene receipts,
