@@ -157,6 +157,13 @@ class PipelineNodeStore:
             self._node_path(node_id), Path("revisions") / _safe_id(revision_id, "revision_id")
         )
 
+    def publication_path(self, node_id: str, revision_id: str) -> Path:
+        """Return the durable authority directory for one published node revision."""
+        return contained_path(
+            self._node_path(node_id),
+            Path("publications") / _safe_id(revision_id, "revision_id"),
+        )
+
     def _lock_path(self, node_id: str) -> Path:
         return contained_path(self.root, f".{_safe_id(node_id, 'node_id')}.lock")
 
@@ -193,7 +200,9 @@ class PipelineNodeStore:
             with staging_directory(self.root) as staging:
                 (staging / "manifest.json").write_bytes(canonical_json_bytes(manifest))
                 (staging / "revisions").mkdir()
+                (staging / "publications").mkdir()
                 self._publish_revision(staging, revision)
+                self._publish_publication(staging, revision)
                 (staging / "head.json").write_bytes(
                     canonical_json_bytes({"revision_id": revision.revision_id})
                 )
@@ -278,8 +287,9 @@ class PipelineNodeStore:
         metadata: Mapping[str, Any],
         revision_id: str | None,
     ) -> NodeRevision:
+        self.recover_transactions()
         with _process_lock(self._lock_path(node_id), self._lock):
-            node = self.get(node_id)
+            node = self._get_unrecovered(node_id)
             if node.head_revision_id != expected_revision_id:
                 raise NodeConflict("working head changed")
             current = self._read_revision(node, node.head_revision_id)
@@ -302,9 +312,15 @@ class PipelineNodeStore:
                 revision_id,
             )
             self._publish_revision(self._node_path(node_id), revision)
+            self._after_durable_boundary("revision")
+            self._publish_publication(self._node_path(node_id), current)
+            self._after_durable_boundary("previous_publication")
             atomic_replace_json(
                 self._node_path(node_id) / "head.json", {"revision_id": revision.revision_id}
             )
+            self._after_durable_boundary("head")
+            self._publish_publication(self._node_path(node_id), revision)
+            self._after_durable_boundary("publication")
             return revision
 
     def history(self, node_id: str) -> tuple[NodeRevision, ...]:
@@ -340,8 +356,29 @@ class PipelineNodeStore:
             current_id = self._read_revision(node, current_id).parent_revision_id
         raise KeyError(revision_id)
 
+    def read_authorized_revision(self, node_id: str, revision_id: str) -> NodeRevision:
+        """Read one revision from its durable authority record without parent traversal."""
+        _safe_id(revision_id, "revision_id")
+        self.recover_transactions()
+        with _process_lock(self._lock_path(node_id), self._lock):
+            node = self._get_unrecovered(node_id)
+            publication_path = self.publication_path(node_id, revision_id)
+            authority = None
+            if publication_path.exists():
+                authority = self._read_publication(node_id, revision_id)
+            elif node.head_revision_id != revision_id:
+                raise KeyError(revision_id)
+            revision = self._read_revision(node, revision_id)
+            if authority is not None and authority["content_sha256"] != revision.content_sha256:
+                raise ValueError("publication authority content digest mismatch")
+            return revision
+
     def read_revision_record(self, node_id: str, revision_id: str) -> NodeRevision:
-        """Read one immutable revision record without traversing its full history."""
+        """Read one exact revision that the current head publishes."""
+        return self.read_published_revision(node_id, revision_id)
+
+    def _read_unpublished_revision_record(self, node_id: str, revision_id: str) -> NodeRevision:
+        """Read one raw record for idempotent orphan recovery only."""
         _safe_id(revision_id, "revision_id")
         if not self.has_revision(node_id, revision_id):
             raise KeyError(revision_id)
@@ -384,6 +421,57 @@ class PipelineNodeStore:
             payload = {"schema_version": "pipeline-node-revision/v1", **revision.__dict__}
             (staging / "revision.json").write_bytes(canonical_json_bytes(payload))
             commit_staged_directory(staging, root / revision.revision_id)
+
+    @staticmethod
+    def _publication_record(revision: NodeRevision) -> dict[str, str]:
+        return {
+            "schema_version": "pipeline-node-publication/v1",
+            "node_id": revision.node_id,
+            "revision_id": revision.revision_id,
+            "content_sha256": revision.content_sha256,
+        }
+
+    @classmethod
+    def _publish_publication(cls, node_path: Path, revision: NodeRevision) -> None:
+        root = node_path / "publications"
+        root.mkdir(parents=True, exist_ok=True)
+        destination = root / revision.revision_id
+        expected = cls._publication_record(revision)
+        if destination.exists():
+            actual = _read_json(destination / "authority.json")
+            if actual != expected:
+                raise ValueError("publication authority conflicts with revision")
+            return
+        with staging_directory(root) as staging:
+            (staging / "authority.json").write_bytes(canonical_json_bytes(expected))
+            try:
+                commit_staged_directory(staging, destination)
+            except FileExistsError:
+                actual = _read_json(destination / "authority.json")
+                if actual != expected:
+                    raise ValueError("publication authority conflicts with revision") from None
+
+    def _read_publication(self, node_id: str, revision_id: str) -> dict[str, str]:
+        path = self.publication_path(node_id, revision_id)
+        try:
+            if path.is_symlink() or {item.name for item in path.iterdir()} != {"authority.json"}:
+                raise ValueError("unexpected files in publication authority")
+            authority = _read_json(path / "authority.json")
+        except (OSError, TypeError, UnicodeError, ValueError) as error:
+            raise ValueError("invalid publication authority") from error
+        if set(authority) != {"schema_version", "node_id", "revision_id", "content_sha256"}:
+            raise ValueError("invalid publication authority")
+        if (
+            authority["schema_version"] != "pipeline-node-publication/v1"
+            or authority["node_id"] != node_id
+            or authority["revision_id"] != revision_id
+            or not isinstance(authority["content_sha256"], str)
+        ):
+            raise ValueError("publication authority identity mismatch")
+        return authority
+
+    def _after_durable_boundary(self, boundary: str) -> None:
+        """Hook for deterministic process-death tests at node publication boundaries."""
 
     def _read_revision(self, node: Node, revision_id: str) -> NodeRevision:
         _safe_id(revision_id, "revision_id")

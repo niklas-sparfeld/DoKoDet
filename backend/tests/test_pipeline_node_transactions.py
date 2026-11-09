@@ -1,6 +1,9 @@
 import hashlib
+import multiprocessing
+import os
 from pathlib import Path
 
+import pytest
 from doko_operations.pipeline_data import canonical_json_bytes
 
 from dokodetector_backend.filesystem import atomic_replace_json
@@ -18,6 +21,36 @@ SOURCE = {
 }
 VISIBLE = {"schema_version": "visible-card-data/v2", "outcomes": []}
 SCENES = {"schema_version": "virtual-scene-data/v1", "frames": []}
+
+
+def _crash_coordinated_transaction(root: str, boundary: str) -> None:
+    nodes = PipelineNodeStore(Path(root) / "nodes")
+
+    def terminate(target: str) -> None:
+        if target == boundary:
+            os._exit(72)
+
+    nodes._after_durable_boundary = terminate
+    PipelineNodeTransactions(nodes).commit(
+        "reflow-crash",
+        node_updates=[
+            {
+                "node_id": "visible-node",
+                "expected_revision_id": "visible-r1",
+                "revision_id": "visible-r2",
+                "content": VISIBLE,
+                "metadata": {"reflow": True},
+            },
+            {
+                "node_id": "scene-node",
+                "expected_revision_id": "scene-r1",
+                "revision_id": "scene-r2",
+                "content": SCENES,
+                "metadata": {"reflow": True},
+            },
+        ],
+        selection_updates=[],
+    )
 
 
 def test_coordinated_transaction_publishes_both_nodes_and_exact_selections(
@@ -77,6 +110,8 @@ def test_coordinated_transaction_publishes_both_nodes_and_exact_selections(
         "node_id": "scene-node",
         "revision_id": scenes_new,
     }
+    assert nodes.read_authorized_revision("visible-node", visible_new).revision_id == visible_new
+    assert nodes.read_authorized_revision("scene-node", scenes_new).revision_id == scenes_new
 
 
 def test_reader_recovers_interrupted_publication_before_returning_mixed_state(
@@ -161,3 +196,31 @@ def test_reader_recovers_interrupted_publication_before_returning_mixed_state(
     import json
 
     assert json.loads(journal.read_bytes())["status"] == "committed"
+    assert nodes.read_authorized_revision("visible-node", "visible-r2").revision_id == (
+        "visible-r2"
+    )
+    assert nodes.read_authorized_revision("scene-node", "scene-r2").revision_id == "scene-r2"
+
+
+@pytest.mark.parametrize("boundary", ["head", "publication"])
+def test_coordinated_transaction_recovers_authority_after_process_death(
+    tmp_path: Path, boundary: str
+) -> None:
+    nodes = PipelineNodeStore(tmp_path / "nodes")
+    nodes.create(
+        "visible-node", "Visible", "visible_cards", SOURCE, VISIBLE, {}, revision_id="visible-r1"
+    )
+    nodes.create(
+        "scene-node", "Scenes", "virtual_scenes", SOURCE, SCENES, {}, revision_id="scene-r1"
+    )
+    context = multiprocessing.get_context("spawn")
+    worker = context.Process(target=_crash_coordinated_transaction, args=(str(tmp_path), boundary))
+    worker.start()
+    worker.join(10)
+    assert worker.exitcode == 72
+
+    reopened = PipelineNodeStore(tmp_path / "nodes")
+    assert reopened.read_authorized_revision("visible-node", "visible-r2").revision_id == (
+        "visible-r2"
+    )
+    assert reopened.read_authorized_revision("scene-node", "scene-r2").revision_id == "scene-r2"

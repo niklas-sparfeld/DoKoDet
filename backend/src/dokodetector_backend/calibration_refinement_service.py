@@ -1087,7 +1087,7 @@ class CalibrationRefinementService:
                 continue
             try:
                 revision = self.node_store.read_revision_record(node.node_id, revision_id)
-            except FileNotFoundError:
+            except (FileNotFoundError, KeyError):
                 continue
             return node, revision
         return None

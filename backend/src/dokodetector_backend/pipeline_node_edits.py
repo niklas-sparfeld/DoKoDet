@@ -316,7 +316,7 @@ class PipelineNodeEdits:
                 continue
             if not self.store.has_revision(candidate, revision_id):
                 continue
-            revision = self.store.read_revision_record(candidate, revision_id)
+            revision = self.store._read_unpublished_revision_record(candidate, revision_id)
             operation = revision.metadata.get("_edit_operation")
             if not isinstance(operation, dict) or operation.get("digest") != digest:
                 raise NodeConflict("operation revision conflicts with existing data")

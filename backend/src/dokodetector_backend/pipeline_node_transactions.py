@@ -228,37 +228,51 @@ class PipelineNodeTransactions:
         if record["status"] == "committed":
             return
         for update in plan["nodes"]:
-            node = self.node_store._get_unrecovered(update["node_id"])
-            if (
-                node.content_type != update["content_type"]
-                or node.source.get("recording_id") != update["recording_id"]
+            with _process_lock(
+                self.node_store._lock_path(update["node_id"]), self.node_store._lock
             ):
-                raise ValueError("coordinated node identity changed")
-            revision = NodeRevision(
-                node_id=node.node_id,
-                revision_id=update["revision_id"],
-                parent_revision_id=update["parent_revision_id"],
-                content=update["content"],
-                content_sha256=update["content_sha256"],
-                metadata=update["metadata"],
-                created_at=update["created_at"],
-            )
-            if self.node_store.has_revision(node.node_id, update["revision_id"]):
-                existing = self.node_store._read_revision(node, update["revision_id"])
-                if existing != revision:
-                    raise ValueError("coordinated revision ID already has different content")
-            else:
-                self.node_store._publish_revision(
+                node = self.node_store._get_unrecovered(update["node_id"])
+                if (
+                    node.content_type != update["content_type"]
+                    or node.source.get("recording_id") != update["recording_id"]
+                ):
+                    raise ValueError("coordinated node identity changed")
+                revision = NodeRevision(
+                    node_id=node.node_id,
+                    revision_id=update["revision_id"],
+                    parent_revision_id=update["parent_revision_id"],
+                    content=update["content"],
+                    content_sha256=update["content_sha256"],
+                    metadata=update["metadata"],
+                    created_at=update["created_at"],
+                )
+                if self.node_store.has_revision(node.node_id, update["revision_id"]):
+                    existing = self.node_store._read_revision(node, update["revision_id"])
+                    if existing != revision:
+                        raise ValueError("coordinated revision ID already has different content")
+                else:
+                    self.node_store._publish_revision(
+                        self.node_store._node_path(node.node_id), revision
+                    )
+                current = self.node_store._get_unrecovered(node.node_id)
+                if current.head_revision_id == update["expected_revision_id"]:
+                    previous = self.node_store._read_revision(
+                        current, update["expected_revision_id"]
+                    )
+                    self.node_store._publish_publication(
+                        self.node_store._node_path(node.node_id), previous
+                    )
+                    atomic_replace_json(
+                        self.node_store._node_path(node.node_id) / "head.json",
+                        {"revision_id": update["revision_id"]},
+                    )
+                    self.node_store._after_durable_boundary("head")
+                elif current.head_revision_id != update["revision_id"]:
+                    raise NodeConflict("node head changed during coordinated recovery")
+                self.node_store._publish_publication(
                     self.node_store._node_path(node.node_id), revision
                 )
-            current = self.node_store._get_unrecovered(node.node_id)
-            if current.head_revision_id == update["expected_revision_id"]:
-                atomic_replace_json(
-                    self.node_store._node_path(node.node_id) / "head.json",
-                    {"revision_id": update["revision_id"]},
-                )
-            elif current.head_revision_id != update["revision_id"]:
-                raise NodeConflict("node head changed during coordinated recovery")
+                self.node_store._after_durable_boundary("publication")
         selections = None
         if plan["selections"]:
             from dokodetector_backend.pipeline_node_selection_store import (
