@@ -72,7 +72,10 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
   /tmp/0118-m2-current-verification.json` passed with 2,086 resources, 34,414 manifest files,
   and snapshot `c8979c9a…`. A disposable APFS clone passed `_verify_package` with the same digest.
   M1's matching-snapshot API restore and restart reads remain the API-level rehearsal evidence.
-  M3's two disposable-reader processes returned 537 rows with matching COCO and manifest digests.
+  M3's independent verifier passed twice. It checked frozen M0/M1/M2 path and manifest digests,
+  all 447 M1 source/review files, 537 M2 image/receipt references, all 789 0068 generated files,
+  and all 1,328 restored view files. The actual 0071 reader returned 537 rows with matching COCO
+  and training-view digests.
   `git diff --check` and changed-link checks passed. No authoritative data changed.
 - Decisions and limits: M3 sets no expiry or removal policy. Current configured
   `data/operations/jobs` is absent in this checkout.
