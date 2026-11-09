@@ -1,5 +1,6 @@
 import json
 import multiprocessing
+import os
 from pathlib import Path
 
 import pytest
@@ -390,7 +391,10 @@ def test_terminal_lineage_history_recovers_source_to_index_gap(tmp_path: Path, m
     store = PipelineNodeStore(tmp_path / "operations" / "pipeline-nodes")
     lineage = PipelineLineage(store)
     PipelineNodeUses(store).accept("lineage-run", [])
-    inputs = [artifact("recording-video/recording-01", "a", "recording_video")]
+    inputs = [
+        artifact("recording-video/recording-01", "a", "recording_video"),
+        artifact("recording-metadata/recording-01", "b", "recording_metadata"),
+    ]
     lineage.start(
         "lineage-run",
         inputs=inputs,
@@ -400,11 +404,17 @@ def test_terminal_lineage_history_recovers_source_to_index_gap(tmp_path: Path, m
     )
     original_publish = RecordingHistoryStore.publish
 
-    def fail_publication(self, recording_id, item):
-        raise OSError("simulated stop after source commit")
+    calls = 0
 
-    monkeypatch.setattr(RecordingHistoryStore, "publish", fail_publication)
-    with pytest.raises(OSError, match="simulated stop"):
+    def fail_second_publication(self, recording_id, item):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("simulated partial publication")
+        return original_publish(self, recording_id, item)
+
+    monkeypatch.setattr(RecordingHistoryStore, "publish", fail_second_publication)
+    with pytest.raises(OSError, match="partial publication"):
         lineage.finish(
             "lineage-run",
             inputs=inputs,
@@ -420,13 +430,184 @@ def test_terminal_lineage_history_recovers_source_to_index_gap(tmp_path: Path, m
     outbox = store.root / ".lineage-history-outbox" / "recording-01.json"
     assert outbox.is_file()
     record = json.loads((store.root / ".lineage-runs" / "lineage-run.json").read_text())
-    item_key = lineage._history_edge_items(record)[0].item_key
-    lineage.reconcile_history_outbox("recording-01")
+    item_keys = [item.item_key for item in lineage._history_edge_items(record)]
+    retry = lineage.finish(
+        "lineage-run",
+        inputs=inputs,
+        outputs=[],
+        status="failed",
+        run_kind="processor",
+        result=None,
+        processor=PROCESSOR,
+        context={"recording_id": "recording-01"},
+        failure={"message": "fixture"},
+    )
+    assert retry == record
     history = RecordingHistoryStore(store.root.parent)
-    item = history.read_item("recording-01", "lineage_edges", item_key)
-    assert item.item_kind == "lineage_edge"
+    assert all(
+        history.read_item("recording-01", "lineage_edges", key).item_kind == "lineage_edge"
+        for key in item_keys
+    )
     assert not outbox.exists()
     lineage.reconcile_history_outbox("recording-01")
+
+
+def test_terminal_lineage_retry_rejects_corrupt_intent(tmp_path: Path):
+    from dokodetector_backend.recording_history_store import RecordingHistoryStore
+
+    store = PipelineNodeStore(tmp_path / "operations" / "pipeline-nodes")
+    lineage = PipelineLineage(store)
+    run_id = "lineage-corrupt"
+    inputs = [artifact("recording-video/recording-01", "a", "recording_video")]
+    PipelineNodeUses(store).accept(run_id, [])
+    context = {"recording_id": "recording-01"}
+    lineage.start(run_id, inputs=inputs, run_kind="processor", processor=PROCESSOR, context=context)
+    original_publish = RecordingHistoryStore.publish
+
+    def stop(*_args, **_kwargs):
+        raise OSError("simulated publication stop")
+
+    RecordingHistoryStore.publish = stop
+    try:
+        with pytest.raises(OSError):
+            lineage.finish(
+                run_id,
+                inputs=inputs,
+                outputs=[],
+                status="failed",
+                run_kind="processor",
+                result=None,
+                processor=PROCESSOR,
+                context=context,
+                failure={"message": "fixture"},
+            )
+    finally:
+        RecordingHistoryStore.publish = original_publish
+    outbox = store.root / ".lineage-history-outbox" / "recording-01.json"
+    intent = json.loads(outbox.read_text())
+    intent["items"][0]["role"] = "tampered"
+    outbox.write_text(json.dumps(intent, sort_keys=True, separators=(",", ":")))
+    with pytest.raises(ValueError, match="digest mismatch"):
+        lineage.finish(
+            run_id,
+            inputs=inputs,
+            outputs=[],
+            status="failed",
+            run_kind="processor",
+            result=None,
+            processor=PROCESSOR,
+            context=context,
+            failure={"message": "fixture"},
+        )
+    assert outbox.exists()
+
+
+def test_lineage_recovery_clears_uncommitted_intent_and_rejects_nonregular_source(
+    tmp_path: Path, monkeypatch
+):
+    import dokodetector_backend.pipeline_lineage as lineage_module
+
+    store = PipelineNodeStore(tmp_path / "operations" / "pipeline-nodes")
+    lineage = PipelineLineage(store)
+    run_id = "lineage-before-source"
+    inputs = [artifact("recording-video/recording-01", "a", "recording_video")]
+    PipelineNodeUses(store).accept(run_id, [])
+    context = {"recording_id": "recording-01"}
+    lineage.start(run_id, inputs=inputs, run_kind="processor", processor=PROCESSOR, context=context)
+    original_atomic_write_json = lineage_module.atomic_write_json
+    run_path = lineage.root / f"{run_id}.json"
+
+    def stop_before_source(path, value, **kwargs):
+        if path == run_path:
+            raise OSError("simulated stop before source commit")
+        return original_atomic_write_json(path, value, **kwargs)
+
+    monkeypatch.setattr(lineage_module, "atomic_write_json", stop_before_source)
+    with pytest.raises(OSError, match="before source commit"):
+        lineage.finish(
+            run_id,
+            inputs=inputs,
+            outputs=[],
+            status="failed",
+            run_kind="processor",
+            result=None,
+            processor=PROCESSOR,
+            context=context,
+            failure={"message": "fixture"},
+        )
+    outbox = store.root / ".lineage-history-outbox" / "recording-01.json"
+    assert outbox.exists()
+    lineage.reconcile_history_outbox("recording-01")
+    assert not outbox.exists()
+
+    run_path.parent.mkdir(parents=True, exist_ok=True)
+    os.mkfifo(run_path)
+    monkeypatch.setattr(lineage_module, "atomic_write_json", original_atomic_write_json)
+    # Re-create an intent to make the named FIFO a recovery source candidate.
+    intent = json.loads((lineage.requests / f"{run_id}.json").read_text())
+    fake_record = {
+        **intent,
+        "outputs": [],
+        "status": "failed",
+        "result": None,
+        "failure": {"message": "fixture"},
+        "finished_at": "2026-01-01T00:00:00Z",
+    }
+    lineage._write_lineage_history_outbox("recording-01", fake_record)
+    with pytest.raises(ValueError, match="regular file"):
+        lineage.reconcile_history_outbox("recording-01")
+
+
+def test_lineage_recovery_rejects_mismatched_or_missing_committed_source(
+    tmp_path: Path, monkeypatch
+):
+    from dokodetector_backend.recording_history_store import RecordingHistoryStore
+
+    store = PipelineNodeStore(tmp_path / "operations" / "pipeline-nodes")
+    lineage = PipelineLineage(store)
+    run_id = "lineage-corrupt-source"
+    inputs = [
+        artifact("recording-video/recording-01", "a", "recording_video"),
+        artifact("recording-metadata/recording-01", "b", "recording_metadata"),
+    ]
+    PipelineNodeUses(store).accept(run_id, [])
+    context = {"recording_id": "recording-01"}
+    lineage.start(run_id, inputs=inputs, run_kind="processor", processor=PROCESSOR, context=context)
+    original_publish = RecordingHistoryStore.publish
+    calls = 0
+
+    def publish_one_then_fail(self, recording_id, item):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("simulated partial publication")
+        return original_publish(self, recording_id, item)
+
+    monkeypatch.setattr(RecordingHistoryStore, "publish", publish_one_then_fail)
+    with pytest.raises(OSError, match="partial publication"):
+        lineage.finish(
+            run_id,
+            inputs=inputs,
+            outputs=[],
+            status="failed",
+            run_kind="processor",
+            result=None,
+            processor=PROCESSOR,
+            context=context,
+            failure={"message": "fixture"},
+        )
+    monkeypatch.setattr(RecordingHistoryStore, "publish", original_publish)
+    source = lineage.root / f"{run_id}.json"
+    original_source = source.read_bytes()
+    corrupt = json.loads(original_source)
+    corrupt["result"] = "nonempty"
+    source.write_text(json.dumps(corrupt, sort_keys=True, separators=(",", ":")))
+    with pytest.raises(ValueError, match="source does not match"):
+        lineage.reconcile_history_outbox("recording-01")
+    source.write_bytes(original_source)
+    source.unlink()
+    with pytest.raises(ValueError, match="published lineage source is missing"):
+        lineage.reconcile_history_outbox("recording-01")
 
 
 def test_two_process_lineage_publishers_keep_both_recording_edges(tmp_path: Path):

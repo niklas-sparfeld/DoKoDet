@@ -147,6 +147,8 @@ class PipelineLineage:
         path = contained_path(self.history_outbox, f"{recording_id}.json")
         if path.is_symlink():
             raise ValueError("lineage history outbox cannot be a symlink")
+        if path.exists() and not stat.S_ISREG(path.lstat().st_mode):
+            raise ValueError("lineage history outbox must be a regular file")
         current = _read_json(path) if path.exists() else None
         if current is not None and current != payload:
             # A single pending intent is sufficient: finish replays it before accepting another.
@@ -202,6 +204,8 @@ class PipelineLineage:
                 path.unlink()
                 _sync_directory(path.parent)
                 return
+            if not stat.S_ISREG(run_path.lstat().st_mode):
+                raise ValueError("lineage run source must be a regular file")
             record = _read_json(run_path)
             digest = hashlib.sha256(
                 json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
@@ -365,9 +369,16 @@ class PipelineLineage:
         path = contained_path(self.root, f"{run_id}.json")
         with self.store.transaction_lock():
             if path.exists():
+                if path.is_symlink() or not stat.S_ISREG(path.lstat().st_mode):
+                    raise ValueError("lineage run source must be a regular file")
                 previous = _read_json(path)
                 if {k: v for k, v in previous.items() if k != "finished_at"} != fields:
                     raise NodeConflict("run ID is already bound to different lineage")
+                recording_id = context_data.get("recording_id")
+                if isinstance(recording_id, str):
+                    self.reconcile_history_outbox(recording_id)
+                    self._write_lineage_history_outbox(recording_id, previous)
+                    self.reconcile_history_outbox(recording_id)
                 return previous
             request = _read_json(contained_path(self.requests, f"{run_id}.json"))
             if (

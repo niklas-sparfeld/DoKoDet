@@ -248,7 +248,7 @@ while history and unrelated recordings grow 10x.
 - Requested run: 14 milestones, starting at M5a; completed: 6; remaining: 8. The cap covers
   M5a, M5b1, M5b2, M5c1–M5c3, and M6–M13. M14–M16 are outside this run.
 - Next: resolve the persisted source and meaning of `candidates` before M6. M5c replan count:
-  1/5; this run replan count: 2/10. M5c3 correction count: 0/2. M5b replan count: 1/5; M5b1 correction
+  1/5; this run replan count: 2/10. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
@@ -321,6 +321,10 @@ while history and unrelated recordings grow 10x.
   recording, Ruff check/format, OpenAPI
   verification, and `git diff --check` passed. No web consumer or schema changed; browser and
   backend type checks do not apply.
+  Correction 1/2 makes identical terminal retries reconcile and republish from the committed run
+  before success. Regressions cover corrupt intent retries, stop before source commit, partial
+  two-edge publication and idempotent retry, mismatched and missing source, FIFO rejection, and
+  recovery through the real history API. The complete focused suite now passes 65 tests.
   See the [M5c3 report](../../reports/0117-M5c3_Lineage_History_Publisher.md). Candidate meaning
   remains unresolved; no candidate source was invented or published. M5 discovery stays incomplete,
   and M6 must wait for that decision. This run is now 6/14 complete, with 8 remaining.

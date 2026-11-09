@@ -23,7 +23,7 @@ retained-state rehearsal.
 
 ## Verification
 
-- `mise exec -- uv run --project backend pytest -q backend/tests/test_pipeline_lineage.py backend/tests/test_pipeline_lineage_writer.py backend/tests/test_recording_history_api.py backend/tests/test_recording_history_store.py` — 61 passed.
+- `mise exec -- uv run --project backend pytest -q backend/tests/test_pipeline_lineage.py backend/tests/test_pipeline_lineage_writer.py backend/tests/test_recording_history_api.py backend/tests/test_recording_history_store.py` — 65 passed after correction 1/2.
 - A simulated stop after terminal source commit and before index publication leaves the outbox;
   explicit replay publishes the exact edge once and clears it. Repeating replay is safe.
 - Two spawned processes publish different terminal runs for one recording; both exact edges remain
@@ -34,6 +34,15 @@ retained-state rehearsal.
 - `cd web && npm run verify:api` — passed. No OpenAPI schema changed.
 - `git diff --check` — passed. Browser and type checks do not apply: there is no web consumer
   change, and the backend has no configured type checker.
+
+## Correction 1/2
+
+An identical terminal-run retry now recovers the pending outbox and republishes the exact items
+from the committed run before it returns success. A retry detects a corrupt intent instead of
+bypassing it. Recovery rejects non-regular run source files before reading them, so a FIFO cannot
+block the reader. Tests cover a stop before source commit, partial publication of a two-edge run,
+idempotent retry, corrupt intent and mismatched source, missing source after partial publication,
+non-regular source rejection, and real history API recovery after source commit.
 
 ## Limits and next work
 

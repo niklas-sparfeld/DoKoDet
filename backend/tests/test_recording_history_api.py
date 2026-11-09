@@ -216,6 +216,56 @@ def test_snapshot_history_page_recovers_durable_source_gap(
     assert app.state.recording_history_store.get_authority(RECORDING).sequence == 1
 
 
+def test_lineage_edge_page_recovers_terminal_run_gap(tmp_path: Path, monkeypatch):
+    app = _create_app(tmp_path)
+    lineage = app.state.pipeline_lineage_service
+    from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
+
+    run_id = "history-lineage-run"
+    inputs = [
+        {
+            "kind": "artifact",
+            "artifact_id": f"recording-video/{RECORDING}",
+            "sha256": DIGEST,
+            "role": "recording_video",
+        }
+    ]
+    processor = {
+        "implementation": {"name": "fixture", "version": "v1"},
+        "model": None,
+        "configuration": {},
+        "policies": {},
+    }
+    context = {"recording_id": RECORDING}
+    PipelineNodeUses(lineage.store).accept(run_id, [])
+    lineage.start(run_id, inputs=inputs, run_kind="processor", processor=processor, context=context)
+    original_publish = RecordingHistoryStore.publish
+
+    def stop_before_index(self, recording_id, item):
+        raise OSError("simulated history outage")
+
+    monkeypatch.setattr(RecordingHistoryStore, "publish", stop_before_index)
+    with pytest.raises(OSError, match="history outage"):
+        lineage.finish(
+            run_id,
+            inputs=inputs,
+            outputs=[],
+            status="failed",
+            run_kind="processor",
+            result=None,
+            processor=processor,
+            context=context,
+            failure={"message": "fixture"},
+        )
+    monkeypatch.setattr(RecordingHistoryStore, "publish", original_publish)
+
+    response = TestClient(app).get(f"/api/recordings/{RECORDING}/state/lineage-edges")
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 1
+    assert response.json()["items"][0]["target"]["run_id"] == run_id
+    assert not (lineage.history_outbox / f"{RECORDING}.json").exists()
+
+
 def test_cursor_tamper_request_binding_and_expiry(tmp_path: Path):
     app = _create_app(tmp_path)
     store: RecordingHistoryStore = app.state.recording_history_store
