@@ -196,7 +196,6 @@ def _history_route(collection: str):
 for _path, _collection_name in (
     ("/history", "snapshots"),
     ("/revisions", "revisions"),
-    ("/candidates", "candidates"),
     ("/lineage-edges", "lineage_edges"),
 ):
     router.add_api_route(

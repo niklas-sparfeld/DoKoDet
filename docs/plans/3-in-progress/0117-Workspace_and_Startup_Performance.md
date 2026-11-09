@@ -39,9 +39,12 @@
   source inspection found no persisted candidate source or candidate-specific selection rule. It
   also found three independent source transaction boundaries. Replan 7 splits M5c into M5c1 node
   revision publication, M5c2 snapshot publication, and M5c3 lineage publication. This keeps the
-  14-slot cap: M14 and M15 move outside this run. The candidate collection remains unresolved; do
-  not alias it to revisions or embedded card proposals. M5 discovery and M6 remain incomplete
-  until its meaning is decided.
+  14-slot cap: M14 and M15 move outside this run. Replan 8 found that `/state/candidates` has no
+  publisher, persisted source, or web consumer. Actual proposal values remain in exact node content
+  or calibration-refinement preview; applying a calibration refinement publishes a calibration
+  revision. M5c4 removes the unsupported generic collection, route, index entry, and contract types
+  while preserving those existing discovery flows. This keeps the 14-slot cap and moves M13 outside
+  this run.
 
 ## Evidence and scope
 
@@ -194,10 +197,11 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M5b | Bounded history API pages over the durable metadata index | Incomplete; split by replan 6 |
 | M5b1 | Ordered cursor-addressable history index with atomic publication and rebuild | Complete; correction 1/2; [report](../../reports/0117-M5b1_Ordered_History_Index.md) |
 | M5b2 | M1-compliant pages, signed cursors, lineage continuation, corruption mapping | Complete; [report](../../reports/0117-M5b2_M1_Compliant_History_Pages.md) |
-| M5c | Source publisher adapters, gap reconciliation, and candidate-source decision | Incomplete; split by replan 7 |
+| M5c | Source publisher adapters, gap reconciliation, and candidate-source decision | Complete; see M5c1–M5c4 reports |
 | M5c1 | Pipeline node revision publisher with bounded crash-gap recovery | Complete; [report](../../reports/0117-M5c1_Node_Revision_History_Publisher.md) |
 | M5c2 | Recording snapshot publisher with bounded crash-gap recovery | Complete; [report](../../reports/0117-M5c2_Recording_Snapshot_History_Publisher.md) |
-| M5c3 | Pipeline lineage run and edge publisher with bounded crash-gap recovery | Complete; [report](../../reports/0117-M5c3_Lineage_History_Publisher.md); candidate meaning remains unresolved |
+| M5c3 | Pipeline lineage run and edge publisher with bounded crash-gap recovery | Complete; [report](../../reports/0117-M5c3_Lineage_History_Publisher.md) |
+| M5c4 | Remove unsupported generic candidate history while preserving exact proposal discovery | Complete; [report](../../reports/0117-M5c4_Candidate_History_Removal.md) |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
 | M8 | Web current-state, history, and explicit HEAD-switch flow | Not started |
@@ -245,10 +249,10 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 6; remaining: 8. The cap covers
-  M5a, M5b1, M5b2, M5c1–M5c3, and M6–M13. M14–M16 are outside this run.
-- Next: resolve the persisted source and meaning of `candidates` before M6. M5c replan count:
-  1/5; this run replan count: 2/10. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
+- Requested run: 14 milestones, starting at M5a; completed: 7; remaining: 7. The cap covers
+  M5a, M5b1, M5b2, M5c1–M5c4, and M6–M12. M13–M16 are outside this run.
+- Next: M6. M5c replan count: 2/5; this run replan count: 3/10. M5c4 correction count:
+  0/2. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
@@ -325,15 +329,16 @@ while history and unrelated recordings grow 10x.
   before success. Regressions cover corrupt intent retries, stop before source commit, partial
   two-edge publication and idempotent retry, mismatched and missing source, FIFO rejection, and
   recovery through the real history API. The complete focused suite now passes 65 tests.
-  See the [M5c3 report](../../reports/0117-M5c3_Lineage_History_Publisher.md). Candidate meaning
-  remains unresolved; no candidate source was invented or published. M5 discovery stays incomplete,
-  and M6 must wait for that decision. This run is now 6/14 complete, with 8 remaining.
-- M5c evidence: no web consumer calls the candidates endpoint. Existing UI candidates are embedded
-  card/identity proposals or comparison values, not exact persisted resources. Competing meanings
-  remain: all pipeline revisions (duplicates `/revisions`), outputs from successful/partial lineage
-  runs, or embedded proposals (not independent exact resources). No meaning is selected. Do not
-  alias candidate pages to revisions. M5c3 lineage publication is complete; discovery remains
-  incomplete until candidate semantics are resolved.
+  See the [M5c3 report](../../reports/0117-M5c3_Lineage_History_Publisher.md). M5c4 removed the
+  unsupported generic collection and completed M5 discovery. The run is 7/14 complete, with 7
+  milestones remaining.
+- M5c evidence and replan 8: code and OpenAPI inspection found no candidate-history publisher,
+  persisted source, or web consumer. Actual proposal values remain discoverable in exact node
+  content and calibration-refinement preview. Applying a calibration refinement materializes a
+  calibration revision, which remains in `/state/revisions`. The generic collection duplicated no
+  defined source and had no defined semantics. M5c4 removes only that unused generic API/index
+  contract. It preserves existing proposal and refinement discovery and makes no human-review
+  claim.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
   selection reads do the same; selection writes take the root lock before their selection lock.

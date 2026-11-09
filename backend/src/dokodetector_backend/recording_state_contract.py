@@ -325,7 +325,6 @@ class HistoryPageCursor(ContractModel):
     collection: Literal[
         "snapshots",
         "revisions",
-        "candidates",
         "lineage_edges",
         "analyses",
         "packages",
@@ -342,7 +341,7 @@ class HistoryPageCursor(ContractModel):
 
     @model_validator(mode="after")
     def validate_job_authority(self) -> HistoryPageCursor:
-        history_collections = {"snapshots", "revisions", "candidates", "lineage_edges"}
+        history_collections = {"snapshots", "revisions", "lineage_edges"}
         if self.collection in history_collections and self.history_generation is None:
             raise ValueError("history cursor must pin the history authority generation")
         if self.collection not in history_collections and self.history_generation is not None:
@@ -434,10 +433,10 @@ class LineageEdgeHistoryItem(ContractModel):
 
 
 class ResourceHistoryItem(ContractModel):
-    """One exact revision or candidate resource in stable history."""
+    """One exact pipeline revision resource in stable history."""
 
     item_kind: Literal["resource"] = "resource"
-    collection: Literal["revisions", "candidates"]
+    collection: Literal["revisions"]
     item_key: Identifier
     resource: ExactResourceRef
     publication_sequence: int = Field(ge=1)
@@ -463,7 +462,7 @@ class RecordingHistoryPage(ContractModel):
 
     schema_version: Literal["recording-history-page/v1"] = RECORDING_HISTORY_PAGE_SCHEMA
     recording_id: Identifier
-    collection: Literal["snapshots", "revisions", "candidates", "lineage_edges"]
+    collection: Literal["snapshots", "revisions", "lineage_edges"]
     upper_bound_sequence: int = Field(ge=0)
     items: list[HistoryItem] = Field(max_length=100)
     next_cursor: str | None = Field(default=None, max_length=8192)
@@ -476,12 +475,11 @@ class RecordingHistoryPage(ContractModel):
         expected_kind = {
             "snapshots": "snapshot",
             "revisions": "resource",
-            "candidates": "resource",
             "lineage_edges": "lineage_edge",
         }[self.collection]
         if any(item.item_kind != expected_kind for item in self.items):
             raise ValueError("history page items must match collection")
-        if self.collection in {"revisions", "candidates"} and any(
+        if self.collection == "revisions" and any(
             isinstance(item, ResourceHistoryItem) and item.collection != self.collection
             for item in self.items
         ):

@@ -923,23 +923,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/recordings/{recording_id}/state/candidates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Recording Candidates History */
-        get: operations["recording_candidates_history_api_recordings__recording_id__state_candidates_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/recordings/{recording_id}/state/events/working-content": {
         parameters: {
             query?: never;
@@ -3390,7 +3373,7 @@ export interface components {
              * Collection
              * @enum {string}
              */
-            collection: "snapshots" | "revisions" | "candidates" | "lineage_edges";
+            collection: "snapshots" | "revisions" | "lineage_edges";
             /** Has More */
             has_more: boolean;
             /** Items */
@@ -3666,14 +3649,14 @@ export interface components {
         };
         /**
          * ResourceHistoryItem
-         * @description One exact revision or candidate resource in stable history.
+         * @description One exact pipeline revision resource in stable history.
          */
         ResourceHistoryItem: {
             /**
              * Collection
-             * @enum {string}
+             * @constant
              */
-            collection: "revisions" | "candidates";
+            collection: "revisions";
             /** Item Key */
             item_key: string;
             /**
@@ -6418,40 +6401,6 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    recording_candidates_history_api_recordings__recording_id__state_candidates_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                cursor?: string | null;
-            };
-            header?: never;
-            path: {
-                recording_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordingHistoryPage"];
                 };
             };
             /** @description Validation Error */

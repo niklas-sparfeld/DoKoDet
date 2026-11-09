@@ -783,7 +783,6 @@ class RecordingHistoryStore:
                 if collection_root.name not in {
                     "snapshots",
                     "revisions",
-                    "candidates",
                     "lineage_edges",
                 }:
                     raise RecordingHistoryCorrupt("history generation has an unknown collection")
@@ -819,7 +818,7 @@ class RecordingHistoryStore:
                 for item in observed
                 if _collection(item) == collection
             )
-            for collection in ("snapshots", "revisions", "candidates", "lineage_edges")
+            for collection in ("snapshots", "revisions", "lineage_edges")
         }
         if indexed_entries != expected_entries:
             raise RecordingHistoryCorrupt("history order index does not match its metadata")

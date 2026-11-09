@@ -126,22 +126,16 @@ def test_lineage_order_continues_on_full_composite_key(tmp_path: Path):
     assert traversed[0].target.artifact_id == "evidence-package/package-1"
 
 
-def test_revision_and_candidate_indexes_sort_by_exact_resource_identity(tmp_path: Path):
+def test_revision_index_sorts_by_exact_resource_identity(tmp_path: Path):
     store = RecordingHistoryStore(tmp_path)
     store.publish("recording-1", _resource("revision-z", "rev-z"))
     store.publish("recording-1", _resource("revision-a", "rev-a"))
-    store.publish("recording-1", _resource("candidate-z", "candidate-z", "candidates"))
-    store.publish("recording-1", _resource("candidate-a", "candidate-a", "candidates"))
     authority = store.get_authority("recording-1")
 
     _, revisions, _ = store.ordered_page(
         "recording-1", "revisions", upper_bound_sequence=authority.sequence, limit=10
     )
-    _, candidates, _ = store.ordered_page(
-        "recording-1", "candidates", upper_bound_sequence=authority.sequence, limit=10
-    )
     assert [item.resource.resource_id for item in revisions] == ["rev-a", "rev-z"]
-    assert [item.resource.resource_id for item in candidates] == ["candidate-a", "candidate-z"]
 
 
 def test_ordered_page_rejects_a_missing_index_node(tmp_path: Path):

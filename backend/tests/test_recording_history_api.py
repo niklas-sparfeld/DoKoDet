@@ -145,7 +145,6 @@ def test_all_collections_use_collection_specific_stable_order(tmp_path: Path):
     paths = {
         "snapshots": "history",
         "revisions": "revisions",
-        "candidates": "candidates",
         "lineage_edges": "lineage-edges",
     }
     for collection, path in paths.items():
@@ -164,6 +163,7 @@ def test_all_collections_use_collection_specific_stable_order(tmp_path: Path):
             for item in items
         ]
         assert keys == sorted(keys)
+    assert client.get(f"/api/recordings/{RECORDING}/state/candidates").status_code == 404
 
 
 def test_snapshot_history_page_recovers_durable_source_gap(

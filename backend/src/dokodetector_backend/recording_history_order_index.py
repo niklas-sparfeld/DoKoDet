@@ -16,7 +16,7 @@ from dokodetector_backend.recording_state_contract import (
     SnapshotHistoryItem,
 )
 
-_COLLECTIONS = ("snapshots", "revisions", "candidates", "lineage_edges")
+_COLLECTIONS = ("snapshots", "revisions", "lineage_edges")
 _ROOT_SCHEMA = "recording-history-order-root/v1"
 _NODE_SCHEMA = "recording-history-order-node/v1"
 
