@@ -229,7 +229,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M6a | Durable Job Manager authority and journaled job-record transitions | Complete; [report](../../reports/0117-M6a_Job_Projection_Authority.md) |
 | M6b | Bounded active-job projections over the M6a authority | Incomplete; split by replan 10 |
 | M6b1 | Bounded incremental per-recording job-index publication and recovery | Complete for index publication; no end-to-end transition bound claimed; correction 1/2; [report](../../reports/0117-M6b1_Job_Index_Publication.md) |
-| M6b1a | Durable ordered queue authority, per-job transition deltas, and explicit startup repair | Incomplete after correction 2/2; [report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) |
+| M6b1a | Durable ordered queue authority, per-job transition deltas, and explicit startup repair | Complete; [report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) |
 | M6b1b | Bounded acceptance key, sequence, and parent-step authority with recovery | Not started; depends on M6b1a; acceptance remains unbounded until this milestone |
 | M6b2 | Bounded job pages, explicit rebuild, growth/corruption checks, and active API inventory | Not started; depends on M6b1a and M6b1b |
 | M6c | Bounded analysis and package metadata pages | Not started |
@@ -280,16 +280,28 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 9; remaining: 5. The revised cap
-  covers M5a, M5b1, M5b2, M5c1–M5c4, M6a, M6b1, M6b1a, M6b1b, M6b2, and M6c–M6d. M7–M16 are
-  outside this run.
-- Next: M6b1a. M6b replan count: 3/5; M6b1a correction count: 2/2; M6b1 correction count: 1/2. M6a replan count: 0/5; M6a
-  correction count: 2/2; M5c replan count: 2/5; this run
-  replan count: 7/10. M5c4 correction count:
+- Current run: requested 5 milestones; completed 1 (M6b1a); remaining 4. Cumulative progress is
+  10 of 14 planned milestones. M7–M16 remain outside this run.
+- Next: M6b1b. Current-run re-planning: 0/10 total and 0/5 for M6b1a; correction count: 0/2.
+  The previous run's correction limit does not apply to this run. M6b1a now writes the automated
+  pipeline's current `phase` and pending step before entering `waiting`. Startup recovery resolves
+  only the child intent for that phase. If no child intent exists, it requeues the parent; if the
+  matching child intent is still pending, it keeps the wait while acceptance recovery completes.
+  A terminal child from an earlier phase cannot release the current wait. Targeted crash/restart
+  regressions pass in `backend/tests/test_job_recovery.py`.
+- M6b1a checks in this run: backend job/API/pipeline suite (78 passed), projection authority suite
+  (23 passed), Ruff check and format check passed. The suite reports an existing Starlette/httpx
+  deprecation warning. The earlier M6b1a report records the queue growth, journal-boundary,
+  corruption, concurrency, scheduler, cancellation, and reorder checks. No acceptance or scheduler
+  enumeration bound is claimed; M6b1b and M6b2 own those boundaries.
+- Previous-run history: M6b replan count was 3/5; M6b1a used two correction turns; M6b1
+  correction count was 1/2. M6a replan count was 0/5; M6a
+  correction count was 2/2; M5c replan count was 2/5; previous-run
+  replan count was 7/10. M5c4 correction count:
   0/2. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
-  Current-run M5a correction count: 2/2. M6a completed with authority advances for each durable
+  Previous-run M5a correction count was 2/2. M6a completed with authority advances for each durable
   `job.json` write, journal recovery after restart, pre-write job/authority conflict validation, and
   serialized readers and writers. Correction 1/2 added authority-conflict no-mutation evidence and
   the automated-pipeline writer to the inventory. Checks and the full inventory are in the
@@ -308,19 +320,9 @@ while history and unrelated recordings grow 10x.
   runs explicit queue repair, then removes the imported legacy `queue.json`. Acceptance still scans
   intents for idempotency, sequence, and parent-step uniqueness; M6b1b owns that boundary. Scheduler
   candidate discovery and startup recovery still enumerate their queue or intent sets. Correction
-  1/2 journals the parent waiting-to-queued tail reorder with the parent transition and preserves it
-  when restart completes a parent transition after a child terminal commit. Correction 2/2 aligns
-  startup repair with normal child transitions after a terminal child commit. These changes and
-  tests are integrated in commits `323a021c` and `1a6fc590`, but M6b1a is not accepted. Its two
-  corrections reached the limit. The retained tests cover child terminal states, the two reorder crash
-  windows, growth, and concurrent readers/writers. They do not resolve these defects:
-  1. A crash after the parent enters `waiting` but before the first child is accepted leaves the parent
-     waiting permanently.
-  2. A restart during a later wait can requeue the parent based on an old terminal child while the
-     current child remains queued.
-  Recovery needs durable evidence that identifies the current wait and its child transition. The next
-  milestone is M6b1a; the fixed 14-slot cap now has 9 accepted milestones and 5 remaining. M7–M16
-  remain outside this run.
+  Prior corrections journaled the parent waiting-to-queued tail reorder and aligned startup repair
+  with terminal child transitions. Commits `323a021c` and `1a6fc590` contain that work. The previous
+  run left two wait-recovery defects; M6b1a resolved both in this run. See the result and checks above.
 - M5b2 result: complete after the resumed authority-loss fix. The four history routes use M5b1's stable collection order and frozen
   sequence roots. HMAC cursors bind recording, collection, empty-filter digest, generation,
   sequence, full stable key, and page size. The private cursor key and local digest record use
@@ -766,6 +768,11 @@ cancellation, scheduler reads, explicit operator queue moves, and concurrent rea
 is explicit and crash-safe; ordinary job writes must not rebuild global queue state. Keep legacy
 queue/index state unavailable until repair completes. The recovery path may scan authoritative job
 records and intents.
+
+Before an automated pipeline enters `waiting`, persist its current phase and pending step. Recovery
+must use only that phase's child intent. Requeue a parent when that wait has no child intent, retain
+the wait while its matching child acceptance is incomplete, and resolve a terminal child only for
+the current phase. A terminal child from an earlier phase cannot release the current wait.
 
 Checks: prove ordinary job transitions stay bounded as queue, jobs, intents, and unrelated
 recordings grow 10x; inject a crash at each job-journal boundary and verify queue/index recovery,

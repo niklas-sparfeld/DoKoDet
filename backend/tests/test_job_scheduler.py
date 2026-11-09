@@ -129,6 +129,9 @@ def test_waiting_parent_group_keeps_children_and_order_after_restart(tmp_path: P
             },
         ).id
         manager.transition(parent, "running")
+        parent_job = manager.get(parent)
+        parent_job.phase = "one"
+        manager._write_job(parent_job)
         manager.transition(parent, "waiting")
         children = []
         for step in ("one", "two"):
@@ -378,7 +381,13 @@ def test_late_child_joins_moved_group(tmp_path: Path) -> None:
 )
 def test_child_acceptance_recovers_in_parent_group(tmp_path: Path, point: str) -> None:
     participant = FakeParticipant(tmp_path / "domain")
-    with JobManager(tmp_path, participant) as manager:
+    armed = False
+
+    def crash(name: str) -> None:
+        if armed and name == point:
+            raise RuntimeError("crash")
+
+    with JobManager(tmp_path, participant, after_write=crash) as manager:
         parent = manager.accept(
             str(uuid4()),
             {
@@ -388,25 +397,21 @@ def test_child_acceptance_recovers_in_parent_group(tmp_path: Path, point: str) -
             },
         ).id
         manager.transition(parent, "running")
+        parent_job = manager.get(parent)
+        parent_job.phase = "s"
+        manager._write_job(parent_job)
         manager.transition(parent, "waiting")
-    key = str(uuid4())
-    child_request = {
-        "type": "fake",
-        "context": {"recording_id": "r"},
-        "request": {"input": "child"},
-        "parent_id": parent,
-        "parent_step_id": "s",
-    }
-
-    def crash(name: str) -> None:
-        if name == point:
-            raise RuntimeError("crash")
-
-    with (
-        JobManager(tmp_path, participant, after_write=crash) as manager,
-        pytest.raises(RuntimeError, match="crash"),
-    ):
-        manager.accept(key, child_request)
+        key = str(uuid4())
+        child_request = {
+            "type": "fake",
+            "context": {"recording_id": "r"},
+            "request": {"input": "child"},
+            "parent_id": parent,
+            "parent_step_id": "s",
+        }
+        armed = True
+        with pytest.raises(RuntimeError, match="crash"):
+            manager.accept(key, child_request)
     with JobManager(tmp_path, participant) as manager:
         child = manager.accept(key, child_request)
         assert manager.queue().job_ids == [parent]

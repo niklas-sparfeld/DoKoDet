@@ -53,6 +53,9 @@ class JobRecovery:
                 self.operations.finish_intent(intent)
             except (OSError, ValueError, JobStorageError) as error:
                 self.operations.diagnostic(f"intent {intent.job.id}: {error}")
+        # Intent completion can turn an interrupted child acceptance into the
+        # current durable wait target. Re-read before reconciling parent waits.
+        intents = self.operations.intents()
         for intent in intents:
             if not intent.committed:
                 continue
@@ -137,20 +140,44 @@ class JobRecovery:
                 continue
             if parent.type != "automated_pipeline" or parent.state != "waiting":
                 continue
-            children = sorted(
-                (item for item in intents if item.committed and item.job.parent_id == parent.id),
-                key=lambda item: item.sequence,
-            )
-            terminal_children: list[tuple[int, Job]] = []
-            for child_intent in children:
-                child = self.operations.get(child_intent.job.id)
-                if child.state in _TERMINAL:
-                    terminal_children.append((child_intent.sequence, child))
-            if not terminal_children:
+            # `phase` is written before the parent enters waiting. Resolve only that
+            # stage's child. An earlier terminal child must not complete a later wait.
+            waiting_step = next((step for step in parent.steps if step.id == parent.phase), None)
+            current_children = [
+                item
+                for item in intents
+                if item.job.parent_id == parent.id and item.job.parent_step_id == parent.phase
+            ]
+            if len(current_children) > 1:
+                self.operations.diagnostic(
+                    f"pipeline {parent.id} has multiple children for waiting stage {parent.phase}"
+                )
                 continue
-            _, terminal_child = max(
-                terminal_children, key=lambda item: (item[1].updated_at, item[0])
-            )
+            child_intent = current_children[0] if current_children else None
+            if child_intent is not None and not child_intent.committed:
+                # Keep the exact wait while acceptance recovery finishes this child.
+                continue
+            if (
+                child_intent is not None
+                and waiting_step is not None
+                and waiting_step.child_job_id not in {None, child_intent.job.id}
+            ):
+                self.operations.diagnostic(
+                    f"pipeline {parent.id} waiting child conflicts with stage {parent.phase}"
+                )
+                continue
+            if child_intent is None:
+                # The parent may have committed its wait before accepting the first
+                # child. Requeue it so the stage can be accepted on the next dispatch.
+                parent.state = "queued"
+                parent.finished_at = None
+                parent.updated_at = _now()
+                parent.revision += 1
+                self.operations.write_job(parent)
+                continue
+            terminal_child = self.operations.get(child_intent.job.id)
+            if terminal_child.state not in _TERMINAL:
+                continue
 
             now = _now()
             parent.state = "cancelled" if terminal_child.state == "cancelled" else "queued"

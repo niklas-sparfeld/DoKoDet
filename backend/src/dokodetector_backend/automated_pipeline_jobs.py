@@ -161,6 +161,14 @@ class AutomatedPipelineJobParticipant:
                         )
             child_key = str(uuid5(NAMESPACE_URL, f"{job.id}:{definition.name}:1"))
             child_request.update({"parent_id": job.id, "parent_step_id": definition.name})
+            # Persist which stage this wait belongs to before the waiting transition.
+            # Recovery can then distinguish a wait with no accepted child from a later
+            # wait whose earlier child already reached a terminal state.
+            current = manager.get(job.id)
+            if not any(item.id == definition.name for item in current.steps):
+                current.steps.append(Step(id=definition.name, label=definition.name))
+            current.phase = definition.name
+            manager._write_job(current)
             manager.transition(job.id, "waiting")
             child = manager.accept(child_key, child_request)
             current = manager.get(job.id)

@@ -68,3 +68,32 @@ repair still enumerate the full queue or intent set; M6b2 owns bounded active-jo
 
 No HTTP or web contract changed. M6b1a does not claim bounded acceptance or bounded scheduler
 candidate enumeration. See M6b1b and M6b2 for those remaining boundaries.
+
+## Resumed run completion
+
+Date: 2026-11-09
+
+The current run resolved both wait-recovery defects. `AutomatedPipelineJobHandler` now writes the
+current phase and pending step before it transitions the parent to `waiting`. Startup recovery
+resolves only the intent whose `parent_step_id` matches that phase. If the wait has no child intent,
+recovery requeues the parent so it can accept the stage. If the matching intent is still uncommitted,
+recovery leaves the parent waiting while it completes acceptance. A terminal child from an earlier
+phase cannot release the current wait. The recovery path re-reads intents after completing pending
+acceptance intents, so it uses current durable intent state.
+
+Regression evidence covers a crash after the parent enters `waiting` before its first child exists,
+and a restart during a later wait with an earlier succeeded child and a current queued child. Existing
+terminal-child crash recovery now names the current phase child.
+
+Checks in this run:
+
+- `cd backend && uv run pytest -q tests/test_job_*.py tests/test_jobs_api.py tests/test_automated_pipeline_jobs.py` — passed, 78 tests.
+- `cd backend && uv run pytest -q tests/test_job_projection_authority.py` — passed, 23 tests, including 20/200 sibling growth, 20/200 unrelated-job growth, concurrent readers, journal recovery, and queue integrity cases.
+- `cd backend && uv run ruff check src/dokodetector_backend/job_recovery.py src/dokodetector_backend/automated_pipeline_jobs.py tests/test_job_recovery.py tests/test_job_scheduler.py` — passed.
+- `cd backend && uv run ruff format --check src/dokodetector_backend/job_recovery.py src/dokodetector_backend/automated_pipeline_jobs.py tests/test_job_recovery.py tests/test_job_scheduler.py` — passed.
+
+The test client reports the existing Starlette/httpx deprecation warning. No API or browser contract
+changed. Acceptance still scans intents, and scheduler and startup recovery still enumerate queue and
+intent sets. The current five-milestone run has M6b1a complete, four remaining, and 0/10 total
+re-plannings (0/5 for M6b1a). The next milestone is M6b1b. The previous run's two-correction limit
+does not apply to this run.

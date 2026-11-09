@@ -10,7 +10,7 @@ import pytest
 from support.job_participants import FakeParticipant
 
 import dokodetector_backend.job_persistence as job_persistence_module
-from dokodetector_backend.job_models import JobConflict, JobOwnershipError, JobStorageError
+from dokodetector_backend.job_models import JobConflict, JobOwnershipError, JobStorageError, Step
 from dokodetector_backend.job_recovery import JobRecovery
 from dokodetector_backend.job_store import JobManager
 
@@ -150,6 +150,10 @@ def test_waiting_parent_recovery_matches_child_terminal_transition(
                 "parent_step_id": "next",
             },
         )
+        parent_job = manager.get(parent.id)
+        parent_job.phase = "first"
+        parent_job.steps.append(Step(id="first", label="first", child_job_id=child.id))
+        manager._write_job(parent_job)
         child_id = child.id
         manager.transition(child.id, "running")
         if child_terminal_state == "cancelled":
@@ -165,6 +169,85 @@ def test_waiting_parent_recovery_matches_child_terminal_transition(
             assert manager.queue().job_ids == [other.id]
         else:
             assert manager.queue().job_ids == [other.id, parent.id]
+
+
+def test_waiting_parent_without_current_child_is_requeued_after_restart(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    parent_id = None
+    armed = False
+
+    def crash(point: str) -> None:
+        if armed and point == "job_transition_committed":
+            job = json.loads((tmp_path / "jobs" / parent_id / "job.json").read_text())
+            if job["state"] == "waiting":
+                raise RuntimeError("crash after waiting commit")
+
+    with JobManager(tmp_path, participant, after_write=crash) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "r1"},
+                "request": {"input": "parent"},
+            },
+        )
+        parent_id = parent.id
+        manager.transition(parent.id, "running")
+        parent = manager.get(parent.id)
+        parent.phase = "first"
+        parent.steps.append(Step(id="first", label="first"))
+        manager._write_job(parent)
+        armed = True
+        with pytest.raises(RuntimeError, match="crash after waiting commit"):
+            manager.transition(parent.id, "waiting")
+
+    with JobManager(tmp_path, participant) as manager:
+        assert manager.get(parent_id).state == "queued"
+        assert manager.queue().job_ids == [parent_id]
+
+
+def test_waiting_recovery_uses_current_stage_child_only(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "r1"},
+                "request": {"input": "parent"},
+            },
+        )
+        manager.transition(parent.id, "running")
+        manager.transition(parent.id, "waiting")
+        first = manager.accept(
+            str(uuid4()),
+            {**request(), "parent_id": parent.id, "parent_step_id": "first"},
+        )
+        parent = manager.get(parent.id)
+        parent.steps.append(Step(id="first", label="first", child_job_id=first.id))
+        parent.phase = "first"
+        manager._write_job(parent)
+        manager.transition(first.id, "running")
+        manager.transition(first.id, "succeeded")
+
+        manager.transition(parent.id, "running")
+        parent = manager.get(parent.id)
+        parent.steps.append(Step(id="second", label="second"))
+        parent.phase = "second"
+        manager._write_job(parent)
+        manager.transition(parent.id, "waiting")
+        second = manager.accept(
+            str(uuid4()),
+            {**request(), "parent_id": parent.id, "parent_step_id": "second"},
+        )
+        parent = manager.get(parent.id)
+        next(step for step in parent.steps if step.id == "second").child_job_id = second.id
+        manager._write_job(parent)
+
+    with JobManager(tmp_path, participant) as manager:
+        assert manager.get(first.id).state == "succeeded"
+        assert manager.get(second.id).state == "queued"
+        assert manager.get(parent.id).state == "waiting"
 
 
 def test_invalid_intent_blocks_dispatch_and_acceptance(tmp_path: Path) -> None:

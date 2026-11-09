@@ -244,6 +244,9 @@ def test_restart_resumes_an_accepted_child_without_duplicate_creation(tmp_path: 
         participant.handle(
             parent, Claims(), type("Token", (), {"check": lambda _self: None})(), manager
         )
+        parent = manager.get(parent.id)
+        assert parent.phase == "event_proposals"
+        assert parent.steps[0].child_job_id is not None
         before = [job for job in manager.list_jobs() if job.parent_id == parent.id]
         assert len(before) == 1
 
