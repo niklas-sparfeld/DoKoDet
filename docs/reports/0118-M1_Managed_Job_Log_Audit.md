@@ -56,7 +56,9 @@ that M1–M3 can safely establish.
 ## Checks
 
 - `mise exec -- uv run --project backend pytest -q backend/tests/test_job_recovery.py` — passed,
-  13 tests, including the new deterministic managed-job log lifecycle case.
+  13 tests, including the deterministic managed-job log lifecycle case. The test pauses an
+  append before atomic replacement, reads and checks the old complete snapshot during that pause,
+  then releases the writer and checks the new complete snapshot before restart.
 - Exact source cross-reference: `config.py`, `job_store.py`, `job_persistence.py`,
   `job_models.py`, `job_recovery.py`, `jobs_api.py`, and the backend job tests.
 - Root check: runtime `Settings()` resolved to this checkout's `data/operations`; its `jobs`

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from threading import Barrier
+from threading import Event
 from uuid import uuid4
 
 import pytest
 from support.job_participants import FakeParticipant
 
+import dokodetector_backend.job_persistence as job_persistence_module
 from dokodetector_backend.job_models import JobConflict, JobOwnershipError, JobStorageError
 from dokodetector_backend.job_recovery import JobRecovery
 from dokodetector_backend.job_store import JobManager
@@ -99,7 +100,9 @@ def test_recovery_requires_manager_ownership(tmp_path: Path) -> None:
     assert not (tmp_path / "jobs" / "queue.json").exists()
 
 
-def test_job_logs_survive_active_terminal_concurrent_read_and_restart(tmp_path: Path) -> None:
+def test_job_logs_survive_active_terminal_concurrent_read_and_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     participant = FakeParticipant(tmp_path / "domain")
     with JobManager(tmp_path, participant) as manager:
         job = manager.accept(str(uuid4()), request())
@@ -108,25 +111,46 @@ def test_job_logs_survive_active_terminal_concurrent_read_and_restart(tmp_path: 
         assert manager.get(job.id).state == "running"
         assert manager.logs(job.id)["entries"][-1].code == "active_marker"
 
-        barrier = Barrier(2)
+        replace_started = Event()
+        allow_replace = Event()
+        read_completed = Event()
+        atomic_replace_json = job_persistence_module.atomic_replace_json
+
+        def pause_log_replace(path: Path, payload: object) -> None:
+            is_inflight_log = (
+                isinstance(payload, list)
+                and bool(payload)
+                and payload[-1]["code"] == "inflight_marker"
+            )
+            if Path(path).name == "logs.json" and is_inflight_log:
+                replace_started.set()
+                if not allow_replace.wait(timeout=5):
+                    raise TimeoutError("test did not release the log replacement")
+            atomic_replace_json(path, payload)
+
+        monkeypatch.setattr(job_persistence_module, "atomic_replace_json", pause_log_replace)
 
         def append_batch() -> None:
-            barrier.wait()
-            for index in range(128):
-                manager.append_log(job.id, "concurrent", str(index))
+            manager.append_log(job.id, "inflight_marker", "replacement pending")
 
-        def read_pages() -> None:
-            barrier.wait()
-            for _ in range(256):
-                page = manager.logs(job.id, after=0, limit=500)
-                sequences = [entry.sequence for entry in page["entries"]]
-                assert sequences == sorted(set(sequences))
+        def read_snapshot():
+            page = manager.logs(job.id, after=0, limit=500)
+            read_completed.set()
+            return page
 
         with ThreadPoolExecutor(max_workers=2) as pool:
             writer = pool.submit(append_batch)
-            reader = pool.submit(read_pages)
+            try:
+                assert replace_started.wait(timeout=5)
+                reader = pool.submit(read_snapshot)
+                assert read_completed.wait(timeout=5)
+                visible_during_append = reader.result()
+                assert visible_during_append["entries"][-1].code == "active_marker"
+            finally:
+                allow_replace.set()
             writer.result()
-            reader.result()
+            visible_after_append = manager.logs(job.id, after=0, limit=500)
+            assert visible_after_append["entries"][-1].code == "inflight_marker"
 
         manager.transition(job.id, "succeeded")
         terminal_logs = manager.logs(job.id, after=0, limit=500)
@@ -137,4 +161,4 @@ def test_job_logs_survive_active_terminal_concurrent_read_and_restart(tmp_path: 
         assert restarted.get(job.id).state == "succeeded"
         entries = restarted.logs(job.id, after=0, limit=500)["entries"]
         assert entries[-1].code == "job_succeeded"
-        assert sum(entry.code == "concurrent" for entry in entries) == 128
+        assert sum(entry.code == "inflight_marker" for entry in entries) == 1
