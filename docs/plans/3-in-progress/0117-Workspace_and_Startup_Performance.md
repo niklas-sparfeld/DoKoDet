@@ -12,8 +12,11 @@
   and current-workspace reads independent of retained history. Load history on demand. Reduce
   measured delay while preserving exact inputs, human work, and recovery.
 - **Planning decision:** On 2026-11-08, the user requested this plan after discussing history reads
-  as a cause of slow operations. This revised the unstarted plan. M0–M4 execution is now complete
-  as recorded below.
+  as a cause of slow operations. This revised the unstarted plan. M0–M3 are complete. On
+  2026-11-09, the M4 review found that exact node revision reads still traverse parent history.
+  Replan 1 splits M4 into M4a, which defines and proves durable node revision publication authority,
+  and M4b, which completes the real-API workflow. This split uses two of the current run's 13
+  milestone slots. M16 will remain after the run limit unless the user authorizes another run.
 
 ## Evidence and scope
 
@@ -159,7 +162,8 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
 | M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
-| M4 | One real API workflow with replaced selection discovery disabled | In progress; [report](../../reports/0117-M4_Real_API_Workflow.md) |
+| M4a | Durable node revision publication authority and bounded direct reads | In progress; this run |
+| M4b | One real API workflow with replaced selection discovery disabled and no parent traversal | Not started; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
@@ -208,34 +212,33 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M3; completed: 1; remaining: 13. The run stopped after two M4 correction turns.
-- M4 changes: added state initialization, current-state, explicit selection, and exact snapshot-read
-  routes, including a selected-working-content editor that publishes its saved output into the
-  generated selection. The route rejects a body recording ID that differs from its path. The proof
-  changes current selection after freezing inputs, then derives output from the frozen exact revision.
-  It rejects source-reference and digest mismatches before publishing output. Fail-fast guards block
-  legacy selection, full history/catalog, global revision, and old workspace/status discovery across
-  the workflow and restart. Exact reads verify parent-chain reachability without materializing a
-  history list. A concurrent reader and dependent-use check cover the revision-before-HEAD window;
-  crash evidence confirms orphan revisions cannot be read, reviewed, or accepted for use; cleanup
-  also preserves any orphan with existing dependent records. The editor preserves the completed
-  reference and independent decisions while updating selected generated content.
-  See the [M4 report](../../reports/0117-M4_Real_API_Workflow.md).
-- Checks: 70 recording-state and node-store, edit, review, and use tests passed. Ruff check, Ruff
-  format check, generated API, API parity, Markdown links, and `git diff --check` passed. The test
-  has one existing Starlette `httpx` deprecation warning. No browser check applies because no web
-  consumer changed.
-- Decisions and limits: the deterministic producer is a test adapter that writes through the
-  production immutable node store. Production processor launch, catalog, workspace, and review
-  writers remain unchanged. The proof uses disposable storage; retained-state conversion and
-  activation remain later milestones. M3 journal recovery, immutable snapshots, and orphan behavior
-  remain as reported in the [M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md).
-- Outstanding review finding: `read_published_revision` walks parent links from node HEAD to
-  the requested revision. Frozen-input resolution and selected editing therefore perform implicit
-  history traversal. Define and prove direct durable publication authority that rejects orphans,
-  covers crash and concurrent readers, and does not traverse parents as history grows. The two
-  M4 correction turns in this run are exhausted; M5 must wait.
-- Next: replan and complete M4 in a new authorized run. Run count: 1 complete, 13 remaining.
+- Requested run: 13 milestones, starting at M4a; completed: 0; remaining: 13. The cap remains 13
+  after the M4 split. It covers M4a, M4b, and M5–M15; M16 remains outside this run.
+- Current milestone: M4a. Replan count: 1/5 for M4a; 1/10 for this run.
+- M4a contract: each supported node revision writer must durably commit exact revision authority.
+  Exact reads validate that authority and the revision identity/content digest, then read that one
+  revision without reading parent revisions. A revision written before publication but missing
+  committed authority is an orphan and must be rejected. Authority and HEAD writes must have a
+  documented commit point, stale-writer behavior, atomicity, cross-process read freshness, and
+  recovery after process death. Identify and cover `PipelineNodeStore.create`/`save`, coordinated
+  node transactions, and any route or processor writer that publishes node revisions. Add a growth
+  check showing the number of parent reads stays zero as history grows. Test concurrent readers and
+  writers separately from crash/restart recovery. Use disposable storage only.
+- M4a retained-state decision: do not rewrite retained data or activate the new authority path.
+  M12 must rehearse authority creation for retained revisions, preserve exact review/use dependencies,
+  identify any record that cannot be proven, and include it in the frozen activation/recovery
+  evidence. Do not infer authority from an unvalidated revision directory or parent chain at runtime.
+- M4a observable result and commit boundary: durable authority for the named writer set, direct exact
+  reads with orphan rejection, multi-process freshness and writer conflict evidence, separate
+  crash/restart evidence, zero parent reads under history growth, tests, report, and plan updates.
+- M4b remains a separate milestone and commit. Adapt the existing disposable real-API vertical
+  workflow to use M4a authority, keep legacy selection/history discovery disabled, and prove frozen
+  inputs, selection/editing, independent reviews, stale writes, older snapshot reads, and restart.
+  Do not combine M4b with M5 historical metadata discovery.
+- Existing M4 implementation and its 70-test/check evidence are recorded in the
+  [M4 report](../../reports/0117-M4_Real_API_Workflow.md); they do not complete M4b because exact
+  revision reads still follow parent links. No M4a implementation or checks have started.
+- Next: implement M4a only. After M4a completes, M4b is next. Run count: 0 complete, 13 remaining.
 
 ## M1 — Define current-state operation contracts
 
@@ -312,16 +315,35 @@ replacement, restart, and summary-freshness results. The injected process death 
 termination during the atomic JSON replacement itself. This proves the file store only; API and
 retained-data activation remain later milestones.
 
-## M4 — Prove one complete replacement workflow
+## M4a — Define and implement node revision publication authority
+
+Add the glossary term [node revision publication authority](../../glossary.md#node-revision-publication-authority).
+Inventory every active node revision writer and exact reader from M0 and update the inventory with
+the new authority record, writer, and verification check. Specify the authority record identity,
+digest, commit point, concurrency behavior, freshness, atomicity, orphan behavior, and recovery.
+Cover `PipelineNodeStore.create` and `save`, coordinated node transactions, and every other active
+node-revision publisher. Exact reads must validate one authority record and one revision; they must
+not load the node HEAD or traverse parent revisions. Published revisions remain directly readable
+after HEAD advances. An uncommitted orphan without authority is rejected. Do not change production
+reader routing or convert retained data in this milestone.
+
+Checks: direct exact reads over growing history with zero parent reads; orphan and corrupt authority
+rejection; concurrent readers and writers in separate processes; stale writer rejection; injected
+process death at each durable boundary followed by restart and recovery; supported writer inventory;
+and affected backend lint/format/type/API checks. Commit: authority contract and store implementation,
+tests, report, board, and plan. M4b depends on this result.
+
+## M4b — Prove one complete replacement workflow
 
 Use real APIs/services and disposable storage to create/select events, produce a deterministic
 output from frozen inputs, create independent review work, edit/save selected working content,
 read HEAD/current state, inspect an older revision, and restart. Disable old selection/history
-discovery in this proof. Add only the minimum producer/editor adapter needed for this vertical slice.
+discovery in this proof. Use M4a publication authority for every exact node revision read, with no
+parent traversal. Add only the minimum producer/editor adapter needed for this vertical slice.
 
 Checks: exact persisted content, selected generated/reference pointers, independent decisions,
 copy-on-edit, frozen inputs, stale update rejection, and restart. Commit: vertical slice and report.
-Do not begin broad conversion until this proof passes.
+Do not begin broad conversion until this proof passes. Keep M5 bounded historical discovery separate.
 
 ## M5 — Add bounded historical discovery
 

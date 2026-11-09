@@ -145,6 +145,13 @@ change replaces this pointer with a concurrency check. Recording HEAD is separat
 data node's latest saved revision and from the lineage selection currently inspected by one
 operator. Historical snapshots and data revisions remain addressable when HEAD changes.
 
+### Node revision publication authority
+
+Durable evidence that a pipeline data node revision was committed by a supported writer. It allows
+an exact revision read without following parent revisions. It is separate from the node's current
+HEAD: a published revision can remain readable after HEAD advances. A revision directory without
+this evidence is an orphan and cannot be used as a published input.
+
 ### Data revision
 
 One immutable saved version of a pipeline data set. It records content, source references, coverage,
