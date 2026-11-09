@@ -52,6 +52,8 @@ from dokodetector_backend.pipeline_composition import (
 from dokodetector_backend.pipeline_run_preflight import validate_local_stage_providers
 from dokodetector_backend.proposed_card_scene_jobs import ProposedCardSceneJobParticipant
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
+from dokodetector_backend.recording_state_api import router as recording_state_router
+from dokodetector_backend.recording_state_store import RecordingStateSnapshotStore
 from dokodetector_backend.recording_thumbnail import RecordingThumbnailCache
 from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
@@ -126,6 +128,7 @@ def create_app(
     )
     app.state.storage = EvidenceStorage(app_settings.evidence_root)
     app.state.operations_storage = EvidenceStorage(app_settings.operations_root)
+    app.state.recording_state_store = RecordingStateSnapshotStore(app_settings.operations_root)
     app.state.round_analysis_storage = RoundAnalysisArtifactStorage(app_settings.operations_root)
     app.state.round_analysis_store = RoundAnalysisStore(app.state.round_analysis_storage)
     app.state.evidence_package_storage = EvidencePackageStorage(
@@ -393,6 +396,7 @@ def create_app(
     app.include_router(pending_video_router)
     app.include_router(round_analysis_router)
     app.include_router(recordings_router)
+    app.include_router(recording_state_router)
     app.include_router(pipeline_router)
     app.include_router(frame_review_router)
     _mount_frontend(app, app_settings.frontend_dist)

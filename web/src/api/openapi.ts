@@ -895,6 +895,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recording State
+         * @description Return HEAD and its verified selected snapshot.
+         */
+        get: operations["get_recording_state_api_recordings__recording_id__state_get"];
+        /**
+         * Update Recording State
+         * @description Select or restore an exact snapshot with HEAD compare-and-swap.
+         */
+        put: operations["update_recording_state_api_recordings__recording_id__state_put"];
+        /**
+         * Initialize Recording State
+         * @description Persist and select the first immutable snapshot for a recording.
+         */
+        post: operations["initialize_recording_state_api_recordings__recording_id__state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/state/snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recording Snapshot
+         * @description Read one exact immutable snapshot without discovering history.
+         */
+        get: operations["get_recording_snapshot_api_recordings__recording_id__state_snapshots__snapshot_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -1516,6 +1564,15 @@ export interface components {
             /** Probability */
             probability: number;
         };
+        /**
+         * DependencyRef
+         * @description One exact input used to determine whether a result is stale.
+         */
+        DependencyRef: {
+            resource: components["schemas"]["ExactResourceRef"];
+            /** Role */
+            role: string;
+        };
         /** EmptyBody */
         EmptyBody: Record<string, never>;
         /** EnqueueBody */
@@ -1542,6 +1599,27 @@ export interface components {
             event_time_ms: number;
             /** Evidence Complete */
             evidence_complete: boolean;
+        };
+        /**
+         * ExactResourceRef
+         * @description Address one immutable resource by kind, identity, schema, and digest.
+         */
+        ExactResourceRef: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "pipeline-node-revision" | "table-plane-calibration-revision" | "round-reconstruction-result";
+            /** Node Id */
+            node_id?: string | null;
+            /** Resource Id */
+            resource_id: string;
+            /** Revision Id */
+            revision_id?: string | null;
+            /** Schema Version */
+            schema_version: string;
+            /** Sha256 */
+            sha256: string;
         };
         /** FrameReviewCounts */
         FrameReviewCounts: {
@@ -1654,6 +1732,25 @@ export interface components {
             card: string;
             /** Probability */
             probability: number;
+        };
+        /**
+         * IndependentReviewRef
+         * @description Reference review work without merging it into selected generated state.
+         */
+        IndependentReviewRef: {
+            resource: components["schemas"]["ExactResourceRef"];
+            /** Review Id */
+            review_id: string;
+            /**
+             * Review Kind
+             * @enum {string}
+             */
+            review_kind: "pipeline-review" | "visible-card-review" | "frame-review-workflow";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "draft" | "in_review" | "completed";
         };
         /** JobCapabilities */
         JobCapabilities: {
@@ -3135,6 +3232,23 @@ export interface components {
             video_id: string;
         };
         /**
+         * RecordingHeadUpdate
+         * @description Explicit selection or restore request with optimistic concurrency.
+         */
+        RecordingHeadUpdate: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "select_snapshot" | "restore_snapshot";
+            /** Expected Head Version */
+            expected_head_version: number;
+            /** Recording Id */
+            recording_id: string;
+            /** Snapshot Id */
+            snapshot_id: string;
+        };
+        /**
          * RecordingListResponse
          * @description Recording catalog response.
          */
@@ -3222,6 +3336,30 @@ export interface components {
             table_setup: string | null;
             /** Video Id */
             video_id: string | null;
+        };
+        /**
+         * RecordingStateSnapshot
+         * @description Immutable selected state. Its ID is the digest of canonical content without snapshot_id.
+         */
+        RecordingStateSnapshot: {
+            /** Independent Reviews */
+            independent_reviews?: components["schemas"]["IndependentReviewRef"][];
+            /** Predecessor Snapshot Id */
+            predecessor_snapshot_id?: string | null;
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * Schema Version
+             * @default recording-state-snapshot/v1
+             * @constant
+             */
+            schema_version: "recording-state-snapshot/v1";
+            /** Slots */
+            slots: {
+                [key: string]: components["schemas"]["StageSelection"];
+            };
+            /** Snapshot Id */
+            snapshot_id: string;
         };
         /**
          * RecordingSummary
@@ -3601,6 +3739,30 @@ export interface components {
              * Format: uuid
              */
             session_id: string;
+        };
+        /**
+         * SlotSelection
+         * @description A generated or completed-reference selection, including explicit emptiness/staleness.
+         */
+        SlotSelection: {
+            /** Dependencies */
+            dependencies?: components["schemas"]["DependencyRef"][];
+            resource?: components["schemas"]["ExactResourceRef"] | null;
+            /** Stale Reason */
+            stale_reason?: ("dependency_changed" | "dependency_missing" | "manual_invalidation") | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "empty" | "selected" | "stale";
+        };
+        /**
+         * StageSelection
+         * @description Keep generated output separate from the completed human reference.
+         */
+        StageSelection: {
+            completed_reference: components["schemas"]["SlotSelection"];
+            generated: components["schemas"]["SlotSelection"];
         };
         /** Step */
         Step: {
@@ -5932,6 +6094,145 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PipelineVisualIdentityResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recording_state_api_recordings__recording_id__state_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_recording_state_api_recordings__recording_id__state_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordingHeadUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    initialize_recording_state_api_recordings__recording_id__state_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordingStateSnapshot"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recording_snapshot_api_recordings__recording_id__state_snapshots__snapshot_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

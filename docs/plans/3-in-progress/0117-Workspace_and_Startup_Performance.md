@@ -2,7 +2,7 @@
 
 ## Plan status
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** 0114 complete; [0115](../5-closed/0115-Data_Cleanup.md) M15 qualification and
   final storage map complete. Stabilize any remaining changes to node
   storage, transactions, and isolated storage before implementation. The separate
@@ -12,7 +12,8 @@
   and current-workspace reads independent of retained history. Load history on demand. Reduce
   measured delay while preserving exact inputs, human work, and recovery.
 - **Planning decision:** On 2026-11-08, the user requested this plan after discussing history reads
-  as a cause of slow operations. This revises the unstarted 0117 plan. It does not start execution.
+  as a cause of slow operations. This revised the unstarted plan. M0–M4 execution is now complete
+  as recorded below.
 
 ## Evidence and scope
 
@@ -158,7 +159,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
 | M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
-| M4 | One real API workflow with replaced selection discovery disabled | Not started |
+| M4 | One real API workflow with replaced selection discovery disabled | Complete; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
@@ -207,42 +208,23 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M3; completed: 1; remaining: 13.
-- M3 changes: added first-state initialization and one compare-and-swap publication operation for
-  an already durable snapshot, versioned HEAD, and compact summary. Readers recover an interrupted
-  publication under the same cross-process lock and return one complete HEAD/snapshot/summary set.
-  Review correction verifies the current selected snapshot before advancing, validates the full
-  journal summary against its immutable snapshot, checks journal version transitions, and fails
-  closed when HEAD is missing after prior publication. The
-  [M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md) records concurrency and process-crash
-  evidence.
-- Checks: publication, immutable-store, and contract tests passed; Ruff check and format passed;
-  `git diff --check` passed. No API generation or browser check applies because M3 adds no route or
-  web code.
-- Decisions and limits: an orphan immutable snapshot stays addressable but does not establish HEAD
-  and is not deleted. A prepared journal is a durable commit decision and recovery rolls it forward;
-  a missing/corrupt HEAD or snapshot remains a typed failure. A prior committed journal prevents
-  reinitialization when HEAD is missing. Summary mismatch or corruption is rebuilt only from the
-  verified HEAD snapshot. The existing node transaction journal is not used: it owns node revisions
-  and legacy selections, while this transaction coordinates separate recording-state files.
-- Replanned reader acceptance passes: a separate publisher pauses after HEAD replacement; a
-  separate reader reaches a nonblocking process-lock attempt while the summary is old, confirms the
-  publisher holds the lock, and then performs the normal blocking read. It cannot return until the
-  publisher is released; it then returns matching HEAD, snapshot, and summary at version 2. Existing
-  observations of versions 1–8 remain in place.
-- Checks: `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_publication.py`
-  passed (14 tests). The wider publication, immutable-store, and contract tests plus Ruff check,
-  format, and `git diff --check` passed. No API generation or browser check applies because M3 adds
-  no route or web code.
-- Decisions and limits: an orphan immutable snapshot stays addressable but does not establish HEAD
-  and is not deleted. A prepared journal is a durable commit decision and recovery rolls it forward;
-  a missing/corrupt HEAD or snapshot remains a typed failure. A prior committed journal prevents
-  reinitialization when HEAD is missing. Summary mismatch or corruption is rebuilt only from the
-  verified HEAD snapshot. The existing node transaction journal is not used: it owns node revisions
-  and legacy selections, while this transaction coordinates separate recording-state files.
-  Process death during atomic replacement itself is not injected.
-- Next: M4 — prove one complete API/service replacement workflow with old selection discovery
-  disabled. Run limit: 14 planned milestones (M3–M16); completed: 1; remaining: 13.
+- Requested run: 14 milestones, starting at M3; completed: 2; remaining: 12.
+- M4 changes: added state initialization, current-state, explicit selection, and exact snapshot-read
+  routes. The real-API proof creates and selects events, produces deterministic output from frozen
+  input references, saves two independent review decisions, edits accepted content through
+  copy-on-edit, selects the edited working reference, reads HEAD and an older snapshot, rejects a
+  stale update, and reopens the state and revision after restart. It does not use legacy selection
+  or history discovery. See the [M4 report](../../reports/0117-M4_Real_API_Workflow.md).
+- Checks: 40 recording-state workflow, contract, store, and publication tests passed. Ruff check,
+  Ruff format check, generated API and `git diff --check` passed. The test has one existing
+  Starlette `httpx` deprecation warning. No browser check applies because no web consumer changed.
+- Decisions and limits: the deterministic producer is a test adapter that writes through the
+  production immutable node store. Production processor launch, catalog, workspace, and review
+  writers remain unchanged. The proof uses disposable storage; retained-state conversion and
+  activation remain later milestones. M3 journal recovery, immutable snapshots, and orphan behavior
+  remain as reported in the [M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md).
+- Next: M5 — add bounded historical metadata discovery with stable pagination. Run limit: 14
+  planned milestones (M3–M16); completed: 2; remaining: 12.
 
 ## M1 — Define current-state operation contracts
 
