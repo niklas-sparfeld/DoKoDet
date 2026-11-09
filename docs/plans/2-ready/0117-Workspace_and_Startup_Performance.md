@@ -155,7 +155,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | Milestone | Observable result / commit boundary | State |
 | --- | --- | --- |
 | M0 | Post-cleanup baseline, exact boundary inventory, growth fixtures, frozen targets | Complete |
-| M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Not started |
+| M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete |
 | M2 | Immutable snapshot store and bounded exact reads | Not started |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Not started |
 | M4 | One real API workflow with replaced selection discovery disabled | Not started |
@@ -207,25 +207,24 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 17 milestones; completed: 1; remaining: 16.
-- M0 changes: added the boundary profiler, deterministic 10x growth test, exact active
-  reader/writer/schema inventory, M0 measurement report, and reserved the hard-fixture and startup
-  trial protocol.
-- Checks: hard-fixture validator; M0 boundary profiler (catalog, workspace, stage, graph, exact
-  revision, empty stage, stale selection, processor launch); focused backend tests; Ruff check and
-  format; three cold/warm sessions and three corrected fresh startup processes with catalog,
-  workspace, and stage-open first-use samples. Results are in the M0 report.
-- Decisions: HEAD hypothesis supported. Freeze 27.1 s cold, 25.5 s warm, and 17.2 s startup
-  no-regression ceilings; plan for 16.0 s workspace and 8.0 s startup medians. Limit hard
-  performance captures to three sets; M16 may use at most two sets.
-- Limits: OS filesystem cache was not flushed. The hard cold/warm workspace tests and startup
-  first-use tests use distinct recordings from the same hard manifest. 0114 has no startup
-  stage-open case and no direct hard API timing case for processor-launch POST. Revision and manifest validation counters measure
-  actual store validation methods, not each field check separately. The processor launch profile
-  uses a deterministic provider stub. Instrumented catalog and stage timings are single requests;
-  the independent three-session startup/workspace samples remain the gates.
-- Next: M1 snapshot, HEAD, summary, API, and validation contracts. Run counts remain 17 requested,
-  1 completed, 16 remaining.
+- Requested run: 17 milestones; completed: 2; remaining: 15.
+- M1 changes: added versioned snapshot, exact-resource, HEAD, summary, error, history-page, explicit
+  HEAD-update, and frozen processor-input models with canonical snapshot IDs and validation tests.
+  Added the M1 report with selection/stale/history semantics, operation dependency checks, API
+  shapes, summary authority/repair rules, compact package/analysis/job metadata, and consumer
+  replacements.
+- Checks: `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_contract.py`
+  passed 10 tests; Ruff check and format checks passed for the new module and test. No API generation
+  or browser check applies because this milestone adds no route or web code.
+- Decisions: calibration and reconstruction are separate exact resource kinds; generated output,
+  completed references, and independent review work stay separate. HEAD is the only current-state
+  authority. Summary timestamps are not freshness proof. History cursors pin an immutable upper
+  bound and use stable keys with a maximum page size of 100.
+- Limits: M1 adds contracts only. Storage, routes, client changes, migration, cross-process
+  publication, crash recovery, API growth behavior, and browser behavior remain unimplemented and
+  unverified by design.
+- Next: M2 immutable snapshot store and bounded exact reads. Run counts: 17 requested, 2
+  completed, 15 remaining. Details: [M1 report](../../reports/0117-M1_Recording_State_Contracts.md).
 
 ## M1 — Define current-state operation contracts
 
@@ -240,6 +239,10 @@ Freeze which exact dependency checks belong to each operation. No timestamp-only
 
 Checks: contract tests for identity, empty/stale slots, independent reviews, missing/corrupt
 references, and generated/reference separation. Commit: contracts, tests, and report only.
+
+**M1 result — 2026-11-09:** Complete. The [M1 report](../../reports/0117-M1_Recording_State_Contracts.md)
+records the contracts, operation dependency checks, replacement inventory, and limits. The new
+contract tests pass. M2 owns storage and bounded reads; M1 does not implement runtime behavior.
 
 ## M2 — Implement immutable snapshots
 
