@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 
 import pytest
 from pydantic import ValidationError
@@ -239,23 +240,28 @@ def test_lineage_edge_history_has_unique_total_order_across_page_boundary():
     )
     edges = [
         LineageEdgeHistoryItem(
-            item_key=f"edge-{index}",
+            item_key=item_key,
             edge_kind=edge_kind,
             source=source,
             target=target,
             publication_sequence=10,
             role=role,
         )
-        for index, (edge_kind, role) in enumerate(
-            [
-                ("used", "r" * 160),
-                ("used", "input"),
-                ("produced", "input"),
-                ("produced", "input"),
-            ]
-        )
+        for item_key, edge_kind, role in [
+            ("edge-a", "used", "r" * 160),
+            ("edge-b", "used", "input"),
+            ("edge-c", "produced", "input"),
+            ("edge-z", "produced", "input"),
+        ]
     ]
-    edges[-1] = edges[-1].model_copy(update={"item_key": "edge-z"})
+    later_insert = LineageEdgeHistoryItem(
+        item_key="edge-0",
+        edge_kind="copied",
+        source=source,
+        target=target,
+        publication_sequence=11,
+        role="input",
+    )
     ordered = sorted(edges, key=LineageEdgeHistoryItem.stable_sort_key)
     assert len({edge.stable_sort_key() for edge in ordered}) == len(edges)
     assert ordered[0].stable_sort_key()[:-1] == ordered[1].stable_sort_key()[:-1]
@@ -265,36 +271,81 @@ def test_lineage_edge_history_has_unique_total_order_across_page_boundary():
         edge.stable_sort_key() for edge in ordered
     )
 
-    # The maximum valid endpoint and role remain representable in a cursor key.
-    composite_cursor_key = ordered[-1].stable_cursor_key()
+    # Exercise maximum valid endpoint, role, and tie-breaker lengths together.
+    maximum_key_edge = LineageEdgeHistoryItem(
+        item_key="i" * 160,
+        edge_kind="produced",
+        source=LineageEndpoint(
+            kind="artifact", artifact_id="recording-video/" + "s" * 240, sha256=DIGEST
+        ),
+        target=LineageEndpoint(
+            kind="artifact", artifact_id="evidence-package/" + "t" * 239, sha256=DIGEST
+        ),
+        publication_sequence=10,
+        role="r" * 160,
+    )
+    maximum_cursor_key = maximum_key_edge.stable_cursor_key()
     cursor = HistoryPageCursor(
         recording_id="recording-1",
         collection="lineage_edges",
         filter_sha256=DIGEST,
         upper_bound_sequence=10,
-        last_key=composite_cursor_key,
+        last_key=maximum_cursor_key,
         page_size=1,
     )
-    assert cursor.last_key == composite_cursor_key
-    assert len(composite_cursor_key) > 256
+    assert cursor.last_key == maximum_cursor_key
+    assert len(maximum_cursor_key) > 256
 
-    first_page = RecordingHistoryPage(
-        recording_id="recording-1",
-        collection="lineage_edges",
-        upper_bound_sequence=10,
-        items=ordered[:1],
-        next_cursor="c" * 2048,
-        has_more=True,
-    )
-    second_page = RecordingHistoryPage(
-        recording_id="recording-1",
-        collection="lineage_edges",
-        upper_bound_sequence=10,
-        items=ordered[1:],
-        has_more=False,
-    )
-    assert first_page.items + second_page.items == ordered
-    assert len({edge.item_key for edge in first_page.items + second_page.items}) == 4
+    def encode_cursor(value: HistoryPageCursor) -> str:
+        raw = json.dumps(value.model_dump(mode="json"), separators=(",", ":")).encode()
+        return urlsafe_b64encode(raw).decode().rstrip("=")
+
+    def decode_cursor(token: str) -> HistoryPageCursor:
+        raw = urlsafe_b64decode(token + "=" * (-len(token) % 4))
+        return HistoryPageCursor.model_validate_json(raw)
+
+    opaque = encode_cursor(cursor)
+    assert decode_cursor(opaque) == cursor
+    assert decode_cursor(opaque).last_key == maximum_cursor_key
+
+    # Traverse using the same stable composite key stored in each continuation cursor.
+    request = cursor.model_copy(update={"last_key": None})
+    all_items = [*edges, later_insert]
+    collected = []
+    while True:
+        boundary = tuple(json.loads(request.last_key)) if request.last_key else None
+        candidates = sorted(
+            (
+                item
+                for item in all_items
+                if item.publication_sequence <= request.upper_bound_sequence
+                and (boundary is None or item.stable_sort_key() > boundary)
+            ),
+            key=LineageEdgeHistoryItem.stable_sort_key,
+        )
+        items = candidates[: request.page_size]
+        has_more = len(candidates) > request.page_size
+        next_request = (
+            request.model_copy(update={"last_key": items[-1].stable_cursor_key()})
+            if has_more
+            else None
+        )
+        page = RecordingHistoryPage(
+            recording_id=request.recording_id,
+            collection="lineage_edges",
+            upper_bound_sequence=request.upper_bound_sequence,
+            items=items,
+            next_cursor=encode_cursor(next_request) if next_request else None,
+            has_more=has_more,
+        )
+        collected.extend(page.items)
+        if page.next_cursor is None:
+            break
+        request = decode_cursor(page.next_cursor)
+
+    assert collected == ordered
+    assert [item.item_key for item in collected] == [item.item_key for item in ordered]
+    assert later_insert not in collected
 
 
 @pytest.mark.parametrize(

@@ -234,8 +234,10 @@ while history and unrelated recordings grow 10x.
   unverified by design.
 - M1 pagination refinement: lineage edge pages sort by exact endpoints, edge kind, role, and stable
   unique `item_key`. The cursor stores the canonical JSON composite key and supports every valid
-  endpoint and role. Tests cover shared endpoints with differing kinds and roles, page boundaries,
-  and long valid keys. API generation and browser checks do not apply.
+  endpoint and role. The test traverses the exact membership with page size one and round-trips each
+  actual composite key through a representative opaque cursor encoding. It covers shared endpoints
+  with differing kinds and roles, maximum-length endpoints/role/tie-breaker values, and exclusion of
+  a later insert. API generation and browser checks do not apply.
 - Next: implement M2. This run has completed 1 of 16 milestones; 15 remain. Details:
   [M1 report](../../reports/0117-M1_Recording_State_Contracts.md).
 

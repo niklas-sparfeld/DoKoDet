@@ -137,6 +137,10 @@ hash-sorted snapshot excluded by its higher insertion sequence, bounded catalog 
 authority and restart validation, compare-and-swap request, frozen processor inputs, compact metadata,
 and lineage-edge order/page boundaries with maximum-length valid cursor keys. The edge test uses
 duplicate endpoint pairs with different kinds and roles and checks the stable `item_key` tie-breaker.
+It traverses the exact membership with page size one, round-trips each actual composite `last_key`
+through a representative opaque base64 cursor encoding, and excludes an item published after the
+frozen upper bound. A separate cursor case uses maximum valid source and target artifact IDs, role,
+and `item_key` together.
 The tests validate contracts;
 they do not claim storage, API, crash, or runtime behavior. API generation and browser checks do not
 apply because M1 adds no route or web change.
