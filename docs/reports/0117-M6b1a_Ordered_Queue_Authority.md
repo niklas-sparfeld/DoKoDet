@@ -4,7 +4,12 @@ Date: 2026-11-09
 
 ## Current result
 
-M6b1a is complete after two current-run corrections. Startup recovery reconnects an unlinked accepted
+M6b1a remains incomplete after two current-run corrections. Final review found that the transition
+observer can mark a succeeded child stage complete before its underlying result is complete. A
+crash before the parent runs can preserve that false status. The observer also omits cancelled
+children; verify cancellation status and lineage across restart. The correction limit stopped the run.
+
+The implemented recovery work is integrated but not accepted as complete. Startup recovery reconnects an unlinked accepted
 child to the parent step, and automated pipeline status recovery restores the stage's authoritative
 inputs before child work resumes. Job transitions keep stage status current while the child runs.
 The end-to-end evidence covers a later-stage acceptance/link crash, input lineage, completed-stage

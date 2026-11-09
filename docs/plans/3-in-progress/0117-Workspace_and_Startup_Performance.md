@@ -229,7 +229,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M6a | Durable Job Manager authority and journaled job-record transitions | Complete; [report](../../reports/0117-M6a_Job_Projection_Authority.md) |
 | M6b | Bounded active-job projections over the M6a authority | Incomplete; split by replan 10 |
 | M6b1 | Bounded incremental per-recording job-index publication and recovery | Complete for index publication; no end-to-end transition bound claimed; correction 1/2; [report](../../reports/0117-M6b1_Job_Index_Publication.md) |
-| M6b1a | Durable ordered queue authority, per-job transition deltas, and explicit startup repair | Complete; [report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) |
+| M6b1a | Durable ordered queue authority, per-job transition deltas, and explicit startup repair | Incomplete after correction 2/2 review; [report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) |
 | M6b1b | Bounded acceptance key, sequence, and parent-step authority with recovery | Not started; depends on M6b1a; acceptance remains unbounded until this milestone |
 | M6b2 | Bounded job pages, explicit rebuild, growth/corruption checks, and active API inventory | Not started; depends on M6b1a and M6b1b |
 | M6c | Bounded analysis and package metadata pages | Not started |
@@ -280,9 +280,12 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Current run: requested 5 milestones; completed 1 (M6b1a); remaining 4. Cumulative progress is
-  10 of 14 planned milestones. M7–M16 remain outside this run.
-- Next: M6b1b. Current-run re-planning: 0/10 total and 0/5 for M6b1a; correction count: 2/2.
+- Current run stopped: requested 5 milestones; accepted 0; remaining 5. M7–M16 remain outside this run.
+- Next: M6b1a. Current-run re-planning: 0/10 total and 0/5 for M6b1a; correction count: 2/2.
+  Final sanity review found that the transition observer marks a succeeded child stage complete without
+  checking `_child_is_complete`. A crash before the parent runs can persist a false complete status.
+  The observer also omits cancelled children; verify stage status and lineage across cancellation and
+  restart. The correction limit stops this run. The integrated changes are not accepted as complete.
   The previous run's correction limit does not apply to this run. M6b1a now writes the automated
   pipeline's current `phase` and pending step before entering `waiting`. Startup recovery resolves
   only the child intent for that phase. If no child intent exists, it requeues the parent; if the
