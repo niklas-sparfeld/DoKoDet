@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from dokodetector_backend.recording_state_contract import (
     ExactResourceRef,
@@ -136,6 +137,23 @@ def test_corrupt_duplicate_identity_is_not_overwritten(tmp_path: Path) -> None:
     with pytest.raises(RecordingSnapshotCorrupt):
         store.put(snapshot)
     assert path.read_bytes() == b"{}"
+
+
+@pytest.mark.parametrize("mutation", ["nested_content", "snapshot_identity"])
+def test_put_revalidates_mutated_snapshot_before_publication(tmp_path: Path, mutation: str) -> None:
+    store = RecordingStateSnapshotStore(tmp_path)
+    snapshot = _snapshot()
+    original_id = snapshot.snapshot_id
+    if mutation == "nested_content":
+        snapshot.slots["events"].generated.resource.sha256 = "b" * 64
+    else:
+        snapshot.snapshot_id = "rs_" + "b" * 64
+
+    with pytest.raises(ValidationError, match="canonical snapshot digest"):
+        store.put(snapshot)
+
+    assert not store.snapshot_path("recording-1", original_id).exists()
+    assert not store.root.exists()
 
 
 def test_snapshot_identity_is_scoped_to_recording(tmp_path: Path) -> None:

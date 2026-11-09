@@ -210,8 +210,10 @@ while history and unrelated recordings grow 10x.
 - Requested run: 16 milestones; completed: 2; remaining: 14.
 - M2 changes: added immutable snapshots and compact generated/reference stage metadata under the
   resolved operations root, with direct exact reads and typed missing/corrupt errors. Identical
-  duplicate puts are idempotent. The store does not change selection or access HEAD.
-- Checks: snapshot and contract tests passed (23); Ruff check and format passed; `git diff --check`
+  duplicate puts are idempotent. Review correction revalidates a detached model dump before storing,
+  so nested content or identity mutation after construction cannot publish under a stale digest.
+  The store does not change selection or access HEAD.
+- Checks: snapshot and contract tests passed (25); Ruff check and format passed; `git diff --check`
   passed. Direct read test observed two file reads with 11 snapshots present. No API generation or
   browser check applies because M2 adds no route or web code. Details:
   [M2 report](../../reports/0117-M2_Immutable_Snapshot_Store.md).

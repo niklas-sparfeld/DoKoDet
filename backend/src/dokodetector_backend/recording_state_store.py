@@ -64,18 +64,23 @@ class RecordingStateSnapshotStore:
 
     def put(self, snapshot: RecordingStateSnapshot) -> StoredRecordingSnapshot:
         """Publish one complete immutable snapshot; exact duplicate puts are idempotent."""
-        raw = _canonical_json(snapshot.model_dump(mode="json"))
+        # Pydantic models are mutable and assignment validation is disabled. Validate a detached
+        # dump so callers cannot publish nested changes under an identity computed earlier.
+        verified_snapshot = RecordingStateSnapshot.model_validate(snapshot.model_dump(mode="json"))
+        raw = _canonical_json(verified_snapshot.model_dump(mode="json"))
         digest = hashlib.sha256(raw).hexdigest()
         metadata = {
             "schema_version": "recording-state-snapshot-metadata/v1",
-            "recording_id": snapshot.recording_id,
-            "snapshot_id": snapshot.snapshot_id,
+            "recording_id": verified_snapshot.recording_id,
+            "snapshot_id": verified_snapshot.snapshot_id,
             "snapshot_sha256": digest,
-            "stage_metadata": _stage_metadata(snapshot),
+            "stage_metadata": _stage_metadata(verified_snapshot),
         }
-        destination = self.snapshot_path(snapshot.recording_id, snapshot.snapshot_id)
+        destination = self.snapshot_path(
+            verified_snapshot.recording_id, verified_snapshot.snapshot_id
+        )
         if destination.exists():
-            return self._existing_or_conflict(destination, raw, snapshot)
+            return self._existing_or_conflict(destination, raw, verified_snapshot)
 
         destination.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -84,8 +89,8 @@ class RecordingStateSnapshotStore:
                 (staging / "metadata.json").write_bytes(_canonical_json(metadata))
                 commit_staged_directory(staging, destination)
         except FileExistsError:
-            return self._existing_or_conflict(destination, raw, snapshot)
-        return StoredRecordingSnapshot(snapshot, digest, metadata["stage_metadata"])
+            return self._existing_or_conflict(destination, raw, verified_snapshot)
+        return StoredRecordingSnapshot(verified_snapshot, digest, metadata["stage_metadata"])
 
     def get(self, recording_id: str, snapshot_id: str) -> StoredRecordingSnapshot:
         """Read exactly one snapshot and its compact metadata, without listing history."""

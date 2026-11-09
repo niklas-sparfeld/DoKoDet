@@ -19,16 +19,23 @@ Missing snapshots and corrupt content return distinct typed errors. Existing con
 overwritten. This store does not read or write HEAD, select state, enumerate nodes, or traverse
 predecessors.
 
+Review correction 1: revalidate a detached model dump on every `put`. Pydantic models permit
+nested and identity mutation after construction, so validating the supplied instance only at its
+original construction was insufficient. Regression tests mutate both a nested resource digest and
+the snapshot ID after construction; both are rejected before any snapshot directory is published.
+This keeps the existing idempotent duplicate and immutable-storage behavior.
+
 ## Verification
 
 `backend/tests/test_recording_state_store.py` verifies isolated-root resolution, exact selected
 resource-reference round-trip, compact stage metadata, duplicate identity, typed missing/corrupt
-behavior, recording isolation, and direct reads. Its history-growth case stores 11 linked snapshots
-and observes exactly two file reads for a lookup, both within the requested snapshot directory.
+behavior, recording isolation, direct reads, and rejection of post-construction mutation. Its
+history-growth case stores 11 linked snapshots and observes exactly two file reads for a lookup,
+both within the requested snapshot directory.
 
 Checks passed:
 
-- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_store.py backend/tests/test_recording_state_contract.py` — 23 passed.
+- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_store.py backend/tests/test_recording_state_contract.py` — 25 passed.
 - `mise exec -- uv run --project backend ruff check backend/src/dokodetector_backend/recording_state_store.py backend/tests/test_recording_state_store.py` — passed.
 - `mise exec -- uv run --project backend ruff format --check backend/src/dokodetector_backend/recording_state_store.py backend/tests/test_recording_state_store.py` — passed.
 - `git diff --check` — passed.
