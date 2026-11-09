@@ -157,7 +157,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M0 | Post-cleanup baseline, exact boundary inventory, growth fixtures, frozen targets | Complete |
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
 | M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
-| M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Not started |
+| M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
 | M4 | One real API workflow with replaced selection discovery disabled | Not started |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
@@ -207,21 +207,23 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 16 milestones; completed: 2; remaining: 14.
-- M2 changes: added immutable snapshots and compact generated/reference stage metadata under the
-  resolved operations root, with direct exact reads and typed missing/corrupt errors. Identical
-  duplicate puts are idempotent. Review correction revalidates a detached model dump before storing,
-  so nested content or identity mutation after construction cannot publish under a stale digest.
-  The store does not change selection or access HEAD.
-- Checks: snapshot and contract tests passed (25); Ruff check and format passed; `git diff --check`
-  passed. Direct read test observed two file reads with 11 snapshots present. No API generation or
-  browser check applies because M2 adds no route or web code. Details:
-  [M2 report](../../reports/0117-M2_Immutable_Snapshot_Store.md).
-- Decisions and limits: M1 snapshot identity is verified on every read. Exact references remain in
-  the snapshot; compact metadata is checked against that verified snapshot. M2 proves direct reads
-  and immutable storage only, not HEAD publication, crash recovery, concurrency, or API behavior.
-- Next: implement M3 atomic HEAD and summary publication. This run has completed 2 of 16
-  milestones; 14 remain.
+- Requested run: 16 milestones; completed: 3; remaining: 13.
+- M3 changes: added first-state initialization and one compare-and-swap publication operation for
+  an already durable snapshot, versioned HEAD, and compact summary. Readers recover an interrupted
+  publication under the same cross-process lock and return one complete HEAD/snapshot/summary set.
+  The [M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md) records concurrency and crash
+  evidence.
+- Checks: publication, immutable-store, and contract tests passed (33); Ruff check and format passed;
+  `git diff --check` passed. No API generation or browser check applies because M3 adds no route or
+  web code.
+- Decisions and limits: an orphan immutable snapshot stays addressable but does not establish HEAD
+  and is not deleted. A prepared journal is a durable commit decision and recovery rolls it forward;
+  a missing/corrupt HEAD or snapshot remains a typed failure. Summary mismatch or corruption is
+  rebuilt only from the verified HEAD snapshot. The existing node transaction journal is not used:
+  it owns node revisions and legacy selections, while this transaction coordinates separate
+  recording-state files.
+- Next: prove one real API/service workflow in M4. This run has completed 3 of 16 milestones;
+  13 remain.
 
 ## M1 — Define current-state operation contracts
 
@@ -272,6 +274,17 @@ orphan snapshots and interrupted publication. No request may reconstruct authori
 Checks: two processes updating one HEAD; concurrent readers seeing complete states; stale expected
 version rejection; crash injection at each durable boundary; restart and summary freshness.
 Commit: publication operation, concurrency/recovery tests, and evidence.
+
+**M3 result — 2026-11-09:** Complete. The publication API validates the already stored immutable
+snapshot before it writes a prepared journal. It then atomically replaces HEAD, atomically replaces
+the matching compact summary, and marks the journal committed. HEAD and summary writes use the
+existing atomic JSON replacement primitive. One per-recording local process lock serializes readers,
+publishers, and recovery across threads and processes. A prepared journal always rolls forward;
+an orphan snapshot stays retained but has no selection authority. Neither recovery nor summary
+repair scans predecessor history. The [M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md)
+records two-process compare-and-swap, concurrent reader, stale-version, all durable-boundary crash,
+restart, and summary-freshness results. This proves the file store only; API and retained-data
+activation remain later milestones.
 
 ## M4 — Prove one complete replacement workflow
 
