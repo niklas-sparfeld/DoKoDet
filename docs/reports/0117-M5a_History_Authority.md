@@ -44,9 +44,14 @@ replaces that journal atomically only after validation succeeds. Invalid retry i
 cannot turn an interrupted nonempty rebuild into empty history. A process stop after the journal
 replacement still leaves a journal that requires another source-metadata retry.
 
+If staging raises an ordinary exception before commit, cleanup removes the partial generation. An
+initial nonempty rebuild keeps its pending journal so a later process still requires source metadata.
+An empty initialization can retry from empty state, and a rebuild with an active generation keeps
+that previous active generation readable.
+
 ## Verification
 
-- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_history_store.py backend/tests/test_recording_state_contract.py` — passed, 38 tests.
+- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_history_store.py backend/tests/test_recording_state_contract.py` — passed, 39 tests.
 - Store tests cover sequence assignment, duplicate retries, conflicting item-key reuse, all four
   publication crash boundaries, restart recovery, deterministic rebuild, generation-based cursor
   expiration, a rebuild restart boundary, pre-switch generation validation, metadata-digest and
@@ -57,8 +62,9 @@ replacement still leaves a journal that requires another source-metadata retry.
   during empty, nonempty, and replacement generation staging. Empty initialization retries
   automatically; nonempty rebuild retries with supplied source metadata; replacement rebuild leaves
   its previous active generation readable. Invalid retry input keeps the pending journal, and a
-  child-process stops immediately before and after retry-journal replacement both require retry. A
-  missing pointer without this journal still reports corruption.
+  child processes stopped immediately before and after retry-journal replacement both require
+  retry. An injected staging exception keeps the journal across restart and retry. A missing pointer
+  without this journal still reports corruption.
 - Contract tests cover required history cursor generation and prohibit that field on catalog/job
   cursors. They also check that resource items match their page collection.
 - Ruff check and format check passed for the changed backend files and tests.

@@ -330,7 +330,8 @@ class RecordingHistoryStore:
         except Exception:
             if generation_root.exists() and not generation_root.is_symlink():
                 shutil.rmtree(generation_root)
-            self._pending_generation_path(recording_id).unlink(missing_ok=True)
+            if expected_generation is not None or not ordered:
+                self._pending_generation_path(recording_id).unlink(missing_ok=True)
             raise
         self._write_active_generation(recording_id, generation)
         self._after_boundary("rebuild_active")

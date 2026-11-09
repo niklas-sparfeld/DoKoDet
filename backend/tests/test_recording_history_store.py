@@ -282,6 +282,33 @@ def test_invalid_initial_rebuild_retry_keeps_pending_journal(tmp_path: Path):
     assert restarted.get_authority("recording-1").sequence == 2
 
 
+def test_initial_rebuild_staging_exception_keeps_retry_journal_after_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    context = multiprocessing.get_context("spawn")
+    worker = context.Process(
+        target=_process_stop_during_initial_generation_staging, args=(str(tmp_path), "nonempty")
+    )
+    worker.start()
+    worker.join(timeout=20)
+    assert worker.exitcode == 74
+
+    retrying = RecordingHistoryStore(tmp_path)
+
+    def fail_item_write(path: Path, item) -> None:
+        raise OSError("injected history item write failure")
+
+    monkeypatch.setattr(retrying, "_write_item_file", fail_item_write)
+    with pytest.raises(OSError, match="injected history item write failure"):
+        retrying.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+
+    restarted = RecordingHistoryStore(tmp_path)
+    with pytest.raises(RecordingHistoryRebuildRequired, match="retry rebuild"):
+        restarted.get_authority("recording-1")
+    restarted.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+    assert restarted.get_authority("recording-1").sequence == 2
+
+
 def test_process_death_after_retry_journal_replacement_requires_retry(tmp_path: Path):
     context = multiprocessing.get_context("spawn")
     first = context.Process(

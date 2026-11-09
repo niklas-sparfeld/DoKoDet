@@ -233,7 +233,7 @@ while history and unrelated recordings grow 10x.
   M5a, M5b, M5c, and M6–M16.
 - Next milestone: M5b. M5a replan count: 2/5; this run replan count: 0/10. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
-  Current-run M5a correction count: 1/2.
+  Current-run M5a correction count: 2/2.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
   selection reads do the same; selection writes take the root lock before their selection lock.
@@ -278,12 +278,13 @@ while history and unrelated recordings grow 10x.
   nonempty initial rebuild with source metadata. It preserves the prior active generation when a
   replacement rebuild dies before commit. A missing active pointer with committed generation data
   remains corruption. The store does not read payloads or connect source publishers or discovery APIs.
-- M5a checks: 38 history-store and contract tests passed, including publication crash boundaries,
+- M5a checks: 39 history-store and contract tests passed, including publication crash boundaries,
   actual child-process death during empty, nonempty, and replacement generation staging, restart
   recovery, invalid retry input, and process death immediately before and after retry-journal
-  replacement, rebuild validation before pointer switch, cursor expiration, digest and sequence
-  corruption, missing active pointer, two-process publication, corrupt-journal rejection, and
-  page/cursor contracts. Ruff check and format check passed for changed backend files and tests;
+  replacement, injected staging exception with restart, rebuild validation before pointer switch,
+  cursor expiration, digest and sequence corruption, missing active pointer, two-process
+  publication, corrupt-journal rejection, and page/cursor contracts. Ruff check and format check
+  passed for changed backend files and tests;
   `git diff --check` and local Markdown link checks passed. See the
   [M5a report](../../reports/0117-M5a_History_Authority.md).
 - M5a prior correction 2/2 adds a durable generation journal. A child process exits after committing the
@@ -294,6 +295,9 @@ while history and unrelated recordings grow 10x.
   metadata is validated. Atomic journal replacement provides the handoff to the new retry. Invalid
   input and process death immediately before or after this replacement both retain a retry-required
   state, not empty history.
+- M5a current-run correction 2/2 also preserves the retry journal after a caught exception during
+  initial nonempty staging. Restart still requires the source metadata; tests verify this path and
+  the existing publication, rebuild, and pointer-recovery boundaries.
 - Replan 1 split M5 into the durable authority store (M5a) and discovery APIs (M5b). Replan 2
   added generation pinning because sequence-only cursors cannot expire safely after rebuild.
 - Replan 3 assigns source publication and crash-gap reconciliation to M5c. The current owners are
