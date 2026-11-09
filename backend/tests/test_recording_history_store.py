@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import multiprocessing
 from pathlib import Path
 
@@ -92,6 +93,36 @@ def test_history_publication_recovers_after_each_durable_boundary(tmp_path: Path
     assert restarted.read_item("recording-1", "snapshots", "snapshot-1").publication_sequence == 1
 
 
+@pytest.mark.parametrize("failure", ["metadata_digest", "authority_sequence"])
+def test_read_and_duplicate_publish_reject_corrupt_metadata(tmp_path: Path, failure: str):
+    store = RecordingHistoryStore(tmp_path)
+    item = store.publish("recording-1", _snapshot("snapshot-1"))
+    authority = store.get_authority("recording-1")
+    generation_root = (
+        tmp_path / "recording-history" / "recording-1" / "generations" / authority.generation
+    )
+    path = next((generation_root / "items" / "snapshots").glob("*.json"))
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if failure == "metadata_digest":
+        document["item"]["sha256"] = "b" * 64
+    else:
+        document["item"]["publication_sequence"] = authority.sequence + 1
+        document["item_sha256"] = hashlib.sha256(
+            json.dumps(
+                document["item"], sort_keys=True, separators=(",", ":"), ensure_ascii=True
+            ).encode()
+        ).hexdigest()
+    path.write_text(
+        json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RecordingHistoryCorrupt):
+        store.read_item("recording-1", "snapshots", "snapshot-1")
+    with pytest.raises(RecordingHistoryCorrupt):
+        store.publish("recording-1", item)
+
+
 def test_rebuild_publishes_a_new_generation_and_expires_old_cursors(tmp_path: Path):
     store = RecordingHistoryStore(tmp_path)
     old_generation = store.get_authority("recording-1").generation
@@ -125,6 +156,45 @@ def test_rebuild_restart_observes_complete_active_generation(tmp_path: Path):
     assert authority.sequence == 2
     assert restarted.read_item("recording-1", "snapshots", "snapshot-1").publication_sequence == 1
     assert restarted.read_item("recording-1", "snapshots", "snapshot-2").publication_sequence == 2
+
+
+def test_rebuild_validates_generation_before_switching_active_pointer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    store = RecordingHistoryStore(tmp_path)
+    original_generation = store.get_authority("recording-1").generation
+    original_write = store._write_item_file
+
+    def write_corrupt(path: Path, item) -> None:
+        original_write(path, item)
+        if item.item_key == "revision-1":
+            document = json.loads(path.read_text(encoding="utf-8"))
+            document["item_sha256"] = "0" * 64
+            path.write_text(
+                json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+                encoding="utf-8",
+            )
+
+    monkeypatch.setattr(store, "_write_item_file", write_corrupt)
+    with pytest.raises(RecordingHistoryCorrupt, match="digest or collection mismatch"):
+        store.rebuild(
+            "recording-1", [_snapshot("snapshot-1"), _revision("revision-1", "revision-1")]
+        )
+
+    assert store.get_authority("recording-1").generation == original_generation
+    assert store.get_authority("recording-1").sequence == 0
+
+
+def test_missing_active_pointer_does_not_discard_existing_generation(tmp_path: Path):
+    store = RecordingHistoryStore(tmp_path)
+    store.publish("recording-1", _snapshot("snapshot-1"))
+    active_path = tmp_path / "recording-history" / "recording-1" / "active.json"
+    active_path.unlink()
+
+    with pytest.raises(RecordingHistoryCorrupt, match="without an active pointer"):
+        RecordingHistoryStore(tmp_path).get_authority("recording-1")
+    with pytest.raises(RecordingHistoryCorrupt, match="without an active pointer"):
+        RecordingHistoryStore(tmp_path).read_item("recording-1", "snapshots", "snapshot-1")
 
 
 def test_two_process_writers_allocate_unique_monotonic_sequences(tmp_path: Path):

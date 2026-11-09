@@ -24,7 +24,12 @@
   defines and implements the durable shared history authority, and M5b, which adds discovery APIs.
   Replan 4 adds a history generation to cursors because rebuild can change sequence membership and
   sequence-only cursors cannot expire safely. To keep the current 15-slot run limit, M16 is outside
-  this run.
+  this run. M5a review then found that exact item digests, authority sequence bounds, generation
+  validation before pointer switch, and missing active-pointer handling need stronger checks. It
+  also confirmed that four separate source owners can commit before the history index, leaving a
+  crash gap, and M1/M0 do not identify a persisted candidate source. Replan 5 assigns the bounded
+  query APIs to M5b and source adapters, gap reconciliation, and candidate-source identification to
+  M5c. The 15-slot run now ends at M14.
 
 ## Evidence and scope
 
@@ -174,7 +179,8 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M4b | Bounded coordinated transaction recovery and pending-journal authority | Complete; [report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md) |
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Complete; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5a | Durable shared history authority and rebuild contract | Complete; [report](../../reports/0117-M5a_History_Authority.md) |
-| M5b | Historical metadata and candidate discovery APIs with stable pagination | Not started |
+| M5b | Bounded history API pages over the durable metadata index | Not started; full source coverage waits for M5c |
+| M5c | Source publisher adapters and durable-to-index gap reconciliation | Not started; candidate source must be identified |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
 | M8 | Web current-state, history, and explicit HEAD-switch flow | Not started |
@@ -223,8 +229,9 @@ while history and unrelated recordings grow 10x.
 ## Execution handoff
 
 - Requested run: 15 milestones, starting at M4a; completed: 4; remaining: 11. The cap now covers
-  M4a, M4b, M4c, M5a, M5b, and M6–M15. M16 is outside this run.
-- Next milestone: M5b. M5a replan count: 2/5; this run replan count: 2/10. The two earlier M4a
+  M4a, M4b, M4c, M5a, M5b, M5c, and M6–M14. M15 and M16 are outside this run.
+- Next milestone: M5b. M5a replan count: 2/5; this run replan count: 3/10. M5a correction count:
+  1/2. The two earlier M4a
   replans and two correction turns belong to the prior run and are preserved in the milestone report.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
@@ -264,22 +271,28 @@ while history and unrelated recordings grow 10x.
   snapshot access, and restart. The existing Starlette `httpx` deprecation warning remains.
   See the [M4c report](../../reports/0117-M4_Real_API_Workflow.md).
 - M5a result: the shared history store assigns a per-recording sequence and publishes immutable
-  metadata through a recoverable journal. Readers recover before access. Rebuild stages a complete
-  generation and switches one active pointer. History cursors now pin the generation, so a rebuild
-  expires old cursors. The store does not read payloads and is not yet connected to source writers
-  or discovery APIs.
-- M5a checks: 27 history-store and contract tests passed. They cover idempotent and conflicting
-  publication, two-process writers, four crash boundaries with restart, deterministic rebuild,
-  cursor expiration, corrupt-journal rejection, and page/cursor contracts. Ruff and format checks
-  passed for changed backend files and tests; `git diff --check` passed. See the
+  metadata through a recoverable journal. Readers validate the metadata digest and sequence against
+  authority. Rebuild validates every item and authority before switching the active pointer. A
+  missing active pointer with generation data is corruption; it cannot reset history silently.
+  History cursors pin the generation. The store does not read payloads and is not connected to
+  source writers or discovery APIs.
+- M5a checks: 31 history-store and contract tests passed. They cover idempotent and conflicting
+  publication, two-process writers, four publication crash boundaries with restart, deterministic
+  rebuild, rebuild validation before pointer switch, cursor expiration, digest and sequence
+  corruption, missing active pointer, corrupt-journal rejection, and page/cursor contracts. Ruff
+  and format checks passed for changed backend files and tests; `git diff --check` passed. See the
   [M5a report](../../reports/0117-M5a_History_Authority.md).
 - Replan 1 split M5 into the durable authority store (M5a) and discovery APIs (M5b). Replan 2
   added generation pinning because sequence-only cursors cannot expire safely after rebuild.
+- Replan 3 assigns source publication and crash-gap reconciliation to M5c. The current owners are
+  `RecordingStateStore`/`RecordingStateSnapshotStore`, `PipelineNodeStore`/`PipelineNodeTransactions`,
+  and `PipelineLineage`; M0/M1 do not name the source for the `candidates` collection. M5c must
+  identify that source before implementation. M5b cannot claim complete source discovery until M5c.
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.
-- Next: implement M5b only. Run count: 4 complete, 11 remaining. Source publisher adapters remain
-  outside M5a and must publish metadata only after exact source content is durable.
+- Next: implement M5b only. Run count: 4 complete, 11 remaining. Do not claim complete discovery
+  until M5c wires all source publishers and proves crash-gap reconciliation.
 
 ## M1 — Define current-state operation contracts
 
@@ -436,15 +449,30 @@ publication; two-process writer serialization; metadata and authority visibility
 crash point; restart recovery; corruption and rebuild behavior; no content-payload reads. Commit:
 history authority contract, store, tests, report, board, and plan.
 
-## M5b — Add bounded historical discovery
+## M5b — Add bounded history API pages
 
-Implement metadata-only pages for snapshots, node revisions, sibling candidates, and lineage edges
-using M1 contracts. Keep direct historical revision access. Any new persistent metadata index must
-use the M5a writer, freshness, rebuild, concurrency, and crash contract.
+Implement metadata-only pages for snapshots, node revisions, candidates, and lineage edges using
+M1 contracts and the M5a index. Keep direct historical revision access. This milestone implements
+the bounded API page boundary. It does not complete source discovery until M5c publishes all source
+items and proves that no durable-to-index crash gap omits an item.
 
 Checks: complete stable traversal, simultaneous new revisions, no duplicate/missing records within
 the cursor's frozen boundary, exact ancestry, corrupt requested entries, and bounded payload reads.
 Commit: historical discovery APIs, tests, and evidence.
+
+## M5c — Connect history source publishers and reconcile gaps
+
+Connect every snapshot, revision, candidate, and lineage-edge source publisher to M5a after its
+source data is durable. Define per-source recovery or an outbox so a crash between source commit and
+history publication cannot leave a permanent omission. Reconcile idempotently without a full scan
+on each page request. Identify and record the authoritative persisted source and exact meaning of
+the `candidates` collection before implementation. Keep history entries metadata-only and exact.
+
+Checks: inventory each writer and its source transaction; deterministic crash/restart tests between
+source commit and index publication for each source family; duplicate-free reconciliation after
+restart; complete page traversal against durable sources; no payload reads for metadata pages.
+Commit: source adapters, gap recovery, candidate-source decision, tests, and report. M5 discovery
+cannot be marked complete before this milestone passes.
 
 ## M6 — Convert the recording catalog
 

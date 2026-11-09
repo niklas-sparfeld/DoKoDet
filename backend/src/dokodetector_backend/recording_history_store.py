@@ -44,7 +44,7 @@ class RecordingHistoryCursorExpired(ValueError):
 
 
 def _canonical_json(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
         "utf-8"
     )
 
@@ -71,6 +71,16 @@ def _item_path(generation_root: Path, item: HistoryItem) -> Path:
 
 def _without_sequence(item: HistoryItem) -> dict[str, Any]:
     return item.model_dump(mode="json", exclude={"publication_sequence"})
+
+
+def _item_document(item: HistoryItem) -> dict[str, Any]:
+    mapping = item.model_dump(mode="json")
+    return {
+        "schema_version": "recording-history-item/v1",
+        "collection": _collection(item),
+        "item": mapping,
+        "item_sha256": hashlib.sha256(_canonical_json(mapping)).hexdigest(),
+    }
 
 
 class RecordingHistoryStore:
@@ -130,12 +140,44 @@ class RecordingHistoryStore:
             raise RecordingHistoryCorrupt("history authority identity mismatch")
         return authority
 
+    def _read_item_file(self, path: Path, collection: str | None = None) -> HistoryItem:
+        document = self._read_object(path, "history item")
+        if (
+            set(document) != {"schema_version", "collection", "item", "item_sha256"}
+            or document["schema_version"] != "recording-history-item/v1"
+            or not isinstance(document["collection"], str)
+            or not isinstance(document["item_sha256"], str)
+        ):
+            raise RecordingHistoryCorrupt("invalid history item envelope")
+        try:
+            item = _ITEM_ADAPTER.validate_python(document["item"])
+        except ValueError as error:
+            raise RecordingHistoryCorrupt("history item failed contract validation") from error
+        item_mapping = item.model_dump(mode="json")
+        expected_digest = hashlib.sha256(_canonical_json(item_mapping)).hexdigest()
+        if (
+            document["collection"] != _collection(item)
+            or document["item_sha256"] != expected_digest
+            or (collection is not None and document["collection"] != collection)
+        ):
+            raise RecordingHistoryCorrupt("history item metadata digest or collection mismatch")
+        return item
+
+    def _write_item_file(self, path: Path, item: HistoryItem) -> None:
+        atomic_replace_json(path, _item_document(item))
+
     def _ensure_generation(self, recording_id: str) -> tuple[str, Path]:
         current = self._active_generation(recording_id)
         if current is not None:
             self._authority(recording_id, *current)
             return current
+        if self._has_generation_data(recording_id):
+            raise RecordingHistoryCorrupt("history generations exist without an active pointer")
         return self._rebuild_locked(recording_id, ())
+
+    def _has_generation_data(self, recording_id: str) -> bool:
+        generations_root = contained_path(self._recording_root(recording_id), "generations")
+        return generations_root.exists() and any(generations_root.iterdir())
 
     def get_authority(self, recording_id: str) -> RecordingHistoryAuthority:
         with self._lock(recording_id):
@@ -155,7 +197,9 @@ class RecordingHistoryStore:
             authority = self._authority(recording_id, generation, generation_root)
             path = _item_path(generation_root, item)
             if path.exists():
-                stored = _ITEM_ADAPTER.validate_python(self._read_object(path, "history item"))
+                stored = self._read_item_file(path, _collection(item))
+                if not 1 <= stored.publication_sequence <= authority.sequence:
+                    raise RecordingHistoryCorrupt("history item sequence exceeds its authority")
                 if _without_sequence(stored) != _without_sequence(item):
                     raise RecordingHistoryConflict("history item key is already bound")
                 return stored
@@ -171,9 +215,7 @@ class RecordingHistoryStore:
             atomic_replace_json(pending, record)
             self._after_boundary("journal")
             self._recover_locked(recording_id)
-            stored = _ITEM_ADAPTER.validate_python(
-                self._read_object(path, "published history item")
-            )
+            stored = self._read_item_file(path, _collection(item))
             return stored
 
     def read_item(self, recording_id: str, collection: str, item_key: str) -> HistoryItem:
@@ -181,16 +223,22 @@ class RecordingHistoryStore:
             self._recover_locked(recording_id)
             current = self._active_generation(recording_id)
             if current is None:
+                if self._has_generation_data(recording_id):
+                    raise RecordingHistoryCorrupt(
+                        "history generations exist without an active pointer"
+                    )
                 raise FileNotFoundError(item_key)
             generation, generation_root = current
-            self._authority(recording_id, generation, generation_root)
+            authority = self._authority(recording_id, generation, generation_root)
             digest = hashlib.sha256(item_key.encode("utf-8")).hexdigest()
             path = contained_path(generation_root, Path("items") / collection / f"{digest}.json")
             if not path.exists():
                 raise FileNotFoundError(item_key)
-            item = _ITEM_ADAPTER.validate_python(self._read_object(path, "history item"))
+            item = self._read_item_file(path, collection)
             if item.item_key != item_key or _collection(item) != collection:
                 raise RecordingHistoryCorrupt("history item address mismatch")
+            if not 1 <= item.publication_sequence <= authority.sequence:
+                raise RecordingHistoryCorrupt("history item sequence exceeds its authority")
             return item
 
     def validate_generation(self, recording_id: str, generation: str) -> None:
@@ -223,7 +271,7 @@ class RecordingHistoryStore:
             for sequence, item in enumerate(ordered, start=1):
                 stored = item.model_copy(update={"publication_sequence": sequence})
                 path = _item_path(staging, stored)
-                atomic_replace_json(path, stored.model_dump(mode="json"))
+                self._write_item_file(path, stored)
             authority = RecordingHistoryAuthority(
                 recording_id=recording_id,
                 generation=generation,
@@ -232,6 +280,7 @@ class RecordingHistoryStore:
             atomic_replace_json(staging / "authority.json", authority.model_dump(mode="json"))
             generation_root = contained_path(generations_root, generation)
             commit_staged_directory(staging, generation_root)
+        self._validate_generation(recording_id, generation, generation_root)
         atomic_replace_json(
             contained_path(root, "active.json"),
             {
@@ -242,6 +291,38 @@ class RecordingHistoryStore:
         )
         self._after_boundary("rebuild_active")
         return generation, generation_root
+
+    def _validate_generation(self, recording_id: str, generation: str, root: Path) -> None:
+        authority = self._authority(recording_id, generation, root)
+        items_root = contained_path(root, "items")
+        observed: list[HistoryItem] = []
+        if items_root.exists():
+            for collection_root in sorted(items_root.iterdir(), key=lambda path: path.name):
+                if collection_root.is_symlink() or not collection_root.is_dir():
+                    raise RecordingHistoryCorrupt("history generation has an invalid collection")
+                if collection_root.name not in {
+                    "snapshots",
+                    "revisions",
+                    "candidates",
+                    "lineage_edges",
+                }:
+                    raise RecordingHistoryCorrupt("history generation has an unknown collection")
+                for path in sorted(collection_root.iterdir(), key=lambda item: item.name):
+                    if path.is_symlink() or not path.is_file() or path.suffix != ".json":
+                        raise RecordingHistoryCorrupt("history generation has an invalid item file")
+                    item = self._read_item_file(path, collection_root.name)
+                    expected_path = _item_path(root, item)
+                    if expected_path != path:
+                        raise RecordingHistoryCorrupt(
+                            "history item filename does not match its key"
+                        )
+                    observed.append(item)
+        ordered = sorted(observed, key=_item_identity)
+        sequences = [item.publication_sequence for item in ordered]
+        if len(observed) != authority.sequence or sequences != list(
+            range(1, authority.sequence + 1)
+        ):
+            raise RecordingHistoryCorrupt("history generation does not match its authority")
 
     def _after_boundary(self, boundary: str) -> None:
         hook = getattr(self, "_after_durable_boundary", None)
@@ -286,13 +367,11 @@ class RecordingHistoryStore:
         stored_item = item.model_copy(update={"publication_sequence": next_sequence})
         if authority.sequence == pending["expected_sequence"]:
             if destination.exists():
-                existing = _ITEM_ADAPTER.validate_python(
-                    self._read_object(destination, "history item")
-                )
+                existing = self._read_item_file(destination, _collection(item))
                 if existing != stored_item:
                     raise RecordingHistoryCorrupt("pending history item conflicts with stored item")
             else:
-                atomic_replace_json(destination, stored_item.model_dump(mode="json"))
+                self._write_item_file(destination, stored_item)
             self._after_boundary("item")
             atomic_replace_json(
                 contained_path(generation_root, "authority.json"),
@@ -306,7 +385,7 @@ class RecordingHistoryStore:
         elif authority.sequence == next_sequence:
             if not destination.exists():
                 raise RecordingHistoryCorrupt("authority advanced without its history item")
-            existing = _ITEM_ADAPTER.validate_python(self._read_object(destination, "history item"))
+            existing = self._read_item_file(destination, _collection(item))
             if existing != stored_item:
                 raise RecordingHistoryCorrupt("committed authority item does not match journal")
         else:
