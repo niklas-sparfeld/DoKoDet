@@ -8,8 +8,10 @@ from uuid import uuid4
 import pytest
 from support.job_participants import FakeParticipant
 
+from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.job_models import Job, JobOwnershipError, JobStorageError
 from dokodetector_backend.job_store import JobManager
+from dokodetector_backend.recording_state_contract import JobProjectionAuthority
 
 
 def _request() -> dict:
@@ -109,8 +111,32 @@ def test_job_transition_rejects_unrelated_record_change(tmp_path: Path) -> None:
     job_path = tmp_path / "jobs" / job.id / "job.json"
     changed = Job.model_validate_json(job_path.read_bytes())
     changed.label = "changed outside the transition"
-    from dokodetector_backend.filesystem import atomic_replace_json
-
     atomic_replace_json(job_path, changed.model_dump(mode="json"))
     with pytest.raises(JobStorageError, match="job record conflicts"):
         JobManager(tmp_path, participant).__enter__()
+
+
+def test_job_authority_conflict_does_not_mutate_job_record(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        job = manager.accept(str(uuid4()), _request())
+        original_job = (tmp_path / "jobs" / job.id / "job.json").read_bytes()
+
+    def crash(name: str) -> None:
+        if name == "job_transition_prepared":
+            raise RuntimeError("simulated crash")
+
+    with (
+        JobManager(tmp_path, participant, after_write=crash) as manager,
+        pytest.raises(RuntimeError, match="simulated crash"),
+    ):
+        manager.transition(job.id, "running")
+
+    authority_path = tmp_path / "jobs" / "recording-projections" / "authority.json"
+    authority = JobProjectionAuthority.model_validate_json(authority_path.read_bytes())
+    conflict = authority.model_copy(update={"sequence": authority.sequence + 2})
+    atomic_replace_json(authority_path, conflict.model_dump(mode="json"))
+
+    with pytest.raises(JobStorageError, match="job authority conflicts"):
+        JobManager(tmp_path, participant).__enter__()
+    assert (tmp_path / "jobs" / job.id / "job.json").read_bytes() == original_job

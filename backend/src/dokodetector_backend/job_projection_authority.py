@@ -88,20 +88,27 @@ class JobProjectionAuthorityStore:
         old_digest = record["old_job_sha256"]
         new_payload = _canonical(record["new_job"])
         new_digest = record["new_job_sha256"]
-        if current_digest == old_digest:
-            atomic_replace_json(path, new_payload)
-            self.after_write("job_transition_record")
-        elif current_digest != new_digest:
+        job_is_old = current_digest == old_digest
+        job_is_new = current_digest == new_digest
+        if not job_is_old and not job_is_new:
             raise JobStorageError("job record conflicts with prepared transition")
 
         authority = self._read_authority()
         old_authority = JobProjectionAuthority.model_validate(record["old_authority"])
         new_authority = JobProjectionAuthority.model_validate(record["new_authority"])
-        if authority == old_authority:
+        authority_is_old = authority == old_authority
+        authority_is_new = authority == new_authority
+        if not authority_is_old and not authority_is_new:
+            raise JobStorageError("job authority conflicts with prepared transition")
+        if job_is_old and authority_is_new:
+            raise JobStorageError("job authority advanced before its job record")
+
+        if job_is_old:
+            atomic_replace_json(path, new_payload)
+            self.after_write("job_transition_record")
+        if authority_is_old:
             atomic_replace_json(self.authority_path, new_authority.model_dump(mode="json"))
             self.after_write("job_transition_authority")
-        elif authority != new_authority:
-            raise JobStorageError("job authority conflicts with prepared transition")
 
         self.transition_path.unlink(missing_ok=True)
         _sync_directory(self.transition_path.parent)

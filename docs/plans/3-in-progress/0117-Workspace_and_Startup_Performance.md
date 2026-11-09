@@ -264,14 +264,16 @@ while history and unrelated recordings grow 10x.
 
 - Requested run: 14 milestones, starting at M5a; completed: 8; remaining: 6. The revised cap
   covers M5a, M5b1, M5b2, M5c1–M5c4, M6a–M6d, and M7–M9. M10–M16 are outside this run.
-- Next: M6b. M6a replan count: 0/5; M6a correction count: 0/2; M5c replan count: 2/5; this run
+- Next: M6b. M6a replan count: 0/5; M6a correction count: 1/2; M5c replan count: 2/5; this run
   replan count: 4/10. M5c4 correction count:
   0/2. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2. M6a completed with authority advances for each durable
-  `job.json` write, journal recovery after restart, digest conflict rejection, and serialized readers
-  and writers. Checks and the full writer inventory are in the [M6a report](../../reports/0117-M6a_Job_Projection_Authority.md).
+  `job.json` write, journal recovery after restart, pre-write job/authority conflict validation, and
+  serialized readers and writers. Correction 1/2 added authority-conflict no-mutation evidence and
+  the automated-pipeline writer to the inventory. Checks and the full inventory are in the
+  [M6a report](../../reports/0117-M6a_Job_Projection_Authority.md).
   The M6a commit does not implement job projections, analysis/package metadata pages, or catalog
   conversion. Those remain M6b–M6d. M6b is next; 6 run milestones remain.
 - M5b2 result: complete after the resumed authority-loss fix. The four history routes use M5b1's stable collection order and frozen

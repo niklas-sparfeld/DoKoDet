@@ -23,6 +23,7 @@ All production job record writes now converge on `JobPersistence._write_job`:
 | Writer | Path into shared transaction |
 | --- | --- |
 | Initial acceptance and acceptance recovery | `JobPersistence._finish_intent` |
+| Automated pipeline step progress and failure | `automated_pipeline_jobs` calls `JobManager._write_job` |
 | Progress, waiting state, and worker failure | `JobScheduler` calls `JobManager._write_job` |
 | Inline API handler failure | `jobs_api` calls `JobManager._write_job` |
 | Explicit progress updates and lifecycle transitions | `JobManager` methods call `_write_job` |
@@ -45,7 +46,8 @@ finishes either side idempotently and rejects unrelated values.
 The test suite injects a failure after each of the four durable boundaries, restarts the manager,
 and verifies the job and authority sequence. It also verifies that a concurrent reader waits for a
 writer and sees the completed state, that authority identity survives restart, and that a second
-manager cannot claim the same root.
+manager cannot claim the same root. A prepared transaction with a conflicting authority fails
+before it changes the job record.
 
 ## Checks
 
