@@ -4,6 +4,20 @@ Read this file before starting a persistent milestone run or a Luna loop. The ro
 [AGENTS.md](../../AGENTS.md) defines the shared development, Git, milestone completion, and
 verification requirements. This file adds the rules for each optional execution mode.
 
+## Re-planning limits
+
+For a persistent milestone run or Luna loop, allow at most five re-plannings for each
+milestone and at most ten re-plannings for the whole run. A re-planning is a revision of the
+remaining milestone scope, acceptance criteria, or approach in response to new evidence. Count
+each revision once against both limits, including revisions made after worker advice, review,
+or a blocked report. Clarifications that do not revise the plan do not count.
+
+Keep the current milestone and run counts in the execution handoff. A new milestone resets its
+milestone count; a new user-authorized run resets the run count. Resuming an interrupted run
+keeps its existing counts. If another re-planning is needed after either limit is reached, stop
+and report the evidence and remaining work. These limits do not change the trigger to revisit
+the plan after two successive attempts that discover prerequisites or do not reduce the scope.
+
 ## Persistent milestone execution
 
 Use this mode only when the user says `run epic 1234 for N milestones` or
@@ -15,9 +29,10 @@ agent in the current chat to complete at most `N` milestones in sequence. The ex
 Follow the milestone completion requirements in [AGENTS.md](../../AGENTS.md#planning-workflow).
 For each milestone, also maintain an `Execution handoff` section in the active epic. Record the
 completed milestone, changes, checks and results, decisions, known limits, next milestone, and
-this run's requested, completed, and remaining counts. Keep one current handoff and replace stale
-next steps and counts. Put detailed history in a milestone report. Keep continuation facts here
-rather than only in chat history. Commit the handoff with the milestone implementation and plan updates.
+this run's requested, completed, and remaining counts, and the re-planning counts. Keep one current
+handoff and replace stale next steps and counts. Put detailed history in a milestone report. Keep
+continuation facts here rather than only in chat history. Commit the handoff with the milestone
+implementation and plan updates.
 
 Give the milestone summary in commentary, then continue without waiting for another prompt.
 
@@ -132,7 +147,8 @@ Include these worker rules in every assignment:
   browser checks. Resolve failures within scope. Record baseline failures separately; they do
   not waive acceptance criteria. Do not mark incomplete acceptance criteria complete.
 - Update the epic and board. Maintain an `Execution handoff` with changes, checks and outcomes,
-  decisions, limits, next milestone, and this run's requested, completed, and remaining counts.
+  decisions, limits, next milestone, this run's requested, completed, and remaining counts, and
+  the milestone and run re-planning counts.
   Replace stale handoff facts; keep detailed history and evidence in a milestone report.
 - Commit implementation, documentation, and plan updates together as one focused milestone
   commit. Integrate it into `main` before reporting completion. For the final milestone, verify
