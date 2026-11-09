@@ -29,7 +29,8 @@
   also confirmed that four separate source owners can commit before the history index, leaving a
   crash gap, and M1/M0 do not identify a persisted candidate source. Replan 5 assigns the bounded
   query APIs to M5b and source adapters, gap reconciliation, and candidate-source identification to
-  M5c. The 15-slot run now ends at M14.
+  M5c. The prior 15-slot run ended at M14. A new 14-milestone run starts at M5a and includes M5b,
+  M5c, and M6–M16.
 
 ## Evidence and scope
 
@@ -178,7 +179,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | Complete; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
 | M4b | Bounded coordinated transaction recovery and pending-journal authority | Complete; [report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md) |
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Complete; [report](../../reports/0117-M4_Real_API_Workflow.md) |
-| M5a | Durable shared history authority and rebuild contract | In progress; [report](../../reports/0117-M5a_History_Authority.md) |
+| M5a | Durable shared history authority and rebuild contract | Complete; [report](../../reports/0117-M5a_History_Authority.md) |
 | M5b | Bounded history API pages over the durable metadata index | Not started; full source coverage waits for M5c |
 | M5c | Source publisher adapters and durable-to-index gap reconciliation | Not started; candidate source must be identified |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
@@ -228,11 +229,10 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 15 milestones, starting at M4a; completed: 3; remaining: 12. The cap now covers
-  M4a, M4b, M4c, M5a, M5b, M5c, and M6–M14. M15 and M16 are outside this run.
-- Next milestone: M5a. M5a replan count: 2/5; this run replan count: 3/10. M5a correction count:
-  2/2. The two earlier M4a
-  replans and two correction turns belong to the prior run and are preserved in the milestone report.
+- Requested run: 14 milestones, starting at M5a; completed: 1; remaining: 13. The cap covers
+  M5a, M5b, M5c, and M6–M16.
+- Next milestone: M5b. M5a replan count: 2/5; this run replan count: 0/10. Previous-run
+  correction history is preserved in the milestone report and does not count against this run.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
   selection reads do the same; selection writes take the root lock before their selection lock.
@@ -271,18 +271,20 @@ while history and unrelated recordings grow 10x.
   snapshot access, and restart. The existing Starlette `httpx` deprecation warning remains.
   See the [M4c report](../../reports/0117-M4_Real_API_Workflow.md).
 - M5a result: the shared history store assigns a per-recording sequence and publishes immutable
-  metadata through a recoverable journal. Readers validate the metadata digest and sequence against
-  authority. Rebuild validates every item and authority before switching the active pointer. A
-  missing active pointer with generation data is corruption; it cannot reset history silently.
-  History cursors pin the generation. The store does not read payloads and is not connected to
-  source writers or discovery APIs.
-- M5a checks: 32 history-store and contract tests passed. They cover idempotent and conflicting
-  publication, two-process writers, four publication crash boundaries with restart, deterministic
-  rebuild, rebuild validation before pointer switch, cursor expiration, digest and sequence
-  corruption, missing active pointer, corrupt-journal rejection, and page/cursor contracts. Ruff
-  and format checks passed for changed backend files and tests; `git diff --check` passed. See the
+  metadata through a recoverable journal. Readers validate metadata digest and sequence against
+  authority. Rebuild validates each item and authority before switching the active pointer. Recovery
+  retries empty initialization after process death during staging. It asks callers to retry a
+  nonempty initial rebuild with source metadata. It preserves the prior active generation when a
+  replacement rebuild dies before commit. A missing active pointer with committed generation data
+  remains corruption. The store does not read payloads or connect source publishers or discovery APIs.
+- M5a checks: 35 history-store and contract tests passed, including publication crash boundaries,
+  actual child-process death during empty, nonempty, and replacement generation staging, restart
+  recovery, rebuild validation before pointer switch, cursor expiration, digest and sequence
+  corruption, missing active pointer, two-process publication, corrupt-journal rejection, and
+  page/cursor contracts. Ruff check and format check passed for changed backend files and tests;
+  `git diff --check` and local Markdown link checks passed. See the
   [M5a report](../../reports/0117-M5a_History_Authority.md).
-- M5a correction 2/2 adds a durable generation journal. A child process exits after committing the
+- M5a prior correction 2/2 adds a durable generation journal. A child process exits after committing the
   initial generation directory but before publishing `active.json`; a fresh process validates that
   generation and publishes the pointer. Missing pointers without a matching generation journal
   remain corruption.
@@ -295,12 +297,8 @@ while history and unrelated recordings grow 10x.
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.
-- Run stopped after the M5a correction limit. A process death during initial generation staging can
-  leave a staging directory without its committed generation. Empty initialization then reports
-  corruption; a nonempty initial rebuild cannot be retried. Add deterministic process-death checks
-  before generation commit and make recovery retryable while preserving lost-pointer detection.
-- Next: finish M5a before M5b. Run count: 3 complete, 12 remaining. Do not claim complete discovery
-  until M5c wires all source publishers and proves crash-gap reconciliation.
+- Do not claim complete discovery until M5c wires all
+  source publishers and proves crash-gap reconciliation.
 
 ## M1 — Define current-state operation contracts
 

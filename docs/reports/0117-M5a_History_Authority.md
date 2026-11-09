@@ -31,17 +31,28 @@ new generation before changing the active pointer. If generation data exists wit
 pointer, a normal read or write returns corruption instead of creating empty history. An explicit
 rebuild remains available when the caller can prove the source metadata.
 
+The resumed M5a work makes initial generation staging retryable after process death. Recovery uses
+the pending generation journal to identify an interrupted build and removes abandoned `.staging-*`
+directories. Empty initialization then starts again. A nonempty initial rebuild reports that the
+caller must retry with source metadata, because the staging journal does not contain the source
+items. A rebuild over an existing active generation keeps that generation available when the new
+generation was not committed. Generation data without a matching pending journal still triggers
+the lost-pointer corruption check.
+
 ## Verification
 
-- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_history_store.py backend/tests/test_recording_state_contract.py` — passed, 32 tests.
+- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_history_store.py backend/tests/test_recording_state_contract.py` — passed, 35 tests.
 - Store tests cover sequence assignment, duplicate retries, conflicting item-key reuse, all four
   publication crash boundaries, restart recovery, deterministic rebuild, generation-based cursor
   expiration, a rebuild restart boundary, pre-switch generation validation, metadata-digest and
   authority-sequence corruption, missing-active-pointer rejection, two-process publication, and
-  corrupt-journal rejection. Correction 2/2 adds a durable generation journal and a child-process
-  stop after the initial generation directory commit but before `active.json`; restart validates
-  the committed directory and publishes its active pointer. A missing pointer without this journal
-  still reports corruption.
+  corrupt-journal rejection. The previous run added a durable generation journal and a child-process
+  stop after the initial generation directory commit but before `active.json`; restart validates the
+  committed directory and publishes its active pointer. The resumed run adds child-process stops
+  during empty, nonempty, and replacement generation staging. Empty initialization retries
+  automatically; nonempty rebuild retries with supplied source metadata; replacement rebuild leaves
+  its previous active generation readable. A missing pointer without this journal still reports
+  corruption.
 - Contract tests cover required history cursor generation and prohibit that field on catalog/job
   cursors. They also check that resource items match their page collection.
 - Ruff check and format check passed for the changed backend files and tests.

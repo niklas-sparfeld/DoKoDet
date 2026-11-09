@@ -44,6 +44,10 @@ class RecordingHistoryCursorExpired(ValueError):
     """A cursor was created against a previous history authority generation."""
 
 
+class RecordingHistoryRebuildRequired(ValueError):
+    """An interrupted initial rebuild needs its source metadata supplied again."""
+
+
 def _canonical_json(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
         "utf-8"
@@ -178,7 +182,20 @@ class RecordingHistoryStore:
 
     def _has_generation_data(self, recording_id: str) -> bool:
         generations_root = contained_path(self._recording_root(recording_id), "generations")
-        return generations_root.exists() and any(generations_root.iterdir())
+        if not generations_root.exists():
+            return False
+        return any(
+            not (path.name.startswith(".staging-") and path.is_dir() and not path.is_symlink())
+            for path in generations_root.iterdir()
+        )
+
+    def _remove_staging_generations(self, recording_id: str) -> None:
+        generations_root = contained_path(self._recording_root(recording_id), "generations")
+        if not generations_root.exists():
+            return
+        for path in generations_root.iterdir():
+            if path.name.startswith(".staging-") and path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
 
     def _pending_generation_path(self, recording_id: str) -> Path:
         return contained_path(self._recording_root(recording_id), "pending-generation.json")
@@ -262,7 +279,7 @@ class RecordingHistoryStore:
         """
         with self._lock(recording_id):
             self._recover_locked(recording_id)
-            self._recover_generation_locked(recording_id)
+            self._recover_generation_locked(recording_id, retry_initial_incomplete=True)
             return self._rebuild_locked(recording_id, items)
 
     def _rebuild_locked(self, recording_id: str, items: Any) -> tuple[str, Path]:
@@ -293,16 +310,19 @@ class RecordingHistoryStore:
         generation_root = contained_path(generations_root, generation)
         try:
             with staging_directory(generations_root) as staging:
+                self._after_boundary("rebuild_staging_started")
                 for sequence, item in enumerate(ordered, start=1):
                     stored = item.model_copy(update={"publication_sequence": sequence})
                     path = _item_path(staging, stored)
                     self._write_item_file(path, stored)
+                    self._after_boundary("rebuild_item_staged")
                 authority = RecordingHistoryAuthority(
                     recording_id=recording_id,
                     generation=generation,
                     sequence=len(ordered),
                 )
                 atomic_replace_json(staging / "authority.json", authority.model_dump(mode="json"))
+                self._after_boundary("rebuild_before_generation_commit")
                 commit_staged_directory(staging, generation_root)
             self._after_boundary("rebuild_generation_committed")
             self._validate_generation(recording_id, generation, generation_root)
@@ -327,7 +347,9 @@ class RecordingHistoryStore:
             },
         )
 
-    def _recover_generation_locked(self, recording_id: str) -> None:
+    def _recover_generation_locked(
+        self, recording_id: str, *, retry_initial_incomplete: bool = False
+    ) -> None:
         pending_path = self._pending_generation_path(recording_id)
         if not pending_path.exists():
             return
@@ -370,9 +392,15 @@ class RecordingHistoryStore:
         if not generation_root.exists():
             if current_generation == generation:
                 raise RecordingHistoryCorrupt("active history generation is missing")
-            if expected_generation is None and pending["item_count"] > 0:
-                raise RecordingHistoryCorrupt(
-                    "initial history rebuild stopped before its generation was durable"
+            self._remove_staging_generations(recording_id)
+            if (
+                expected_generation is None
+                and pending["item_count"] > 0
+                and not retry_initial_incomplete
+            ):
+                raise RecordingHistoryRebuildRequired(
+                    "initial history rebuild stopped before commit; retry rebuild with "
+                    "source metadata"
                 )
             pending_path.unlink(missing_ok=True)
             return

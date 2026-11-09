@@ -12,6 +12,7 @@ from dokodetector_backend.recording_history_store import (
     RecordingHistoryConflict,
     RecordingHistoryCorrupt,
     RecordingHistoryCursorExpired,
+    RecordingHistoryRebuildRequired,
     RecordingHistoryStore,
 )
 from dokodetector_backend.recording_state_contract import (
@@ -74,6 +75,27 @@ def _process_stop_after_initial_generation_commit(root: str) -> None:
 
     store._after_durable_boundary = stop_after
     store.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+
+
+def _process_stop_during_initial_generation_staging(root: str, mode: str) -> None:
+    store = RecordingHistoryStore(root)
+    if mode == "replacement":
+        store.publish("recording-1", _snapshot("snapshot-old"))
+
+    def stop_during_staging(boundary: str) -> None:
+        if boundary == ("rebuild_staging_started" if mode == "empty" else "rebuild_item_staged"):
+            os._exit(74)
+
+    store._after_durable_boundary = stop_during_staging
+    if mode == "empty":
+        store.get_authority("recording-1")
+    else:
+        store.rebuild(
+            "recording-1",
+            [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")]
+            if mode == "nonempty"
+            else [_snapshot("snapshot-new")],
+        )
 
 
 def test_history_publication_assigns_sequence_and_retries_idempotently(tmp_path: Path):
@@ -185,6 +207,54 @@ def test_initial_generation_commit_survives_process_death_before_active_pointer(
     assert authority.sequence == 2
     assert restarted.read_item("recording-1", "snapshots", "snapshot-1").publication_sequence == 1
     assert restarted.read_item("recording-1", "snapshots", "snapshot-2").publication_sequence == 2
+
+
+def test_empty_initialization_recovers_process_death_during_staging(tmp_path: Path):
+    context = multiprocessing.get_context("spawn")
+    worker = context.Process(
+        target=_process_stop_during_initial_generation_staging, args=(str(tmp_path), "empty")
+    )
+    worker.start()
+    worker.join(timeout=20)
+    assert worker.exitcode == 74
+
+    authority = RecordingHistoryStore(tmp_path).get_authority("recording-1")
+    assert authority.sequence == 0
+
+
+def test_nonempty_initial_rebuild_can_retry_after_process_death_during_staging(
+    tmp_path: Path,
+):
+    context = multiprocessing.get_context("spawn")
+    worker = context.Process(
+        target=_process_stop_during_initial_generation_staging, args=(str(tmp_path), "nonempty")
+    )
+    worker.start()
+    worker.join(timeout=20)
+    assert worker.exitcode == 74
+
+    restarted = RecordingHistoryStore(tmp_path)
+    with pytest.raises(RecordingHistoryRebuildRequired, match="retry rebuild"):
+        restarted.get_authority("recording-1")
+    restarted.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+    assert restarted.get_authority("recording-1").sequence == 2
+    assert restarted.read_item("recording-1", "snapshots", "snapshot-1").publication_sequence == 1
+
+
+def test_rebuild_death_during_staging_keeps_previous_generation_active(tmp_path: Path):
+    context = multiprocessing.get_context("spawn")
+    worker = context.Process(
+        target=_process_stop_during_initial_generation_staging,
+        args=(str(tmp_path), "replacement"),
+    )
+    worker.start()
+    worker.join(timeout=20)
+    assert worker.exitcode == 74
+
+    restarted = RecordingHistoryStore(tmp_path)
+    authority = restarted.get_authority("recording-1")
+    assert authority.sequence == 1
+    assert restarted.read_item("recording-1", "snapshots", "snapshot-old").publication_sequence == 1
 
 
 def test_rebuild_validates_generation_before_switching_active_pointer(
