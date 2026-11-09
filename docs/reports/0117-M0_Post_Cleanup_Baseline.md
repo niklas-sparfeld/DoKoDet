@@ -1,7 +1,8 @@
 # Epic 0117 M0: post-cleanup baseline and boundary inventory
 
 Date: 2026-11-09  
-Measured source revision: `fed9a15da5a9305d5811525c5588cac62e61a01c`  
+Hard-trial source revision: `fed9a15da5a9305d5811525c5588cac62e61a01c`. Boundary-profile source revision:
+`2bea6053d9c7f44243343b6791c7bc4b45005e82`.
 Machine: macOS 27.2, arm64, 12 CPUs, Python 3.13.18  
 Hard fixture manifest SHA-256: `e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294`
 
@@ -12,10 +13,10 @@ requests still take about 21 seconds. The current catalog reads retained node hi
 hypothesis is supported by both the source inventory and these measurements. Continue with the
 snapshot and HEAD contract in M1.
 
-This report freezes measurement gates and a finite trial budget. The profile measures observable
-file opens and decoders. It does not count every schema validation call inside domain code. It
-counts node enumeration and history records through the actual store methods. Treat decoder calls
-as a lower bound on validation work, not as a complete validation counter.
+This report freezes measurement gates and a finite trial budget. The profile counts actual
+`PipelineNodeStore._read_revision` calls as revision schema and content validation, and
+`_get_unrecovered` calls as node-manifest validation. It separately counts each open of a complete
+`revision.json` payload, payload bytes, parser calls, history records, and lineage-record scans.
 
 ## Retained fixture and cold/warm baseline
 
@@ -81,8 +82,32 @@ provider stub and returns HTTP 202.
 | Lineage graph / explicit history | 200 | 46 | 312 | 12 | 5 / 7 | visible 4, identity 3 |
 | Exact immutable revision | 200 | 6 | 12 | 0 | 1 / 2 | identity 2 |
 | Empty table-observation stage | 200 | 63 | 585 | 12 | 5 / 7 | visible 8, identity 6 |
+| Stale selected revision | 200 | 63 | 339 | 12 | 5 / 7 | visible 4, identity 3 |
 | Processor launch | 202 | 59 | 60 | 0 | 0 / 0 | none |
-| Stale selected revision | 200 | 65 | 339 | 12 | 5 / 7 | visible 4, identity 3 |
+
+The instrumented profile also separates full revision payload reads from history metadata and
+lineage scans. Revision validation means one call to `_read_revision`; repeated validation counts
+show repeated validation of the same `(node_id, revision_id)` within that operation. The node
+manifest count is `_get_unrecovered`. Lineage enumeration counts `*.json` glob calls under
+`.lineage-runs`; lineage record reads count files opened there. The retained hard corpus has no
+`.lineage-runs` directory, so these counts are zero for the measured operations.
+
+| Boundary | Duration | Revision payload reads / bytes | Revision validations / repeated | Node manifest validations | Lineage enumerations / records |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| In-process startup + first useful probes | 42.337 s | 21 / 129,596,737 | 21 / 7 | 47 | 0 / 0 |
+| Recording catalog | 19.669 s | 14 / 70,117,888 | 14 / 0 | 23 | 0 / 0 |
+| Full workspace | 22.680 s | 7 / 59,478,849 | 7 / 0 | 24 | 0 / 0 |
+| Visual-identity stage | 16.061 s | 7 / 59,478,849 | 7 / 0 | 24 | 0 / 0 |
+| Lineage graph / explicit history | 16.061 s | 7 / 59,478,849 | 7 / 0 | 17 | 0 / 0 |
+| Exact immutable revision | 5.343 s | 2 / 24,019,622 | 2 / 0 | 2 | 0 / 0 |
+| Empty table-observation stage | 22.636 s | 7 / 59,478,849 | 7 / 0 | 24 | 0 / 0 |
+| Stale selected revision | 16.015 s | 7 / 59,478,849 | 7 / 0 | 24 | 0 / 0 |
+| Processor launch | 1.739 s | 0 / 0 | 0 / 0 | 0 | 0 / 0 |
+
+The in-process startup duration combines ASGI lifespan and three first-use probes. It is not the
+independent process startup metric above. The independent medians remain the startup regression
+reference. The catalog and stage durations are single instrumented requests and are diagnostic;
+they do not replace the three independent cold/warm trials.
 
 The full counter sets and read paths are in the
 [boundary profile](0117-M0_Post_Cleanup_Baseline.artifacts/boundary-profile.json). The separate
@@ -105,27 +130,36 @@ only selected current data participates in workspace growth.
 `backend/tests/test_0117_workspace_growth_fixture.py` uses the real `PipelineNodeStore` and workspace
 revision projection. It fixes selected current content and an independent sibling review, then grows
 history from 2 to 20 revisions and unrelated recordings from 1 to 10. The stage markers retain an
-empty table-observation stage and stale visual-identity selection. It asserts exact selected content,
-sibling identity, node enumeration, history traversal count, and returned revision count.
+empty table-observation stage and stale visual-identity selection. It creates an empty persisted
+`.lineage-runs` directory and measures its enumeration separately. It asserts exact selected
+content, sibling identity, node enumeration, history traversal count, payload reads and bytes,
+revision validation calls, domain parser calls, lineage enumeration, and request elapsed time.
 
-The fixture keeps the two current-recording `history` method calls fixed, while records read grow
-from 3 to 21 and node enumeration grows from 3 to 12. This directly shows that current projection
-work follows retained history even with fixed current content. The API profiler separately checks
-real persisted empty and stale state. The fixture does not claim that unrelated recordings cost zero
-metadata enumeration; the workspace currently enumerates 12 nodes before filtering.
+The fixture keeps the two current-recording `history` method calls fixed, while revision payload
+reads, revision validations, and parser calls grow from 3 to 21. Payload bytes grow from 1,353 to
+9,077. The measured projection duration grows from 2.282 ms to 11.523 ms. Node enumeration grows
+from 3 to 12, and the empty lineage directory is enumerated once in each case with zero records.
+The API profiler separately checks real persisted empty and stale state. The fixture does not claim
+that unrelated recordings cost zero metadata enumeration; the workspace currently enumerates 12
+nodes before filtering.
 
 ## Reader, writer, and schema inventory
 
-| Resource or boundary | Active readers | Active writers | Representative schema / path | Replacement and check |
-| --- | --- | --- | --- | --- |
-| Recording source and catalog | `recordings_api.list_recordings`, `RoundAnalysisService.recording_catalog`, `RecordingPipelineWorkspaceService.get_statuses` | `RecordingBundleStore` intake; `RoundAnalysisStore` analysis creation | `recording-video/v1`; `data/intake/recordings/<id>/`; `data/operations/round-analyses/` | Compact recording and current-state summary; profile `/v1/recordings`; verify catalog omits revision payloads and histories. |
-| Node manifests, HEAD, revisions | `PipelineNodeStore.get`, `list_nodes`, `history`, `read_revision_record`; workspace and stage APIs | `PipelineNodeStore.create`, `save`, transaction recovery | `pipeline-node/v1`, `pipeline-node-revision/v1`; `data/operations/pipeline-nodes/<node>/` | Snapshot exact references and bounded content access; verify identities, digest, ancestry, and pagination. |
-| Per-content generated and completed selection | `PipelineNodeSelectionStore.get_exact`; stage APIs; workspace and recording catalog | `PipelineNodeSelectionStore.update_exact`; editor/review/selection services | `pipeline-node-selection/v1`; `.pipeline-node-selections/<recording>/<type>.json` | Snapshot separate generated/reference slots and explicit HEAD updates; verify CAS, independent reviews, empty/stale pointers. |
-| Lineage runs and requests | `PipelineLineage.snapshot`, workspace `_node_revisions_for_recordings`, explicit lineage API | `PipelineLineage.start`, `PipelineLineageWriter`, processor services | `pipeline-lineage-request/v1`, `pipeline-lineage-run/v1`; `.lineage-requests/`, `.lineage-runs/` | Keep exact graph access explicit; profile graph reads and ensure normal catalog/workspace do not scan unrelated history. |
-| Review drafts and coverage | `PipelineNodeReviews`, visible-card review, frame-review and lineage draft projections | Review APIs, node edit service, frame-review workflow | `pipeline-review/v1`, `frame-review-workflow/v1`; node review roots and review stores | Preserve independent review work; verify sibling reviews and durable restart. |
-| Calibration and reconstruction | Calibration refinement API/service; round-analysis readers and package lineage | `CalibrationRefinementService`, `RoundAnalysisService` | `table-plane-calibration/v1`, `table-plane-calibration-refinement/v1`, `round-analysis/v1`; calibration and round-analysis roots | Inventory exact selected references in M1; verify calibration/reconstruction resources are not assumed to be ordinary nodes. |
-| Processor requests, outputs, and jobs | Stage APIs, `AutomatedPipelineRunService`, Job Manager projection | Stage processor services, `PipelineLineageWriter`, Job Manager | `processor-run-request/v1`, `automated-pipeline-run/v1`; per-run and job roots | Freeze exact snapshot/input references; output publication must not change selection. Verify launch, retry, cancel, and restart. |
-| Recovery and startup | backend lifespan, Job Manager recovery, storage recovery | recovery services and durable stores | M15 storage map roots; operation-specific `schema_version` | Keep M15 storage authority; verify fresh-process startup and recovery with isolated roots. |
+This is the active reader/writer boundary that M1 replaces. Paths below are relative to the
+worktree. The local data roots can be redirected by `DOKO_STORAGE_ROOT`; the authoritative roots
+and recovery limits are in the [0115 M14 map](0115-M14_Maintained_Storage_Map.md).
+
+| Resource and schema | Active readers and paths | Active writers and paths | Verification command |
+| --- | --- | --- | --- |
+| Recording bundle: `recording-video/v1`, source-record, initial-task-enrollment | `recordings_api.list_recordings` / `get_recording`; `RoundAnalysisService.recording_catalog`; `RecordingBundleStore.list_metadata` / `get_metadata`; `EventPipelineService.get_recording_source`. Reads `data/intake/recordings/<recording_id>/{manifest.json,source-record.json,initial-task-enrollment.json}`. Routes: `GET /v1/recordings`, `GET /v1/recordings/{recording_id}`, workspace GET. | Intake publication through `RecordingBundleStore.publish`; `operator_corpus_import.py`; `POST /v1/recordings/{recording_id}/round-analyses` writes analysis state, not the bundle. | `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_bundle_store.py backend/tests/test_round_analysis_api.py` |
+| Evidence package and round analysis: `evidence-package/v1`, `round-analysis/v1`, package lineage | `RoundAnalysisService.recording_catalog`; `RoundAnalysisStore.list_by_recording`; `EvidencePackageStore.list_metadata`; `RoundAnalysisService._read_lineage`. Reads `data/intake/evidence-packages/<id>/` and `data/operations/round-analyses/<analysis_id>/`. Route: `GET /v1/recordings`. | `RoundAnalysisService` / `RoundAnalysisStorage` create, progress, complete, and publish counterfactual records through `POST /v1/recordings/{recording_id}/round-analyses`. | `mise exec -- uv run --project backend pytest -q backend/tests/test_round_analysis_api.py backend/tests/test_round_analysis_storage.py backend/tests/test_round_analysis_store.py` |
+| Node manifest, HEAD, revision: `pipeline-node/v1`, `pipeline-node-revision/v1` | `PipelineNodeStore._get_unrecovered`, `list_nodes`, `history`, `_read_revision`; `RecordingPipelineWorkspaceService._node_revisions_for_recordings`. Reads `data/operations/pipeline-nodes/<node_id>/{manifest.json,head.json,revisions/<revision_id>/revision.json}`. Routes: workspace, lineage, and exact revision GET. | `PipelineNodeStore.create` / `save`; stage processors; node `edit`, `copy`, and `restore` routes. | `mise exec -- uv run --project backend pytest -q backend/tests/test_0117_workspace_growth_fixture.py backend/tests/test_pipeline_api.py backend/tests/test_pipeline_node_store.py` |
+| Generated/completed selection: `pipeline-node-selection/v1` | `PipelineNodeSelectionStore.get_exact`; workspace, catalog, stage services. Reads `data/operations/pipeline-nodes/.pipeline-node-selections/<recording_id>/<content_type>.json`; stage GET selection routes. | `PipelineNodeSelectionStore.update_exact`; matching stage PUT routes; editor/review publication. | `mise exec -- uv run --project backend pytest -q backend/tests/test_pipeline_api.py::test_recording_pipeline_workspace_reports_invalid_selection_pointer` |
+| Lineage request/run/accepted-use: `pipeline-lineage-request/v1`, `pipeline-lineage-run/v1`, `pipeline-accepted-use/v1` | `PipelineLineage.snapshot`; `RecordingPipelineWorkspaceService._node_revisions_for_recordings` / `_lineage_runs_by_output`. Reads `.lineage-requests/<run_id>.json`, `.lineage-runs/<run_id>.json`, and `.accepted-uses/<run_id>.json`. Route: pipeline lineage GET. | `PipelineLineage.start`, `PipelineLineageWriter`, stage processor publishers write request, terminal, and accepted-use records. | `mise exec -- uv run --project backend pytest -q backend/tests/test_pipeline_lineage.py backend/tests/test_pipeline_lineage_writer.py` |
+| Reviews and drafts: `pipeline-review/v1`, `visible-card-review/v1`, `frame-review-workflow/v1` | `PipelineNodeReviews`, `VisibleCardReviewStore`, frame-review workflow, lineage draft projection; node review GET route. Reads `.review-records/<node_id>/<review_id>.json`, visible-card reviews, and `data/operations/frame-review-queues/`. | Node review POST routes; visible-card/frame-review APIs and draft stores. | `mise exec -- uv run --project backend pytest -q backend/tests/test_pipeline_api.py backend/tests/test_lineage_draft_projection.py backend/tests/test_frame_review_lineage_target.py` |
+| Calibration: `table-plane-calibration/v1`, `table-plane-calibration-refinement/v1` | `CalibrationRefinementService`, calibration API. Reads calibration revisions, drafts and candidates under `data/operations/`; calibration GET routes. | Calibration-refinement POST, PUT, `/discard`, `/apply`; service publishes calibration and refinement records. | `mise exec -- uv run --project backend pytest -q backend/tests/test_calibration_refinement_service.py backend/tests/test_pipeline_api.py` |
+| Processor request/output/job: `processor-run-request/v1`, `automated-pipeline-run/v1`, Job Manager schemas | Stage GET APIs; `AutomatedPipelineRunService.read`; Job Manager status. Reads `data/operations/pipeline/runs/<run_id>/`, job records, and stage outputs. Routes: `GET /api/jobs/{job_id}`, pipeline run and stage GET. | `POST /api/jobs`; `POST /api/recordings/{recording_id}/pipeline/runs`; stage POST routes; durable job manager and processor stores. | `mise exec -- uv run --project backend pytest -q backend/tests/test_pipeline_run_api.py backend/tests/test_pipeline_api.py backend/tests/test_jobs_api.py backend/tests/test_job_store.py` |
+| Startup and recovery | App lifespan and durable job recovery read configured operations roots before `/health/ready`; first-use probes then read catalog and workspace. | Job recovery marks interrupted work and durable stores publish run/job transitions. No lifecycle retention writer is moved from 0118. | `mise exec -- uv run --project backend python backend/scripts/run_interactive_ui_performance.py --mode startup --profile hard_populated --startup-processes 1 --timeout 180 --output /tmp/0117-startup.json` |
 
 The M14 storage map names local retained roots and recovery authority. M15 closed the selected cleanup
 scope; it did not close operational lifecycle work. Do not move 0118 lifecycle writers into this
@@ -165,9 +199,10 @@ process retains a 180-second timeout. The separate 0114 route/browser suite rema
 - Focused Ruff check and format check — passed for new script and test.
 - Startup timings — three fresh hard-populated processes passed all first-use probes.
 
-The profiler records repeated JSON loads and domain parsers but not every internal model validation.
-The existing empty/stale API tests validate state behavior. No production performance change or speedup
-is claimed in M0.
+Revision validation counts cover the actual store method that checks revision schema, identity,
+canonical content, and digest. `_get_unrecovered` counts node-manifest validation. The profiler does
+not count each lower-level JSON field check separately. The empty and stale API cases use persisted
+disposable state. No production performance change or speedup is claimed in M0.
 
 ## Reproduction
 
