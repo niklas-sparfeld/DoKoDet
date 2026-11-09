@@ -75,6 +75,45 @@ def _crash_worker(root: str, snapshot_id: str, boundary: str) -> None:
     )
 
 
+def _paused_publish_worker(root: str, snapshot_id: str, head_replaced, release) -> None:
+    store = RecordingStateSnapshotStore(root)
+
+    def pause_after_head(target: str) -> None:
+        if target == "head":
+            head_replaced.set()
+            if not release.wait(10):
+                raise TimeoutError("reader contention test did not release publisher")
+
+    store._after_durable_boundary = pause_after_head
+    store.publish(
+        RecordingHeadUpdate(
+            recording_id="recording-1",
+            expected_head_version=1,
+            snapshot_id=snapshot_id,
+            action="select_snapshot",
+        )
+    )
+
+
+def _single_read_worker(root: str, attempted, results) -> None:
+    store = RecordingStateSnapshotStore(root)
+    attempted.set()
+    try:
+        state = store.get_current("recording-1")
+        results.put(
+            (
+                "read",
+                state.head.version,
+                state.head.snapshot_id,
+                state.snapshot.snapshot_id,
+                state.summary.head_version,
+                state.summary.snapshot_id,
+            )
+        )
+    except Exception as error:  # pragma: no cover - reports child-process failures
+        results.put(("error", repr(error)))
+
+
 def _prepare(root: Path):
     store = RecordingStateSnapshotStore(root)
     first = _snapshot()
@@ -185,6 +224,53 @@ def test_concurrent_reader_observes_only_complete_old_or_new_state(tmp_path: Pat
     assert reader.exitcode == 0
     assert failures.empty()
     assert {version for version, _ in observed_states} == set(range(1, 9))
+
+
+def test_reader_waits_for_head_and_summary_publication_to_finish(tmp_path: Path) -> None:
+    store, _, second, _ = _prepare(tmp_path)
+    context = multiprocessing.get_context("spawn")
+    head_replaced = context.Event()
+    release_publisher = context.Event()
+    reader_attempted = context.Event()
+    results = context.Queue()
+    publisher = context.Process(
+        target=_paused_publish_worker,
+        args=(str(tmp_path), second.snapshot_id, head_replaced, release_publisher),
+    )
+    reader = context.Process(
+        target=_single_read_worker,
+        args=(str(tmp_path), reader_attempted, results),
+    )
+    publisher.start()
+    try:
+        assert head_replaced.wait(10), "publisher did not pause after replacing HEAD"
+        assert store._read_head("recording-1").version == 2
+        assert store._read_summary("recording-1").head_version == 1
+
+        reader.start()
+        assert reader_attempted.wait(10), "reader did not attempt get_current"
+        with pytest.raises(queue.Empty):
+            results.get(timeout=0.2)
+
+        release_publisher.set()
+        publisher.join(20)
+        reader.join(20)
+        assert publisher.exitcode == 0
+        assert reader.exitcode == 0
+        assert results.get(timeout=2) == (
+            "read",
+            2,
+            second.snapshot_id,
+            second.snapshot_id,
+            2,
+            second.snapshot_id,
+        )
+    finally:
+        release_publisher.set()
+        if publisher.is_alive():
+            publisher.join(20)
+        if reader.is_alive():
+            reader.join(20)
 
 
 @pytest.mark.parametrize("boundary", ["journal_prepared", "head", "summary", "journal_committed"])
