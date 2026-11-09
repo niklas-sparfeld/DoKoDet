@@ -155,7 +155,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | Milestone | Observable result / commit boundary | State |
 | --- | --- | --- |
 | M0 | Post-cleanup baseline, exact boundary inventory, growth fixtures, frozen targets | Complete |
-| M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete |
+| M1 | Snapshot, HEAD, summary, and API contracts with validation tests | In progress |
 | M2 | Immutable snapshot store and bounded exact reads | Not started |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Not started |
 | M4 | One real API workflow with replaced selection discovery disabled | Not started |
@@ -207,7 +207,7 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 17 milestones; completed: 2; remaining: 15.
+- Requested run: 17 milestones; completed: 1; remaining: 16. The run stopped after two M1 correction turns.
 - M1 changes: added versioned snapshot, exact-resource, HEAD, summary, error, history-page, explicit
   HEAD-update, and frozen processor-input models with canonical snapshot IDs and validation tests.
   Added the M1 report with selection/stale/history semantics, operation dependency checks, API
@@ -232,8 +232,11 @@ while history and unrelated recordings grow 10x.
 - Limits: M1 adds contracts only. Storage, routes, client changes, migration, cross-process
   publication, crash recovery, API growth behavior, and browser behavior remain unimplemented and
   unverified by design.
-- Next: M2 immutable snapshot store and bounded exact reads. Run counts: 17 requested, 2
-  completed, 15 remaining. Details: [M1 report](../../reports/0117-M1_Recording_State_Contracts.md).
+- Outstanding M1 review finding: lineage edges can share endpoints but differ in kind or role.
+  Define a total unique page order with a tie-breaker and a cursor that can hold its key. Add
+  coverage for page boundaries and long valid keys. `pipeline_lineage.py:362-400` and `:489-513`
+  show the cases. The two correction turns for this run are exhausted; M2 must wait.
+- Next: finish M1 in a new authorized run. Details: [M1 report](../../reports/0117-M1_Recording_State_Contracts.md).
 
 ## M1 — Define current-state operation contracts
 
@@ -249,7 +252,7 @@ Freeze which exact dependency checks belong to each operation. No timestamp-only
 Checks: contract tests for identity, empty/stale slots, independent reviews, missing/corrupt
 references, and generated/reference separation. Commit: contracts, tests, and report only.
 
-**M1 result — 2026-11-09:** Complete. The [M1 report](../../reports/0117-M1_Recording_State_Contracts.md)
+**M1 result — 2026-11-09:** In progress. The final sanity review found the lineage pagination gap recorded in the handoff. The [M1 report](../../reports/0117-M1_Recording_State_Contracts.md)
 records the contracts, operation dependency checks, replacement inventory, and limits. The new
 contract tests pass. Review corrections add typed snapshot/resource/lineage-edge page entries,
 separate generated/reference summary states, bounded metadata pages, explicit Job Manager projection
