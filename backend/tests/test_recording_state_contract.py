@@ -198,7 +198,11 @@ def test_history_pages_accept_snapshot_resources_and_lineage_edges():
     revision_page = RecordingHistoryPage(
         recording_id="recording-1",
         collection="revisions",
-        items=[ResourceHistoryItem(item_key="rev-1", resource=_ref(), publication_sequence=10)],
+        items=[
+            ResourceHistoryItem(
+                collection="revisions", item_key="rev-1", resource=_ref(), publication_sequence=10
+            )
+        ],
         upper_bound_sequence=10,
         has_more=False,
     )
@@ -226,7 +230,14 @@ def test_history_pages_accept_snapshot_resources_and_lineage_edges():
             recording_id="recording-1",
             collection="snapshots",
             upper_bound_sequence=10,
-            items=[ResourceHistoryItem(item_key="rev-1", resource=_ref(), publication_sequence=10)],
+            items=[
+                ResourceHistoryItem(
+                    collection="revisions",
+                    item_key="rev-1",
+                    resource=_ref(),
+                    publication_sequence=10,
+                )
+            ],
             has_more=False,
         )
 
@@ -290,6 +301,7 @@ def test_lineage_edge_history_has_unique_total_order_across_page_boundary():
         collection="lineage_edges",
         filter_sha256=DIGEST,
         upper_bound_sequence=10,
+        history_generation="generation-1",
         last_key=maximum_cursor_key,
         page_size=1,
     )
@@ -363,6 +375,7 @@ def test_snapshot_history_cursor_excludes_later_hashes_below_sort_order():
         collection="snapshots",
         filter_sha256=DIGEST,
         upper_bound_sequence=10,
+        history_generation="generation-1",
         page_size=100,
     )
     inserted_later = SnapshotHistoryItem(
@@ -469,6 +482,25 @@ def test_job_projection_uses_manager_authority_and_bounded_preview():
             upper_bound_sequence=12,
             page_size=20,
         )
+    with pytest.raises(ValidationError, match="must pin the history authority generation"):
+        HistoryPageCursor(
+            recording_id="recording-1",
+            collection="snapshots",
+            filter_sha256=DIGEST,
+            upper_bound_sequence=1,
+            page_size=20,
+        )
+    with pytest.raises(ValidationError, match="valid only for history cursors"):
+        HistoryPageCursor(
+            recording_id="recording-1",
+            collection="jobs",
+            filter_sha256=DIGEST,
+            upper_bound_sequence=1,
+            history_generation="generation-1",
+            page_size=20,
+            authority_epoch="epoch-1",
+            authority_sequence=1,
+        )
     with pytest.raises(ValidationError, match="continuation must match active_job_count"):
         RecordingJobProjection(
             recording_id="recording-1",
@@ -497,7 +529,11 @@ def test_history_page_is_bounded_and_cursor_presence_matches_has_more():
         recording_id="recording-1",
         collection="revisions",
         upper_bound_sequence=1,
-        items=[ResourceHistoryItem(item_key="rev-1", resource=_ref(), publication_sequence=1)],
+        items=[
+            ResourceHistoryItem(
+                collection="revisions", item_key="rev-1", resource=_ref(), publication_sequence=1
+            )
+        ],
         next_cursor="opaque-cursor",
         has_more=True,
     )
@@ -517,7 +553,10 @@ def test_history_page_is_bounded_and_cursor_presence_matches_has_more():
             upper_bound_sequence=1,
             items=[
                 ResourceHistoryItem(
-                    item_key=f"rev-{index}", resource=_ref(), publication_sequence=1
+                    collection="revisions",
+                    item_key=f"rev-{index}",
+                    resource=_ref(),
+                    publication_sequence=1,
                 )
                 for index in range(101)
             ],
