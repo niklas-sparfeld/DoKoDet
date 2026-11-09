@@ -178,7 +178,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | Complete; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
 | M4b | Bounded coordinated transaction recovery and pending-journal authority | Complete; [report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md) |
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Complete; [report](../../reports/0117-M4_Real_API_Workflow.md) |
-| M5a | Durable shared history authority and rebuild contract | Complete; [report](../../reports/0117-M5a_History_Authority.md) |
+| M5a | Durable shared history authority and rebuild contract | In progress; [report](../../reports/0117-M5a_History_Authority.md) |
 | M5b | Bounded history API pages over the durable metadata index | Not started; full source coverage waits for M5c |
 | M5c | Source publisher adapters and durable-to-index gap reconciliation | Not started; candidate source must be identified |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
@@ -228,9 +228,9 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 15 milestones, starting at M4a; completed: 4; remaining: 11. The cap now covers
+- Requested run: 15 milestones, starting at M4a; completed: 3; remaining: 12. The cap now covers
   M4a, M4b, M4c, M5a, M5b, M5c, and M6–M14. M15 and M16 are outside this run.
-- Next milestone: M5b. M5a replan count: 2/5; this run replan count: 3/10. M5a correction count:
+- Next milestone: M5a. M5a replan count: 2/5; this run replan count: 3/10. M5a correction count:
   2/2. The two earlier M4a
   replans and two correction turns belong to the prior run and are preserved in the milestone report.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
@@ -295,7 +295,11 @@ while history and unrelated recordings grow 10x.
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.
-- Next: implement M5b only. Run count: 4 complete, 11 remaining. Do not claim complete discovery
+- Run stopped after the M5a correction limit. A process death during initial generation staging can
+  leave a staging directory without its committed generation. Empty initialization then reports
+  corruption; a nonempty initial rebuild cannot be retried. Add deterministic process-death checks
+  before generation commit and make recovery retryable while preserving lost-pointer detection.
+- Next: finish M5a before M5b. Run count: 3 complete, 12 remaining. Do not claim complete discovery
   until M5c wires all source publishers and proves crash-gap reconciliation.
 
 ## M1 — Define current-state operation contracts
