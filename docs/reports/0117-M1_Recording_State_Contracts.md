@@ -7,7 +7,7 @@ Contract revision: recorded in the M1 commit.
 
 M1 defines the versioned backend data contracts in
 [`recording_state_contract.py`](../../backend/src/dokodetector_backend/recording_state_contract.py).
-They are contract-only. They do not add a store, API route, migration, or second authority.
+They are contract-only. They do not add a store, API route, migration, or runtime authority.
 The next milestones implement and activate them in sequence.
 
 `recording-state-snapshot/v1` contains all seven fixed slots: events, visible cards, table-plane
@@ -50,6 +50,10 @@ resource, 409 for stale HEAD version, 410 for expired cursor, 422 for invalid in
 corrupt persisted authority. A 500 identifies the recording and repair/audit action without
 returning stored payloads.
 
+Lineage artifact endpoints keep their namespaced IDs. The accepted forms include
+`recording-video/{recording_id}` and `evidence-package/{package_id}`; the slash is part of the
+identity and must survive typed history serialization.
+
 Compact analysis, package, and job metadata contain IDs, schema, status, update times, and content
 digests where available. They do not contain result payloads, package files, job event histories,
 lineage, or all analysis revisions. The current-state summary contains no analysis, package, or job
@@ -76,7 +80,7 @@ These are the M1 API shapes for M5–M11; routes are not implemented in M1.
 | Current recording/catalog | Existing recording row plus a compact state summary; no revision payload, node history, analysis history, or package content scan. Paginate returned recordings if the existing list exceeds the selected response bound. |
 | Current workspace | `GET /api/recordings/{recording_id}/pipeline` returns the authoritative snapshot ID/version and stage states. It does not follow predecessors. A stage-open response resolves only that slot's exact selected resource and its declared dependencies. |
 | Explicit state | `GET /api/recordings/{recording_id}/state` returns HEAD and its verified snapshot. `PUT /api/recordings/{recording_id}/state` uses `RecordingHeadUpdate` for explicit selection or restore with expected version. Historical inspection stays on history/revision routes. |
-| History/candidates/lineage | `GET /api/recordings/{recording_id}/state/history`, `/revisions`, `/candidates`, and `/lineage-edges` return typed `RecordingHistoryPage` items. Snapshot entries carry snapshot ID, digest, and predecessor. Resource entries carry exact resource refs. Edge entries carry exact source and target keys for revision, run, or artifact endpoints plus edge kind and role. Cursor binds recording, collection, normalized-filter digest, upper bound, last stable key, and page size. Results sort by a collection-specific immutable key (snapshot ID, exact resource kind/ID, or edge endpoint tuple); maximum page size is 100. Cursor is opaque, integrity-protected, and pins the first-page upper bound so later inserts do not shift pages. Metadata pages do not parse content. |
+| History/candidates/lineage | `GET /api/recordings/{recording_id}/state/history`, `/revisions`, `/candidates`, and `/lineage-edges` return typed `RecordingHistoryPage` items. Snapshot entries carry snapshot ID, digest, predecessor, and a publication sequence. Resource and edge entries carry exact references and the same sequence. Edge entries support revision, run, and namespaced artifact endpoints plus edge kind and role. A durable per-recording `RecordingHistoryAuthority` allocates a strictly increasing sequence when each immutable history item is published. The publisher records the sequence atomically with the item. Cursor binds recording, collection, normalized-filter digest, authority sequence, last stable key, and page size. A page includes only items with sequence at or below the cursor's frozen sequence, then sorts that fixed membership by a collection-specific key (snapshot ID, exact resource kind/ID, or edge endpoint tuple). A later insert is excluded even when its content-hash ID sorts before earlier IDs. Maximum page size is 100. Cursor is opaque and integrity-protected. Metadata pages do not parse content. |
 | Catalog metadata | `/analyses`, `/packages`, and `/jobs` return one bounded `CatalogMetadataPage` collection at a time. Each page has at most 100 compact items and a continuation cursor; no response embeds an unbounded list. Job pages use `RecordingJobProjection` and validate its authority epoch and sequence against the current durable Job Manager marker. |
 | Exact resource | Existing exact revision route plus calibration/reconstruction resource routes validate the address and content digest when content is opened. No ancestry traversal is implicit. |
 | Processor start | Existing run/job start contracts gain `SnapshotFrozenProcessorInputs`; the durable request stores snapshot ID/version and every resolved input reference. Select-on-completion is explicit and carries expected HEAD version. Retry reuses frozen inputs. |
@@ -88,7 +92,7 @@ These are the M1 API shapes for M5–M11; routes are not implemented in M1.
 | Catalog/current workspace summary | HEAD schema, recording identity, referenced snapshot ID and canonical digest, summary-to-HEAD version/digest. No full result or history validation. |
 | Workspace stage status | Snapshot schema/identity and exact reference shape; compare each result's recorded dependency references with selected upstream references to report stale. Do not parse result payloads merely to show status. |
 | Stage open / edit | Verify selected resource content digest and schema; verify exact required upstream resource identities/digests used by that content. Edit also compare the working node revision expected by the writer. Never use timestamps as validity proof. |
-| Explicit history or catalog metadata page | Validate cursor integrity, recording, collection, filters, bound and stable key; validate metadata identity only. Fetching a page does not parse all history or content. Job pages also compare the projection epoch and sequence with Job Manager authority and rebuild on mismatch. |
+| Explicit history or catalog metadata page | Validate cursor integrity, recording, collection, filters, frozen authority sequence and stable key; validate metadata identity only. Fetching a page does not parse all history or content. History pages include only entries whose publication sequence is no greater than the cursor bound. Job pages also compare the projection epoch and sequence with Job Manager authority and rebuild on mismatch. |
 | Exact historical resource | Verify requested ID, schema and content digest. Return missing/corrupt as typed failure; do not choose a replacement. |
 | Processor start / retry | Verify snapshot authority, all exact input addresses and digests, processor contract/config; persist frozen references. Retry reuses these references even after HEAD changes. |
 | Output publication | Verify output resource and its exact dependency manifest. Do not move HEAD unless launch recorded explicit selection intent; then CAS against expected version. |
@@ -115,13 +119,20 @@ replacement owner and boundary for each consumer family:
 No compatibility fallback or migration path is added by this contract milestone. M12/M13 must
 convert retained data and prove recovery before removing the old runtime path.
 
+The history authority is a storage contract for M5: sequence assignment and the immutable entry
+must become visible atomically. If current publication primitives cannot provide this boundary,
+revise M5 into a separate sequence/index contract milestone before implementing the history APIs.
+M5 already requires writer, freshness, rebuild, concurrency, and crash checks for a new metadata
+index.
+
 ## Checks and limits
 
 `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_contract.py`
-passed 14 contract tests: canonical identity validation, all empty slots, stale references,
+passed 17 contract tests: canonical identity validation, all empty slots, stale references,
 independent reviews, generated/reference separation in snapshot and summary, specialized resource
-kinds, typed snapshot/resource/lineage-edge history, bounded catalog pages, job projection authority
-and restart validation, compare-and-swap request, frozen processor inputs, and compact metadata.
+kinds, typed snapshot/resource/lineage-edge history, real namespaced lineage artifact IDs, a later
+hash-sorted snapshot excluded by its higher insertion sequence, bounded catalog pages, job projection
+authority and restart validation, compare-and-swap request, frozen processor inputs, and compact metadata.
 The tests validate contracts;
 they do not claim storage, API, crash, or runtime behavior. API generation and browser checks do not
 apply because M1 adds no route or web change.

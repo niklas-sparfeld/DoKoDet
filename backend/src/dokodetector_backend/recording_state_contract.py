@@ -23,6 +23,14 @@ Identifier = Annotated[
     str,
     StringConstraints(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*$"),
 ]
+ArtifactIdentifier = Annotated[
+    str,
+    StringConstraints(
+        min_length=3,
+        max_length=256,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]*(/[A-Za-z0-9][A-Za-z0-9._:-]*)+$",
+    ),
+]
 SnapshotId = Annotated[str, StringConstraints(pattern=r"^rs_[0-9a-f]{64}$")]
 SlotName = Literal[
     "events",
@@ -323,7 +331,7 @@ class HistoryPageCursor(ContractModel):
         "jobs",
     ]
     filter_sha256: Sha256
-    upper_bound_key: str = Field(min_length=1, max_length=256)
+    upper_bound_sequence: int = Field(ge=1)
     last_key: str | None = Field(default=None, max_length=256)
     page_size: int = Field(ge=1, le=100)
     authority_epoch: Identifier | None = None
@@ -346,6 +354,7 @@ class SnapshotHistoryItem(ContractModel):
     item_key: Identifier
     snapshot_id: SnapshotId
     sha256: Sha256
+    publication_sequence: int = Field(ge=1)
     predecessor_snapshot_id: SnapshotId | None = None
 
 
@@ -356,7 +365,7 @@ class LineageEndpoint(ContractModel):
     node_id: Identifier | None = None
     revision_id: Identifier | None = None
     run_id: Identifier | None = None
-    artifact_id: Identifier | None = None
+    artifact_id: ArtifactIdentifier | None = None
     sha256: Sha256 | None = None
 
     @model_validator(mode="after")
@@ -386,6 +395,7 @@ class LineageEdgeHistoryItem(ContractModel):
     edge_kind: Literal["revised", "copied", "restored", "used", "produced"]
     source: LineageEndpoint
     target: LineageEndpoint
+    publication_sequence: int = Field(ge=1)
     role: Identifier | None = None
 
 
@@ -395,6 +405,15 @@ class ResourceHistoryItem(ContractModel):
     item_kind: Literal["resource"] = "resource"
     item_key: Identifier
     resource: ExactResourceRef
+    publication_sequence: int = Field(ge=1)
+
+
+class RecordingHistoryAuthority(ContractModel):
+    """Per-recording durable monotonic insertion boundary for all history collections."""
+
+    schema_version: Literal["recording-history-authority/v1"] = "recording-history-authority/v1"
+    recording_id: Identifier
+    sequence: int = Field(ge=1)
 
 
 HistoryItem = Annotated[
@@ -409,6 +428,7 @@ class RecordingHistoryPage(ContractModel):
     schema_version: Literal["recording-history-page/v1"] = RECORDING_HISTORY_PAGE_SCHEMA
     recording_id: Identifier
     collection: Literal["snapshots", "revisions", "candidates", "lineage_edges"]
+    upper_bound_sequence: int = Field(ge=1)
     items: list[HistoryItem] = Field(max_length=100)
     next_cursor: str | None = Field(default=None, max_length=2048)
     has_more: bool
@@ -425,6 +445,8 @@ class RecordingHistoryPage(ContractModel):
         }[self.collection]
         if any(item.item_kind != expected_kind for item in self.items):
             raise ValueError("history page items must match collection")
+        if any(item.publication_sequence > self.upper_bound_sequence for item in self.items):
+            raise ValueError("history page item exceeds the frozen insertion boundary")
         return self
 
 

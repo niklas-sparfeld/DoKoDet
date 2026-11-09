@@ -217,8 +217,12 @@ while history and unrelated recordings grow 10x.
   completed-reference status in the summary, bounded catalog metadata pages and active-job previews,
   and defined the durable Job Manager projection epoch/sequence contract with cross-process,
   mismatch-rebuild, and restart validation.
+- Review correction 2: accepted namespaced lineage artifact IDs and replaced the hash-ID page bound
+  with a monotonic per-recording publication sequence. Page contracts and tests exclude later
+  inserts even when their snapshot digest sorts before existing IDs. M5 must atomically publish the
+  sequence with each immutable item or split the index contract into its own milestone.
 - Checks: `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_contract.py`
-  passed 14 tests; Ruff check and format checks passed for the new module and test. No API generation
+  passed 17 tests; Ruff check and format checks passed for the new module and test. No API generation
   or browser check applies because this milestone adds no route or web code.
 - Decisions: calibration and reconstruction are separate exact resource kinds; generated output,
   completed references, and independent review work stay separate. HEAD is the only current-state
@@ -247,10 +251,11 @@ references, and generated/reference separation. Commit: contracts, tests, and re
 
 **M1 result — 2026-11-09:** Complete. The [M1 report](../../reports/0117-M1_Recording_State_Contracts.md)
 records the contracts, operation dependency checks, replacement inventory, and limits. The new
-contract tests pass. Review correction 1 adds typed snapshot/resource/lineage-edge page entries,
-separate generated/reference summary states, bounded metadata pages, and explicit Job Manager
-projection freshness and restart rules. M2 owns storage and bounded reads; M1 does not implement
-runtime behavior.
+contract tests pass. Review corrections add typed snapshot/resource/lineage-edge page entries,
+separate generated/reference summary states, bounded metadata pages, explicit Job Manager projection
+freshness and restart rules, and a monotonic insertion sequence for history pages. M5 must honor the
+atomic sequence/item publication contract. M2 owns snapshot storage and bounded exact reads; M1 does
+not implement runtime behavior.
 
 ## M2 — Implement immutable snapshots
 

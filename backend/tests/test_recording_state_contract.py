@@ -188,14 +188,17 @@ def test_history_pages_accept_snapshot_resources_and_lineage_edges():
                 item_key="rs_entry-1",
                 snapshot_id=_snapshot().snapshot_id,
                 sha256=DIGEST,
+                publication_sequence=10,
             )
         ],
+        upper_bound_sequence=10,
         has_more=False,
     )
     revision_page = RecordingHistoryPage(
         recording_id="recording-1",
         collection="revisions",
-        items=[ResourceHistoryItem(item_key="rev-1", resource=_ref())],
+        items=[ResourceHistoryItem(item_key="rev-1", resource=_ref(), publication_sequence=10)],
+        upper_bound_sequence=10,
         has_more=False,
     )
     edge_page = RecordingHistoryPage(
@@ -207,9 +210,11 @@ def test_history_pages_accept_snapshot_resources_and_lineage_edges():
                 edge_kind="used",
                 source=LineageEndpoint(kind="revision", node_id="node-1", revision_id="rev-1"),
                 target=LineageEndpoint(kind="run", run_id="run-1"),
+                publication_sequence=10,
                 role="input",
             )
         ],
+        upper_bound_sequence=10,
         has_more=False,
     )
     assert snapshot_page.items[0].item_kind == "snapshot"
@@ -219,7 +224,42 @@ def test_history_pages_accept_snapshot_resources_and_lineage_edges():
         RecordingHistoryPage(
             recording_id="recording-1",
             collection="snapshots",
-            items=[ResourceHistoryItem(item_key="rev-1", resource=_ref())],
+            upper_bound_sequence=10,
+            items=[ResourceHistoryItem(item_key="rev-1", resource=_ref(), publication_sequence=10)],
+            has_more=False,
+        )
+
+
+@pytest.mark.parametrize(
+    "artifact_id",
+    ["recording-video/recording-1", "evidence-package/package-1"],
+)
+def test_lineage_artifact_endpoint_accepts_namespaced_ids(artifact_id: str):
+    endpoint = LineageEndpoint(kind="artifact", artifact_id=artifact_id, sha256=DIGEST)
+    assert endpoint.artifact_id == artifact_id
+
+
+def test_snapshot_history_cursor_excludes_later_hashes_below_sort_order():
+    cursor = HistoryPageCursor(
+        recording_id="recording-1",
+        collection="snapshots",
+        filter_sha256=DIGEST,
+        upper_bound_sequence=10,
+        page_size=100,
+    )
+    inserted_later = SnapshotHistoryItem(
+        item_key="rs_" + "0" * 64,
+        snapshot_id="rs_" + "0" * 64,
+        sha256=DIGEST,
+        publication_sequence=11,
+    )
+    assert inserted_later.item_key < "rs_" + "f" * 64
+    with pytest.raises(ValidationError, match="exceeds the frozen insertion boundary"):
+        RecordingHistoryPage(
+            recording_id="recording-1",
+            collection="snapshots",
+            upper_bound_sequence=cursor.upper_bound_sequence,
+            items=[inserted_later],
             has_more=False,
         )
 
@@ -294,7 +334,7 @@ def test_job_projection_uses_manager_authority_and_bounded_preview():
         recording_id="recording-1",
         collection="jobs",
         filter_sha256=DIGEST,
-        upper_bound_key="job-1",
+        upper_bound_sequence=12,
         page_size=20,
         authority_epoch=authority.epoch,
         authority_sequence=authority.sequence,
@@ -308,7 +348,7 @@ def test_job_projection_uses_manager_authority_and_bounded_preview():
             recording_id="recording-1",
             collection="jobs",
             filter_sha256=DIGEST,
-            upper_bound_key="job-1",
+            upper_bound_sequence=12,
             page_size=20,
         )
     with pytest.raises(ValidationError, match="continuation must match active_job_count"):
@@ -338,21 +378,29 @@ def test_history_page_is_bounded_and_cursor_presence_matches_has_more():
     page = RecordingHistoryPage(
         recording_id="recording-1",
         collection="revisions",
-        items=[ResourceHistoryItem(item_key="rev-1", resource=_ref())],
+        upper_bound_sequence=1,
+        items=[ResourceHistoryItem(item_key="rev-1", resource=_ref(), publication_sequence=1)],
         next_cursor="opaque-cursor",
         has_more=True,
     )
     assert page.next_cursor == "opaque-cursor"
     with pytest.raises(ValidationError, match="has_more must match"):
         RecordingHistoryPage(
-            recording_id="recording-1", collection="snapshots", items=[], has_more=True
+            recording_id="recording-1",
+            collection="snapshots",
+            upper_bound_sequence=1,
+            items=[],
+            has_more=True,
         )
     with pytest.raises(ValidationError):
         RecordingHistoryPage(
             recording_id="recording-1",
             collection="snapshots",
+            upper_bound_sequence=1,
             items=[
-                ResourceHistoryItem(item_key=f"rev-{index}", resource=_ref())
+                ResourceHistoryItem(
+                    item_key=f"rev-{index}", resource=_ref(), publication_sequence=1
+                )
                 for index in range(101)
             ],
             has_more=False,
