@@ -165,7 +165,7 @@ def _install_prepared_two_node_journal(root: Path, selection_updates=None) -> No
         },
     )
     atomic_replace_json(
-        root / ".coordinated-transactions" / "pending.json",
+        root / ".coordinated-transactions" / ".locator" / "pending.json",
         {
             "schema_version": "pipeline-node-pending-transaction/v1",
             "transaction_id": "recovery-test",
@@ -362,6 +362,30 @@ def test_transaction_replay_is_directly_idempotent_and_rejects_reused_id(tmp_pat
         transactions.commit("stable-id", node_updates=[changed], selection_updates=[])
 
 
+def test_pending_transaction_id_does_not_collide_with_locator_and_recovers(tmp_path: Path) -> None:
+    nodes = PipelineNodeStore(tmp_path / "nodes")
+    node = nodes.create(
+        "visible-node", "Visible", "visible_cards", SOURCE, VISIBLE, {}, revision_id="visible-r1"
+    )
+    transactions = PipelineNodeTransactions(nodes)
+    update = {
+        "node_id": "visible-node",
+        "expected_revision_id": node.revision_id,
+        "revision_id": "visible-r2",
+        "content": VISIBLE,
+        "metadata": {"operation": "pending-id"},
+    }
+
+    result = transactions.commit("pending", node_updates=[update], selection_updates=[])
+
+    assert result["transaction_id"] == "pending"
+    assert nodes.read_authorized_revision("visible-node", "visible-r2").revision_id == (
+        "visible-r2"
+    )
+    assert transactions.commit("pending", node_updates=[update], selection_updates=[]) == result
+    assert (nodes.root / ".coordinated-transactions" / "pending.json").exists()
+
+
 def test_reader_recovers_interrupted_publication_before_returning_mixed_state(
     tmp_path: Path,
 ) -> None:
@@ -417,7 +441,7 @@ def test_reader_recovers_interrupted_publication_before_returning_mixed_state(
         },
     )
     atomic_replace_json(
-        journal.parent / "pending.json",
+        journal.parent / ".locator" / "pending.json",
         {
             "schema_version": "pipeline-node-pending-transaction/v1",
             "transaction_id": "reflow-interrupted",
@@ -821,7 +845,7 @@ def test_selection_writer_takes_root_lock_before_selection_lock(tmp_path: Path) 
         },
     )
     atomic_replace_json(
-        tmp_path / ".coordinated-transactions" / "pending.json",
+        tmp_path / ".coordinated-transactions" / ".locator" / "pending.json",
         {
             "schema_version": "pipeline-node-pending-transaction/v1",
             "transaction_id": "selection-lock-order",

@@ -234,12 +234,15 @@ while history and unrelated recordings grow 10x.
 - Earlier M4a evidence remains valid: direct authority lookup over 11 revisions reads no parents;
   crash/restart and stale-writer checks cover node and coordinated publication boundaries; the
   earlier correction turns proved recovery serialization. See the [M4a report](../../reports/0117-M4a_Node_Publication_Authority.md).
-- M4b result: `.coordinated-transactions/pending.json` names at most one active prepared
-  transaction. The writer publishes it atomically before the prepared journal under the root
-  transaction lock. Recovery reads only that journal, rolls it forward idempotently, and atomically
-  clears the locator. Committed journals remain available for direct transaction-ID replay checks.
-  Exact authority reads inspect no committed journals when there is no pending transaction.
-- M4b checks: transaction tests pass, including 100 committed journals with zero journal reads for
+- M4b result: `.coordinated-transactions/.locator/pending.json` names at most one active prepared
+  transaction. Its directory is separate from direct transaction-ID journal paths, so valid IDs
+  such as `pending` remain safe. The writer publishes the locator atomically before the prepared
+  journal under the root transaction lock. Recovery reads only that journal, rolls it forward
+  idempotently, and atomically clears the locator. Committed journals remain available for direct
+  transaction-ID replay checks. Exact authority reads inspect no committed journals when there is
+  no pending transaction.
+- M4b checks: transaction tests pass, including transaction ID `pending` through recovery and
+  replay; 100 committed journals with zero journal reads for
   an exact authority read; same-ID replay and conflicting reuse; six separate-process crash points
   from locator through committed journal; restart recovery; and existing thread/process lock
   interleavings. Ruff check, Ruff format check, and `git diff --check` pass. See the [M4b report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md).

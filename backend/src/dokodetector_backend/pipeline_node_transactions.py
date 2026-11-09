@@ -38,7 +38,7 @@ class PipelineNodeTransactions:
     def __init__(self, node_store: PipelineNodeStore) -> None:
         self.node_store = node_store
         self.root = node_store.root / ".coordinated-transactions"
-        self.pending_path = self.root / "pending.json"
+        self.pending_path = self.root / ".locator" / "pending.json"
 
     def commit(
         self,
