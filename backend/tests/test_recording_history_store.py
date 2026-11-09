@@ -98,6 +98,28 @@ def _process_stop_during_initial_generation_staging(root: str, mode: str) -> Non
         )
 
 
+def _process_stop_after_retry_journal_replacement(root: str) -> None:
+    store = RecordingHistoryStore(root)
+
+    def stop_after(boundary: str) -> None:
+        if boundary == "rebuild_journal":
+            os._exit(75)
+
+    store._after_durable_boundary = stop_after
+    store.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+
+
+def _process_stop_before_retry_journal_replacement(root: str) -> None:
+    store = RecordingHistoryStore(root)
+
+    def stop_before(boundary: str) -> None:
+        if boundary == "rebuild_before_journal_replacement":
+            os._exit(76)
+
+    store._after_durable_boundary = stop_before
+    store.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+
+
 def test_history_publication_assigns_sequence_and_retries_idempotently(tmp_path: Path):
     store = RecordingHistoryStore(tmp_path)
     first = store.publish("recording-1", _snapshot("snapshot-1"))
@@ -239,6 +261,71 @@ def test_nonempty_initial_rebuild_can_retry_after_process_death_during_staging(
     restarted.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
     assert restarted.get_authority("recording-1").sequence == 2
     assert restarted.read_item("recording-1", "snapshots", "snapshot-1").publication_sequence == 1
+
+
+def test_invalid_initial_rebuild_retry_keeps_pending_journal(tmp_path: Path):
+    context = multiprocessing.get_context("spawn")
+    worker = context.Process(
+        target=_process_stop_during_initial_generation_staging, args=(str(tmp_path), "nonempty")
+    )
+    worker.start()
+    worker.join(timeout=20)
+    assert worker.exitcode == 74
+
+    restarted = RecordingHistoryStore(tmp_path)
+    with pytest.raises(RecordingHistoryConflict, match="duplicate history item keys"):
+        restarted.rebuild("recording-1", [_snapshot("duplicate"), _snapshot("duplicate", "b")])
+    with pytest.raises(RecordingHistoryRebuildRequired, match="retry rebuild"):
+        restarted.get_authority("recording-1")
+
+    restarted.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+    assert restarted.get_authority("recording-1").sequence == 2
+
+
+def test_process_death_after_retry_journal_replacement_requires_retry(tmp_path: Path):
+    context = multiprocessing.get_context("spawn")
+    first = context.Process(
+        target=_process_stop_during_initial_generation_staging, args=(str(tmp_path), "nonempty")
+    )
+    first.start()
+    first.join(timeout=20)
+    assert first.exitcode == 74
+
+    retry = context.Process(
+        target=_process_stop_after_retry_journal_replacement, args=(str(tmp_path),)
+    )
+    retry.start()
+    retry.join(timeout=20)
+    assert retry.exitcode == 75
+
+    restarted = RecordingHistoryStore(tmp_path)
+    with pytest.raises(RecordingHistoryRebuildRequired, match="retry rebuild"):
+        restarted.get_authority("recording-1")
+    restarted.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+    assert restarted.get_authority("recording-1").sequence == 2
+
+
+def test_process_death_before_retry_journal_replacement_keeps_old_journal(tmp_path: Path):
+    context = multiprocessing.get_context("spawn")
+    first = context.Process(
+        target=_process_stop_during_initial_generation_staging, args=(str(tmp_path), "nonempty")
+    )
+    first.start()
+    first.join(timeout=20)
+    assert first.exitcode == 74
+
+    retry = context.Process(
+        target=_process_stop_before_retry_journal_replacement, args=(str(tmp_path),)
+    )
+    retry.start()
+    retry.join(timeout=20)
+    assert retry.exitcode == 76
+
+    restarted = RecordingHistoryStore(tmp_path)
+    with pytest.raises(RecordingHistoryRebuildRequired, match="retry rebuild"):
+        restarted.get_authority("recording-1")
+    restarted.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+    assert restarted.get_authority("recording-1").sequence == 2
 
 
 def test_rebuild_death_during_staging_keeps_previous_generation_active(tmp_path: Path):

@@ -39,9 +39,14 @@ items. A rebuild over an existing active generation keeps that generation availa
 generation was not committed. Generation data without a matching pending journal still triggers
 the lost-pointer corruption check.
 
+The retry path keeps the incomplete journal while it validates the supplied source metadata. It
+replaces that journal atomically only after validation succeeds. Invalid retry input therefore
+cannot turn an interrupted nonempty rebuild into empty history. A process stop after the journal
+replacement still leaves a journal that requires another source-metadata retry.
+
 ## Verification
 
-- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_history_store.py backend/tests/test_recording_state_contract.py` — passed, 35 tests.
+- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_history_store.py backend/tests/test_recording_state_contract.py` — passed, 38 tests.
 - Store tests cover sequence assignment, duplicate retries, conflicting item-key reuse, all four
   publication crash boundaries, restart recovery, deterministic rebuild, generation-based cursor
   expiration, a rebuild restart boundary, pre-switch generation validation, metadata-digest and
@@ -51,8 +56,9 @@ the lost-pointer corruption check.
   committed directory and publishes its active pointer. The resumed run adds child-process stops
   during empty, nonempty, and replacement generation staging. Empty initialization retries
   automatically; nonempty rebuild retries with supplied source metadata; replacement rebuild leaves
-  its previous active generation readable. A missing pointer without this journal still reports
-  corruption.
+  its previous active generation readable. Invalid retry input keeps the pending journal, and a
+  child-process stops immediately before and after retry-journal replacement both require retry. A
+  missing pointer without this journal still reports corruption.
 - Contract tests cover required history cursor generation and prohibit that field on catalog/job
   cursors. They also check that resource items match their page collection.
 - Ruff check and format check passed for the changed backend files and tests.

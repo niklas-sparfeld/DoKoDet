@@ -304,6 +304,7 @@ class RecordingHistoryStore:
             **journal_payload,
             "sha256": hashlib.sha256(_canonical_json(journal_payload)).hexdigest(),
         }
+        self._after_boundary("rebuild_before_journal_replacement")
         atomic_replace_json(self._pending_generation_path(recording_id), journal)
         self._after_boundary("rebuild_journal")
         generations_root.mkdir(parents=True, exist_ok=True)
@@ -402,6 +403,10 @@ class RecordingHistoryStore:
                     "initial history rebuild stopped before commit; retry rebuild with "
                     "source metadata"
                 )
+            if expected_generation is None and pending["item_count"] > 0:
+                # Keep the old journal until _rebuild_locked validates the retry input and
+                # atomically replaces it with the new generation journal.
+                return
             pending_path.unlink(missing_ok=True)
             return
         self._validate_generation(recording_id, generation, generation_root)
