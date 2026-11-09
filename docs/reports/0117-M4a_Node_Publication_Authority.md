@@ -1,5 +1,7 @@
 # Epic 0117 M4a: node revision publication authority
 
+**Review status:** M4a is incomplete. Final review found that the root lock is released between recovery and reads, and selection writes can take locks in the inverse order from recovery. The epic handoff records the required interleaving tests.
+
 Date: 2026-11-09
 
 ## Result and review status

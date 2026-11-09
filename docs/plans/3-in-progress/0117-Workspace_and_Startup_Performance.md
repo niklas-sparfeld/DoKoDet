@@ -164,7 +164,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
 | M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
-| M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | Complete; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
+| M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | In progress; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
 | M4b | Bounded coordinated transaction recovery and pending-journal authority | Not started; separate storage/transaction contract |
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Not started; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
@@ -215,9 +215,9 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 13 milestones, starting at M4a; completed: 1; remaining: 12. The cap covers M4a,
+- Requested run: 13 milestones, starting at M4a; completed: 0; remaining: 13. The run stopped after two M4a correction turns. The cap covers M4a,
   M4b, M4c, and M5–M14; M15 and M16 remain outside this run.
-- Next milestone: M4b, not started. M4a replan count: 2/5; M4b replan count: 0/5; this run replan
+- Next milestone: M4a, in progress. M4a replan count: 2/5; M4b replan count: 0/5; this run replan
   count: 2/10.
 - M4a result: added immutable per-revision authority records and a direct exact read. `create`
   publishes the first record with the node; `save` commits at HEAD replacement and records the prior
@@ -241,6 +241,12 @@ while history and unrelated recordings grow 10x.
   root lock as writers. A same-instance thread test and a separate-process test pause recovery after
   the first node HEAD update; a reader of the second node waits and returns only after recovery
   completes. Ruff and `git diff --check` pass. M4b remains responsible for bounding journal scans.
+- Final M4a review found two unresolved lock defects: recovery releases the root lock before the
+  actual node or selection read, allowing a coordinated writer to publish partial state in that gap;
+  selection save can acquire its selection lock before the root lock while transaction recovery uses
+  root before selection, causing deadlock. Hold the root lock across recovery and reads, establish
+  root-before-selection order, and test both deterministic process/thread interleavings. The two
+  correction turns for this run are exhausted. M4b must wait.
 - M4b boundary: add one durable pending-transaction locator so normal authority reads inspect at
   most the active prepared transaction, not all committed journal history. Preserve transaction
   idempotency and recovery evidence. Define its writer, atomicity, lock order, freshness, and crash
@@ -254,7 +260,7 @@ while history and unrelated recordings grow 10x.
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.
-- Next: implement M4b only. Run count: 1 complete, 12 remaining.
+- Next: implement M4b only. Run count: 0 complete, 13 remaining.
 
 ## M1 — Define current-state operation contracts
 
