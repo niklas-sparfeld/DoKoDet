@@ -106,8 +106,10 @@ in M1. The following behavior is required:
    payloads, node histories, or full processor/analysis histories. Active job status is a separate
    compact projection with its own version/freshness contract; HEAD is not a job status record.
 6. Opening a workspace reads one snapshot and bounded stage metadata. Opening a stage loads its
-   exact selected content and required dependencies. History, candidate discovery, and comparison
-   load explicitly with stable pagination. Existing historical links remain resolvable.
+   exact selected content and required dependencies. History and comparison load explicitly with
+   stable pagination. Proposal discovery reads exact selected node content or the existing
+   calibration-refinement preview; it does not use generic history pagination. Existing historical
+   links remain resolvable.
 7. Inspecting a historical revision changes the operator's lineage selection only. Changing
    recording HEAD is an explicit selection action. UI navigation and browser reload must preserve
    that distinction. An autosave of the currently selected working node may advance its slot under
