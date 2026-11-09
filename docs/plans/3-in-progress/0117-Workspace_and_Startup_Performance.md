@@ -54,10 +54,13 @@
   and M7–M9; M10–M16 are outside this run.
   Replan 10 rejects the first M6b submission: it rebuilt every recording projection after any
   global job change and parsed the full active-job index on every page read. A durable per-recording
-  ordered index must publish in the M6a job-transition journal. M6b1 implements that publication
-  and recovery contract. M6b2 owns bounded pages, explicit rebuild for an incomplete legacy index,
-  growth/corruption checks, and an active API inventory follow-up. To keep the 14-slot cap, M9 moves
-  outside this run. The rejected M6b route is disabled until M6b2.
+  ordered index must publish in the M6a job-transition journal. M6b1 implements bounded incremental
+  index publication and recovery, but it does not bound the full Job Manager transition path. The
+  transition and acceptance paths still scan intent history and reconcile the full queue. Replan 11
+  adds M6b1a for a durable bounded queue and acceptance authority with recovery and growth checks.
+  M6b2 owns bounded pages, explicit rebuild for an incomplete legacy index, growth/corruption checks,
+  and an active API inventory follow-up; it depends on M6b1a. To keep the 14-slot cap, M8 moves
+  outside this run. The rejected M6b route stays disabled until M6b2.
 
 ## Evidence and scope
 
@@ -220,12 +223,13 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M6 | Compact recording catalog without revision/history reconstruction | Incomplete; split by replan 9 |
 | M6a | Durable Job Manager authority and journaled job-record transitions | Complete; [report](../../reports/0117-M6a_Job_Projection_Authority.md) |
 | M6b | Bounded active-job projections over the M6a authority | Incomplete; split by replan 10 |
-| M6b1 | Durable per-recording ordered job-index publication and recovery | Complete; [report](../../reports/0117-M6b1_Job_Index_Publication.md) |
-| M6b2 | Bounded job pages, explicit rebuild, growth/corruption checks, and active API inventory | Not started |
+| M6b1 | Bounded incremental per-recording job-index publication and recovery | Complete for index publication; no end-to-end transition bound claimed; correction 1/2; [report](../../reports/0117-M6b1_Job_Index_Publication.md) |
+| M6b1a | Durable bounded queue and acceptance authority with recovery | Not started; replan 11 prerequisite for M6b2 |
+| M6b2 | Bounded job pages, explicit rebuild, growth/corruption checks, and active API inventory | Not started; depends on M6b1a |
 | M6c | Bounded analysis and package metadata pages | Not started |
 | M6d | Recording catalog from verified HEAD and compact metadata | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
-| M8 | Web current-state, history, and explicit HEAD-switch flow | Not started |
+| M8 | Web current-state, history, and explicit HEAD-switch flow | Not started; outside current run after replan 11 |
 | M9 | Selection and review/edit writers publish the selected working state | Not started; outside current run after replan 10 |
 | M10 | Processor and orchestration requests freeze snapshot inputs | Not started |
 | M11 | Output publication and compact job-state integration | Not started |
@@ -271,11 +275,11 @@ while history and unrelated recordings grow 10x.
 ## Execution handoff
 
 - Requested run: 14 milestones, starting at M5a; completed: 9; remaining: 5. The revised cap
-  covers M5a, M5b1, M5b2, M5c1–M5c4, M6a, M6b1–M6b2, M6c–M6d, and M7–M8. M9–M16 are
+  covers M5a, M5b1, M5b2, M5c1–M5c4, M6a, M6b1, M6b1a, M6b2, M6c–M6d, and M7. M8–M16 are
   outside this run.
-- Next: M6b2. M6b replan count: 1/5; M6b1 correction count: 0/2. M6a replan count: 0/5; M6a
+- Next: M6b1a. M6b replan count: 2/5; M6b1 correction count: 1/2. M6a replan count: 0/5; M6a
   correction count: 2/2; M5c replan count: 2/5; this run
-  replan count: 5/10. M5c4 correction count:
+  replan count: 6/10. M5c4 correction count:
   0/2. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
@@ -291,10 +295,11 @@ while history and unrelated recordings grow 10x.
   any global sequence change and decoded the whole active-job JSON index per page. Its API is
   disabled. M6b1 journals per-recording ordered index deltas with each M6a transition. SQLite
   applies the changed job row and recording generation atomically before global authority advances.
-  Recovery replays the index update idempotently. Legacy indexes remain not ready until M6b2's
-  explicit rebuild. Tests cover each transaction boundary, concurrent reads, idempotence, ordinary
-  writes without `list_jobs`, and corrupt index state. See the [M6b1 report](../../reports/0117-M6b1_Job_Index_Publication.md).
-  M6b2 is next; five run milestones remain. M9 is outside this run.
+  Recovery replays the index update idempotently. Its bound covers index publication only: transition
+  reconciliation and acceptance still scan intent history and the full queue. M6b1a must establish
+  bounded queue and acceptance publication plus recovery before M6b2 can serve pages. Legacy indexes
+  remain not ready until M6b2's explicit rebuild. See the [M6b1 report](../../reports/0117-M6b1_Job_Index_Publication.md).
+  M6b1a is next; five run milestones remain. M8 is outside this run.
 - M5b2 result: complete after the resumed authority-loss fix. The four history routes use M5b1's stable collection order and frozen
   sequence roots. HMAC cursors bind recording, collection, empty-filter digest, generation,
   sequence, full stable key, and page size. The private cursor key and local digest record use
@@ -717,14 +722,34 @@ one affected job/index row; they must not scan the job or intent history. M6b2 w
 incomplete index from authoritative jobs before serving bounded pages.
 
 Checks: inject a crash after every journal boundary, including index publication; verify restart,
-idempotence, per-recording and global sequences, reader/writer serialization, no historical job
-scan on ordinary writes, corrupt database and row handling, and legacy-not-ready behavior. Commit:
-the versioned job transition and ordered index publication/recovery implementation with tests and
-this plan/report. The rejected M6b route stays disabled.
+idempotence, per-recording and global sequences, reader/writer serialization, point-query index
+publication without job-history enumeration, corrupt database and row handling, and legacy-not-ready
+behavior. These checks do not bound the full transition path; M6b1a owns transition and acceptance
+scan removal and growth proof. Commit: the versioned job transition and ordered index
+publication/recovery implementation with tests and this plan/report. The rejected M6b route stays
+disabled.
+
+## M6b1a — Bound queue and acceptance authority
+
+Depends on M6b1.
+
+Replace history scans in ordinary job acceptance and transition paths with durable bounded lookup
+and publication. Cover idempotency keys, acceptance sequence, parent/step uniqueness, queue membership,
+and queue reconciliation. Journal coordinated queue and acceptance changes so restart recovery can
+apply them once, reject conflicts, and preserve queue order and job eligibility. Keep startup repair
+explicit; ordinary accepted-job writes must not rebuild global state.
+
+Before assignment, split this milestone further if the queue and acceptance authority cannot fit one
+Luna phase. Define the exact stores, readers, writers, and failure boundaries in that split.
+
+Checks: prove ordinary transition and acceptance reads stay bounded as intents, jobs, and unrelated
+recordings grow 10x; verify idempotency, sequence allocation, parent/step uniqueness, queue
+correctness, concurrent readers/writers, crash recovery at every journal boundary, replay, and
+corruption rejection. Commit: bounded queue/acceptance authority, recovery, tests, and report.
 
 ## M6b2 — Expose bounded active-job pages
 
-Serve at most 20 items from the ordered index with a cursor pinned to the M6a global authority and
+Depends on M6b1a. Serve at most 20 items from the ordered index with a cursor pinned to the M6a global authority and
 the recording generation. Read the maintained count; do not count or parse an unbounded index or
 job records to serve a page. Add an
 explicit rebuild operation for an incomplete legacy index; pages fail closed until rebuild

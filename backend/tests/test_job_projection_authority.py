@@ -198,6 +198,38 @@ def test_identical_job_write_recovers_after_authority_publication(tmp_path: Path
         assert not (tmp_path / "jobs" / "recording-projections" / "job-transition.json").exists()
 
 
+@pytest.mark.parametrize(
+    "point",
+    ["job_transition_prepared", "job_transition_record", "job_transition_index"],
+)
+def test_unicode_job_digest_survives_transition_recovery(tmp_path: Path, point: str) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        job = manager.accept(str(uuid4()), _request())
+        job.label = "Döko 🂡"
+        manager._write_job(job)
+
+    def crash(name: str) -> None:
+        if name == point:
+            raise RuntimeError("simulated crash")
+
+    with (
+        JobManager(tmp_path, participant, after_write=crash) as manager,
+        pytest.raises(RuntimeError, match="simulated crash"),
+    ):
+        manager.transition(job.id, "running")
+
+    with JobManager(tmp_path, participant) as manager:
+        recovered = manager.get(job.id)
+        assert recovered.label == "Döko 🂡"
+        assert recovered.state == "interrupted"
+        authority = manager.projection_authority()
+        assert (
+            manager.persistence.projection_authority.index.state(authority, "r1")["active_count"]
+            == 0
+        )
+
+
 def test_ordinary_job_transitions_do_not_scan_committed_jobs(tmp_path: Path, monkeypatch) -> None:
     participant = FakeParticipant(tmp_path / "domain")
     with JobManager(tmp_path, participant) as manager:
