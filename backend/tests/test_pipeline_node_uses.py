@@ -186,6 +186,53 @@ def test_duplicate_revision_id_fails_before_history_outbox_write(tmp_path: Path)
     assert {item.resource.revision_id for item in items} == {first.revision_id, "fixed-rev"}
 
 
+@pytest.mark.parametrize("commit_evidence", ["head", "publication"])
+def test_missing_committed_revision_keeps_history_outbox_intent(
+    tmp_path: Path, commit_evidence: str
+) -> None:
+    store = PipelineNodeStore(tmp_path / "pipeline-nodes")
+    first = store.create("n", "Events", "events", SOURCE, content(200), {})
+    if commit_evidence == "head":
+
+        def die(boundary: str) -> None:
+            if boundary == "head":
+                raise RuntimeError("simulated source HEAD commit")
+
+        store._after_durable_boundary = die
+        with pytest.raises(RuntimeError, match="source HEAD commit"):
+            store.save("n", first.revision_id, content(300), {})
+        revision_id = store.get("n").head_revision_id
+    else:
+        revision_id = first.revision_id
+        store._queue_revision_history(store._node_path("n"), first)
+
+    revision_path = store.revision_path("n", revision_id)
+    import shutil
+
+    shutil.rmtree(revision_path)
+    with pytest.raises(ValueError, match="committed pipeline revision is missing"):
+        PipelineNodeStore(tmp_path / "pipeline-nodes").reconcile_revision_history_outbox()
+
+    pending = json.loads(store._history_outbox_path.read_text(encoding="utf-8"))
+    assert any(entry["revision_id"] == revision_id for entry in pending["entries"])
+
+
+def test_missing_uncommitted_revision_drops_history_outbox_intent(tmp_path: Path) -> None:
+    store = PipelineNodeStore(tmp_path / "pipeline-nodes")
+    first = store.create("n", "Events", "events", SOURCE, content(200), {})
+    orphan = store._new_revision(
+        "n", first.revision_id, content(300), {}, first.created_at, "uncommitted-revision"
+    )
+    store._queue_revision_history(store._node_path("n"), orphan)
+
+    store.reconcile_revision_history_outbox()
+
+    assert (
+        not store._history_outbox_path.exists()
+        or json.loads(store._history_outbox_path.read_text(encoding="utf-8"))["entries"] == []
+    )
+
+
 def test_edit_and_accept_serialize(tmp_path: Path) -> None:
     store = PipelineNodeStore(tmp_path)
     revision = store.create("n", "Events", "events", SOURCE, content(200), {})

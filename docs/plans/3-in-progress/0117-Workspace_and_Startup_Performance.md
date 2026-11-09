@@ -270,7 +270,7 @@ while history and unrelated recordings grow 10x.
   rebuilds remain supported. Focused API/store/index/contract/workflow tests, Ruff check and format,
   and OpenAPI verification passed. Browser checks were not applicable because no web consumer or API
   contract changed. Replan 7 raised the current run replan count to 2/10 and split source adapters
-  by their durable transaction owners. M5c1 correction count: 1/2.
+  by their durable transaction owners. M5c1 correction count: 2/2.
 - M5c1 result: complete for recording-owned `PipelineNodeStore` revisions. A pending outbox intent
   is durable before revision commit. Node creation commits its initial revision, publication
   authority, HEAD, and source manifest together; ordinary saves publish the node HEAD and revision
@@ -287,6 +287,10 @@ while history and unrelated recordings grow 10x.
 - M5c1 correction 1/2: reconciliation now treats only an absent node directory as an uncommitted
   create. An existing corrupt or unreadable node fails closed and retains its outbox intent. Ordinary
   saves reject an already-used revision ID before writing an intent. Focused regressions pass.
+- M5c1 correction 2/2: a missing or malformed revision path now fails closed when HEAD or publication
+  authority proves the revision was committed. Reconciliation drops a missing revision only when no
+  commit evidence exists. A missing uncommitted revision regression confirms the outbox can still
+  clear safely. Focused tests, Ruff checks, format, diff, and link checks pass.
 - M5c evidence: no web consumer calls the candidates endpoint. Existing UI candidates are embedded
   card/identity proposals or comparison values, not exact persisted resources. Competing meanings
   remain: all pipeline revisions (duplicates `/revisions`), outputs from successful/partial lineage

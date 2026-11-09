@@ -261,22 +261,39 @@ class PipelineNodeStore:
             }:
                 raise ValueError("invalid pipeline revision history outbox entry")
             node_path = self._node_path(entry["node_id"])
+            if node_path.is_symlink():
+                raise ValueError("pipeline revision history node path cannot be a symlink")
             if not node_path.exists():
                 # The intent is written before a new node's staged directory is committed.
                 # Absence is the only state that proves this create did not commit.
                 continue
             # An existing but unreadable node is corruption. Let it fail closed and retain the
             # outbox entry for repair; do not turn source corruption into a permanent omission.
+            if not node_path.is_dir():
+                raise ValueError("pipeline revision history node path is not a directory")
             node = self._get_unrecovered(entry["node_id"])
+            if node.source.get("recording_id") != entry["recording_id"]:
+                raise ValueError("pipeline revision history recording identity mismatch")
             revision_path = self.revision_path(node.node_id, entry["revision_id"])
-            if not revision_path.is_dir():
-                continue
             publication = self.publication_path(node.node_id, entry["revision_id"])
-            if publication.exists():
+            has_publication = publication.exists() or publication.is_symlink()
+            has_head = node.head_revision_id == entry["revision_id"]
+            if not revision_path.exists() or revision_path.is_symlink():
+                if has_publication or has_head:
+                    raise ValueError("committed pipeline revision is missing")
+                continue
+            if not revision_path.is_dir():
+                raise ValueError("pipeline revision path is not a directory")
+            revision_record = revision_path / "revision.json"
+            if not revision_record.is_file() or revision_record.is_symlink():
+                raise ValueError("pipeline revision record is missing or invalid")
+            if has_publication:
+                if publication.is_symlink() or not publication.is_dir():
+                    raise ValueError("pipeline revision publication authority is invalid")
                 authority = self._read_publication(node.node_id, entry["revision_id"])
                 if authority["content_sha256"] != entry["content_sha256"]:
                     raise ValueError("pipeline revision history outbox digest mismatch")
-            elif node.head_revision_id != entry["revision_id"]:
+            elif not has_head:
                 # An uncommitted revision is not part of durable node history.
                 continue
             else:
