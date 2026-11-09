@@ -211,15 +211,20 @@ while history and unrelated recordings grow 10x.
 - M1 changes: added versioned snapshot, exact-resource, HEAD, summary, error, history-page, explicit
   HEAD-update, and frozen processor-input models with canonical snapshot IDs and validation tests.
   Added the M1 report with selection/stale/history semantics, operation dependency checks, API
-  shapes, summary authority/repair rules, compact package/analysis/job metadata, and consumer
-  replacements.
+  shapes, summary authority/repair rules, bounded typed snapshot/resource/lineage-edge history,
+  separate generated/reference summary states, compact metadata pages, and consumer replacements.
+- Review correction 1: added typed snapshot and lineage-edge page entries, preserved generated and
+  completed-reference status in the summary, bounded catalog metadata pages and active-job previews,
+  and defined the durable Job Manager projection epoch/sequence contract with cross-process,
+  mismatch-rebuild, and restart validation.
 - Checks: `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_contract.py`
-  passed 10 tests; Ruff check and format checks passed for the new module and test. No API generation
+  passed 14 tests; Ruff check and format checks passed for the new module and test. No API generation
   or browser check applies because this milestone adds no route or web code.
 - Decisions: calibration and reconstruction are separate exact resource kinds; generated output,
   completed references, and independent review work stay separate. HEAD is the only current-state
-  authority. Summary timestamps are not freshness proof. History cursors pin an immutable upper
-  bound and use stable keys with a maximum page size of 100.
+  authority. Summary timestamps are not freshness proof. Job freshness comes from a durable Job
+  Manager epoch/sequence marker, not HEAD or time. History and metadata cursors pin an immutable
+  upper bound and use stable keys with a maximum page size of 100; active job previews cap at 20.
 - Limits: M1 adds contracts only. Storage, routes, client changes, migration, cross-process
   publication, crash recovery, API growth behavior, and browser behavior remain unimplemented and
   unverified by design.
@@ -242,7 +247,10 @@ references, and generated/reference separation. Commit: contracts, tests, and re
 
 **M1 result — 2026-11-09:** Complete. The [M1 report](../../reports/0117-M1_Recording_State_Contracts.md)
 records the contracts, operation dependency checks, replacement inventory, and limits. The new
-contract tests pass. M2 owns storage and bounded reads; M1 does not implement runtime behavior.
+contract tests pass. Review correction 1 adds typed snapshot/resource/lineage-edge page entries,
+separate generated/reference summary states, bounded metadata pages, and explicit Job Manager
+projection freshness and restart rules. M2 owns storage and bounded reads; M1 does not implement
+runtime behavior.
 
 ## M2 — Implement immutable snapshots
 

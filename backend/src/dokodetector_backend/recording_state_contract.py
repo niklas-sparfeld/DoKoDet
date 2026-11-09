@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Union
 
 from pydantic import Field, StringConstraints, model_validator
 
@@ -103,6 +103,13 @@ class StageSelection(ContractModel):
     completed_reference: SlotSelection
 
 
+class StageSummarySelection(ContractModel):
+    """Keep compact generated and completed-reference states independently visible."""
+
+    generated: Literal["empty", "selected", "stale"]
+    completed_reference: Literal["empty", "selected", "stale"]
+
+
 class IndependentReviewRef(ContractModel):
     """Reference review work without merging it into selected generated state."""
 
@@ -175,14 +182,17 @@ class RecordingStateSummary(ContractModel):
     head_version: int = Field(ge=1)
     snapshot_id: SnapshotId
     snapshot_sha256: Sha256
-    slots: dict[SlotName, Literal["empty", "selected", "stale"]]
-    active_job_count: int = Field(ge=0)
-    analysis: list["CompactAnalysisMetadata"] = Field(default_factory=list)
-    packages: list["CompactPackageMetadata"] = Field(default_factory=list)
-    jobs: list["CompactJobMetadata"] = Field(default_factory=list)
+    slots: dict[SlotName, StageSummarySelection]
+
+    @model_validator(mode="after")
+    def validate_slots(self) -> RecordingStateSummary:
+        if set(self.slots) != set(SlotName.__args__):
+            raise ValueError("slots must contain every defined slot exactly once")
+        return self
 
 
 class CompactAnalysisMetadata(ContractModel):
+    item_kind: Literal["analysis"] = "analysis"
     analysis_id: Identifier
     schema_version: Literal["round-analysis/v1"]
     status: Literal["queued", "analyzing_evidence", "reconstructing", "complete", "failed"]
@@ -192,6 +202,7 @@ class CompactAnalysisMetadata(ContractModel):
 
 
 class CompactPackageMetadata(ContractModel):
+    item_kind: Literal["package"] = "package"
     package_id: Identifier
     schema_version: Literal["evidence-package/v1"]
     status: Literal["available", "missing", "corrupt"]
@@ -199,11 +210,82 @@ class CompactPackageMetadata(ContractModel):
 
 
 class CompactJobMetadata(ContractModel):
+    item_kind: Literal["job"] = "job"
     job_id: Identifier
     schema_version: Literal["backend-job/v1"]
     status: Literal["queued", "running", "cancelling", "succeeded", "failed", "cancelled"]
     updated_at: str
     request_id: Identifier | None = None
+
+
+CatalogMetadataItem = Annotated[
+    Union[CompactAnalysisMetadata, CompactPackageMetadata, CompactJobMetadata],
+    Field(discriminator="item_kind"),
+]
+
+
+class CatalogMetadataPage(ContractModel):
+    """Bounded detail metadata page; never embed unbounded lists in the catalog summary."""
+
+    schema_version: Literal["recording-catalog-metadata-page/v1"] = (
+        "recording-catalog-metadata-page/v1"
+    )
+    recording_id: Identifier
+    collection: Literal["analyses", "packages", "jobs"]
+    items: list[CatalogMetadataItem] = Field(max_length=100)
+    next_cursor: str | None = Field(default=None, max_length=2048)
+    has_more: bool
+
+    @model_validator(mode="after")
+    def validate_page(self) -> CatalogMetadataPage:
+        if self.has_more != (self.next_cursor is not None):
+            raise ValueError("has_more must match next_cursor presence")
+        expected_kind = {"analyses": "analysis", "packages": "package", "jobs": "job"}[
+            self.collection
+        ]
+        if any(item.item_kind != expected_kind for item in self.items):
+            raise ValueError("metadata page items must match collection")
+        return self
+
+
+class JobProjectionAuthority(ContractModel):
+    """Durable Job Manager generation used to validate all compact job projections."""
+
+    schema_version: Literal["job-projection-authority/v1"] = "job-projection-authority/v1"
+    manager_id: Identifier
+    epoch: Identifier
+    sequence: int = Field(ge=1)
+
+
+class RecordingJobProjection(ContractModel):
+    """Bounded active-job view tied to the Job Manager's durable cross-process authority."""
+
+    schema_version: Literal["recording-job-projection/v1"] = "recording-job-projection/v1"
+    recording_id: Identifier
+    authority_epoch: Identifier
+    authority_sequence: int = Field(ge=1)
+    active_job_count: int = Field(ge=0)
+    jobs: list[CompactJobMetadata] = Field(max_length=20)
+    next_cursor: str | None = Field(default=None, max_length=2048)
+    has_more: bool
+
+    @model_validator(mode="after")
+    def validate_projection(self) -> RecordingJobProjection:
+        if self.has_more != (self.next_cursor is not None):
+            raise ValueError("has_more must match next_cursor presence")
+        if len(self.jobs) > self.active_job_count:
+            raise ValueError("job preview cannot exceed active_job_count")
+        if self.has_more != (len(self.jobs) < self.active_job_count):
+            raise ValueError("job preview continuation must match active_job_count")
+        if any(job.status not in {"queued", "running", "cancelling"} for job in self.jobs):
+            raise ValueError("job projection can contain only active jobs")
+        return self
+
+    def validate_authority(self, authority: JobProjectionAuthority) -> None:
+        """Reject a projection unless it matches the current durable manager marker."""
+
+        if self.authority_epoch != authority.epoch or self.authority_sequence != authority.sequence:
+            raise ValueError("job projection is stale relative to Job Manager authority")
 
 
 class RecordingStateError(ContractModel):
@@ -231,20 +313,103 @@ class HistoryPageCursor(ContractModel):
 
     schema_version: Literal["recording-history-cursor/v1"] = "recording-history-cursor/v1"
     recording_id: Identifier
-    collection: Literal["snapshots", "revisions", "candidates"]
+    collection: Literal[
+        "snapshots",
+        "revisions",
+        "candidates",
+        "lineage_edges",
+        "analyses",
+        "packages",
+        "jobs",
+    ]
     filter_sha256: Sha256
     upper_bound_key: str = Field(min_length=1, max_length=256)
     last_key: str | None = Field(default=None, max_length=256)
     page_size: int = Field(ge=1, le=100)
+    authority_epoch: Identifier | None = None
+    authority_sequence: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_job_authority(self) -> HistoryPageCursor:
+        if self.collection == "jobs":
+            if self.authority_epoch is None or self.authority_sequence is None:
+                raise ValueError("job cursor must pin Job Manager authority")
+        elif self.authority_epoch is not None or self.authority_sequence is not None:
+            raise ValueError("Job Manager authority is valid only for job cursors")
+        return self
+
+
+class SnapshotHistoryItem(ContractModel):
+    """One immutable snapshot address in recording history."""
+
+    item_kind: Literal["snapshot"] = "snapshot"
+    item_key: Identifier
+    snapshot_id: SnapshotId
+    sha256: Sha256
+    predecessor_snapshot_id: SnapshotId | None = None
+
+
+class LineageEndpoint(ContractModel):
+    """One exact endpoint from the existing lineage graph key contract."""
+
+    kind: Literal["revision", "run", "artifact"]
+    node_id: Identifier | None = None
+    revision_id: Identifier | None = None
+    run_id: Identifier | None = None
+    artifact_id: Identifier | None = None
+    sha256: Sha256 | None = None
+
+    @model_validator(mode="after")
+    def validate_endpoint(self) -> LineageEndpoint:
+        if self.kind == "revision":
+            valid = self.node_id is not None and self.revision_id is not None
+        elif self.kind == "run":
+            valid = self.run_id is not None
+        else:
+            valid = self.artifact_id is not None and self.sha256 is not None
+        if not valid:
+            raise ValueError("lineage endpoint is missing its exact identity")
+        if self.kind != "revision" and (self.node_id is not None or self.revision_id is not None):
+            raise ValueError("node fields are valid only for revision endpoints")
+        if self.kind != "run" and self.run_id is not None:
+            raise ValueError("run_id is valid only for run endpoints")
+        if self.kind != "artifact" and (self.artifact_id is not None or self.sha256 is not None):
+            raise ValueError("artifact fields are valid only for artifact endpoints")
+        return self
+
+
+class LineageEdgeHistoryItem(ContractModel):
+    """One stable relationship edge in the explicit lineage graph."""
+
+    item_kind: Literal["lineage_edge"] = "lineage_edge"
+    item_key: Identifier
+    edge_kind: Literal["revised", "copied", "restored", "used", "produced"]
+    source: LineageEndpoint
+    target: LineageEndpoint
+    role: Identifier | None = None
+
+
+class ResourceHistoryItem(ContractModel):
+    """One exact revision or candidate resource in stable history."""
+
+    item_kind: Literal["resource"] = "resource"
+    item_key: Identifier
+    resource: ExactResourceRef
+
+
+HistoryItem = Annotated[
+    Union[SnapshotHistoryItem, LineageEdgeHistoryItem, ResourceHistoryItem],
+    Field(discriminator="item_kind"),
+]
 
 
 class RecordingHistoryPage(ContractModel):
-    """One bounded, stable page of exact resource metadata."""
+    """One bounded, stable page of typed snapshot, resource, or lineage metadata."""
 
     schema_version: Literal["recording-history-page/v1"] = RECORDING_HISTORY_PAGE_SCHEMA
     recording_id: Identifier
-    collection: Literal["snapshots", "revisions", "candidates"]
-    items: list[ExactResourceRef] = Field(max_length=100)
+    collection: Literal["snapshots", "revisions", "candidates", "lineage_edges"]
+    items: list[HistoryItem] = Field(max_length=100)
     next_cursor: str | None = Field(default=None, max_length=2048)
     has_more: bool
 
@@ -252,6 +417,14 @@ class RecordingHistoryPage(ContractModel):
     def validate_cursor_state(self) -> RecordingHistoryPage:
         if self.has_more != (self.next_cursor is not None):
             raise ValueError("has_more must match next_cursor presence")
+        expected_kind = {
+            "snapshots": "snapshot",
+            "revisions": "resource",
+            "candidates": "resource",
+            "lineage_edges": "lineage_edge",
+        }[self.collection]
+        if any(item.item_kind != expected_kind for item in self.items):
+            raise ValueError("history page items must match collection")
         return self
 
 
