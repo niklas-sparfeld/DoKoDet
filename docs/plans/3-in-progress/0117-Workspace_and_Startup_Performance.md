@@ -43,8 +43,9 @@
   publisher, persisted source, or web consumer. Actual proposal values remain in exact node content
   or calibration-refinement preview; applying a calibration refinement publishes a calibration
   revision. M5c4 removes the unsupported generic collection, route, index entry, and contract types
-  while preserving those existing discovery flows. This keeps the 14-slot cap and moves M13 outside
-  this run.
+  while preserving those existing discovery flows. This supersedes the earlier plan to identify or
+  publish a generic candidate source. M5 discovery is complete. The 14-slot cap stays unchanged and
+  M13 remains outside this run.
 
 ## Evidence and scope
 
@@ -425,16 +426,29 @@ while history and unrelated recordings grow 10x.
   [M5b1 report](../../reports/0117-M5b1_Ordered_History_Index.md).
 - Replan 1 split M5 into the durable authority store (M5a) and discovery APIs (M5b). Replan 2
   added generation pinning because sequence-only cursors cannot expire safely after rebuild.
-- Replan 3 assigns source publication and crash-gap reconciliation to M5c. Replan 7 splits its
+- Replan 3 assigned source publication and crash-gap reconciliation to M5c. Replan 7 split its
   owners: M5c1 is `PipelineNodeStore`/`PipelineNodeTransactions`; M5c2 is
-  `RecordingStateSnapshotStore`; M5c3 is `PipelineLineage`. M0/M1 do not name the source or meaning
-  of the `candidates` collection. M5 discovery stays incomplete until all source families and
-  candidate semantics are resolved.
+  `RecordingStateSnapshotStore`; M5c3 is `PipelineLineage`. The following candidate-source
+  requirement was superseded by Replan 8 and M5c4: M0/M1 did not name a source or meaning for the
+  generic `candidates` collection. M5 discovery is now complete after removal of that unsupported
+  collection; proposal discovery remains in exact node content and calibration-refinement preview.
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.
-- Do not claim complete discovery until M5c wires all
-  source publishers and proves crash-gap reconciliation.
+- Historical acceptance note: this pre-Replan 8 instruction is complete and superseded. M5c1–M5c3
+  publish snapshots, revisions, and lineage edges with crash-gap recovery; M5c4 removes the
+  unsupported generic candidate collection. M5 discovery is complete.
+
+## Replan 8 — Candidate discovery decision
+
+The M5a and M5b specifications below record the original four-collection design. Their `candidates`
+collection references, the earlier M5c source-identification requirement, and the M5b2 statement
+that source discovery remained incomplete are historical and superseded by Replan 8 and M5c4.
+History contains snapshots, revisions, and lineage edges. The unsupported generic candidate route
+and index collection are removed. Actual proposal values remain inside exact pipeline node content
+or the existing calibration-refinement preview. Applying a calibration refinement materializes a
+calibration revision. M5 discovery is complete. Do not add a candidate publisher or generic
+candidate-history consumer.
 
 ## M1 — Define current-state operation contracts
 
@@ -444,13 +458,13 @@ Define which actions change HEAD, stale downstream behavior, historical inspecti
 restoration. Define summary derivation, publication authority, cross-process freshness, and repair.
 Specify compact analysis/package/job metadata so the catalog cannot keep its old scans.
 
-Define stable history/candidate cursors and page bounds. Lineage edges use a total order over exact
-source and target endpoint fields, edge kind, role, and a stable unique per-edge `item_key`
-tie-breaker. Serialize the complete composite key as canonical JSON in the cursor to avoid delimiter
-ambiguity. The cursor must hold the longest valid composite key. Freeze membership with the
-per-recording publication-sequence upper bound. Test duplicate endpoint pairs with differing kinds
-or roles, continuation across a page boundary, and maximum-length valid endpoint and role keys. List
-all API consumers and replacements.
+Define stable history cursors and page bounds for snapshots, revisions, and lineage edges. Lineage
+edges use a total order over exact source and target endpoint fields, edge kind, role, and a stable
+unique per-edge `item_key` tie-breaker. Serialize the complete composite key as canonical JSON in
+the cursor to avoid delimiter ambiguity. The cursor must hold the longest valid composite key.
+Freeze membership with the per-recording publication-sequence upper bound. Test duplicate endpoint
+pairs with differing kinds or roles, continuation across a page boundary, and maximum-length valid
+endpoint and role keys. List all API consumers and replacements.
 Freeze which exact dependency checks belong to each operation. No timestamp-only validity proof.
 
 Checks: contract tests for identity, empty/stale slots, independent reviews, missing/corrupt
@@ -624,19 +638,21 @@ cursor tamper, filter, collection, page-size, and generation checks; exact ances
 entries map to 500; bounded metadata and content reads; OpenAPI generation; and real API restart.
 Commit: historical discovery APIs, signed cursors, tests, API types, evidence, and board updates.
 
-## M5c — Connect history source publishers and reconcile gaps
+## M5c — Connect supported history sources and reconcile gaps
 
-Connect every snapshot, revision, candidate, and lineage-edge source publisher to M5a after its
-source data is durable. Define per-source recovery or an outbox so a crash between source commit and
-history publication cannot leave a permanent omission. Reconcile idempotently without a full scan
-on each page request. Identify and record the authoritative persisted source and exact meaning of
-the `candidates` collection before implementation. Keep history entries metadata-only and exact.
+This parent milestone is complete through M5c1–M5c4. Publish the supported snapshot, revision, and
+lineage-edge sources through M5a after source data is durable. Define per-source recovery or an
+outbox so a crash between source commit and history publication cannot leave a permanent omission.
+Reconcile idempotently without a full scan on each page request. M5c4 removed the unsupported
+generic candidate collection; do not add a candidate publisher. Actual proposal values remain in
+exact pipeline node content or calibration-refinement preview, and apply materializes a calibration
+revision. Keep history entries metadata-only and exact.
 
-Checks: inventory each writer and its source transaction; deterministic crash/restart tests between
-source commit and index publication for each source family; duplicate-free reconciliation after
-restart; complete page traversal against durable sources; no payload reads for metadata pages.
-Commit: source adapters, gap recovery, candidate-source decision, tests, and report. M5 discovery
-cannot be marked complete before this milestone passes.
+Checks completed: inventory each writer and its source transaction; deterministic crash/restart tests
+between source commit and index publication for each supported source family; duplicate-free
+reconciliation after restart; complete page traversal against durable sources; no payload reads for
+metadata pages; remove the candidate route and collection from code, contract, index, and OpenAPI;
+preserve actual proposal discovery. See the M5c1–M5c4 reports. M5 discovery is complete.
 
 ## M6 — Convert the recording catalog
 
@@ -659,7 +675,10 @@ rejection, history disabled, and growth counts. Commit: current-workspace API an
 
 ## M8 — Convert the web workspace
 
-Load current state first, stage content when opened, and history/candidates when requested. Preserve
+Load current state first and stage content when opened. Load snapshot, revision, and lineage-edge
+history on request. Read proposal values from exact selected node content and the existing
+calibration-refinement preview; the preview is computed by its existing GET workflow, and apply
+materializes a calibration revision. Do not add or call a generic candidate-history API. Preserve
 historical deep links, independent review switching, and reload behavior. Expose an explicit action
 to select historical state as current with conflict handling. Do not change HEAD during browsing.
 
