@@ -91,11 +91,11 @@ def _edge(key: str, edge_kind: str = "used") -> LineageEdgeHistoryItem:
     )
 
 
-def _crash_after_history_cursor_key(root: str) -> None:
+def _crash_after_history_cursor_key(root: str, boundary_to_crash: str) -> None:
     store = RecordingHistoryStore(root)
 
     def stop_after_key(boundary: str) -> None:
-        if boundary == "key_published":
+        if boundary == boundary_to_crash:
             os._exit(79)
 
     store._after_cursor_key_boundary = stop_after_key
@@ -225,9 +225,10 @@ def test_cursor_key_is_private_durable_and_detects_loss(tmp_path: Path):
     assert RecordingHistoryStore(tmp_path).cursor_integrity_key() == key
 
 
-def test_cursor_key_recovers_crash_between_key_and_state_publication(tmp_path: Path):
+@pytest.mark.parametrize("boundary", ["key_published", "state_published", "authority_published"])
+def test_cursor_key_recovers_initialization_crashes(tmp_path: Path, boundary: str):
     process = multiprocessing.get_context("fork").Process(
-        target=_crash_after_history_cursor_key, args=(str(tmp_path),)
+        target=_crash_after_history_cursor_key, args=(str(tmp_path), boundary)
     )
     process.start()
     process.join(timeout=10)
@@ -239,12 +240,16 @@ def test_cursor_key_recovers_crash_between_key_and_state_publication(tmp_path: P
     restarted = RecordingHistoryStore(tmp_path)
     assert restarted.cursor_integrity_key() == original
     assert (key_path.parent / "cursor-integrity-key-state.json").exists()
+    authority_path = tmp_path / "recording-history-cursor-authority.json"
+    assert authority_path.exists()
+    assert stat.S_IMODE(authority_path.stat().st_mode) == 0o600
 
 
 def test_cursor_key_publication_is_atomic_before_replace(tmp_path: Path, monkeypatch):
     store = RecordingHistoryStore(tmp_path)
     key_path = store.root / "cursor-integrity-key"
     state_path = store.root / "cursor-integrity-key-state.json"
+    authority_path = store.root.parent / "recording-history-cursor-authority.json"
     original_replace = os.replace
 
     def fail_replace(source, destination):
@@ -257,6 +262,7 @@ def test_cursor_key_publication_is_atomic_before_replace(tmp_path: Path, monkeyp
         store.cursor_integrity_key()
     assert not key_path.exists()
     assert not state_path.exists()
+    assert not authority_path.exists()
     assert not list(store.root.glob(".cursor-integrity-key.*"))
 
 
@@ -269,6 +275,102 @@ def test_cursor_key_state_corruption_is_not_repaired_silently(tmp_path: Path):
     state_path.write_bytes(_canonical_json(state))
     with pytest.raises(RecordingHistoryCorrupt, match="does not match"):
         RecordingHistoryStore(tmp_path).cursor_integrity_key()
+
+
+def test_independent_authority_detects_marker_key_replacement_and_repairs_marker_loss(
+    tmp_path: Path,
+):
+    store = RecordingHistoryStore(tmp_path)
+    key = store.cursor_integrity_key()
+    state_path = store.root / "cursor-integrity-key-state.json"
+    state_path.unlink()
+    assert store.cursor_integrity_key() == key
+    assert state_path.exists()
+
+    (store.root / "cursor-integrity-key").write_bytes(b"x" * 32)
+    with pytest.raises(RecordingHistoryCorrupt, match="does not match its authority"):
+        RecordingHistoryStore(tmp_path).cursor_integrity_key()
+
+
+def test_independent_authority_detects_loss_of_both_local_key_files_after_cursor_issue(
+    tmp_path: Path,
+):
+    app = _create_app(tmp_path)
+    store: RecordingHistoryStore = app.state.recording_history_store
+    store.publish(RECORDING, _snapshot("a"))
+    store.publish(RECORDING, _snapshot("b"))
+    client = TestClient(app)
+    first = client.get(f"/api/recordings/{RECORDING}/state/history", params={"limit": 1})
+    assert first.status_code == 200
+    assert first.json()["next_cursor"]
+    (store.root / "cursor-integrity-key").unlink()
+    (store.root / "cursor-integrity-key-state.json").unlink()
+    response = client.get(
+        f"/api/recordings/{RECORDING}/state/history",
+        params={"limit": 1, "cursor": first.json()["next_cursor"]},
+    )
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "recording_history_corrupt"
+    (store.root.parent / "recording-history-cursor-authority.json").unlink()
+    still_corrupt = client.get(
+        f"/api/recordings/{RECORDING}/state/history",
+        params={"limit": 1, "cursor": first.json()["next_cursor"]},
+    )
+    assert still_corrupt.status_code == 500
+    with pytest.raises(RecordingHistoryCorrupt, match="explicit cursor invalidation"):
+        store.bootstrap_cursor_integrity_key_for_existing_history()
+    store.bootstrap_cursor_integrity_key_for_existing_history(invalidate_existing_cursors=True)
+    invalidated_cursor = client.get(
+        f"/api/recordings/{RECORDING}/state/history",
+        params={"limit": 1, "cursor": first.json()["next_cursor"]},
+    )
+    assert invalidated_cursor.status_code == 422
+
+
+def test_missing_independent_authority_requires_explicit_legacy_bootstrap(tmp_path: Path):
+    app = _create_app(tmp_path)
+    store: RecordingHistoryStore = app.state.recording_history_store
+    store.publish(RECORDING, _snapshot("a"))
+    store.publish(RECORDING, _snapshot("b"))
+    client = TestClient(app)
+    first = client.get(f"/api/recordings/{RECORDING}/state/history", params={"limit": 1}).json()
+    key = store.cursor_integrity_key()
+    authority_path = store.root.parent / "recording-history-cursor-authority.json"
+    authority_path.unlink()
+    failed = client.get(
+        f"/api/recordings/{RECORDING}/state/history",
+        params={"limit": 1, "cursor": first["next_cursor"]},
+    )
+    assert failed.status_code == 500
+    with pytest.raises(RecordingHistoryCorrupt, match="no independent cursor authority"):
+        store.cursor_integrity_key()
+
+    bootstrapped = store.bootstrap_cursor_integrity_key_for_existing_history()
+    assert bootstrapped == key
+    assert store.cursor_integrity_key() == key
+    continued = client.get(
+        f"/api/recordings/{RECORDING}/state/history",
+        params={"limit": 1, "cursor": first["next_cursor"]},
+    )
+    assert continued.status_code == 200
+    assert continued.json()["items"][0]["snapshot_id"] == f"rs_{'b' * 64}"
+
+
+def test_legacy_history_without_key_requires_explicit_cursor_invalidation(tmp_path: Path):
+    store = RecordingHistoryStore(tmp_path)
+    store.cursor_integrity_key()
+    store.publish(RECORDING, _snapshot("a"))
+    (store.root / "cursor-integrity-key").unlink()
+    (store.root / "cursor-integrity-key-state.json").unlink()
+    (store.root.parent / "recording-history-cursor-authority.json").unlink()
+    with pytest.raises(RecordingHistoryCorrupt, match="pre-existing history"):
+        store.cursor_integrity_key()
+    with pytest.raises(RecordingHistoryCorrupt, match="explicit cursor invalidation"):
+        store.bootstrap_cursor_integrity_key_for_existing_history()
+    replacement = store.bootstrap_cursor_integrity_key_for_existing_history(
+        invalidate_existing_cursors=True
+    )
+    assert len(replacement) == 32
 
 
 def test_established_cursor_key_loss_returns_http_500(tmp_path: Path):

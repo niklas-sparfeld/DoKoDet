@@ -239,19 +239,21 @@ while history and unrelated recordings grow 10x.
 - Requested run: 14 milestones, starting at M5a; completed: 3; remaining: 11. The cap covers
   M5a, M5b1, M5b2, M5c, and M6–M15; M16 is outside this run.
 - Next milestone: M5c. M5b replan count: 1/5; this run replan count: 1/10. M5b1 correction
-  count: 1/2; M5b2 correction count: 1/2. Previous-run
+  count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
 - M5b2 result: complete. The four history routes use M5b1's stable collection order and frozen
   sequence roots. HMAC cursors bind recording, collection, empty-filter digest, generation,
-  sequence, full stable key, and page size. The private cursor key and digest marker use atomic
-  mode-0600 writes with file and directory sync; established-key loss or corruption fails closed,
-  and recovery requires restoring the backed-up key. New publishers establish cursor authority
-  before history publication. Unknown recordings return 404 without initializing history.
+  sequence, full stable key, and page size. The private cursor key and local digest record use
+  atomic mode-0600 writes with file and directory sync. A separate operations-root authority stores
+  the key digest. Missing or changed key authority fails closed. Legacy data requires explicit
+  bootstrap, preserving an available key or requiring explicit cursor invalidation if no key
+  remains. New publishers establish cursor authority before history publication. Unknown recordings
+  return 404 without initializing history.
   Invalid cursors map to 422, expired generations to 410, and persisted history corruption to 500.
-  Correction 1/2 adds crash/loss/restart tests, simultaneous revision publication, exact lineage
-  endpoint checks, and bounded metadata/no-payload API evidence. Source publication and durable gap
-  reconciliation remain with M5c. See the
+  Corrections 1/2 and 2/2 add crash/loss/restart and authority recovery tests, simultaneous revision
+  publication, exact lineage endpoint checks, and bounded metadata/no-payload API evidence. Source
+  publication and durable gap reconciliation remain with M5c. See the
   [M5b2 report](../../reports/0117-M5b2_M1_Compliant_History_Pages.md).
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact

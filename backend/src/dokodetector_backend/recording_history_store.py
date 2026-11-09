@@ -62,6 +62,13 @@ def _canonical_json(value: Any) -> bytes:
     )
 
 
+def _cursor_key_state(key_sha256: str) -> dict[str, str]:
+    return {
+        "schema_version": "recording-history-cursor-key-state/v1",
+        "sha256": key_sha256,
+    }
+
+
 def _collection(item: HistoryItem) -> str:
     if isinstance(item, SnapshotHistoryItem):
         return "snapshots"
@@ -113,15 +120,48 @@ class RecordingHistoryStore:
         self.root.mkdir(parents=True, exist_ok=True)
         path = contained_path(self.root, "cursor-integrity-key")
         state_path = contained_path(self.root, "cursor-integrity-key-state.json")
-        with _process_lock(self.root / ".cursor-integrity.lock", self._thread_lock):
+        authority_path = contained_path(self.root.parent, "recording-history-cursor-authority.json")
+        authority_lock = self.root.parent / ".recording-history-cursor-authority.lock"
+        with _process_lock(authority_lock, self._thread_lock):
             for abandoned in self.root.glob(".cursor-integrity-key.*"):
                 abandoned.unlink(missing_ok=True)
             for abandoned in self.root.glob(".cursor-integrity-key-state.json.*"):
                 abandoned.unlink(missing_ok=True)
-            if path.is_symlink() or state_path.is_symlink():
+            for abandoned in self.root.parent.glob(".recording-history-cursor-authority.json.*"):
+                abandoned.unlink(missing_ok=True)
+            if path.is_symlink() or state_path.is_symlink() or authority_path.is_symlink():
                 raise RecordingHistoryCorrupt("history cursor key files cannot be symlinks")
+            authority = None
+            if authority_path.exists():
+                try:
+                    raw_authority = authority_path.read_bytes()
+                    authority = json.loads(raw_authority)
+                except (OSError, TypeError, UnicodeError, json.JSONDecodeError) as error:
+                    raise RecordingHistoryCorrupt("history cursor authority is invalid") from error
+                if (
+                    not isinstance(authority, dict)
+                    or _canonical_json(authority) != raw_authority
+                    or set(authority) != {"schema_version", "sha256"}
+                    or authority["schema_version"] != "recording-history-cursor-authority/v1"
+                    or not isinstance(authority["sha256"], str)
+                ):
+                    raise RecordingHistoryCorrupt("history cursor authority is invalid")
+                if stat.S_IMODE(authority_path.stat().st_mode) != 0o600:
+                    raise RecordingHistoryCorrupt("history cursor authority is not private")
+
+            if not path.exists() and authority is not None:
+                raise RecordingHistoryCorrupt("established history cursor key is missing")
             if not path.exists() and state_path.exists():
                 raise RecordingHistoryCorrupt("established history cursor key is missing")
+            if not path.exists() and self._has_history_generation_data():
+                raise RecordingHistoryCorrupt(
+                    "pre-existing history has no cursor key; restore or explicitly bootstrap it"
+                )
+            if authority is None and self._has_history_generation_data():
+                raise RecordingHistoryCorrupt(
+                    "pre-existing history has no independent cursor authority;"
+                    " explicitly bootstrap it"
+                )
             if not path.exists():
                 key = secrets.token_bytes(32)
                 self._write_private_file(path, key)
@@ -140,10 +180,10 @@ class RecordingHistoryStore:
                     raise RecordingHistoryCorrupt("history cursor key is not private") from error
                 if stat.S_IMODE(path.stat().st_mode) != 0o600:
                     raise RecordingHistoryCorrupt("history cursor key is not private")
-            state = {
-                "schema_version": "recording-history-cursor-key-state/v1",
-                "sha256": hashlib.sha256(key).hexdigest(),
-            }
+            key_digest = hashlib.sha256(key).hexdigest()
+            if authority is not None and authority["sha256"] != key_digest:
+                raise RecordingHistoryCorrupt("history cursor key does not match its authority")
+            state = _cursor_key_state(key_digest)
             if state_path.exists():
                 try:
                     raw_state = state_path.read_bytes()
@@ -161,7 +201,139 @@ class RecordingHistoryStore:
             else:
                 self._write_private_file(state_path, _canonical_json(state))
                 self._after_cursor_key_boundary("state_published")
+            if authority is None:
+                # One-time upgrade preserves an established pre-authority key. If neither that
+                # key nor its state marker exists beside pre-existing history, fail above.
+                self._write_private_file(
+                    authority_path,
+                    _canonical_json(
+                        {
+                            "schema_version": "recording-history-cursor-authority/v1",
+                            "sha256": key_digest,
+                        }
+                    ),
+                )
+                self._after_cursor_key_boundary("authority_published")
             return key
+
+    def bootstrap_cursor_integrity_key_for_existing_history(
+        self, *, invalidate_existing_cursors: bool = False
+    ) -> bytes:
+        """Explicitly establish independent cursor authority for pre-existing history.
+
+        Preserve an available 32-byte key. If no key remains, refuse by default because existing
+        cursors cannot be validated. An operator can explicitly allow replacement, which
+        invalidates every prior cursor.
+        """
+        self.root.mkdir(parents=True, exist_ok=True)
+        path = contained_path(self.root, "cursor-integrity-key")
+        state_path = contained_path(self.root, "cursor-integrity-key-state.json")
+        authority_path = contained_path(self.root.parent, "recording-history-cursor-authority.json")
+        authority_lock = self.root.parent / ".recording-history-cursor-authority.lock"
+        if authority_path.is_symlink():
+            raise RecordingHistoryCorrupt("history cursor authority cannot be a symlink")
+        if authority_path.exists():
+            return self.cursor_integrity_key()
+        with _process_lock(authority_lock, self._thread_lock):
+            if not authority_path.exists() and self._has_history_generation_data():
+                if path.is_symlink() or state_path.is_symlink():
+                    raise RecordingHistoryCorrupt("history cursor key files cannot be symlinks")
+                if path.exists():
+                    key = path.read_bytes()
+                    if len(key) != 32:
+                        raise RecordingHistoryCorrupt("history cursor key is invalid")
+                    if stat.S_IMODE(path.stat().st_mode) != 0o600:
+                        path.chmod(0o600)
+                    if stat.S_IMODE(path.stat().st_mode) != 0o600:
+                        raise RecordingHistoryCorrupt("history cursor key is not private")
+                    if state_path.exists():
+                        try:
+                            raw_state = state_path.read_bytes()
+                            state = json.loads(raw_state)
+                        except (OSError, TypeError, UnicodeError, json.JSONDecodeError) as error:
+                            raise RecordingHistoryCorrupt(
+                                "history cursor key state is invalid"
+                            ) from error
+                        if (
+                            not isinstance(state, dict)
+                            or _canonical_json(state) != raw_state
+                            or state != _cursor_key_state(hashlib.sha256(key).hexdigest())
+                        ):
+                            raise RecordingHistoryCorrupt("history cursor key state does not match")
+                        if stat.S_IMODE(state_path.stat().st_mode) != 0o600:
+                            state_path.chmod(0o600)
+                        if stat.S_IMODE(state_path.stat().st_mode) != 0o600:
+                            raise RecordingHistoryCorrupt("history cursor key state is not private")
+                else:
+                    if state_path.exists():
+                        raise RecordingHistoryCorrupt("established history cursor key is missing")
+                    if not invalidate_existing_cursors:
+                        raise RecordingHistoryCorrupt(
+                            "history has no cursor key; explicit cursor invalidation is required"
+                        )
+                    key = secrets.token_bytes(32)
+                    self._write_private_file(path, key)
+                key_digest = hashlib.sha256(key).hexdigest()
+                state = _cursor_key_state(key_digest)
+                self._write_private_file(state_path, _canonical_json(state))
+                self._write_private_file(
+                    authority_path,
+                    _canonical_json(
+                        {
+                            "schema_version": "recording-history-cursor-authority/v1",
+                            "sha256": key_digest,
+                        }
+                    ),
+                )
+        return self.cursor_integrity_key()
+
+    def _has_history_generation_data(self) -> bool:
+        internal = {"cursor-integrity-key", "cursor-integrity-key-state.json"}
+        for recording_root in self.root.iterdir():
+            if recording_root.name in internal or recording_root.name.startswith("."):
+                continue
+            if not recording_root.is_dir() or recording_root.is_symlink():
+                return True
+            if any(
+                (recording_root / name).exists()
+                for name in ("pending.json", "pending-generation.json")
+            ):
+                return True
+            active_path = recording_root / "active.json"
+            if not active_path.exists():
+                if any(path.name != ".history.lock" for path in recording_root.iterdir()):
+                    return True
+                continue
+            try:
+                active = self._read_object(active_path, "active history generation")
+                generation = active["generation"]
+                if (
+                    active.get("schema_version") != "recording-history-active/v1"
+                    or active.get("recording_id") != recording_root.name
+                    or not isinstance(generation, str)
+                    or not generation.startswith("gen-")
+                ):
+                    return True
+                generation_root = contained_path(recording_root, Path("generations") / generation)
+                authority = self._read_object(
+                    generation_root / "authority.json", "history authority"
+                )
+                if (
+                    authority.get("schema_version") != "recording-history-authority/v1"
+                    or authority.get("recording_id") != recording_root.name
+                    or authority.get("generation") != generation
+                    or not isinstance(authority.get("sequence"), int)
+                    or authority["sequence"] < 0
+                ):
+                    return True
+                if authority.get("sequence", 0) > 0:
+                    return True
+                items_root = generation_root / "items"
+                if items_root.exists() and any(items_root.rglob("*.json")):
+                    return True
+            except (KeyError, OSError, TypeError, ValueError):
+                return True
+        return False
 
     @staticmethod
     def _write_private_file(path: Path, contents: bytes) -> None:
@@ -170,8 +342,8 @@ class RecordingHistoryStore:
         descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
         temporary = Path(temporary_name)
         try:
-            os.fchmod(descriptor, 0o600)
             with os.fdopen(descriptor, "wb") as stream:
+                os.fchmod(stream.fileno(), 0o600)
                 stream.write(contents)
                 stream.flush()
                 os.fsync(stream.fileno())
