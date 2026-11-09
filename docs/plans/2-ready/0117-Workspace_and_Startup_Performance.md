@@ -157,7 +157,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M0 | Post-cleanup baseline, exact boundary inventory, growth fixtures, frozen targets | Complete |
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
 | M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
-| M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
+| M3 | Atomic HEAD/summary publication and concurrency/recovery proof | In progress; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
 | M4 | One real API workflow with replaced selection discovery disabled | Not started |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
@@ -207,7 +207,7 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 16 milestones; completed: 3; remaining: 13.
+- Requested run: 16 milestones; completed: 2; remaining: 14. The run stopped after two M3 correction turns.
 - M3 changes: added first-state initialization and one compare-and-swap publication operation for
   an already durable snapshot, versioned HEAD, and compact summary. Readers recover an interrupted
   publication under the same cross-process lock and return one complete HEAD/snapshot/summary set.
@@ -225,8 +225,11 @@ while history and unrelated recordings grow 10x.
   reinitialization when HEAD is missing. Summary mismatch or corruption is rebuilt only from the
   verified HEAD snapshot. The existing node transaction journal is not used: it owns node revisions
   and legacy selections, while this transaction coordinates separate recording-state files.
-- Next: prove one real API/service workflow in M4. This run has completed 3 of 16 milestones;
-  13 remain.
+- Outstanding review finding: the reader test observes versions 1–8 but does not force a read
+  attempt during publication. Pause a writer after HEAD replacement and before summary replacement,
+  acknowledge a reader attempt, release the writer, and verify a complete returned state. Keep the
+  existing version observations. The two correction turns for this run are exhausted.
+- Next: finish M3 in a new authorized run; M4 must wait.
 
 ## M1 — Define current-state operation contracts
 
@@ -278,7 +281,7 @@ Checks: two processes updating one HEAD; concurrent readers seeing complete stat
 version rejection; crash injection at each durable boundary; restart and summary freshness.
 Commit: publication operation, concurrency/recovery tests, and evidence.
 
-**M3 result — 2026-11-09:** Complete. The publication API validates the already stored immutable
+**M3 result — 2026-11-09:** In progress. The final sanity review found the concurrent-reader evidence gap in the handoff. The publication API validates the already stored immutable
 snapshot before it writes a prepared journal. It verifies the current selected snapshot before an
 advance. It then atomically replaces HEAD, atomically replaces the matching compact summary, and
 marks the journal committed. HEAD and summary writes use the existing atomic JSON replacement
