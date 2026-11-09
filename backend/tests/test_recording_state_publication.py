@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import multiprocessing
 import os
+import queue
 import shutil
 import time
 from pathlib import Path
@@ -36,7 +37,7 @@ def _publish_worker(root: str, snapshot_id: str, barrier, results) -> None:
         results.put(("conflict", None, snapshot_id))
 
 
-def _reader_worker(root: str, stop, failures) -> None:
+def _reader_worker(root: str, stop, ready, observations, failures) -> None:
     store = RecordingStateSnapshotStore(root)
     while not stop.is_set():
         try:
@@ -48,6 +49,9 @@ def _reader_worker(root: str, stop, failures) -> None:
             ):
                 failures.put("mixed state")
                 return
+            observations.put((state.head.version, state.head.snapshot_id))
+            ready.set()
+            time.sleep(0.001)
         except Exception as error:  # pragma: no cover - reports child-process failures
             failures.put(repr(error))
             return
@@ -134,20 +138,38 @@ def test_two_processes_compare_and_swap_one_head(tmp_path: Path) -> None:
 
 
 def test_concurrent_reader_observes_only_complete_old_or_new_state(tmp_path: Path) -> None:
-    store, _, second, _ = _prepare(tmp_path)
+    store, first, _, _ = _prepare(tmp_path)
     context = multiprocessing.get_context("spawn")
     stop = context.Event()
+    ready = context.Event()
+    observations = context.Queue()
     failures = context.Queue()
-    reader = context.Process(target=_reader_worker, args=(str(tmp_path), stop, failures))
+    reader = context.Process(
+        target=_reader_worker,
+        args=(str(tmp_path), stop, ready, observations, failures),
+    )
     reader.start()
+
+    def wait_for_state(version: int, snapshot_id: str) -> None:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                observed_version, observed_snapshot = observations.get(timeout=1)
+            except queue.Empty:
+                continue
+            if (observed_version, observed_snapshot) == (version, snapshot_id):
+                observed_states.add((observed_version, observed_snapshot))
+                return
+            observed_states.add((observed_version, observed_snapshot))
+        pytest.fail(f"reader did not observe HEAD {version}/{snapshot_id}")
+
+    observed_states: set[tuple[int, str]] = set()
     try:
-        for version in range(1, 8):
+        assert ready.wait(10), "reader did not complete its initial read"
+        wait_for_state(1, first.snapshot_id)
+        for _version in range(1, 8):
             previous = store.get_current("recording-1")
-            snapshot = second if version % 2 else _snapshot(previous.head.snapshot_id)
-            if snapshot.snapshot_id == previous.head.snapshot_id:
-                # Reuse an already persisted snapshot with a distinct predecessor.
-                snapshot = second
-            stored = store.put(snapshot)
+            stored = store.put(_snapshot(previous.head.snapshot_id))
             store.publish(
                 RecordingHeadUpdate(
                     recording_id="recording-1",
@@ -156,12 +178,13 @@ def test_concurrent_reader_observes_only_complete_old_or_new_state(tmp_path: Pat
                     action="select_snapshot",
                 )
             )
-            time.sleep(0.005)
+            wait_for_state(previous.head.version + 1, stored.snapshot.snapshot_id)
     finally:
         stop.set()
         reader.join(20)
     assert reader.exitcode == 0
     assert failures.empty()
+    assert {version for version, _ in observed_states} == set(range(1, 9))
 
 
 @pytest.mark.parametrize("boundary", ["journal_prepared", "head", "summary", "journal_committed"])

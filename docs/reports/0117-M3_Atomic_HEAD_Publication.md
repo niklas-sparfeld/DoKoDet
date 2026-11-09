@@ -52,12 +52,14 @@ only from the verified current HEAD and snapshot. Summary timestamps do not esta
 - `git diff --check` — passed.
 
 The publication tests start two processes with the same expected version. One advances HEAD and one
-gets a stale conflict. A separate reader process repeatedly checks that HEAD, selected snapshot,
-and summary always agree during publication. Stale expected versions are rejected. Four process
-deaths (`journal_prepared`, `head`, `summary`, and `journal_committed`) are reopened with a new store
-instance; recovery leaves HEAD version 2 and the summary at the exact same snapshot/version. Tests
-reject a valid-shape but incorrect prepared-journal summary. Tests also reject publication when the
-current snapshot is missing or corrupt and reject initialization or publication after HEAD is
+gets a stale conflict. The concurrent reader signals readiness only after a successful initial
+read. The writer waits for reader observations of the old state and every successive published
+version (1 through 8), so the test cannot pass without reads spanning the updates. Each observation
+checks that HEAD, selected snapshot, and summary agree. Stale expected versions are rejected. Four
+process deaths (`journal_prepared`, `head`, `summary`, and `journal_committed`) are reopened with a
+new store instance; recovery leaves HEAD version 2 and the summary at the exact same snapshot/version.
+Tests reject a valid-shape but incorrect prepared-journal summary. Tests also reject publication when
+the current snapshot is missing or corrupt and reject initialization or publication after HEAD is
 removed despite committed publication evidence. An orphan-snapshot test confirms that a stored
 snapshot alone does not create current state.
 
