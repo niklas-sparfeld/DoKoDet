@@ -29,7 +29,7 @@ Relocation is not reclaimed space. Record physical allocation only when directly
 | --- | --- | --- |
 | M0 | Inventory exact log, recovery-copy, and campaign-intermediate writers; identify retention roots, recovery evidence, and a small candidate scope | Complete; [report](../../reports/0118-M0_Lifecycle_Family_Inventory.md) |
 | M1 | Specify the managed-job operational-log family's retention and recovery contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M1_Managed_Job_Log_Audit.md) |
-| M2 | Specify one exact recovery-copy family's retention and restore contract, or record why no safe bounded policy is justified | Not started |
+| M2 | Specify one exact recovery-copy family's retention and restore contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md) |
 | M3 | Specify one exact campaign-intermediate family's retention and restore contract; keep it separate from recovery copies | Not started |
 | M4 | Implement and verify only the selected contracts, with preserved recovery and human-work evidence | Not started |
 
@@ -46,26 +46,33 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
 
 ## Execution handoff
 
-- Run: requested 4 milestones; completed 2; 2 remain in this run. M0–M4 are planned; this run
+- Run: requested 4 milestones; completed 3; 1 remains in this run. M0–M4 are planned; this run
   stops at four completed milestones even if work remains.
-- Completed: M0 inventory and family selection; M1 managed-job log audit. See the
-  [M0 report](../../reports/0118-M0_Lifecycle_Family_Inventory.md) and
-  [M1 report](../../reports/0118-M1_Managed_Job_Log_Audit.md).
+- Completed: M0 inventory and family selection; M1 managed-job log audit; M2 accepted-loss
+  recovery-copy audit. See the [M0 report](../../reports/0118-M0_Lifecycle_Family_Inventory.md),
+  [M1 report](../../reports/0118-M1_Managed_Job_Log_Audit.md), and
+  [M2 report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md).
 - Changes: M1 found an existing 1,000-entry rolling window, no per-entry byte bound, and no
   independent log restore source. It freezes no new expiry or size policy and preserves all log
-  files. M0 selected the accepted-loss migration stage for M2, subject to current-root revalidation.
+  files. M2 revalidated the accepted-loss package in the main worktree and a disposable APFS clone.
+  Its snapshot and active node-store digests match prior recovery evidence. The source and active
+  store share one volume; off-volume recovery and physical APFS reclamation remain unknown. The 156
+  uncertain histories and three declared-lost revisions remain preserved, so M2 sets no expiry.
   Campaign intermediates remain a separate M3 family.
-- Checks: `mise exec -- uv run --project backend pytest -q backend/tests/test_job_recovery.py`
-  passed (13 tests). M1 added a deterministic case for active and terminal logs, concurrent append
-  and read, and restart. Exact source and current-root evidence are in the M1 report. No stored data
-  was changed or deleted.
+- Checks: M1's `mise exec -- uv run --project backend pytest -q backend/tests/test_job_recovery.py`
+  passed (13 tests). M2's `mise exec -- uv run --project backend python
+  scripts/verify_0115_recovery.py --data-root /Users/niklas.sparfeld/Developer/doko_detector/data
+  --runtime-root /Users/niklas.sparfeld/Developer/doko_detector/.runtime --output
+  /tmp/0118-m2-current-verification.json` passed with 2,086 resources, 34,414 manifest files,
+  and snapshot `c8979c9a…`. A disposable APFS clone passed `_verify_package` with the same digest.
+  M1's matching-snapshot API restore and restart reads remain the API-level rehearsal evidence.
+  `git diff --check` and changed-link checks passed. No authoritative data changed.
 - Decisions and limits: current configured `data/operations/jobs` is absent in this checkout.
   The active process root, live job set, log sizes, pins, expiry authority, and independent recovery
   source remain unknown. The existing rolling window is code behavior, not evidence that older
   entries are disposable. Off-volume recovery and physical APFS allocation remain unknown.
-- Next: M2 must revalidate the selected recovery snapshot, its owner and exact references, and
-  rehearse restore in disposable storage. Preserve the candidate if any source or reference is
-  uncertain.
+- Next: M3 selects one campaign materialization family and defines its independent retention and
+  restore contract. Run count: requested 4; completed 3; 1 remains.
 
 ## M1 — Specify operational-log retention
 
@@ -82,6 +89,14 @@ exact writer and readers, the existing 1,000-entry rolling window, atomic append
 restart behavior, and why no safe expiry or new size policy is justified. A focused test covers
 active and terminal records, concurrent appends and reads, and restart. No data was removed and no
 retention code was changed.
+
+## M2 — Specify recovery-copy retention
+
+Outcome: Complete. The [M2 report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md) records
+current source ownership, the exact snapshot, preserved dependencies and human work, a disposable
+package restore check, and matching prior API restart evidence. The package is on the active
+store's volume, its physical APFS allocation and off-volume recovery are unknown, and uncertainty
+records remain. No expiry condition is justified. No data was removed and no retention code changed.
 
 ## M2 — Specify recovery-copy retention
 
