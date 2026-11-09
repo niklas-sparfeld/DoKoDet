@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from dokodetector_backend import pipeline_node_transactions
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
@@ -125,7 +126,7 @@ def _produce_events_from_frozen_inputs(frozen, node_store, state_store, output_n
     node = node_store.get(resource.node_id)
     if node.source.get("recording_id") != request.recording_id or node.content_type != "events":
         raise ValueError("frozen event resource belongs to another recording or content type")
-    revision = node_store.read_published_revision(resource.node_id, resource.revision_id)
+    revision = node_store.read_authorized_revision(resource.node_id, resource.revision_id)
     if (
         revision.content_sha256 != resource.sha256
         or revision.revision_id != resource.resource_id
@@ -160,15 +161,31 @@ def _disable_legacy_discovery(app, monkeypatch):
     monkeypatch.setattr(node_store, "history", forbidden)
     monkeypatch.setattr(node_store, "list_nodes", forbidden)
     monkeypatch.setattr(node_store, "find_revision", forbidden)
+    monkeypatch.setattr(node_store, "read_published_revision", forbidden)
     monkeypatch.setattr(selection_store, "get_exact", forbidden)
     monkeypatch.setattr(selection_store, "update_exact", forbidden)
     monkeypatch.setattr(workspace_service, "get_workspace", forbidden)
     monkeypatch.setattr(workspace_service, "get_statuses", forbidden)
+    journal_reads = []
+    read_json = pipeline_node_transactions._read_json
+
+    def track_journal_reads(path):
+        path = Path(path)
+        if path.parent == node_store.root / ".coordinated-transactions":
+            journal_reads.append(path)
+        return read_json(path)
+
+    monkeypatch.setattr(pipeline_node_transactions, "_read_json", track_journal_reads)
+    transaction_root = node_store.root / ".coordinated-transactions"
+    transaction_root.mkdir(parents=True, exist_ok=True)
+    for index in range(25):
+        (transaction_root / f"committed-{index:03}.json").write_text("{}")
+    return journal_reads
 
 
 def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatch):
     app = create_app(_settings(tmp_path), analyzer=create_local_poc_analyzer())
-    _disable_legacy_discovery(app, monkeypatch)
+    journal_reads = _disable_legacy_discovery(app, monkeypatch)
     client = TestClient(app)
     edits = app.state.pipeline_node_edits
     node_store = edits.store
@@ -373,21 +390,22 @@ def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatc
     assert {item["review_id"] for item in review_list} == {"review-m4-a", "review-m4-b"}
     assert {item["decision"] for item in review_list} == {"accepted", "needs_correction"}
     assert (
-        node_store.read_published_revision("events-generated", output_revision.revision_id).content
+        node_store.read_authorized_revision("events-generated", output_revision.revision_id).content
         == output_content
     )
     assert (
-        node_store.read_published_revision(
+        node_store.read_authorized_revision(
             edited_result["node_id"], edited_result["revision_id"]
         ).content
         == edited_content
     )
     assert (
-        node_store.read_published_revision(
+        node_store.read_authorized_revision(
             "events-generated", output_revision.revision_id
         ).metadata["frozen_inputs"]
         == frozen
     )
+    assert journal_reads == []
 
     stale = client.put(
         f"/api/recordings/{RECORDING}/state",
@@ -417,7 +435,7 @@ def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatc
     assert not legacy_selections.exists()
 
     restarted_app = create_app(_settings(tmp_path), analyzer=create_local_poc_analyzer())
-    _disable_legacy_discovery(restarted_app, monkeypatch)
+    restarted_journal_reads = _disable_legacy_discovery(restarted_app, monkeypatch)
     restarted = TestClient(restarted_app)
     current = restarted.get(f"/api/recordings/{RECORDING}/state").json()
     assert current["head"]["version"] == 4
@@ -434,3 +452,4 @@ def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatc
         ).json()["content"]
         == edited_content
     )
+    assert restarted_journal_reads == []

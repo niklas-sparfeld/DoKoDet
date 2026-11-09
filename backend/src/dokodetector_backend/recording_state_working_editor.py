@@ -63,7 +63,7 @@ class RecordingStateWorkingEditor:
         node = store.get(node_id)
         if node.source.get("recording_id") != recording_id or node.content_type != "events":
             raise ValueError("selected event content belongs to another recording")
-        revision = store.read_published_revision(node_id, revision_id)
+        revision = store.read_authorized_revision(node_id, revision_id)
         if (
             revision.revision_id != resource.resource_id
             or revision.content_sha256 != resource.sha256
@@ -79,7 +79,7 @@ class RecordingStateWorkingEditor:
             actor,
         )
         edited_node_id = edit["node_id"]
-        edited_revision = store.read_published_revision(edited_node_id, edit["revision_id"])
+        edited_revision = store.read_authorized_revision(edited_node_id, edit["revision_id"])
         updated_resource = ExactResourceRef(
             kind="pipeline-node-revision",
             resource_id=edited_revision.revision_id,

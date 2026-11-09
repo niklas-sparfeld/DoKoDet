@@ -167,7 +167,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
 | M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | Complete; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
 | M4b | Bounded coordinated transaction recovery and pending-journal authority | Complete; [report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md) |
-| M4c | One real API workflow with old discovery disabled and no parent traversal | Not started; [report](../../reports/0117-M4_Real_API_Workflow.md) |
+| M4c | One real API workflow with old discovery disabled and no parent traversal | Complete; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
@@ -216,9 +216,9 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 15 milestones, starting at M4a; completed: 2; remaining: 13. The cap covers M4a,
+- Requested run: 15 milestones, starting at M4a; completed: 3; remaining: 12. The cap covers M4a,
   M4b, M4c, and M5–M16.
-- Next milestone: M4c. M4b replan count: 0/5; this run replan count: 0/10. The two earlier M4a
+- Next milestone: M5. M4c replan count: 0/5; this run replan count: 0/10. The two earlier M4a
   replans and two correction turns belong to the prior run and are preserved in the milestone report.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
@@ -246,14 +246,21 @@ while history and unrelated recordings grow 10x.
   an exact authority read; same-ID replay and conflicting reuse; six separate-process crash points
   from locator through committed journal; restart recovery; and existing thread/process lock
   interleavings. Ruff check, Ruff format check, and `git diff --check` pass. See the [M4b report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md).
-- M4c remains separate: adapt the existing disposable real-API workflow to the direct authority
-  read and M4b bounded recovery. Keep legacy selection/history discovery disabled. Prove frozen
-  inputs, selection/editing, independent reviews, stale writes, older snapshot reads, and restart.
-  M4c cannot start until M4b passes.
+- M4c result: Complete. The real-API workflow routes frozen producer reads, review validation,
+  accepted-use validation, selected editing, and exact revision HTTP reads through M4a authority.
+  The test fails on the legacy parent-traversing reader and old selection/history/workspace
+  discovery. It seeds 25 committed journals and observes zero journal reads during exact reads,
+  both before and after restart.
+- M4c checks: recording-state workflow, contract, store, publication, and all pipeline-node tests
+  pass. Ruff check and format check pass; `git diff --check` passes. The workflow proves exact
+  persisted content, separate generated and completed-reference selections, independent review
+  decisions, copy-on-edit, frozen inputs, stale and cross-recording update rejection, older
+  snapshot access, and restart. The existing Starlette `httpx` deprecation warning remains.
+  See the [M4c report](../../reports/0117-M4_Real_API_Workflow.md).
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.
-- Next: implement M4c only. Run count: 2 complete, 13 remaining.
+- Next: implement M5 only. Run count: 3 complete, 12 remaining.
 
 ## M1 — Define current-state operation contracts
 

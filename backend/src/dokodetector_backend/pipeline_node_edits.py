@@ -158,13 +158,13 @@ class PipelineNodeEdits:
                 return recovered
             self._remove_uncommitted_revision(node_id, output_revision_id, digest)
             node = self.store.get(node_id)
-            current = self.store.read_published_revision(node_id, expected)
+            current = self.store.read_authorized_revision(node_id, expected)
             if kind != "copy" and node.head_revision_id != expected:
                 raise NodeConflict("working head changed")
             if kind == "restore":
                 if historical_revision_id is None:
                     raise ValueError("historical revision is required")
-                target_content = self.store.read_published_revision(
+                target_content = self.store.read_authorized_revision(
                     node_id, historical_revision_id
                 ).content
             elif kind == "copy":
@@ -322,7 +322,7 @@ class PipelineNodeEdits:
             if not isinstance(operation, dict) or operation.get("digest") != digest:
                 raise NodeConflict("operation revision conflicts with existing data")
             try:
-                self.store.read_published_revision(candidate, revision_id)
+                self.store.read_authorized_revision(candidate, revision_id)
             except KeyError:
                 continue
             else:
