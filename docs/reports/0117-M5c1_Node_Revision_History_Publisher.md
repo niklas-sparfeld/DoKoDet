@@ -10,16 +10,20 @@ M5a item is durable.
 
 The history API first recovers the named coordinated transaction, then replays pending revision
 entries. Reconciliation reads only the outbox, node manifest and HEAD, and revision publication
-authority. It does not parse revision content. It does not scan all revisions on each page. A
-missing revision means the writer stopped before source commit, so recovery drops that pending
-entry. If HEAD advanced before publication authority was written, recovery restores that authority
-from the exact outbox record before it publishes history.
+authority. It does not parse revision content. It does not scan all revisions on each page. Missing
+revision data alone does not prove that a write stopped before source commit. If HEAD or publication
+authority identifies the revision as committed, reconciliation fails closed and retains the intent.
+It drops a missing source only when there is no commit evidence. If HEAD advanced before publication
+authority was written, recovery restores that authority from the exact outbox record before it
+publishes history.
 
-Corrections 1/2 and 2/2 harden failure paths. Reconciliation drops an intent only when the node
-directory or named revision is absent, or when the revision lacks publication authority and is not
-the node HEAD. An existing unreadable node now fails closed and keeps the outbox for repair. An
-ordinary save rejects an occupied revision or publication path before it writes a new outbox intent,
-so a failed duplicate-ID save cannot poison later reconciliation. If the node or revision path is missing or malformed, reconciliation now checks HEAD and publication authority before it drops an entry. Missing source data with commit evidence fails closed and retains the intent; only an uncommitted missing revision can be dropped. Tests cover both committed-evidence cases and the uncommitted case.
+Corrections 1/2 and 2/2 harden failure paths. Reconciliation drops an intent for a missing node or
+revision only when no commit evidence exists. It also drops a complete revision that has neither
+publication authority nor the node HEAD. An existing unreadable node now fails closed and keeps the
+outbox for repair. An ordinary save rejects an occupied revision or publication path before it
+writes a new outbox intent, so a failed duplicate-ID save cannot poison later reconciliation. A
+missing or malformed revision path with HEAD or publication evidence fails closed. Tests cover both
+committed-evidence cases and safe removal of an uncommitted missing revision.
 
 ## Source and meaning
 
