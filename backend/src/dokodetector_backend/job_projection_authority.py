@@ -100,10 +100,10 @@ class JobProjectionAuthorityStore:
         authority_is_new = authority == new_authority
         if not authority_is_old and not authority_is_new:
             raise JobStorageError("job authority conflicts with prepared transition")
-        if job_is_old and authority_is_new:
+        if job_is_old and not job_is_new and authority_is_new:
             raise JobStorageError("job authority advanced before its job record")
 
-        if job_is_old:
+        if not job_is_new:
             atomic_replace_json(path, new_payload)
             self.after_write("job_transition_record")
         if authority_is_old:

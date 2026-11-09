@@ -140,3 +140,26 @@ def test_job_authority_conflict_does_not_mutate_job_record(tmp_path: Path) -> No
     with pytest.raises(JobStorageError, match="job authority conflicts"):
         JobManager(tmp_path, participant).__enter__()
     assert (tmp_path / "jobs" / job.id / "job.json").read_bytes() == original_job
+
+
+def test_identical_job_write_recovers_after_authority_publication(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+
+    def crash(name: str) -> None:
+        if name == "job_transition_authority":
+            raise RuntimeError("simulated crash")
+
+    with JobManager(tmp_path, participant) as manager:
+        job = manager.accept(str(uuid4()), _request())
+        sequence_before = manager.projection_authority().sequence
+
+    with (
+        JobManager(tmp_path, participant, after_write=crash) as manager,
+        pytest.raises(RuntimeError, match="simulated crash"),
+    ):
+        manager._write_job(job)
+
+    with JobManager(tmp_path, participant) as manager:
+        assert manager.get(job.id) == job
+        assert manager.projection_authority().sequence == sequence_before + 1
+        assert not (tmp_path / "jobs" / "recording-projections" / "job-transition.json").exists()

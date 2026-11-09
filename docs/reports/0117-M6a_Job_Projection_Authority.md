@@ -47,7 +47,9 @@ The test suite injects a failure after each of the four durable boundaries, rest
 and verifies the job and authority sequence. It also verifies that a concurrent reader waits for a
 writer and sees the completed state, that authority identity survives restart, and that a second
 manager cannot claim the same root. A prepared transaction with a conflicting authority fails
-before it changes the job record.
+before it changes the job record. Recovery also accepts a no-op job write when the job digest is
+the same before and after authority publication. For distinct digests, only old-job/old-authority,
+new-job/old-authority, and new-job/new-authority states are valid.
 
 ## Checks
 
