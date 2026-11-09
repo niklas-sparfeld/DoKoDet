@@ -39,7 +39,7 @@ Use the 0115 storage map and existing reports as the starting point. Confirm cur
 readers for each candidate, exact retained roots, current sizes, active pins, whether content can be
 regenerated, and the tested recovery path. Choose only bounded families with clear owners. If
 operational logs, recovery copies, or campaign artifacts require independent contracts, split them
-into separate implementation milestones before assignment. Do not remove or expire data in M0.
+into separate specification milestones before assignment. Do not remove or expire data in M0.
 
 Checks: every selected path maps to a writer, reader, retention authority, and recovery source.
 Report unknown ownership, physical-allocation limits, and unresolved dependencies explicitly.
@@ -72,20 +72,35 @@ unless M0 shows they share the same owner and contract.
 Checks: deterministic lifecycle cases cover active work, terminal work, concurrent access, and
 restart. Do not implement until the contract and acceptance evidence are frozen.
 
-## M2 — Specify recovery-copy or campaign retention
+## M2 — Specify recovery-copy retention
 
-Select one exact family. Record its creator, dependency and pin roots, reconstructability, expiry
-condition, and restore procedure. Keep recovery copies until the replacement is verified and the
-declared recovery window ends. Keep compact provenance when removing reproducible campaign
-materializations. Do not apply cache expiry rules to recovery or campaign data.
+Use the accepted-loss migration stage selected in M0 only after confirming that its current snapshot,
+owner, references, and root match the recorded evidence. Record its creator, dependency and pin
+roots, reconstructability, expiry condition, and restore procedure. Keep the copy until its
+replacement is verified and the declared recovery window ends. Do not apply cache expiry rules.
 
-Checks: rehearse the selected restore or regeneration path in disposable storage and verify exact
-retained human work and dependencies. Split this milestone if M0 selects independent families.
+Checks: rehearse the selected restore in disposable storage. Verify exact retained human work,
+dependencies, and restart reads. Record logical bytes, path allocation, and physical allocation
+separately when available. If the current root or recovery source cannot be confirmed, document the
+limit and do not specify expiry.
 
-## M3 — Implement selected lifecycle contracts
+## M3 — Specify campaign-intermediate retention
 
-Implement only the family contracts completed by M1 and M2. Use explicit manifests and durable
+Select one exact campaign materialization family. Record its creator, campaign and source manifests,
+dependency and pin roots, reconstructability, expiry condition, and restore or regeneration
+procedure. Keep campaign command/output logs out of this contract unless evidence shows the same
+writer and retention authority. Keep compact provenance when removing reproducible materializations.
+
+Checks: rehearse restore or regeneration in disposable storage. Verify exact source and review
+dependencies, model/run references, and restart reads. Record logical bytes, path allocation, and
+physical allocation separately when available. If one campaign contains independent writer or
+recovery contracts, split its specification before implementation.
+
+## M4 — Implement selected lifecycle contracts
+
+Implement only family contracts completed by M1, M2, and M3. Use explicit manifests and durable
 receipts for any authorized removal. Preserve fail-closed behavior for unknown references. Verify
-interruption, restart, concurrency where relevant, restore, and measured storage effects. Report
-logical removal, relocation, and physical space separately. If a safe policy cannot be established,
-record the limit and close the affected scope without deleting data.
+active and terminal work, concurrent readers and writers where relevant, interruption and restart,
+restore or regeneration, and measured storage effects. Report logical removal, relocation, path
+allocation, and physical space separately. If a safe policy cannot be established, record the limit
+and close the affected scope without deleting data.

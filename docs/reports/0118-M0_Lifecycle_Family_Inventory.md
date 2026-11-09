@@ -4,8 +4,9 @@ Date: 2026-11-09
 
 ## Result
 
-M0 selected one bounded operational-log family for M1 and identified separate recovery-copy and
-campaign-intermediate work for M2 and M3. It changed no stored data. The family map distinguishes
+M0 mapped managed-job logs as an M1 audit target, selected one exact recovery-copy family for M2,
+and identified campaign intermediates as a separate M3 specification. It changed no stored data.
+The family map distinguishes
 current checkout observations from dated 0115 measurements. Current ignored job and recovery roots
 are absent from this detached checkout, so their current size, active pins, and live recovery state
 are unknown.
