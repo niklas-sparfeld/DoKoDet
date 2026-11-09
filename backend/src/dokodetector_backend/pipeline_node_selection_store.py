@@ -78,16 +78,19 @@ class PipelineNodeSelectionStore:
 
     def get_exact(self, recording_id: str, content_type: str) -> ExactNodeSelection | None:
         """Read graph pointers without projecting them through the legacy revision map."""
-        self.node_store.recover_transactions()
-        path = self.selection_path(recording_id, content_type)
-        try:
-            payload = path.read_bytes()
-            raw = json.loads(payload)
-        except FileNotFoundError:
-            return None
-        if canonical_json_bytes(raw) != payload:
-            raise ValueError("exact node selection record is not canonical")
-        return self._parse_exact(raw, recording_id, content_type)
+        # Recovery can publish a node and its selection as one transaction. Keep the read
+        # under the same root lock so it cannot observe the gap between those writes.
+        with self.node_store.transaction_lock():
+            self.node_store.recover_transactions()
+            path = self.selection_path(recording_id, content_type)
+            try:
+                payload = path.read_bytes()
+                raw = json.loads(payload)
+            except FileNotFoundError:
+                return None
+            if canonical_json_bytes(raw) != payload:
+                raise ValueError("exact node selection record is not canonical")
+            return self._parse_exact(raw, recording_id, content_type)
 
     def update_exact(
         self,
@@ -109,31 +112,38 @@ class PipelineNodeSelectionStore:
         if expected_revision < 0:
             raise ValueError("expected_revision must not be negative")
         path = self.selection_path(recording_id, content_type)
-        with _process_lock(path.parent / f".{path.stem}.lock", self._lock):
-            current = self.get_exact(recording_id, content_type)
-            actual = 0 if current is None else current.revision
-            if expected_revision != actual:
-                raise PipelineSelectionConflict(
-                    f"selection revision mismatch: expected {expected_revision}, actual {actual}"
+        # All coordinated writers take the root transaction lock before a selection lock.
+        # Preserve that order for standalone selection writes as well.
+        with self.node_store.transaction_lock():
+            self.node_store.recover_transactions()
+            with _process_lock(path.parent / f".{path.stem}.lock", self._lock):
+                current = self.get_exact(recording_id, content_type)
+                actual = 0 if current is None else current.revision
+                if expected_revision != actual:
+                    raise PipelineSelectionConflict(
+                        "selection revision mismatch: "
+                        f"expected {expected_revision}, actual {actual}"
+                    )
+                generated = self._validate_exact_pointer(
+                    selected_generated, recording_id, content_type
                 )
-            generated = self._validate_exact_pointer(selected_generated, recording_id, content_type)
-            completed = self._validate_exact_pointer(
-                selected_completed_reference, recording_id, content_type
-            )
-            raw = {
-                "schema_version": "pipeline-node-selection/v1",
-                "recording_id": recording_id,
-                "content_type": content_type,
-                "revision": actual + 1,
-                "selected_generated": generated,
-                "selected_completed_reference": completed,
-                "updated_at": _canonical_timestamp(updated_at),
-            }
-            atomic_replace_json(path, canonical_json_bytes(raw))
-            stored = self.get_exact(recording_id, content_type)
-            if stored is None:
-                raise PipelineStoreError("The updated exact node selection failed validation.")
-            return stored
+                completed = self._validate_exact_pointer(
+                    selected_completed_reference, recording_id, content_type
+                )
+                raw = {
+                    "schema_version": "pipeline-node-selection/v1",
+                    "recording_id": recording_id,
+                    "content_type": content_type,
+                    "revision": actual + 1,
+                    "selected_generated": generated,
+                    "selected_completed_reference": completed,
+                    "updated_at": _canonical_timestamp(updated_at),
+                }
+                atomic_replace_json(path, canonical_json_bytes(raw))
+                stored = self.get_exact(recording_id, content_type)
+                if stored is None:
+                    raise PipelineStoreError("The updated exact node selection failed validation.")
+                return stored
 
     def _validate_exact_pointer(
         self,

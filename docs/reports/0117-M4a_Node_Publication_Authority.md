@@ -1,6 +1,6 @@
 # Epic 0117 M4a: node revision publication authority
 
-**Review status:** M4a is incomplete. Final review found that the root lock is released between recovery and reads, and selection writes can take locks in the inverse order from recovery. The epic handoff records the required interleaving tests.
+**Review status:** Complete after correcting the recovery/read lock gap and selection lock order.
 
 Date: 2026-11-09
 
@@ -26,10 +26,18 @@ record, the exact current HEAD and validated revision remain sufficient authorit
 records authority for that HEAD before it advances the pointer.
 
 Coordinated node transactions apply the same publication order during journal recovery. Readers
-recover prepared transactions under the root transaction lock before the direct read. Recovery rolls a prepared transaction forward
-and publishes the authority records before it marks the journal committed. A direct authority read
-validates one receipt and one revision, or validates the exact current HEAD and one revision when a
-receipt is absent after a process stop. It does not read parent revisions.
+recover prepared transactions under the root transaction lock before the direct read. Recovery rolls
+a prepared transaction forward and publishes the authority records before it marks the journal
+committed. A direct authority read validates one receipt and one revision, or validates the exact
+current HEAD and one revision when a receipt is absent after a process stop. It does not read parent
+revisions. The root transaction lock stays held from recovery through the node lock and exact
+content read. This closes the interval in which a coordinated writer could otherwise publish part
+of another transaction between those operations.
+
+Exact selection reads also keep the root transaction lock through recovery and selection parsing.
+Standalone selection writes take that root lock before the per-selection process lock. This matches
+coordinated recovery's order and prevents a writer from holding a selection lock while waiting for
+recovery.
 
 Public exact reads reject unpublished orphans. The private edit-recovery helper can inspect a raw
 revision to decide whether a failed edit can be retried safely; it does not publish or accept that
@@ -78,6 +86,12 @@ M13 can switch existing readers only after that rehearsal passes.
   recovery after the first node HEAD update. In both cases, a reader of the second node waits and
   returns only after the complete transaction recovers. Ruff check, Ruff format check, and
   `git diff --check` passed for all changed backend paths.
+- Final review correction: the focused backend suite — 105 passed. It includes a same-instance
+  thread interleaving and a separate-process interleaving in which a reader pauses after recovery
+  while a coordinated writer tries to publish two nodes. The read returns the complete old state
+  before publication starts. A separate-process lock-order test pauses recovery while it holds the
+  root lock and verifies that a selection writer does not acquire its selection lock until recovery
+  finishes. Ruff check, Ruff format check, and `git diff --check` pass.
 - Local Markdown links and anchors for changed documentation — passed. `git diff --check` — passed.
 
 One existing Starlette `httpx` deprecation warning appears in the API test. M4a changes no API schema, web consumer, or UI; API generation and browser checks do not apply. No type-check command is configured in the backend toolchain.

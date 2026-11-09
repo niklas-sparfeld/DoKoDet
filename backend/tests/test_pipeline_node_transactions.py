@@ -122,7 +122,9 @@ def _competing_ordinary_save(root: str, lock_attempt, finished, results) -> None
         finished.set()
 
 
-def _install_prepared_two_node_journal(root: Path) -> None:
+def _install_prepared_two_node_journal(root: Path, selection_updates=None) -> None:
+    if selection_updates is None:
+        selection_updates = []
     nodes = PipelineNodeStore(root)
     plan = PipelineNodeTransactions(nodes)._prepare_plan(
         [
@@ -141,7 +143,7 @@ def _install_prepared_two_node_journal(root: Path) -> None:
                 "metadata": {"recovery": True},
             },
         ],
-        [],
+        selection_updates,
     )
     digest = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
     atomic_replace_json(
@@ -190,6 +192,74 @@ def _competing_authorized_read(root: str, attempted, finished, results) -> None:
         revision = PipelineNodeStore(root).read_authorized_revision("scene-node", "scene-r2")
         results.put(revision.revision_id)
     except Exception as error:
+        results.put(f"error: {error!r}")
+    finally:
+        finished.set()
+
+
+def _paused_two_node_commit(root: str, started, partial, release, results) -> None:
+    nodes = PipelineNodeStore(root)
+
+    def pause(boundary: str) -> None:
+        if boundary == "head":
+            partial.set()
+            if not release.wait(10):
+                raise TimeoutError("read interleaving test did not release writer")
+
+    nodes._after_durable_boundary = pause
+    started.set()
+    try:
+        PipelineNodeTransactions(nodes).commit(
+            "read-interleaving",
+            node_updates=[
+                {
+                    "node_id": "visible-node",
+                    "expected_revision_id": "visible-r1",
+                    "revision_id": "visible-r2",
+                    "content": VISIBLE,
+                    "metadata": {"interleaving": True},
+                },
+                {
+                    "node_id": "scene-node",
+                    "expected_revision_id": "scene-r1",
+                    "revision_id": "scene-r2",
+                    "content": SCENES,
+                    "metadata": {"interleaving": True},
+                },
+            ],
+            selection_updates=[],
+        )
+        results.put("committed")
+    except Exception as error:  # pragma: no cover - reported to the parent process
+        results.put(f"error: {error!r}")
+
+
+def _competing_selection_write(root: str, started, lock_acquired, finished, results) -> None:
+    from dokodetector_backend import pipeline_node_selection_store
+
+    original_lock = pipeline_node_selection_store._process_lock
+
+    @contextmanager
+    def observe_lock(path, thread_lock):
+        if Path(path).name == ".visible_cards.lock":
+            lock_acquired.set()
+        with original_lock(path, thread_lock):
+            yield
+
+    pipeline_node_selection_store._process_lock = observe_lock
+    nodes = PipelineNodeStore(root)
+    selections = PipelineNodeSelectionStore(nodes)
+    started.set()
+    try:
+        saved = selections.update_exact(
+            "recording-01",
+            "visible_cards",
+            expected_revision=1,
+            selected_generated={"node_id": "visible-node", "revision_id": "visible-r1"},
+            selected_completed_reference=None,
+        )
+        results.put(saved.revision)
+    except Exception as error:  # pragma: no cover - reported to the parent process
         results.put(f"error: {error!r}")
     finally:
         finished.set()
@@ -430,6 +500,17 @@ def _two_nodes(root: Path) -> PipelineNodeStore:
     return nodes
 
 
+def _clean_two_nodes(root: Path) -> PipelineNodeStore:
+    nodes = PipelineNodeStore(root)
+    nodes.create(
+        "visible-node", "Visible", "visible_cards", SOURCE, VISIBLE, {}, revision_id="visible-r1"
+    )
+    nodes.create(
+        "scene-node", "Scenes", "virtual_scenes", SOURCE, SCENES, {}, revision_id="scene-r1"
+    )
+    return nodes
+
+
 def test_same_instance_reader_waits_for_transaction_recovery(tmp_path: Path) -> None:
     nodes = _two_nodes(tmp_path)
     recovery_paused = threading.Event()
@@ -490,3 +571,201 @@ def test_separate_process_reader_waits_for_transaction_recovery(tmp_path: Path) 
     assert recovery.exitcode == 0 and reader.exitcode == 0
     assert recovery_results.get(timeout=2) == "recovered"
     assert reader_results.get(timeout=2) == "scene-r2"
+
+
+def test_same_instance_authorized_read_holds_root_lock_after_recovery(tmp_path: Path) -> None:
+    nodes = _clean_two_nodes(tmp_path)
+    recovered = threading.Event()
+    continue_read = threading.Event()
+    original_recover = nodes.recover_transactions
+
+    def recover_then_pause() -> None:
+        original_recover()
+        recovered.set()
+        assert continue_read.wait(10)
+
+    nodes.recover_transactions = recover_then_pause
+    read_result: list[str] = []
+    reader = threading.Thread(
+        target=lambda: read_result.append(
+            nodes.read_authorized_revision("scene-node", "scene-r1").revision_id
+        )
+    )
+    reader.start()
+    assert recovered.wait(10)
+
+    writer_started = threading.Event()
+    writer_partial = threading.Event()
+    release_writer = threading.Event()
+    writer_results: list[str] = []
+    writer = threading.Thread(
+        target=lambda: _thread_two_node_commit(
+            tmp_path, writer_started, writer_partial, release_writer, writer_results
+        )
+    )
+    writer.start()
+    assert writer_started.wait(10)
+    assert not writer_partial.wait(0.1), "writer published during the recovery/read gap"
+    continue_read.set()
+    reader.join(10)
+    assert not reader.is_alive()
+    assert read_result == ["scene-r1"]
+    assert writer_partial.wait(10)
+    release_writer.set()
+    writer.join(10)
+    assert not writer.is_alive() and writer_results == ["committed"]
+
+
+def _thread_two_node_commit(root: Path, started, partial, release, results) -> None:
+    # Reuse the process helper's transaction body while keeping thread synchronization events.
+    nodes = PipelineNodeStore(root)
+
+    def pause(boundary: str) -> None:
+        if boundary == "head":
+            partial.set()
+            if not release.wait(10):
+                raise TimeoutError("read interleaving test did not release writer")
+
+    nodes._after_durable_boundary = pause
+    started.set()
+    try:
+        PipelineNodeTransactions(nodes).commit(
+            "thread-read-interleaving",
+            node_updates=[
+                {
+                    "node_id": "visible-node",
+                    "expected_revision_id": "visible-r1",
+                    "revision_id": "visible-r2",
+                    "content": VISIBLE,
+                    "metadata": {},
+                },
+                {
+                    "node_id": "scene-node",
+                    "expected_revision_id": "scene-r1",
+                    "revision_id": "scene-r2",
+                    "content": SCENES,
+                    "metadata": {},
+                },
+            ],
+            selection_updates=[],
+        )
+        results.append("committed")
+    except Exception as error:
+        results.append(f"error: {error!r}")
+
+
+def test_separate_process_authorized_read_holds_root_lock_after_recovery(tmp_path: Path) -> None:
+    _clean_two_nodes(tmp_path)
+    context = multiprocessing.get_context("spawn")
+    recovered = context.Event()
+    continue_read = context.Event()
+    read_results = context.Queue()
+    reader = context.Process(
+        target=_paused_authorized_read,
+        args=(str(tmp_path), recovered, continue_read, read_results),
+    )
+    reader.start()
+    assert recovered.wait(10)
+
+    writer_started = context.Event()
+    writer_partial = context.Event()
+    release_writer = context.Event()
+    writer_results = context.Queue()
+    writer = context.Process(
+        target=_paused_two_node_commit,
+        args=(str(tmp_path), writer_started, writer_partial, release_writer, writer_results),
+    )
+    writer.start()
+    assert writer_started.wait(10)
+    assert not writer_partial.wait(0.1), "writer published during the recovery/read gap"
+    continue_read.set()
+    reader.join(10)
+    assert reader.exitcode == 0
+    assert read_results.get(timeout=2) == "scene-r1"
+    assert writer_partial.wait(10)
+    release_writer.set()
+    writer.join(10)
+    assert writer.exitcode == 0
+    assert writer_results.get(timeout=2) == "committed"
+
+
+def test_selection_writer_takes_root_lock_before_selection_lock(tmp_path: Path) -> None:
+    _clean_two_nodes(tmp_path)
+    nodes = PipelineNodeStore(tmp_path)
+    plan = PipelineNodeTransactions(nodes)._prepare_plan(
+        [
+            {
+                "node_id": "visible-node",
+                "expected_revision_id": "visible-r1",
+                "revision_id": "visible-r2",
+                "content": VISIBLE,
+                "metadata": {"recovery": True},
+            }
+        ],
+        [
+            {
+                "recording_id": "recording-01",
+                "content_type": "visible_cards",
+                "expected_revision": 0,
+                "selected_generated": {"node_id": "visible-node", "revision_id": "visible-r2"},
+                "selected_completed_reference": None,
+            }
+        ],
+    )
+    digest = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+    atomic_replace_json(
+        tmp_path / ".coordinated-transactions" / "selection-lock-order.json",
+        {
+            "schema_version": "pipeline-node-transaction/v1",
+            "request_digest": "test",
+            "digest": digest,
+            "plan": plan,
+            "status": "prepared",
+        },
+    )
+
+    context = multiprocessing.get_context("spawn")
+    recovery_ready = context.Event()
+    release_recovery = context.Event()
+    recovery_results = context.Queue()
+    recovery = context.Process(
+        target=_paused_recovery,
+        args=(str(tmp_path), recovery_ready, release_recovery, recovery_results),
+    )
+    recovery.start()
+    assert recovery_ready.wait(10)
+
+    writer_started = context.Event()
+    lock_acquired = context.Event()
+    finished = context.Event()
+    writer_results = context.Queue()
+    writer = context.Process(
+        target=_competing_selection_write,
+        args=(str(tmp_path), writer_started, lock_acquired, finished, writer_results),
+    )
+    writer.start()
+    assert writer_started.wait(10)
+    assert not lock_acquired.wait(0.2), "selection lock was acquired before the root lock"
+    release_recovery.set()
+    recovery.join(10)
+    writer.join(10)
+    assert recovery.exitcode == 0 and writer.exitcode == 0
+    assert recovery_results.get(timeout=2) == "recovered"
+    assert writer_results.get(timeout=2) == 2
+
+
+def _paused_authorized_read(root: str, recovered, continue_read, results) -> None:
+    store = PipelineNodeStore(root)
+    original_recover = store.recover_transactions
+
+    def recover_then_pause() -> None:
+        original_recover()
+        recovered.set()
+        if not continue_read.wait(10):
+            raise TimeoutError("read interleaving test did not release reader")
+
+    store.recover_transactions = recover_then_pause
+    try:
+        results.put(store.read_authorized_revision("scene-node", "scene-r1").revision_id)
+    except Exception as error:  # pragma: no cover - reported to the parent process
+        results.put(f"error: {error!r}")

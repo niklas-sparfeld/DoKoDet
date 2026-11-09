@@ -17,8 +17,9 @@
   Replan 1 splits M4 into M4a, which defines durable node revision publication authority, and
   M4b, which completes the real-API workflow. Review found that exact authority reads also scan all
   coordinated transaction journals. Replan 2 assigns that storage/transaction contract to M4b,
-  moves the API workflow to M4c, and keeps M5 separate. The 13-slot run now covers M4a, M4b, M4c,
-  and M5–M14. M15 and M16 remain after the run limit unless the user authorizes another run.
+  moves the API workflow to M4c, and keeps M5 separate. The prior 13-slot run stopped after two
+  M4a correction turns. A new run now covers M4a–M16, 15 milestones total. M15 and M16 are in
+  this run.
 
 ## Evidence and scope
 
@@ -164,7 +165,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
 | M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
-| M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | In progress; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
+| M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | Complete; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
 | M4b | Bounded coordinated transaction recovery and pending-journal authority | Not started; separate storage/transaction contract |
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Not started; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
@@ -215,38 +216,24 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 13 milestones, starting at M4a; completed: 0; remaining: 13. The run stopped after two M4a correction turns. The cap covers M4a,
-  M4b, M4c, and M5–M14; M15 and M16 remain outside this run.
-- Next milestone: M4a, in progress. M4a replan count: 2/5; M4b replan count: 0/5; this run replan
-  count: 2/10.
-- M4a result: added immutable per-revision authority records and a direct exact read. `create`
-  publishes the first record with the node; `save` commits at HEAD replacement and records the prior
-  revision before advancing. Coordinated transaction recovery applies the same order. A missing
-  authority record is accepted only for the exact current HEAD after a crash. Direct reads reject
-  pre-HEAD orphans and do not read parent revisions during authority lookup. However,
-  `read_authorized_revision` calls `recover_transactions`, which scans and validates every retained
-  coordinated transaction journal, including committed journals. The one-revision read count does
-  not prove bounded total read work. M4b owns this recovery scan. No full-read bound is claimed yet.
-- M4a checks: 96 focused backend tests passed; Ruff check and format check passed; local
-  Markdown links/anchors and `git diff --check` passed. They include 11-revision zero-parent-read
-  evidence, concurrent reader/writer processes, competing writer processes, process death at four
-  node-store boundaries, coordinated transaction recovery after process death, and two
-  deterministic separate-process save interleavings. A save attempted after transaction plan
-  validation and after prepared-journal publication blocks on the store transaction lock. The
-  transaction commits, the stale save fails, and later reads succeed. The lock order is store
-  transaction lock, recovery or transaction preparation, then per-node lock. One existing
-  Starlette `httpx` deprecation warning remains. API generation/browser checks do not apply; the
-  backend has no configured type check.
-- M4a correction 2/2: all 50 `test_pipeline_node_*.py` tests pass. Recovery uses the same reentrant
-  root lock as writers. A same-instance thread test and a separate-process test pause recovery after
-  the first node HEAD update; a reader of the second node waits and returns only after recovery
-  completes. Ruff and `git diff --check` pass. M4b remains responsible for bounding journal scans.
-- Final M4a review found two unresolved lock defects: recovery releases the root lock before the
-  actual node or selection read, allowing a coordinated writer to publish partial state in that gap;
-  selection save can acquire its selection lock before the root lock while transaction recovery uses
-  root before selection, causing deadlock. Hold the root lock across recovery and reads, establish
-  root-before-selection order, and test both deterministic process/thread interleavings. The two
-  correction turns for this run are exhausted. M4b must wait.
+- Requested run: 15 milestones, starting at M4a; completed: 0; remaining: 15. The cap covers M4a,
+  M4b, M4c, and M5–M16.
+- Next milestone: M4b. M4a replan count: 0/5; this run replan count: 0/10. The two earlier M4a
+  replans and two correction turns belong to the prior run and are preserved in the milestone report.
+- M4a result: direct node revision authority remains as recorded below. The final review gaps are
+  fixed: exact node reads hold the root transaction lock across recovery and content read; exact
+  selection reads do the same; selection writes take the root lock before their selection lock.
+  This prevents a coordinated writer from publishing between recovery and read and prevents the
+  selection/recovery lock inversion. M4b still owns bounded journal discovery. No full-read bound
+  is claimed.
+- M4a checks: 105 focused backend tests passed, including deterministic same-instance thread and
+  separate-process recovery/read interleavings and a separate-process selection lock-order
+  interleaving. All `test_pipeline_node_*.py` tests passed. Ruff check, Ruff format check, and
+  `git diff --check` passed. One existing Starlette `httpx` deprecation warning remains. API
+  generation/browser checks do not apply; the backend has no configured type check.
+- Earlier M4a evidence remains valid: direct authority lookup over 11 revisions reads no parents;
+  crash/restart and stale-writer checks cover node and coordinated publication boundaries; the
+  earlier correction turns proved recovery serialization. See the [M4a report](../../reports/0117-M4a_Node_Publication_Authority.md).
 - M4b boundary: add one durable pending-transaction locator so normal authority reads inspect at
   most the active prepared transaction, not all committed journal history. Preserve transaction
   idempotency and recovery evidence. Define its writer, atomicity, lock order, freshness, and crash
@@ -260,7 +247,7 @@ while history and unrelated recordings grow 10x.
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.
-- Next: implement M4b only. Run count: 0 complete, 13 remaining.
+- Next: implement M4b only. Run count: 0 complete, 15 remaining.
 
 ## M1 — Define current-state operation contracts
 
@@ -368,7 +355,11 @@ transaction lock; reentrancy is thread-local, so another thread cannot skip a pa
 journal. Same-instance thread and separate-process tests pause recovery between node HEAD updates
 and prove readers wait for the full transaction. Direct authority lookup checks one receipt
 and one revision, or the exact current HEAD and one revision after a crash. It does not read parent
-revisions. The overall read remains unbounded by the all-journal recovery scan assigned to M4b.
+revisions. Exact node and selection reads hold the root transaction lock across recovery and the
+read. Exact selection writes take the root lock before the selection lock. Deterministic thread and
+process interleavings prove the read interval excludes a partial coordinated publication and that a
+selection writer cannot hold its lock while waiting for recovery. The overall read remains
+unbounded by the all-journal recovery scan assigned to M4b.
 
 ## M4b — Bound coordinated transaction recovery
 

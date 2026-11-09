@@ -396,19 +396,22 @@ class PipelineNodeStore:
     def read_authorized_revision(self, node_id: str, revision_id: str) -> NodeRevision:
         """Read one revision from its durable authority record without parent traversal."""
         _safe_id(revision_id, "revision_id")
-        self.recover_transactions()
-        with _process_lock(self._lock_path(node_id), self._lock):
-            node = self._get_unrecovered(node_id)
-            publication_path = self.publication_path(node_id, revision_id)
-            authority = None
-            if publication_path.exists():
-                authority = self._read_publication(node_id, revision_id)
-            elif node.head_revision_id != revision_id:
-                raise KeyError(revision_id)
-            revision = self._read_revision(node, revision_id)
-            if authority is not None and authority["content_sha256"] != revision.content_sha256:
-                raise ValueError("publication authority content digest mismatch")
-            return revision
+        # Keep recovery and the exact read in one root-lock interval. Otherwise a coordinated
+        # writer can publish between them and expose one member of a partially applied journal.
+        with self.transaction_lock():
+            self.recover_transactions()
+            with _process_lock(self._lock_path(node_id), self._lock):
+                node = self._get_unrecovered(node_id)
+                publication_path = self.publication_path(node_id, revision_id)
+                authority = None
+                if publication_path.exists():
+                    authority = self._read_publication(node_id, revision_id)
+                elif node.head_revision_id != revision_id:
+                    raise KeyError(revision_id)
+                revision = self._read_revision(node, revision_id)
+                if authority is not None and authority["content_sha256"] != revision.content_sha256:
+                    raise ValueError("publication authority content digest mismatch")
+                return revision
 
     def read_revision_record(self, node_id: str, revision_id: str) -> NodeRevision:
         """Read one exact revision that the current head publishes."""
