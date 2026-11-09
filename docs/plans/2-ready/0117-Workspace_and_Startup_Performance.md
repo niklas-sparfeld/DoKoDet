@@ -154,7 +154,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 
 | Milestone | Observable result / commit boundary | State |
 | --- | --- | --- |
-| M0 | Post-cleanup baseline, exact boundary inventory, growth fixtures, frozen targets | Not started |
+| M0 | Post-cleanup baseline, exact boundary inventory, growth fixtures, frozen targets | Complete |
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Not started |
 | M2 | Immutable snapshot store and bounded exact reads | Not started |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Not started |
@@ -187,6 +187,33 @@ if not, revise this plan rather than implement unsupported work.
 
 Checks: exact identities/digests, fixture validators, growth-counter assertions, timing applicability
 and noise. Commit: measurement tools, inventory, report, board, and plan only.
+
+**M0 result — 2026-11-09:** Complete. The post-cleanup hard workspace median is 20.983 seconds
+cold and 20.941 seconds warm. Three independent startup processes have a 9.603-second median to
+useful response. The current catalog enumerates 12 nodes and traverses 11 histories; the current
+workspace enumerates the same 12 nodes and traverses five histories. A deterministic fixture holds
+current content and sibling review fixed while history and unrelated recordings grow 10x. Its
+returned history records grow from 3 to 21. The measured evidence supports the HEAD hypothesis.
+The [M0 report](../../reports/0117-M0_Post_Cleanup_Baseline.md) records the reader/writer/schema
+inventory, operation counts, empty/stale persisted cases, frozen ceilings and targets, trial limit,
+and measurement limits. The new profile counts JSON decodes and known data parsers; it does not count
+every internal schema validation.
+
+## Execution handoff
+
+- Requested run: 17 milestones; completed: 1; remaining: 16.
+- M0 changes: added the boundary profiler, deterministic 10x growth test, M0 measurement report,
+  and reserved the hard-fixture and startup trial protocol.
+- Checks: hard-fixture validator; M0 boundary profiler (catalog, workspace, stage, graph, exact
+  revision, empty stage, stale selection, processor launch); focused backend tests; Ruff check and
+  format; three cold/warm sessions and three fresh startup processes. Results are in the M0 report.
+- Decisions: HEAD hypothesis supported. Freeze 27.1 s cold, 25.5 s warm, and 17.2 s startup
+  no-regression ceilings; plan for 16.0 s workspace and 8.0 s startup medians. Limit hard
+  performance captures to three sets; M16 may use at most two sets.
+- Limits: OS filesystem cache was not flushed. Decoder counts are not a full internal validation
+  count. The processor launch profile uses a deterministic provider stub.
+- Next: M1 snapshot, HEAD, summary, API, and validation contracts. Run counts remain 17 requested,
+  1 completed, 16 remaining.
 
 ## M1 — Define current-state operation contracts
 

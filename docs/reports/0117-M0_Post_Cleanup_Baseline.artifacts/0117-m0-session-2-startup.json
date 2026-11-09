@@ -1,0 +1,220 @@
+{
+  "artifacts": {
+    "trial_logs": [
+      "/private/tmp/0117-m0-session-2-startup.artifacts/hard_populated/be650dcf/trial-00/backend-output.log"
+    ]
+  },
+  "created_at": "2026-11-09T08:13:45.412872+00:00",
+  "distributions": [
+    {
+      "batch": 0,
+      "case": "health_live",
+      "max_completion_ns": 886525417,
+      "median_completion_ns": 886525417,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 886525417,
+      "p90_completion_ns": 886525417,
+      "p90_first_byte_ns": null,
+      "samples": 1
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "max_completion_ns": 3896125,
+      "median_completion_ns": 3896125,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 3896125,
+      "p90_completion_ns": 3896125,
+      "p90_first_byte_ns": null,
+      "samples": 1
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "max_completion_ns": 2495958,
+      "median_completion_ns": 2495958,
+      "median_first_byte_ns": 2475875,
+      "min_completion_ns": 2495958,
+      "p90_completion_ns": 2495958,
+      "p90_first_byte_ns": 2475875,
+      "samples": 1
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "max_completion_ns": 3227016792,
+      "median_completion_ns": 3227016792,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 3227016792,
+      "p90_completion_ns": 3227016792,
+      "p90_first_byte_ns": null,
+      "samples": 1
+    },
+    {
+      "batch": 0,
+      "case": "video_range",
+      "max_completion_ns": 69783833,
+      "median_completion_ns": 69783833,
+      "median_first_byte_ns": 69701791,
+      "min_completion_ns": 69783833,
+      "p90_completion_ns": 69783833,
+      "p90_first_byte_ns": 69701791,
+      "samples": 1
+    },
+    {
+      "batch": 0,
+      "case": "workspace_first_use",
+      "max_completion_ns": 5485366250,
+      "median_completion_ns": 5485366250,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 5485366250,
+      "p90_completion_ns": 5485366250,
+      "p90_first_byte_ns": null,
+      "samples": 1
+    },
+    {
+      "batch": 0,
+      "case": "startup_to_useful_response",
+      "max_completion_ns": 9602895042,
+      "median_completion_ns": 9602895042,
+      "median_first_byte_ns": null,
+      "min_completion_ns": 9602895042,
+      "p90_completion_ns": 9602895042,
+      "p90_first_byte_ns": null,
+      "samples": 1
+    }
+  ],
+  "kind": "loopback_startup",
+  "metadata": {
+    "fixture": {
+      "profile": "hard_populated",
+      "source_manifest_sha256": "e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294"
+    },
+    "machine": {
+      "cpu_count": 12,
+      "machine": "arm64",
+      "processor": "arm",
+      "python": "3.13.18",
+      "release": "27.2.0",
+      "system": "Darwin"
+    }
+  },
+  "protocol": {
+    "cache_reset": "fresh process and temporary roots for every cold trial",
+    "fresh_processes": 1,
+    "process_runs": [
+      {
+        "environment": "isolated temporary roots",
+        "launch_command": [
+          "/Users/niklas.sparfeld/.codex-workspaces/worktrees/ios-459f922a-51ce-43b0-96c6-3d62520406d4/doko_detector/backend/.venv/bin/python",
+          "-m",
+          "dokodetector_backend.server"
+        ],
+        "probes": [
+          "/health/live",
+          "/health/ready",
+          "/v1/recordings"
+        ],
+        "process_cleanup": "SIGTERM; process group exited",
+        "process_exit_code": -15,
+        "process_group_cleanup_timeout_seconds": 30,
+        "startup_to_useful_ns": 9602895042,
+        "timeout_seconds": 180.0
+      }
+    ],
+    "repeats": 1,
+    "timeout_seconds_per_trial": 180.0,
+    "warmups": 0
+  },
+  "run_id": "ff8c0d37-046a-42cf-a675-ceba8dd9573a",
+  "runs": [
+    "13b11479-e9e9-4316-9b10-a133cce5be26"
+  ],
+  "samples": [
+    {
+      "batch": 0,
+      "case": "health_live",
+      "completion_ns": null,
+      "duration_ns": 886525417,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "health_ready",
+      "completion_ns": null,
+      "duration_ns": 3896125,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 15,
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "recordings_first_use",
+      "completion_ns": null,
+      "duration_ns": 3227016792,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 817,
+      "response_sha256": "238e26bcbcb6092fc42164d111120c7da10fa59f446258407ef0e88022ec7766",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "workspace_first_use",
+      "completion_ns": null,
+      "duration_ns": 5485366250,
+      "error": null,
+      "first_byte_ns": null,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 47943,
+      "response_sha256": "ca703f89764fe9fd2873be542cb7d99d1fee708cd9ee4c6bbbd54b0da0517b51",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "jobs_json",
+      "completion_ns": 2495958,
+      "duration_ns": 2495958,
+      "error": null,
+      "first_byte_ns": 2475875,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 62,
+      "response_sha256": "a69480f47007d25c70bdf1117d2f1e3396f7af435f4077e03c6827ab41a8afdc",
+      "status_code": 200,
+      "warmup": false
+    },
+    {
+      "batch": 0,
+      "case": "video_range",
+      "completion_ns": 69783833,
+      "duration_ns": 69783833,
+      "error": null,
+      "first_byte_ns": 69701791,
+      "iteration": 0,
+      "ok": true,
+      "response_bytes": 65536,
+      "response_sha256": "3c02e97b75b717d3fa408c4d7d9257a90249226b5b0910d2ce5ab965635e51d5",
+      "status_code": 206,
+      "warmup": false
+    }
+  ],
+  "schema_version": "interactive-ui-performance-result/v1"
+}

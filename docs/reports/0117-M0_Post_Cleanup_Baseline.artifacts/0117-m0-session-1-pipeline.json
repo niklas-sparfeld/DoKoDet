@@ -1,0 +1,70 @@
+{
+  "schema_version": "interactive-ui-pipeline-read-samples/v1",
+  "kind": "preliminary_samples",
+  "protocol": {
+    "warmups": 0,
+    "repeats": 2,
+    "batches": 1,
+    "timeout_seconds": 180.0,
+    "cache_policy": "fresh isolated app per batch; first measured request is process-cold, subsequent requests are warm; OS filesystem cache not flushed"
+  },
+  "fixture_manifest_sha256": "e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294",
+  "samples": [
+    {
+      "case": "workspace_full_hard",
+      "profile": "hard",
+      "cache_state": "cold",
+      "batch": 0,
+      "iteration": 0,
+      "warmup": false,
+      "duration_ns": 21575233209,
+      "status_code": 200,
+      "response_bytes": 49286,
+      "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
+      "ok": true,
+      "error": null
+    },
+    {
+      "case": "workspace_full_hard",
+      "profile": "hard",
+      "cache_state": "warm",
+      "batch": 0,
+      "iteration": 0,
+      "warmup": false,
+      "duration_ns": 20965933458,
+      "status_code": 200,
+      "response_bytes": 49286,
+      "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
+      "ok": true,
+      "error": null
+    },
+    {
+      "case": "workspace_full_hard",
+      "profile": "hard",
+      "cache_state": "warm",
+      "batch": 0,
+      "iteration": 1,
+      "warmup": false,
+      "duration_ns": 20916157125,
+      "status_code": 200,
+      "response_bytes": 49286,
+      "response_sha256": "845cacbc15db27837ee9ac0587ad8c0eac7ea64d11db0c7cc39a696759ae7ce1",
+      "ok": true,
+      "error": null
+    }
+  ],
+  "distributions": [
+    {
+      "case": "hard:workspace_full_hard:cold",
+      "samples": 1,
+      "median_ns": 21575233209,
+      "max_ns": 21575233209
+    },
+    {
+      "case": "hard:workspace_full_hard:warm",
+      "samples": 2,
+      "median_ns": 20941045291.5,
+      "max_ns": 20965933458
+    }
+  ]
+}
