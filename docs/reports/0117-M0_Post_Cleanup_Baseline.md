@@ -32,6 +32,10 @@ had SHA-256
 | 3 | 20.561 s | 20.771 s, 21.058 s |
 | Median | 20.983 s | 20.941 s |
 
+Raw samples: [session 1](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-session-1-pipeline.json),
+[session 2](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-session-2-pipeline.json), and
+[session 3](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-session-3-pipeline.json).
+
 The 0114 M13 profile attributed 14.325 seconds to five `node_store.history` traversals. The current
 profile on the same immutable response has 63 file reads, 38 unique paths, 586 `json.loads` calls,
 and 14 domain parsers (8 visible-card and 6 visual-identity parses). It returned the same response
@@ -50,6 +54,10 @@ and the first workspace response.
 | 2 | 3.227 s | 5.485 s | 9.603 s |
 | 3 | 3.107 s | 4.668 s | 8.336 s |
 | Median | 3.107 s | 4.668 s | 9.603 s |
+
+Raw startup trials: [session 1](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-session-1-startup.json),
+[session 2](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-session-2-startup.json), and
+[session 3](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-session-3-startup.json).
 
 Startup MAD is 1.267 seconds. Session 1 spent 3.500 seconds in the first health-live probe. This is
 startup noise, not a workspace latency change. Keep the first useful response in the regression
@@ -75,6 +83,11 @@ provider stub and returns HTTP 202.
 | Empty table-observation stage | 200 | 63 | 585 | 12 | 5 / 7 | visible 8, identity 6 |
 | Processor launch | 202 | 59 | 60 | 0 | 0 / 0 | none |
 | Stale selected revision | 200 | 65 | 339 | 12 | 5 / 7 | visible 4, identity 3 |
+
+The full counter sets and read paths are in the
+[boundary profile](0117-M0_Post_Cleanup_Baseline.artifacts/boundary-profile.json). The separate
+[workspace decoder profile](0117-M0_Post_Cleanup_Baseline.artifacts/0117-m0-current-io.json)
+records the 63-read workspace request.
 
 The current catalog reads 14 revision records through 11 history walks for 12 enumerated nodes.
 The current workspace makes five history walks and reads seven records. The stage response has the
