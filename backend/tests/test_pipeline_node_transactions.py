@@ -1,6 +1,7 @@
 import hashlib
 import multiprocessing
 import os
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -51,6 +52,73 @@ def _crash_coordinated_transaction(root: str, boundary: str) -> None:
         ],
         selection_updates=[],
     )
+
+
+def _paused_coordinated_transaction(root: str, pause_at: str, ready, release, results) -> None:
+    nodes = PipelineNodeStore(root)
+    transaction = PipelineNodeTransactions(nodes)
+    prepare_plan = transaction._prepare_plan
+    recover = transaction.recover
+
+    def pause() -> None:
+        ready.set()
+        if not release.wait(10):
+            raise TimeoutError("save interleaving test did not release transaction")
+
+    def prepare_with_pause(node_updates, selection_updates):
+        plan = prepare_plan(node_updates, selection_updates)
+        if pause_at == "after_plan":
+            pause()
+        return plan
+
+    def recover_with_pause() -> None:
+        if pause_at == "after_journal":
+            pause()
+        recover()
+
+    transaction._prepare_plan = prepare_with_pause
+    transaction.recover = recover_with_pause
+    try:
+        transaction.commit(
+            "interleaving-transaction",
+            node_updates=[
+                {
+                    "node_id": "visible-node",
+                    "expected_revision_id": "visible-r1",
+                    "revision_id": "visible-r2",
+                    "content": VISIBLE,
+                    "metadata": {"interleaving": True},
+                }
+            ],
+            selection_updates=[],
+        )
+        results.put("committed")
+    except Exception as error:  # pragma: no cover - reported to the parent process
+        results.put(f"error: {error!r}")
+
+
+def _competing_ordinary_save(root: str, lock_attempt, finished, results) -> None:
+    from dokodetector_backend import pipeline_node_store
+
+    original_lock = pipeline_node_store._process_lock
+
+    @contextmanager
+    def observe_lock(path, thread_lock):
+        if Path(path) == Path(root) / ".transactions.lock":
+            lock_attempt.set()
+        with original_lock(path, thread_lock):
+            yield
+
+    pipeline_node_store._process_lock = observe_lock
+    store = PipelineNodeStore(root)
+    try:
+        store.save("visible-node", "visible-r1", VISIBLE, {"ordinary_save": True})
+    except Exception as error:
+        results.put(type(error).__name__)
+    else:
+        results.put("saved")
+    finally:
+        finished.set()
 
 
 def test_coordinated_transaction_publishes_both_nodes_and_exact_selections(
@@ -224,3 +292,53 @@ def test_coordinated_transaction_recovers_authority_after_process_death(
         "visible-r2"
     )
     assert reopened.read_authorized_revision("scene-node", "scene-r2").revision_id == "scene-r2"
+
+
+@pytest.mark.parametrize("pause_at", ["after_plan", "after_journal"])
+def test_ordinary_save_serializes_with_coordinated_transaction(
+    tmp_path: Path, pause_at: str
+) -> None:
+    nodes = PipelineNodeStore(tmp_path)
+    nodes.create(
+        "visible-node", "Visible", "visible_cards", SOURCE, VISIBLE, {}, revision_id="visible-r1"
+    )
+    context = multiprocessing.get_context("spawn")
+    transaction_ready = context.Event()
+    release_transaction = context.Event()
+    lock_attempt = context.Event()
+    save_finished = context.Event()
+    transaction_results = context.Queue()
+    save_results = context.Queue()
+    transaction = context.Process(
+        target=_paused_coordinated_transaction,
+        args=(str(tmp_path), pause_at, transaction_ready, release_transaction, transaction_results),
+    )
+    transaction.start()
+    assert transaction_ready.wait(10), "transaction did not reach the selected interleaving"
+    if pause_at == "after_journal":
+        journal = tmp_path / ".coordinated-transactions" / "interleaving-transaction.json"
+        assert journal.is_file()
+
+    saver = context.Process(
+        target=_competing_ordinary_save,
+        args=(str(tmp_path), lock_attempt, save_finished, save_results),
+    )
+    saver.start()
+    assert lock_attempt.wait(10), "ordinary save did not attempt the store transaction lock"
+    assert not save_finished.wait(0.1)
+    assert (tmp_path / "visible-node" / "head.json").read_text() == '{"revision_id":"visible-r1"}'
+
+    release_transaction.set()
+    transaction.join(10)
+    saver.join(10)
+    assert transaction.exitcode == 0
+    assert saver.exitcode == 0
+    assert transaction_results.get(timeout=2) == "committed"
+    assert save_results.get(timeout=2) == "NodeConflict"
+
+    reopened = PipelineNodeStore(tmp_path)
+    assert reopened.get("visible-node").head_revision_id == "visible-r2"
+    assert reopened.read_authorized_revision("visible-node", "visible-r2").revision_id == (
+        "visible-r2"
+    )
+    assert reopened.save("visible-node", "visible-r2", VISIBLE, {"after": True}).revision_id

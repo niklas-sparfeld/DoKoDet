@@ -260,6 +260,7 @@ class PipelineNodeEdits:
                     revision_id=output_revision_id,
                 )
             else:
+                self.store.recover_transactions()
                 self.store._save_under_transaction(
                     node_id, expected, target_content, metadata, output_revision_id
                 )

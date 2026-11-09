@@ -164,7 +164,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
 | M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
-| M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | In progress; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
+| M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | Complete; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
 | M4b | Bounded coordinated transaction recovery and pending-journal authority | Not started; separate storage/transaction contract |
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Not started; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
@@ -215,11 +215,11 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 13 milestones, starting at M4a; completed: 0; remaining: 13. M4a is reopened
-  because review found an unbounded recovery scan. The cap covers M4a, M4b, M4c, and M5–M14;
-  M15 and M16 remain outside this run.
-- Current milestone: M4a. Replan count: 2/5 for M4a; 2/10 for this run.
-- M4a implementation to date: added immutable per-revision authority records and a direct exact read. `create`
+- Requested run: 13 milestones, starting at M4a; completed: 1; remaining: 12. The cap covers M4a,
+  M4b, M4c, and M5–M14; M15 and M16 remain outside this run.
+- Next milestone: M4b, not started. M4a replan count: 2/5; M4b replan count: 0/5; this run replan
+  count: 2/10.
+- M4a result: added immutable per-revision authority records and a direct exact read. `create`
   publishes the first record with the node; `save` commits at HEAD replacement and records the prior
   revision before advancing. Coordinated transaction recovery applies the same order. A missing
   authority record is accepted only for the exact current HEAD after a crash. Direct reads reject
@@ -227,17 +227,16 @@ while history and unrelated recordings grow 10x.
   `read_authorized_revision` calls `recover_transactions`, which scans and validates every retained
   coordinated transaction journal, including committed journals. The one-revision read count does
   not prove bounded total read work. M4b owns this recovery scan. No full-read bound is claimed yet.
-- Existing M4a checks: 94 focused backend tests passed; Ruff check and format check passed; local
+- M4a checks: 96 focused backend tests passed; Ruff check and format check passed; local
   Markdown links/anchors and `git diff --check` passed. They include 11-revision zero-parent-read
   evidence, concurrent reader/writer processes, competing writer processes, process death at four
-  node-store boundaries, and coordinated transaction recovery after process death. They do not
-  cover a save attempt between coordinated plan validation and journal publication. One existing
+  node-store boundaries, coordinated transaction recovery after process death, and two
+  deterministic separate-process save interleavings. A save attempted after transaction plan
+  validation and after prepared-journal publication blocks on the store transaction lock. The
+  transaction commits, the stale save fails, and later reads succeed. The lock order is store
+  transaction lock, recovery or transaction preparation, then per-node lock. One existing
   Starlette `httpx` deprecation warning remains. API generation/browser checks do not apply; the
   backend has no configured type check.
-- M4a correction acceptance: state the safe lock order explicitly and prove with separate processes
-  that an ordinary save cannot change HEAD after a coordinated transaction validates its plan but
-  before the prepared journal is published. The transaction must commit or fail without leaving a
-  prepared journal that blocks later reads. Correct the stale run counts after this correction.
 - M4b boundary: add one durable pending-transaction locator so normal authority reads inspect at
   most the active prepared transaction, not all committed journal history. Preserve transaction
   idempotency and recovery evidence. Define its writer, atomicity, lock order, freshness, and crash
@@ -251,7 +250,7 @@ while history and unrelated recordings grow 10x.
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.
-- Next: finish M4a correction only. Run count: 0 complete, 13 remaining.
+- Next: implement M4b only. Run count: 1 complete, 12 remaining.
 
 ## M1 — Define current-state operation contracts
 
@@ -348,13 +347,15 @@ writer inventory; and an interleaving proof for save versus coordinated transact
 Do not claim bounded total reads while recovery scans transaction history. Commit: authority
 contract and store implementation, tests, report, board, and plan. M4b depends on this result.
 
-**M4a implementation note:** The [M4a report](../../reports/0117-M4a_Node_Publication_Authority.md)
+**M4a result — 2026-11-09:** Complete for direct node authority lookup and serialized writers. The
+[M4a report](../../reports/0117-M4a_Node_Publication_Authority.md)
 records the `pipeline-node-publication/v1` receipt, its identity and digest checks, and the writer
 and reader inventory. Store creation publishes its first authority atomically with the node.
 Revision save and coordinated recovery publish authority around the HEAD commit under per-node
-process locks. Direct authority lookup checks one receipt and one revision, or the exact current
-HEAD and one revision after a crash. It does not read parent revisions. The overall read remains
-unbounded by the all-journal recovery scan assigned to M4b.
+process locks. A deterministic multi-process interleaving proves that save, transaction preparation,
+and recovery serialize under the documented lock order. Direct authority lookup checks one receipt
+and one revision, or the exact current HEAD and one revision after a crash. It does not read parent
+revisions. The overall read remains unbounded by the all-journal recovery scan assigned to M4b.
 
 ## M4b — Bound coordinated transaction recovery
 
@@ -382,18 +383,6 @@ every exact node revision read. Add only the minimum producer/editor adapter nee
 Checks: exact persisted content, selected generated/reference pointers, independent decisions,
 copy-on-edit, frozen inputs, stale update rejection, and restart. Commit: vertical slice and report.
 Do not begin broad conversion until this proof passes. Keep M5 historical metadata discovery separate.
-
-## M4b — Prove one complete replacement workflow
-
-Use real APIs/services and disposable storage to create/select events, produce a deterministic
-output from frozen inputs, create independent review work, edit/save selected working content,
-read HEAD/current state, inspect an older revision, and restart. Disable old selection/history
-discovery in this proof. Use M4a publication authority for every exact node revision read, with no
-parent traversal. Add only the minimum producer/editor adapter needed for this vertical slice.
-
-Checks: exact persisted content, selected generated/reference pointers, independent decisions,
-copy-on-edit, frozen inputs, stale update rejection, and restart. Commit: vertical slice and report.
-Do not begin broad conversion until this proof passes. Keep M5 bounded historical discovery separate.
 
 ## M5 — Add bounded historical discovery
 

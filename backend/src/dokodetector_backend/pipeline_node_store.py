@@ -274,7 +274,9 @@ class PipelineNodeStore:
         revision_id: str | None = None,
     ) -> NodeRevision:
         _safe_id(expected_revision_id, "expected_revision_id")
+        # Serialize recovery, transaction preparation, and ordinary saves before taking a node lock.
         with _process_lock(self.root / ".transactions.lock", self._lock):
+            self.recover_transactions()
             return self._save_under_transaction(
                 node_id, expected_revision_id, content, metadata, revision_id
             )
@@ -287,7 +289,7 @@ class PipelineNodeStore:
         metadata: Mapping[str, Any],
         revision_id: str | None,
     ) -> NodeRevision:
-        self.recover_transactions()
+        """Save under the store transaction lock, then the per-node lock."""
         with _process_lock(self._lock_path(node_id), self._lock):
             node = self._get_unrecovered(node_id)
             if node.head_revision_id != expected_revision_id:
