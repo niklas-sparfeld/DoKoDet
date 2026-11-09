@@ -332,7 +332,8 @@ class HistoryPageCursor(ContractModel):
     ]
     filter_sha256: Sha256
     upper_bound_sequence: int = Field(ge=1)
-    last_key: str | None = Field(default=None, max_length=256)
+    # Composite history keys can contain the longest valid lineage endpoints.
+    last_key: str | None = Field(default=None, max_length=4096)
     page_size: int = Field(ge=1, le=100)
     authority_epoch: Identifier | None = None
     authority_sequence: int | None = Field(default=None, ge=1)
@@ -398,6 +399,32 @@ class LineageEdgeHistoryItem(ContractModel):
     publication_sequence: int = Field(ge=1)
     role: Identifier | None = None
 
+    def stable_sort_key(self) -> tuple[str, ...]:
+        """Return a total order that distinguishes every valid lineage edge."""
+
+        def endpoint_key(endpoint: LineageEndpoint) -> tuple[str, ...]:
+            return (
+                endpoint.kind,
+                endpoint.node_id or "",
+                endpoint.revision_id or "",
+                endpoint.run_id or "",
+                endpoint.artifact_id or "",
+                endpoint.sha256 or "",
+            )
+
+        return (
+            *endpoint_key(self.source),
+            *endpoint_key(self.target),
+            self.edge_kind,
+            self.role or "",
+            self.item_key,
+        )
+
+    def stable_cursor_key(self) -> str:
+        """Serialize the complete sort key without delimiter ambiguity."""
+
+        return json.dumps(self.stable_sort_key(), separators=(",", ":"))
+
 
 class ResourceHistoryItem(ContractModel):
     """One exact revision or candidate resource in stable history."""
@@ -430,7 +457,7 @@ class RecordingHistoryPage(ContractModel):
     collection: Literal["snapshots", "revisions", "candidates", "lineage_edges"]
     upper_bound_sequence: int = Field(ge=1)
     items: list[HistoryItem] = Field(max_length=100)
-    next_cursor: str | None = Field(default=None, max_length=2048)
+    next_cursor: str | None = Field(default=None, max_length=8192)
     has_more: bool
 
     @model_validator(mode="after")

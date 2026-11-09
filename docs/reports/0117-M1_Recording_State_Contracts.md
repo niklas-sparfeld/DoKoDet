@@ -80,7 +80,7 @@ These are the M1 API shapes for M5–M11; routes are not implemented in M1.
 | Current recording/catalog | Existing recording row plus a compact state summary; no revision payload, node history, analysis history, or package content scan. Paginate returned recordings if the existing list exceeds the selected response bound. |
 | Current workspace | `GET /api/recordings/{recording_id}/pipeline` returns the authoritative snapshot ID/version and stage states. It does not follow predecessors. A stage-open response resolves only that slot's exact selected resource and its declared dependencies. |
 | Explicit state | `GET /api/recordings/{recording_id}/state` returns HEAD and its verified snapshot. `PUT /api/recordings/{recording_id}/state` uses `RecordingHeadUpdate` for explicit selection or restore with expected version. Historical inspection stays on history/revision routes. |
-| History/candidates/lineage | `GET /api/recordings/{recording_id}/state/history`, `/revisions`, `/candidates`, and `/lineage-edges` return typed `RecordingHistoryPage` items. Snapshot entries carry snapshot ID, digest, predecessor, and a publication sequence. Resource and edge entries carry exact references and the same sequence. Edge entries support revision, run, and namespaced artifact endpoints plus edge kind and role. A durable per-recording `RecordingHistoryAuthority` allocates a strictly increasing sequence when each immutable history item is published. The publisher records the sequence atomically with the item. Cursor binds recording, collection, normalized-filter digest, authority sequence, last stable key, and page size. A page includes only items with sequence at or below the cursor's frozen sequence, then sorts that fixed membership by a collection-specific key (snapshot ID, exact resource kind/ID, or edge endpoint tuple). A later insert is excluded even when its content-hash ID sorts before earlier IDs. Maximum page size is 100. Cursor is opaque and integrity-protected. Metadata pages do not parse content. |
+| History/candidates/lineage | `GET /api/recordings/{recording_id}/state/history`, `/revisions`, `/candidates`, and `/lineage-edges` return typed `RecordingHistoryPage` items. Snapshot entries carry snapshot ID, digest, predecessor, and a publication sequence. Resource and edge entries carry exact references and the same sequence. Edge entries support revision, run, and namespaced artifact endpoints plus edge kind and role. A durable per-recording `RecordingHistoryAuthority` allocates a strictly increasing sequence when each immutable history item is published. The publisher records the sequence atomically with the item. Cursor binds recording, collection, normalized-filter digest, authority sequence, last stable key, and page size. A page includes only items with sequence at or below the cursor's frozen sequence, then sorts that fixed membership by a collection-specific key (snapshot ID, exact resource kind/ID, or lineage edge source and target endpoint identities, edge kind, role, and stable unique `item_key` tie-breaker). The cursor stores this complete composite key as canonical JSON to avoid delimiter ambiguity and supports all valid endpoint and role values. A later insert is excluded even when its content-hash ID sorts before earlier IDs. Maximum page size is 100. Cursor is opaque and integrity-protected. Metadata pages do not parse content. |
 | Catalog metadata | `/analyses`, `/packages`, and `/jobs` return one bounded `CatalogMetadataPage` collection at a time. Each page has at most 100 compact items and a continuation cursor; no response embeds an unbounded list. Job pages use `RecordingJobProjection` and validate its authority epoch and sequence against the current durable Job Manager marker. |
 | Exact resource | Existing exact revision route plus calibration/reconstruction resource routes validate the address and content digest when content is opened. No ancestry traversal is implicit. |
 | Processor start | Existing run/job start contracts gain `SnapshotFrozenProcessorInputs`; the durable request stores snapshot ID/version and every resolved input reference. Select-on-completion is explicit and carries expected HEAD version. Retry reuses frozen inputs. |
@@ -120,7 +120,9 @@ No compatibility fallback or migration path is added by this contract milestone.
 convert retained data and prove recovery before removing the old runtime path.
 
 The history authority is a storage contract for M5: sequence assignment and the immutable entry
-must become visible atomically. If current publication primitives cannot provide this boundary,
+must become visible atomically. Each lineage edge must have a stable unique `item_key` within its
+recording. M5 must preserve the M1 composite ordering and cursor serialization. If current
+publication primitives cannot provide this boundary,
 revise M5 into a separate sequence/index contract milestone before implementing the history APIs.
 M5 already requires writer, freshness, rebuild, concurrency, and crash checks for a new metadata
 index.
@@ -128,11 +130,13 @@ index.
 ## Checks and limits
 
 `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_contract.py`
-passed 17 contract tests: canonical identity validation, all empty slots, stale references,
+passed 18 contract tests: canonical identity validation, all empty slots, stale references,
 independent reviews, generated/reference separation in snapshot and summary, specialized resource
 kinds, typed snapshot/resource/lineage-edge history, real namespaced lineage artifact IDs, a later
 hash-sorted snapshot excluded by its higher insertion sequence, bounded catalog pages, job projection
-authority and restart validation, compare-and-swap request, frozen processor inputs, and compact metadata.
+authority and restart validation, compare-and-swap request, frozen processor inputs, compact metadata,
+and lineage-edge order/page boundaries with maximum-length valid cursor keys. The edge test uses
+duplicate endpoint pairs with different kinds and roles and checks the stable `item_key` tie-breaker.
 The tests validate contracts;
 they do not claim storage, API, crash, or runtime behavior. API generation and browser checks do not
 apply because M1 adds no route or web change.

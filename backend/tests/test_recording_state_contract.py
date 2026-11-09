@@ -230,6 +230,73 @@ def test_history_pages_accept_snapshot_resources_and_lineage_edges():
         )
 
 
+def test_lineage_edge_history_has_unique_total_order_across_page_boundary():
+    source = LineageEndpoint(
+        kind="artifact", artifact_id="recording-video/" + "s" * 240, sha256=DIGEST
+    )
+    target = LineageEndpoint(
+        kind="artifact", artifact_id="evidence-package/" + "t" * 239, sha256=DIGEST
+    )
+    edges = [
+        LineageEdgeHistoryItem(
+            item_key=f"edge-{index}",
+            edge_kind=edge_kind,
+            source=source,
+            target=target,
+            publication_sequence=10,
+            role=role,
+        )
+        for index, (edge_kind, role) in enumerate(
+            [
+                ("used", "r" * 160),
+                ("used", "input"),
+                ("produced", "input"),
+                ("produced", "input"),
+            ]
+        )
+    ]
+    edges[-1] = edges[-1].model_copy(update={"item_key": "edge-z"})
+    ordered = sorted(edges, key=LineageEdgeHistoryItem.stable_sort_key)
+    assert len({edge.stable_sort_key() for edge in ordered}) == len(edges)
+    assert ordered[0].stable_sort_key()[:-1] == ordered[1].stable_sort_key()[:-1]
+    assert ordered[0].item_key < ordered[1].item_key
+    assert ordered[0].edge_kind == "produced"
+    assert [edge.stable_sort_key() for edge in ordered] == sorted(
+        edge.stable_sort_key() for edge in ordered
+    )
+
+    # The maximum valid endpoint and role remain representable in a cursor key.
+    composite_cursor_key = ordered[-1].stable_cursor_key()
+    cursor = HistoryPageCursor(
+        recording_id="recording-1",
+        collection="lineage_edges",
+        filter_sha256=DIGEST,
+        upper_bound_sequence=10,
+        last_key=composite_cursor_key,
+        page_size=1,
+    )
+    assert cursor.last_key == composite_cursor_key
+    assert len(composite_cursor_key) > 256
+
+    first_page = RecordingHistoryPage(
+        recording_id="recording-1",
+        collection="lineage_edges",
+        upper_bound_sequence=10,
+        items=ordered[:1],
+        next_cursor="c" * 2048,
+        has_more=True,
+    )
+    second_page = RecordingHistoryPage(
+        recording_id="recording-1",
+        collection="lineage_edges",
+        upper_bound_sequence=10,
+        items=ordered[1:],
+        has_more=False,
+    )
+    assert first_page.items + second_page.items == ordered
+    assert len({edge.item_key for edge in first_page.items + second_page.items}) == 4
+
+
 @pytest.mark.parametrize(
     "artifact_id",
     ["recording-video/recording-1", "evidence-package/package-1"],

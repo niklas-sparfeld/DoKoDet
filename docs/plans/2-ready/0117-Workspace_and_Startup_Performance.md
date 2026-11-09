@@ -155,7 +155,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | Milestone | Observable result / commit boundary | State |
 | --- | --- | --- |
 | M0 | Post-cleanup baseline, exact boundary inventory, growth fixtures, frozen targets | Complete |
-| M1 | Snapshot, HEAD, summary, and API contracts with validation tests | In progress |
+| M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
 | M2 | Immutable snapshot store and bounded exact reads | Not started |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Not started |
 | M4 | One real API workflow with replaced selection discovery disabled | Not started |
@@ -207,7 +207,7 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 17 milestones; completed: 1; remaining: 16. The run stopped after two M1 correction turns.
+- Requested run: 16 milestones; completed: 1; remaining: 15.
 - M1 changes: added versioned snapshot, exact-resource, HEAD, summary, error, history-page, explicit
   HEAD-update, and frozen processor-input models with canonical snapshot IDs and validation tests.
   Added the M1 report with selection/stale/history semantics, operation dependency checks, API
@@ -222,8 +222,8 @@ while history and unrelated recordings grow 10x.
   inserts even when their snapshot digest sorts before existing IDs. M5 must atomically publish the
   sequence with each immutable item or split the index contract into its own milestone.
 - Checks: `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_contract.py`
-  passed 17 tests; Ruff check and format checks passed for the new module and test. No API generation
-  or browser check applies because this milestone adds no route or web code.
+  passed 18 tests. Ruff check and format checks passed for the module and test; `git diff --check`
+  passed. No API generation or browser check applies because this milestone adds no route or web code.
 - Decisions: calibration and reconstruction are separate exact resource kinds; generated output,
   completed references, and independent review work stay separate. HEAD is the only current-state
   authority. Summary timestamps are not freshness proof. Job freshness comes from a durable Job
@@ -232,11 +232,12 @@ while history and unrelated recordings grow 10x.
 - Limits: M1 adds contracts only. Storage, routes, client changes, migration, cross-process
   publication, crash recovery, API growth behavior, and browser behavior remain unimplemented and
   unverified by design.
-- Outstanding M1 review finding: lineage edges can share endpoints but differ in kind or role.
-  Define a total unique page order with a tie-breaker and a cursor that can hold its key. Add
-  coverage for page boundaries and long valid keys. `pipeline_lineage.py:362-400` and `:489-513`
-  show the cases. The two correction turns for this run are exhausted; M2 must wait.
-- Next: finish M1 in a new authorized run. Details: [M1 report](../../reports/0117-M1_Recording_State_Contracts.md).
+- M1 pagination refinement: lineage edge pages sort by exact endpoints, edge kind, role, and stable
+  unique `item_key`. The cursor stores the canonical JSON composite key and supports every valid
+  endpoint and role. Tests cover shared endpoints with differing kinds and roles, page boundaries,
+  and long valid keys. API generation and browser checks do not apply.
+- Next: implement M2. This run has completed 1 of 16 milestones; 15 remain. Details:
+  [M1 report](../../reports/0117-M1_Recording_State_Contracts.md).
 
 ## M1 — Define current-state operation contracts
 
@@ -246,19 +247,28 @@ Define which actions change HEAD, stale downstream behavior, historical inspecti
 restoration. Define summary derivation, publication authority, cross-process freshness, and repair.
 Specify compact analysis/package/job metadata so the catalog cannot keep its old scans.
 
-Define stable history/candidate cursors and page bounds. List all API consumers and replacements.
+Define stable history/candidate cursors and page bounds. Lineage edges use a total order over exact
+source and target endpoint fields, edge kind, role, and a stable unique per-edge `item_key`
+tie-breaker. Serialize the complete composite key as canonical JSON in the cursor to avoid delimiter
+ambiguity. The cursor must hold the longest valid composite key. Freeze membership with the
+per-recording publication-sequence upper bound. Test duplicate endpoint pairs with differing kinds
+or roles, continuation across a page boundary, and maximum-length valid endpoint and role keys. List
+all API consumers and replacements.
 Freeze which exact dependency checks belong to each operation. No timestamp-only validity proof.
 
 Checks: contract tests for identity, empty/stale slots, independent reviews, missing/corrupt
-references, and generated/reference separation. Commit: contracts, tests, and report only.
+references, generated/reference separation, unique lineage-edge ordering, page boundaries, and long
+valid cursor keys. Commit: contracts, tests, report, board, and plan only.
 
-**M1 result — 2026-11-09:** In progress. The final sanity review found the lineage pagination gap recorded in the handoff. The [M1 report](../../reports/0117-M1_Recording_State_Contracts.md)
-records the contracts, operation dependency checks, replacement inventory, and limits. The new
-contract tests pass. Review corrections add typed snapshot/resource/lineage-edge page entries,
-separate generated/reference summary states, bounded metadata pages, explicit Job Manager projection
-freshness and restart rules, and a monotonic insertion sequence for history pages. M5 must honor the
-atomic sequence/item publication contract. M2 owns snapshot storage and bounded exact reads; M1 does
-not implement runtime behavior.
+**M1 result — 2026-11-09:** Complete. The [M1 report](../../reports/0117-M1_Recording_State_Contracts.md)
+records the contracts, operation dependency checks, replacement inventory, and limits. Tests pass
+for typed snapshot/resource/lineage-edge page entries, separate generated/reference summary states,
+bounded metadata pages, Job Manager projection freshness and restart rules, monotonic history
+insertion sequences, and unique lineage-edge ordering. Edge order includes exact endpoints, kind,
+role, and stable `item_key`; the cursor uses a canonical JSON composite key and holds all valid keys.
+Tests cover duplicate endpoints and page boundaries. M5 must honor the atomic sequence/item
+publication contract. M2 owns snapshot storage and bounded exact reads; M1 does not implement runtime
+behavior.
 
 ## M2 — Implement immutable snapshots
 
