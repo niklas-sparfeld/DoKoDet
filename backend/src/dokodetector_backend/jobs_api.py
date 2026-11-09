@@ -233,6 +233,12 @@ class JobTypeRegistry:
             if reconciler is not None:
                 reconciler(jobs)
 
+    def job_transitioned(self, job: Job, manager: JobManager) -> None:
+        for participant in set(self._participants.values()):
+            callback = getattr(participant, "job_transitioned", None)
+            if callback is not None:
+                callback(job, manager)
+
 
 class JobManagerService:
     """Keep one manager owner for the application lifetime."""

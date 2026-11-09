@@ -511,6 +511,9 @@ class JobManager:
                         if state == "interrupted":
                             step.message = "interrupted during restart"
             self._write_job(job)
+            transition_observer = getattr(self.participant, "job_transitioned", None)
+            if transition_observer is not None:
+                transition_observer(job, self)
             self.append_log(job.id, f"job_{state}", f"Job state changed to {state}.")
             if job.parent_id is not None and state in _TERMINAL:
                 parent = self.get(job.parent_id)

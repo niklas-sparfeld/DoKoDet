@@ -26,7 +26,7 @@ class _RunStore:
         return self.document
 
     def resumable(self) -> list[dict]:
-        return []
+        return [self.document] if self.document["status"] in {"accepted", "running"} else []
 
 
 class _RunService:
@@ -64,6 +64,12 @@ class _Registry:
     @staticmethod
     def verify_publication(_job: Job, results: list[dict]) -> bool:
         return bool(results)
+
+    def reconcile(self, manager: JobManager) -> None:
+        self.parent.reconcile(manager.list_jobs())
+
+    def job_transitioned(self, job: Job, manager: JobManager) -> None:
+        self.parent.job_transitioned(job, manager)
 
 
 def _document(run_id: str) -> dict:
@@ -290,6 +296,97 @@ def test_restart_recovers_unlinked_child_and_completes_pipeline(tmp_path: Path) 
             )
         assert len([job for job in manager.list_jobs() if job.parent_id == parent.id]) == 6
         assert document["status"] == "complete"
+
+
+def test_later_stage_recovery_restores_lineage_status_and_reuse(tmp_path: Path) -> None:
+    run_id = str(uuid4())
+    document, _service, participant = _participant(run_id)
+    armed = False
+    manager_ref: JobManager | None = None
+
+    def crash_after_later_acceptance(point: str) -> None:
+        if not armed or point != "commit" or manager_ref is None:
+            return
+        accepted = next(
+            item
+            for item in manager_ref._intents()
+            if item.job.parent_step_id == "visible_card_and_pile_proposals"
+        )
+        if accepted.committed:
+            raise RuntimeError("crash after later-stage acceptance commit")
+
+    with _manager(tmp_path, participant, after_write=crash_after_later_acceptance) as manager:
+        manager_ref = manager
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "recording-1"},
+                "request": {"run_id": run_id},
+            },
+        )
+        manager.transition(parent.id, "running")
+        token = type("Token", (), {"check": lambda _self: None})()
+        participant.handle(manager.get(parent.id), Claims(), token, manager)
+        first_child = next(
+            job for job in manager.list_jobs() if job.parent_step_id == "event_proposals"
+        )
+        manager.transition(first_child.id, "running")
+        first_child = manager.get(first_child.id)
+        first_child.results = [{"id": "event-revision"}]
+        manager._write_job(first_child)
+        manager.transition(first_child.id, "succeeded")
+        manager.transition(parent.id, "running")
+        armed = True
+        with pytest.raises(RuntimeError, match="crash after later-stage acceptance commit"):
+            participant.handle(manager.get(parent.id), Claims(), token, manager)
+        second_child = next(
+            job
+            for job in manager.list_jobs()
+            if job.parent_step_id == "visible_card_and_pile_proposals"
+        )
+        assert document["stages"][1]["input_revision_ids"] == []
+
+    with _manager(tmp_path, participant) as manager:
+        manager.participant.reconcile(manager)
+        parent = manager.get(parent.id)
+        second_child_id = next(
+            step.child_job_id
+            for step in parent.steps
+            if step.id == "visible_card_and_pile_proposals"
+        )
+        assert second_child_id == second_child.id
+        stage = document["stages"][1]
+        assert stage["input_revision_ids"] == ["event-revision"]
+        assert stage["child_job_id"] == second_child.id
+        assert stage["status"] == "queued"
+
+        manager.transition(second_child.id, "running")
+        assert document["status"] == "running"
+        assert stage["status"] == "running"
+        assert stage["input_revision_ids"] == ["event-revision"]
+        child = manager.get(second_child.id)
+        child.results = [{"id": "visible-revision"}]
+        manager._write_job(child)
+        manager.transition(child.id, "succeeded")
+
+        manager.transition(parent.id, "running")
+        parent = manager.get(parent.id)
+        plan = participant._stage_plan(document)
+        definition = next(item for item in plan if item.name == "visible_card_and_pile_proposals")
+        inputs = participant._resolve_inputs(manager, parent, definition)
+        candidate = participant._child_request(parent, definition, inputs)
+        reused = participant._reuse_completed_stage(
+            run_id, manager, parent, definition, inputs, candidate
+        )
+        assert reused is not None
+        assert reused.id == second_child.id
+
+        participant.handle(parent, Claims(), token, manager)
+        assert document["stages"][1]["input_revision_ids"] == ["event-revision"]
+        assert any(
+            job.parent_step_id == "card_scene_and_calibration" for job in manager.list_jobs()
+        )
 
 
 def test_parent_cancel_waits_for_owned_child_to_stop(tmp_path: Path) -> None:

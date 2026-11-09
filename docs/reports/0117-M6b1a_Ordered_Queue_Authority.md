@@ -2,7 +2,15 @@
 
 Date: 2026-11-09
 
-## Result
+## Current result
+
+M6b1a is complete after two current-run corrections. Startup recovery reconnects an unlinked accepted
+child to the parent step, and automated pipeline status recovery restores the stage's authoritative
+inputs before child work resumes. Job transitions keep stage status current while the child runs.
+The end-to-end evidence covers a later-stage acceptance/link crash, input lineage, completed-stage
+reuse, and pipeline continuation. See the current-run completion and correction sections below.
+
+## Historical result from the previous run
 
 Incomplete after correction 2/2 review. The active-job SQLite store owns ordered queue groups, queued
 child membership, parent-child sequence and state, and the queue revision. A
@@ -24,15 +32,16 @@ or interrupted children queue it. Recovery checks terminal children even when an
 queued. If several are terminal, it uses the latest durable `updated_at`, with acceptance sequence as
 the tie-breaker.
 
-Commits `323a021c` and `1a6fc590` are integrated. Review did not accept M6b1a. Two defects remain:
+Commits `323a021c` and `1a6fc590` were integrated in the previous run. Review did not accept M6b1a.
+At that time, two defects remained:
 
 - A crash after the parent enters `waiting` but before the first child is accepted leaves the parent
   waiting permanently.
 - A restart during a later wait can requeue the parent based on an old terminal child while the
   current child remains queued.
 
-Recovery needs durable evidence that identifies the current wait and its child transition. M6b1a stays
-incomplete until that contract and its recovery checks are implemented.
+Recovery then needed durable evidence that identified the current wait and its child transition.
+Those defects were resolved in the current run.
 
 Startup recovery calls `JobRecovery.rebuild_queue()` and rebuilds the parent-child state from durable
 jobs and intents. Until repair completes, queue reads fail closed. The old `queue.json` is imported
@@ -41,7 +50,7 @@ Ordinary acceptance still scans intents for idempotency, sequence allocation, an
 uniqueness. M6b1b owns those reads and their transaction. Scheduler candidate discovery and startup
 repair still enumerate the full queue or intent set; M6b2 owns bounded active-job pages.
 
-## Checks
+## Historical checks from the previous run
 
 - Focused job and pipeline suite: passed. This covers journal crash boundaries and replay, queue and
   parent/child order, legacy repair, queue corruption, scheduler dispatch, cancellation, restart,
@@ -82,20 +91,22 @@ phase cannot release the current wait. The recovery path re-reads intents after 
 acceptance intents, so it uses current durable intent state.
 
 Regression evidence covers a crash after the parent enters `waiting` before its first child exists,
-and a restart during a later wait with an earlier succeeded child and a current queued child. Existing
-terminal-child crash recovery now names the current phase child.
+a restart during a later wait with an earlier succeeded child and a current queued child, and a crash
+after a later child commits before its parent link and stage document write. Startup reconciliation
+restores the stage's exact input lineage and queued state. Child state transitions update the stage
+status while it runs and preserve input lineage on completion. The end-to-end test verifies reuse of
+the completed later stage.
 
 Checks in this run:
 
-- `cd backend && uv run pytest -q tests/test_job_*.py tests/test_jobs_api.py tests/test_automated_pipeline_jobs.py` — passed, 78 tests.
+- `cd backend && uv run pytest -q tests/test_job_*.py tests/test_jobs_api.py tests/test_automated_pipeline_jobs.py` — passed, 79 tests.
 - `cd backend && uv run pytest -q tests/test_job_projection_authority.py` — passed, 23 tests, including 20/200 sibling growth, 20/200 unrelated-job growth, concurrent readers, journal recovery, and queue integrity cases.
-- `cd backend && uv run ruff check src/dokodetector_backend/job_recovery.py src/dokodetector_backend/automated_pipeline_jobs.py tests/test_job_recovery.py tests/test_job_scheduler.py` — passed.
-- `cd backend && uv run ruff format --check src/dokodetector_backend/job_recovery.py src/dokodetector_backend/automated_pipeline_jobs.py tests/test_job_recovery.py tests/test_job_scheduler.py` — passed.
+- Ruff check and format check passed for the changed backend modules and job tests.
 
 The test client reports the existing Starlette/httpx deprecation warning. No API or browser contract
 changed. Acceptance still scans intents, and scheduler and startup recovery still enumerate queue and
 intent sets. The current five-milestone run has M6b1a complete, four remaining, 0/10 total
-re-plannings (0/5 for M6b1a), and correction count 1/2. The next milestone is M6b1b. The previous
+re-plannings (0/5 for M6b1a), and correction count 2/2. The next milestone is M6b1b. The previous
 run's two-correction limit does not apply to this run.
 
 ## Correction 1/2
@@ -111,3 +122,19 @@ child acceptance commit, restarts the manager, verifies the parent link, dispatc
 succeeded, and verifies the pipeline completes without creating a duplicate child. The terminal-child
 recovery test now starts with an unlinked accepted child and checks link restoration for succeeded,
 failed, interrupted, and cancelled outcomes.
+
+## Correction 2/2
+
+The child-link crash also occurs before `_set_stage` writes the pipeline run document. On restart, the
+run document therefore lacked the stage input revisions and child ID. Startup reconciliation now
+rebuilds that stage row from the parent phase, linked child job, and completed prior-stage results.
+It records `queued` status before dispatch. Job state transitions notify the registered participants;
+the pipeline participant records `running` when the child starts and preserves the same input lineage
+when it completes or fails. Resumed parent processing also writes the authoritative inputs when it
+copies a child's terminal status, so `_reuse_completed_stage` can validate the saved inputs.
+
+The regression crashes on acceptance commit for the second pipeline stage, after the first stage has
+completed. After restart it checks the second stage's exact input revision, child ID, and queued status;
+then it checks `running` status and input lineage during child execution. After completion it verifies
+that `_reuse_completed_stage` returns the existing child and that parent processing advances to the
+next stage. The current run has 2/2 correction turns, 0/10 total re-plannings, and M6b1b remains next.

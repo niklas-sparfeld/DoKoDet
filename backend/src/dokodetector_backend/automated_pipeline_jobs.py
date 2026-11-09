@@ -59,6 +59,7 @@ class AutomatedPipelineJobParticipant:
         }
 
     def reconcile(self, jobs: list[Job]) -> None:
+        by_id = {job.id: job for job in jobs}
         by_run = {
             job.request["run_id"]: job
             for job in jobs
@@ -82,21 +83,54 @@ class AutomatedPipelineJobParticipant:
                         }
                     ),
                 )
+                continue
+            if job is None or job.state != "waiting" or job.phase is None:
+                continue
+            step = next((item for item in job.steps if item.id == job.phase), None)
+            if step is None or step.child_job_id is None:
+                continue
+            child = by_id.get(step.child_job_id)
+            if child is None or child.state not in {"queued", "running"}:
+                continue
+            definition = next(
+                (item for item in self._stage_plan(document) if item.name == job.phase), None
+            )
+            if definition is None:
+                continue
+            inputs = self._resolve_inputs_from_jobs(job, definition, by_id)
+            self._set_stage(str(document["run_id"]), definition.name, child.state, child.id, inputs)
+
+    def job_transitioned(self, child: Job, manager: JobManager) -> None:
+        if child.parent_id is None or child.parent_step_id is None:
+            return
+        parent = manager.get(child.parent_id)
+        if (
+            parent.type != "automated_pipeline"
+            or parent.phase != child.parent_step_id
+            or parent.state not in {"waiting", "queued", "running"}
+        ):
+            return
+        run_id = str(parent.request["run_id"])
+        document = self.service.read(run_id)
+        definition = next(
+            (item for item in self._stage_plan(document) if item.name == child.parent_step_id),
+            None,
+        )
+        if definition is None:
+            return
+        inputs = self._resolve_inputs(manager, parent, definition)
+        if child.state in {"queued", "running"}:
+            self._set_stage(run_id, definition.name, child.state, child.id, inputs)
+        elif child.state == "succeeded":
+            self._copy_child_status(run_id, definition.name, child, inputs)
+        elif child.state in {"failed", "interrupted"}:
+            self._fail_run(run_id, definition.name, child, inputs)
 
     def handle(self, job: Job, _claims: Claims, token: Any, manager: JobManager) -> None:
         token.check()
         run_id = str(job.request["run_id"])
         document = self.service.read(run_id)
-        request = document["request"]
-        stage_requests = dict(request["stage_requests"])
-        stage_requests["reconstruction"] = {
-            "session_id": request["session_id"],
-            "round_id": request["round_id"],
-            "round_context": request["round_context"],
-            "rules_version": request["rules_version"],
-            "search": request["search"],
-        }
-        plan = frozen_pilot_stage_plan(stage_requests)
+        plan = self._stage_plan(document)
         if job.state == "running" and job.started_at is not None:
             self.service.store.update(
                 run_id, lambda current: current.update({"status": "running", "failure": None})
@@ -108,20 +142,22 @@ class AutomatedPipelineJobParticipant:
             step = next((item for item in current.steps if item.id == definition.name), None)
             if step is not None and step.child_job_id is not None:
                 child = manager.get(step.child_job_id)
+                inputs = self._resolve_inputs(manager, current, definition)
                 if child.state == "succeeded":
                     if not self._child_is_complete(child):
-                        self._fail_run(run_id, definition.name, child)
+                        self._fail_run(run_id, definition.name, child, inputs)
                         raise RuntimeError(
                             f"Pipeline stage {definition.name} did not complete fully."
                         )
                     step.state = "succeeded"
                     step.finished_at = child.finished_at
                     manager._write_job(current)
-                    self._copy_child_status(run_id, definition.name, child)
+                    self._copy_child_status(run_id, definition.name, child, inputs)
                     continue
                 if child.state in {"failed", "cancelled", "interrupted"}:
-                    self._fail_run(run_id, definition.name, child)
+                    self._fail_run(run_id, definition.name, child, inputs)
                     raise RuntimeError(f"Pipeline stage {definition.name} {child.state}.")
+                self._set_stage(run_id, definition.name, child.state, child.id, inputs)
                 manager.transition(job.id, "waiting")
                 return
 
@@ -142,7 +178,7 @@ class AutomatedPipelineJobParticipant:
                     )
                 )
                 manager._write_job(current)
-                self._copy_child_status(run_id, definition.name, reused)
+                self._copy_child_status(run_id, definition.name, reused, inputs)
                 continue
             if definition.name == "reconstruction":
                 previous_child_id = next(
@@ -186,6 +222,16 @@ class AutomatedPipelineJobParticipant:
     def _resolve_inputs(
         self, manager: JobManager, parent: Job, definition: StageDefinition
     ) -> tuple[str, ...]:
+        jobs_by_id = {
+            step.child_job_id: manager.get(step.child_job_id)
+            for step in parent.steps
+            if step.child_job_id is not None
+        }
+        return self._resolve_inputs_from_jobs(parent, definition, jobs_by_id)
+
+    def _resolve_inputs_from_jobs(
+        self, parent: Job, definition: StageDefinition, jobs_by_id: dict[str, Job]
+    ) -> tuple[str, ...]:
         by_stage = {step.id: step.child_job_id for step in parent.steps}
         resolved: list[str] = []
         for reference in definition.input_revision_ids:
@@ -196,11 +242,26 @@ class AutomatedPipelineJobParticipant:
             child_id = by_stage.get(stage_name)
             if child_id is None:
                 raise ValueError(f"Pipeline input stage is missing: {stage_name}.")
-            child = manager.get(child_id)
+            child = jobs_by_id.get(child_id)
+            if child is None:
+                raise ValueError(f"Pipeline input stage is missing: {stage_name}.")
             if child.state != "succeeded" or not child.results:
                 raise ValueError(f"Pipeline input stage has no verified output: {stage_name}.")
             resolved.append(str(child.results[0]["id"]))
         return tuple(resolved)
+
+    @staticmethod
+    def _stage_plan(document: dict[str, Any]) -> tuple[StageDefinition, ...]:
+        request = document["request"]
+        stage_requests = dict(request["stage_requests"])
+        stage_requests["reconstruction"] = {
+            "session_id": request["session_id"],
+            "round_id": request["round_id"],
+            "round_context": request["round_context"],
+            "rules_version": request["rules_version"],
+            "search": request["search"],
+        }
+        return frozen_pilot_stage_plan(stage_requests)
 
     def _child_request(
         self, parent: Job, definition: StageDefinition, inputs: tuple[str, ...]
@@ -304,7 +365,9 @@ class AutomatedPipelineJobParticipant:
         run = self.state.pipeline_run_store.get(child.id)
         return run is not None and run.state.status == "complete"
 
-    def _copy_child_status(self, run_id: str, stage: str, child: Job) -> None:
+    def _copy_child_status(
+        self, run_id: str, stage: str, child: Job, inputs: tuple[str, ...]
+    ) -> None:
         outputs = [str(result["id"]) for result in child.results if isinstance(result, dict)]
 
         def update(current: dict[str, Any]) -> None:
@@ -315,6 +378,7 @@ class AutomatedPipelineJobParticipant:
                     "status": "complete",
                     "run_id": str(child.request.get("analysis_id", child.id)),
                     "child_job_id": child.id,
+                    "input_revision_ids": list(inputs),
                     "output_revision_ids": outputs,
                 }
             )
@@ -329,12 +393,19 @@ class AutomatedPipelineJobParticipant:
             lambda current: _update_stage(current, stage, status, child_id, [], list(inputs)),
         )
 
-    def _fail_run(self, run_id: str, stage: str, child: Job) -> None:
+    def _fail_run(self, run_id: str, stage: str, child: Job, inputs: tuple[str, ...]) -> None:
         def update(current: dict[str, Any]) -> None:
             current["status"] = "failed"
             current["failure"] = {"stage": stage, "details": child.failure}
             row = next(item for item in current["stages"] if item["name"] == stage)
-            row.update({"status": "failed", "child_job_id": child.id, "run_id": child.id})
+            row.update(
+                {
+                    "status": "failed",
+                    "child_job_id": child.id,
+                    "run_id": child.id,
+                    "input_revision_ids": list(inputs),
+                }
+            )
 
         self.service.store.update(run_id, update)
 
