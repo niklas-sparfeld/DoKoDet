@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
@@ -95,3 +97,44 @@ def test_recovery_requires_manager_ownership(tmp_path: Path) -> None:
     with pytest.raises(JobOwnershipError, match="does not own the root"):
         manager._recover()
     assert not (tmp_path / "jobs" / "queue.json").exists()
+
+
+def test_job_logs_survive_active_terminal_concurrent_read_and_restart(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        job = manager.accept(str(uuid4()), request())
+        manager.transition(job.id, "running")
+        manager.append_log(job.id, "active_marker", "active work")
+        assert manager.get(job.id).state == "running"
+        assert manager.logs(job.id)["entries"][-1].code == "active_marker"
+
+        barrier = Barrier(2)
+
+        def append_batch() -> None:
+            barrier.wait()
+            for index in range(128):
+                manager.append_log(job.id, "concurrent", str(index))
+
+        def read_pages() -> None:
+            barrier.wait()
+            for _ in range(256):
+                page = manager.logs(job.id, after=0, limit=500)
+                sequences = [entry.sequence for entry in page["entries"]]
+                assert sequences == sorted(set(sequences))
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            writer = pool.submit(append_batch)
+            reader = pool.submit(read_pages)
+            writer.result()
+            reader.result()
+
+        manager.transition(job.id, "succeeded")
+        terminal_logs = manager.logs(job.id, after=0, limit=500)
+        assert manager.get(job.id).state == "succeeded"
+        assert terminal_logs["entries"][-1].code == "job_succeeded"
+
+    with JobManager(tmp_path, participant) as restarted:
+        assert restarted.get(job.id).state == "succeeded"
+        entries = restarted.logs(job.id, after=0, limit=500)["entries"]
+        assert entries[-1].code == "job_succeeded"
+        assert sum(entry.code == "concurrent" for entry in entries) == 128

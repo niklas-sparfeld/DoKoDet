@@ -28,7 +28,7 @@ Relocation is not reclaimed space. Record physical allocation only when directly
 | Milestone | Observable result / commit boundary | State |
 | --- | --- | --- |
 | M0 | Inventory exact log, recovery-copy, and campaign-intermediate writers; identify retention roots, recovery evidence, and a small candidate scope | Complete; [report](../../reports/0118-M0_Lifecycle_Family_Inventory.md) |
-| M1 | Specify the managed-job operational-log family's retention and recovery contract, or record why no safe bounded policy is justified | Not started |
+| M1 | Specify the managed-job operational-log family's retention and recovery contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M1_Managed_Job_Log_Audit.md) |
 | M2 | Specify one exact recovery-copy family's retention and restore contract, or record why no safe bounded policy is justified | Not started |
 | M3 | Specify one exact campaign-intermediate family's retention and restore contract; keep it separate from recovery copies | Not started |
 | M4 | Implement and verify only the selected contracts, with preserved recovery and human-work evidence | Not started |
@@ -46,21 +46,26 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
 
 ## Execution handoff
 
-- Run: requested 4 milestones; completed 1; 3 remain in this run. M0–M4 are planned; this run
+- Run: requested 4 milestones; completed 2; 2 remain in this run. M0–M4 are planned; this run
   stops at four completed milestones even if work remains.
-- Completed: M0 inventory and family selection. See
-  [0118 M0 report](../../reports/0118-M0_Lifecycle_Family_Inventory.md).
-- Changes: selected the exact accepted-loss migration stage for M2, subject to current-root
-  revalidation. Managed-job `logs.json` remains an M1 audit target because no independent restore
-  source or expiry authority is established. Campaign intermediates remain a separate M3 family.
-- Checks: source cross-reference, focused root-size and existence inspection, and local Markdown
-  link validation are recorded in the M0 report. No data was changed or deleted.
-- Decisions and limits: current ignored job and recovery roots are absent from this checkout, so
-  current sizes, active pins, and a tested live recovery source cannot be confirmed here. The M0
-  report records dated 0115 evidence separately. Physical APFS allocation and off-volume recovery
-  remain unknown.
-- Next: M1 must confirm the active operations root, exact log readers, retention authority, and
-  recovery source before proposing any policy. Keep all unverified logs.
+- Completed: M0 inventory and family selection; M1 managed-job log audit. See the
+  [M0 report](../../reports/0118-M0_Lifecycle_Family_Inventory.md) and
+  [M1 report](../../reports/0118-M1_Managed_Job_Log_Audit.md).
+- Changes: M1 found an existing 1,000-entry rolling window, no per-entry byte bound, and no
+  independent log restore source. It freezes no new expiry or size policy and preserves all log
+  files. M0 selected the accepted-loss migration stage for M2, subject to current-root revalidation.
+  Campaign intermediates remain a separate M3 family.
+- Checks: `mise exec -- uv run --project backend pytest -q backend/tests/test_job_recovery.py`
+  passed (13 tests). M1 added a deterministic case for active and terminal logs, concurrent append
+  and read, and restart. Exact source and current-root evidence are in the M1 report. No stored data
+  was changed or deleted.
+- Decisions and limits: current configured `data/operations/jobs` is absent in this checkout.
+  The active process root, live job set, log sizes, pins, expiry authority, and independent recovery
+  source remain unknown. The existing rolling window is code behavior, not evidence that older
+  entries are disposable. Off-volume recovery and physical APFS allocation remain unknown.
+- Next: M2 must revalidate the selected recovery snapshot, its owner and exact references, and
+  rehearse restore in disposable storage. Preserve the candidate if any source or reference is
+  uncertain.
 
 ## M1 — Specify operational-log retention
 
@@ -71,6 +76,12 @@ unless M0 shows they share the same owner and contract.
 
 Checks: deterministic lifecycle cases cover active work, terminal work, concurrent access, and
 restart. Do not implement until the contract and acceptance evidence are frozen.
+
+Outcome: Complete. The [M1 report](../../reports/0118-M1_Managed_Job_Log_Audit.md) records the
+exact writer and readers, the existing 1,000-entry rolling window, atomic append/read behavior,
+restart behavior, and why no safe expiry or new size policy is justified. A focused test covers
+active and terminal records, concurrent appends and reads, and restart. No data was removed and no
+retention code was changed.
 
 ## M2 — Specify recovery-copy retention
 
