@@ -94,6 +94,20 @@ Checks in this run:
 
 The test client reports the existing Starlette/httpx deprecation warning. No API or browser contract
 changed. Acceptance still scans intents, and scheduler and startup recovery still enumerate queue and
-intent sets. The current five-milestone run has M6b1a complete, four remaining, and 0/10 total
-re-plannings (0/5 for M6b1a). The next milestone is M6b1b. The previous run's two-correction limit
-does not apply to this run.
+intent sets. The current five-milestone run has M6b1a complete, four remaining, 0/10 total
+re-plannings (0/5 for M6b1a), and correction count 1/2. The next milestone is M6b1b. The previous
+run's two-correction limit does not apply to this run.
+
+## Correction 1/2
+
+Review found a crash gap after child acceptance commits and before the parent step stores the child
+ID. Recovery now restores that ID from the exact intent matching the parent's current phase before it
+checks the child's state. It restores the link for both queued and terminal children. If the child is
+still uncommitted, recovery retains the link and wait while it completes acceptance. A conflicting
+link or multiple intents for one phase still fails closed with a diagnostic.
+
+The regression `test_restart_recovers_unlinked_child_and_completes_pipeline` crashes at the durable
+child acceptance commit, restarts the manager, verifies the parent link, dispatches the child to
+succeeded, and verifies the pipeline completes without creating a duplicate child. The terminal-child
+recovery test now starts with an unlinked accepted child and checks link restoration for succeeded,
+failed, interrupted, and cancelled outcomes.

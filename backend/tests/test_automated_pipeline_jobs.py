@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
+
 from dokodetector_backend.automated_pipeline_jobs import AutomatedPipelineJobParticipant
 from dokodetector_backend.job_models import Job
 from dokodetector_backend.job_scheduler import Claims, JobScheduler
@@ -125,10 +127,13 @@ def _participant(run_id: str):
     return document, service, participant
 
 
-def _manager(tmp_path: Path, participant: AutomatedPipelineJobParticipant) -> JobManager:
+def _manager(
+    tmp_path: Path, participant: AutomatedPipelineJobParticipant, *, after_write=None
+) -> JobManager:
     return JobManager(
         tmp_path,
         _Registry(participant),
+        after_write=after_write,
         verify_publication=_Registry.verify_publication,
     )
 
@@ -228,10 +233,16 @@ def test_mixed_recording_pipeline_yields_to_an_independent_leaf_job(tmp_path: Pa
         assert document["status"] == "complete"
 
 
-def test_restart_resumes_an_accepted_child_without_duplicate_creation(tmp_path: Path) -> None:
+def test_restart_recovers_unlinked_child_and_completes_pipeline(tmp_path: Path) -> None:
     run_id = str(uuid4())
     document, _service, participant = _participant(run_id)
-    with _manager(tmp_path, participant) as manager:
+    armed = False
+
+    def crash_after_child_acceptance(point: str) -> None:
+        if armed and point == "commit":
+            raise RuntimeError("crash after child acceptance commit")
+
+    with _manager(tmp_path, participant, after_write=crash_after_child_acceptance) as manager:
         parent = manager.accept(
             str(uuid4()),
             {
@@ -241,17 +252,25 @@ def test_restart_resumes_an_accepted_child_without_duplicate_creation(tmp_path: 
             },
         )
         manager.transition(parent.id, "running")
-        participant.handle(
-            parent, Claims(), type("Token", (), {"check": lambda _self: None})(), manager
-        )
+        armed = True
+        with pytest.raises(RuntimeError, match="crash after child acceptance commit"):
+            participant.handle(
+                manager.get(parent.id),
+                Claims(),
+                type("Token", (), {"check": lambda _self: None})(),
+                manager,
+            )
         parent = manager.get(parent.id)
         assert parent.phase == "event_proposals"
-        assert parent.steps[0].child_job_id is not None
+        assert parent.steps[0].child_job_id is None
         before = [job for job in manager.list_jobs() if job.parent_id == parent.id]
         assert len(before) == 1
+        child_id = before[0].id
+        assert before[0].state == "queued"
 
     with _manager(tmp_path, participant) as manager:
         parent = manager.get(parent.id)
+        assert parent.steps[0].child_job_id == child_id
 
         def handle(job: Job, _claims: Claims, token) -> None:
             if job.type == "automated_pipeline":

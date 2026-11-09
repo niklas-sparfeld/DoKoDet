@@ -11,6 +11,7 @@ from dokodetector_backend.job_models import (
     Publication,
     Queue,
     QueueGroup,
+    Step,
     _now,
 )
 
@@ -154,9 +155,6 @@ class JobRecovery:
                 )
                 continue
             child_intent = current_children[0] if current_children else None
-            if child_intent is not None and not child_intent.committed:
-                # Keep the exact wait while acceptance recovery finishes this child.
-                continue
             if (
                 child_intent is not None
                 and waiting_step is not None
@@ -174,6 +172,24 @@ class JobRecovery:
                 parent.updated_at = _now()
                 parent.revision += 1
                 self.operations.write_job(parent)
+                continue
+            if waiting_step is None:
+                if parent.phase is None:
+                    self.operations.diagnostic(
+                        f"pipeline {parent.id} has a child without a waiting phase"
+                    )
+                    continue
+                waiting_step = Step(id=parent.phase, label=parent.phase)
+                parent.steps.append(waiting_step)
+            if waiting_step.child_job_id is None:
+                # Acceptance commits before the pipeline writes this link. Restore
+                # the exact child before interpreting its state or dispatching work.
+                waiting_step.child_job_id = child_intent.job.id
+                parent.updated_at = _now()
+                parent.revision += 1
+                self.operations.write_job(parent)
+            if not child_intent.committed:
+                # Keep the exact wait while acceptance recovery completes this child.
                 continue
             terminal_child = self.operations.get(child_intent.job.id)
             if terminal_child.state not in _TERMINAL:

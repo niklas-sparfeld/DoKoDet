@@ -282,13 +282,17 @@ while history and unrelated recordings grow 10x.
 
 - Current run: requested 5 milestones; completed 1 (M6b1a); remaining 4. Cumulative progress is
   10 of 14 planned milestones. M7–M16 remain outside this run.
-- Next: M6b1b. Current-run re-planning: 0/10 total and 0/5 for M6b1a; correction count: 0/2.
+- Next: M6b1b. Current-run re-planning: 0/10 total and 0/5 for M6b1a; correction count: 1/2.
   The previous run's correction limit does not apply to this run. M6b1a now writes the automated
   pipeline's current `phase` and pending step before entering `waiting`. Startup recovery resolves
   only the child intent for that phase. If no child intent exists, it requeues the parent; if the
   matching child intent is still pending, it keeps the wait while acceptance recovery completes.
   A terminal child from an earlier phase cannot release the current wait. Targeted crash/restart
   regressions pass in `backend/tests/test_job_recovery.py`.
+- Correction 1/2 restores the parent step's child ID from the exact matching child intent if a crash
+  occurs after child acceptance commits but before the parent link write. Recovery then resolves an
+  already-terminal child against that restored link. An end-to-end restart regression proves the
+  pipeline completes through the terminal outcome without duplicate child creation.
 - M6b1a checks in this run: backend job/API/pipeline suite (78 passed), projection authority suite
   (23 passed), Ruff check and format check passed. The suite reports an existing Starlette/httpx
   deprecation warning. The earlier M6b1a report records the queue growth, journal-boundary,

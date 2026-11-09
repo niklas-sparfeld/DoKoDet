@@ -129,6 +129,10 @@ def test_waiting_parent_recovery_matches_child_terminal_transition(
         )
         other = manager.accept(str(uuid4()), request())
         manager.transition(parent.id, "running")
+        parent_job = manager.get(parent.id)
+        parent_job.phase = "first"
+        parent_job.steps.append(Step(id="first", label="first"))
+        manager._write_job(parent_job)
         manager.transition(parent.id, "waiting")
         child = manager.accept(
             str(uuid4()),
@@ -150,10 +154,6 @@ def test_waiting_parent_recovery_matches_child_terminal_transition(
                 "parent_step_id": "next",
             },
         )
-        parent_job = manager.get(parent.id)
-        parent_job.phase = "first"
-        parent_job.steps.append(Step(id="first", label="first", child_job_id=child.id))
-        manager._write_job(parent_job)
         child_id = child.id
         manager.transition(child.id, "running")
         if child_terminal_state == "cancelled":
@@ -164,6 +164,7 @@ def test_waiting_parent_recovery_matches_child_terminal_transition(
 
     with JobManager(tmp_path, participant) as manager:
         assert manager.get(parent.id).state == expected_parent_state
+        assert manager.get(parent.id).steps[0].child_job_id == child.id
         assert manager.get(child.id).state == child_terminal_state
         if expected_parent_state == "cancelled":
             assert manager.queue().job_ids == [other.id]
