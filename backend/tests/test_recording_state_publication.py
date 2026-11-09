@@ -282,6 +282,68 @@ def test_snapshot_history_recovery_fails_closed_on_corrupt_committed_source(tmp_
     assert RecordingHistoryStore(tmp_path).get_authority(snapshot.recording_id).sequence == 0
 
 
+def test_missing_snapshot_source_after_history_commit_retains_outbox(
+    tmp_path: Path,
+) -> None:
+    from test_recording_state_store import _snapshot
+
+    snapshot = _snapshot()
+    store = RecordingStateSnapshotStore(tmp_path)
+
+    def stop_after_history(boundary: str) -> None:
+        if boundary == "history_published":
+            raise RuntimeError("stop after history commit")
+
+    store._after_durable_boundary = stop_after_history
+    with pytest.raises(RuntimeError, match="history commit"):
+        store.put(snapshot)
+
+    outbox = store._snapshot_history_outbox_path(snapshot.recording_id)
+    shutil.rmtree(store.snapshot_path(snapshot.recording_id, snapshot.snapshot_id))
+    with pytest.raises(RecordingSnapshotCorrupt, match="published snapshot source is missing"):
+        store.reconcile_snapshot_history_outbox(snapshot.recording_id)
+
+    assert outbox.exists()
+    history = RecordingHistoryStore(tmp_path)
+    assert history.get_authority(snapshot.recording_id).sequence == 1
+    published = history.read_item(snapshot.recording_id, "snapshots", snapshot.snapshot_id)
+    assert published.snapshot_id == snapshot.snapshot_id
+
+
+@pytest.mark.parametrize("payload_kind", ["missing", "symlink", "directory"])
+def test_snapshot_history_recovery_requires_regular_payload_without_reading_it(
+    tmp_path: Path, payload_kind: str
+) -> None:
+    from test_recording_state_store import _snapshot
+
+    snapshot = _snapshot()
+    store = RecordingStateSnapshotStore(tmp_path)
+
+    def stop_after_source(boundary: str) -> None:
+        if boundary == "snapshot":
+            raise RuntimeError("stop after source commit")
+
+    store._after_durable_boundary = stop_after_source
+    with pytest.raises(RuntimeError, match="source commit"):
+        store.put(snapshot)
+
+    snapshot_path = (
+        store.snapshot_path(snapshot.recording_id, snapshot.snapshot_id) / "snapshot.json"
+    )
+    snapshot_path.unlink()
+    if payload_kind == "symlink":
+        target = tmp_path / "outside-snapshot.json"
+        target.write_text("{}", encoding="utf-8")
+        snapshot_path.symlink_to(target)
+    elif payload_kind == "directory":
+        snapshot_path.mkdir()
+
+    with pytest.raises(RecordingSnapshotCorrupt, match="source identity"):
+        store.reconcile_snapshot_history_outbox(snapshot.recording_id)
+    assert store._snapshot_history_outbox_path(snapshot.recording_id).exists()
+    assert RecordingHistoryStore(tmp_path).get_authority(snapshot.recording_id).sequence == 0
+
+
 def test_concurrent_snapshot_publishers_preserve_both_exact_history_items(tmp_path: Path) -> None:
     from test_recording_state_store import _snapshot
 

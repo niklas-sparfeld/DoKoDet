@@ -18,8 +18,12 @@ sequence and publishes idempotently. The outbox is removed only after history pu
 parent directory is synced.
 
 Replay can name only one recording's outbox. If that intent has no committed source directory,
-replay clears it. If the source directory or metadata is corrupt, does not match the exact intent,
-or uses a symlink, replay fails closed and keeps the intent. A history page first validates that
+replay checks the exact snapshot history address before it clears the intent. If history already
+contains that item, a missing source is corruption and the intent remains. If no published item
+exists, the missing source proves that staging did not commit, and replay clears the intent. If the
+source directory or metadata is corrupt, does not match the exact intent, or uses a symlink, replay
+fails closed and keeps the intent. Replay also uses `lstat` to require `snapshot.json` to be a
+regular file. It does not read the payload. A history page first validates that
 the recording exists, then replays its snapshot intent. A page request does not scan snapshots or
 read their payloads. A later exact snapshot read still validates the payload bytes and digest.
 
@@ -34,6 +38,9 @@ storage; retained-state conversion remains part of M12.
 - Two processes publish separate snapshots for one recording. Both exact items are present at history sequence two.
 - A real history API request recovers a simulated durable snapshot-to-index gap. The test rejects every snapshot payload read during that recovery. Separate child-process tests prove restart recovery at each boundary.
 - Corrupt outbox/source identity remains pending and does not advance history authority.
+- Correction 1/2 checks the exact bounded history item before it clears a missing source. If a
+  committed history item exists, replay fails closed and retains the intent. Tests also reject a
+  missing, symlinked, or non-regular payload path without reading payload bytes.
 - Ruff check, Ruff format check, `git diff --check`, and `npm run verify:api` — passed.
 - The OpenAPI schema did not change. Browser checks do not apply because no web consumer changed. The backend has no configured type-check command.
 

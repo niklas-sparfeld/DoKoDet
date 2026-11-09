@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from threading import RLock
@@ -515,12 +516,35 @@ class RecordingStateSnapshotStore:
         if source_path.is_symlink():
             raise RecordingSnapshotCorrupt("published snapshot path cannot be a symlink")
         if not source_path.exists():
-            # The intent is durable before the staged directory commit. Missing source is the
-            # only state that proves the snapshot write did not commit.
+            # A missing source proves that staging did not commit only when history has no exact
+            # published item. Check its bounded address before discarding the intent.
+            from dokodetector_backend.recording_history_store import RecordingHistoryStore
+
+            try:
+                published = RecordingHistoryStore(self.operations_root).read_item(
+                    recording_id, "snapshots", item.item_key
+                )
+            except FileNotFoundError:
+                published = None
+            except ValueError as error:
+                raise RecordingSnapshotCorrupt(
+                    "snapshot history authority is corrupt; intent is retained"
+                ) from error
+            if published is not None:
+                if published.model_copy(update={"publication_sequence": 1}) != item:
+                    raise RecordingSnapshotCorrupt(
+                        "missing snapshot has conflicting published history metadata"
+                    )
+                raise RecordingSnapshotCorrupt(
+                    "published snapshot source is missing; history intent is retained"
+                )
             self._clear_snapshot_history_outbox(path)
             self._snapshot_history_boundary("history_outbox_cleared")
             return
         try:
+            snapshot_path = source_path / "snapshot.json"
+            if not stat.S_ISREG(snapshot_path.lstat().st_mode):
+                raise ValueError("snapshot payload must be a regular file")
             metadata_path = source_path / "metadata.json"
             if metadata_path.is_symlink():
                 raise ValueError("snapshot source metadata cannot be a symlink")

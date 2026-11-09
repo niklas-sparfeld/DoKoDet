@@ -296,15 +296,19 @@ while history and unrelated recordings grow 10x.
   the exact snapshot ID, content digest, predecessor, and compact stage metadata before the
   snapshot directory commits. Replay validates the committed metadata without reading snapshot
   payloads, publishes the exact history item idempotently, and clears the outbox with a directory
-  sync. A history page replays only its named recording's pending snapshot entry. Missing source
-  proves that the staged write did not commit; malformed intent, source metadata mismatch, and
-  symlink paths fail closed. An exact repeated `put` can publish a legacy source without listing
+  sync. A history page replays only its named recording's pending snapshot entry. A missing source
+  is discarded only when its exact history item is absent; an already-published item with a missing
+  source fails closed and retains the intent. Malformed intent, source metadata mismatch, and
+  symlink paths fail closed. Replay also requires a regular, non-symlink snapshot payload without
+  reading it. An exact repeated `put` can publish a legacy source without listing
   storage. Retained snapshots without writer intents remain for the M12 rehearsal.
   Child-process stops cover before source commit, after source commit, and after history commit.
   Two-process writers preserve both items. The real history API recovery check forbids snapshot
   payload reads. Focused snapshot/history/store/workflow tests, Ruff, OpenAPI verification, and
   `git diff --check` passed. Browser and type checks do not apply: no web consumer or OpenAPI
-  contract changed, and backend has no configured type checker. M5c2 correction count: 0/2. See
+  contract changed, and backend has no configured type checker. M5c2 correction count: 1/2. The
+  correction verifies exact history evidence before dropping a missing source and rejects missing,
+  symlinked, or non-regular snapshot payload paths without reading payload bytes. See
   the [M5c2 report](../../reports/0117-M5c2_Recording_Snapshot_History_Publisher.md).
 - M5c evidence: no web consumer calls the candidates endpoint. Existing UI candidates are embedded
   card/identity proposals or comparison values, not exact persisted resources. Competing meanings

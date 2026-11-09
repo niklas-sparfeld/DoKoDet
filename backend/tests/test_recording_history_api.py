@@ -166,7 +166,9 @@ def test_all_collections_use_collection_specific_stable_order(tmp_path: Path):
         assert keys == sorted(keys)
 
 
-def test_snapshot_history_page_recovers_durable_source_gap(tmp_path: Path):
+def test_snapshot_history_page_recovers_durable_source_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     app = _create_app(tmp_path)
     state_store = app.state.recording_state_store
     payload = _recording_snapshot().model_dump(mode="json")
@@ -195,6 +197,18 @@ def test_snapshot_history_page_recovers_durable_source_gap(tmp_path: Path):
         raise AssertionError("history recovery read a snapshot payload")
 
     state_store.get = fail_if_snapshot_payload_is_read
+    snapshot_payload_path = (
+        state_store.snapshot_path(RECORDING, snapshot.snapshot_id) / "snapshot.json"
+    )
+    path_type = type(snapshot_payload_path)
+    original_read_bytes = path_type.read_bytes
+
+    def forbid_snapshot_payload_read(path: Path) -> bytes:
+        if path == snapshot_payload_path:
+            raise AssertionError("history recovery read snapshot.json")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(path_type, "read_bytes", forbid_snapshot_payload_read)
 
     page = TestClient(app).get(f"/api/recordings/{RECORDING}/state/history")
     assert page.status_code == 200
