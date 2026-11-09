@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from dokodetector_backend.recording_history_order_index import RecordingHistoryOrderIndex
 from dokodetector_backend.recording_history_store import (
     RecordingHistoryConflict,
     RecordingHistoryCorrupt,
@@ -439,6 +440,94 @@ def test_rebuild_validates_generation_before_switching_active_pointer(
 
     assert store.get_authority("recording-1").generation == original_generation
     assert store.get_authority("recording-1").sequence == 0
+
+
+def test_rebuild_rejects_missing_node_exclusive_to_historical_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    store = RecordingHistoryStore(tmp_path)
+    store.publish("recording-1", _snapshot("snapshot-old"))
+    original_generation = store.get_authority("recording-1").generation
+    original_validate = store._validate_generation
+    items = [_snapshot(f"snapshot-{index}", byte) for index, byte in enumerate("f180a3c")]
+
+    def remove_historical_node(recording_id: str, generation: str, root: Path) -> None:
+        index = RecordingHistoryOrderIndex(root)
+        latest = index.read_roots(len(items))["snapshots"]
+        assert latest is not None
+        latest_nodes: set[str] = set()
+        stack = [latest]
+        while stack:
+            node_id = stack.pop()
+            if node_id in latest_nodes:
+                continue
+            latest_nodes.add(node_id)
+            node = index._load_node(node_id)
+            stack.extend(child for child in (node["left"], node["right"]) if child is not None)
+
+        exclusive: set[str] = set()
+        for sequence in range(1, len(items)):
+            historical = index.read_roots(sequence)["snapshots"]
+            assert historical is not None
+            historical_nodes: set[str] = set()
+            stack = [historical]
+            while stack:
+                node_id = stack.pop()
+                if node_id in historical_nodes:
+                    continue
+                historical_nodes.add(node_id)
+                node = index._load_node(node_id)
+                stack.extend(child for child in (node["left"], node["right"]) if child is not None)
+            exclusive = historical_nodes - latest_nodes
+            if exclusive:
+                break
+        assert exclusive
+        (index.nodes_root / f"{sorted(exclusive)[0]}.json").unlink()
+        original_validate(recording_id, generation, root)
+
+    monkeypatch.setattr(store, "_validate_generation", remove_historical_node)
+    with pytest.raises(RecordingHistoryCorrupt, match="history order index failed validation"):
+        store.rebuild("recording-1", items)
+
+    assert store.get_authority("recording-1").generation == original_generation
+    assert store.get_authority("recording-1").sequence == 1
+
+
+def test_rebuild_rejects_valid_root_with_wrong_historical_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    store = RecordingHistoryStore(tmp_path)
+    store.publish("recording-1", _snapshot("snapshot-old"))
+    original_generation = store.get_authority("recording-1").generation
+    original_validate = store._validate_generation
+    items = [_snapshot(f"snapshot-{index}", byte) for index, byte in enumerate("f180")]
+
+    def replace_historical_membership(recording_id: str, generation: str, root: Path) -> None:
+        index = RecordingHistoryOrderIndex(root)
+        later_roots = index.read_roots(len(items))
+        payload = {
+            "schema_version": "recording-history-order-root/v1",
+            "sequence": 1,
+            "roots": later_roots,
+        }
+        canonical = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        ).encode()
+        document = {
+            **payload,
+            "sha256": hashlib.sha256(canonical).hexdigest(),
+        }
+        index._root_path(1).write_bytes(
+            json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+        )
+        original_validate(recording_id, generation, root)
+
+    monkeypatch.setattr(store, "_validate_generation", replace_historical_membership)
+    with pytest.raises(RecordingHistoryCorrupt, match="history order index failed validation"):
+        store.rebuild("recording-1", items)
+
+    assert store.get_authority("recording-1").generation == original_generation
+    assert store.get_authority("recording-1").sequence == 1
 
 
 def test_missing_active_pointer_does_not_discard_existing_generation(tmp_path: Path):

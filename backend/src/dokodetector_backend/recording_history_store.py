@@ -529,7 +529,7 @@ class RecordingHistoryStore:
             raise RecordingHistoryCorrupt("history generation does not match its authority")
         try:
             index = RecordingHistoryOrderIndex(root)
-            roots = [index.read_roots(sequence) for sequence in range(authority.sequence + 1)]
+            index.validate_prefixes(sorted(observed, key=lambda item: item.publication_sequence))
             indexed_entries = index.validate_latest(authority.sequence)
         except (OSError, ValueError) as error:
             raise RecordingHistoryCorrupt("history order index failed validation") from error
@@ -545,7 +545,7 @@ class RecordingHistoryStore:
             )
             for collection in ("snapshots", "revisions", "candidates", "lineage_edges")
         }
-        if indexed_entries != expected_entries or len(roots) != authority.sequence + 1:
+        if indexed_entries != expected_entries:
             raise RecordingHistoryCorrupt("history order index does not match its metadata")
 
     def _after_boundary(self, boundary: str) -> None:

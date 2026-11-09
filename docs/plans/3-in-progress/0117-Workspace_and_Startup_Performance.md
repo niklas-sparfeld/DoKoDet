@@ -186,7 +186,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Complete; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5a | Durable shared history authority and rebuild contract | Complete; [report](../../reports/0117-M5a_History_Authority.md) |
 | M5b | Bounded history API pages over the durable metadata index | Incomplete; split by replan 6 |
-| M5b1 | Ordered cursor-addressable history index with atomic publication and rebuild | Complete; [report](../../reports/0117-M5b1_Ordered_History_Index.md) |
+| M5b1 | Ordered cursor-addressable history index with atomic publication and rebuild | Complete; correction 1/2; [report](../../reports/0117-M5b1_Ordered_History_Index.md) |
 | M5b2 | M1-compliant pages, signed cursors, lineage continuation, corruption mapping | Not started; depends on M5b1 |
 | M5c | Source publisher adapters and durable-to-index gap reconciliation | Not started; candidate source must be identified |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
@@ -236,10 +236,10 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 1; remaining: 13. The cap covers
+- Requested run: 14 milestones, starting at M5a; completed: 2; remaining: 12. The cap covers
   M5a, M5b1, M5b2, M5c, and M6–M15; M16 is outside this run.
 - Next milestone: M5b2. M5b replan count: 1/5; this run replan count: 1/10. M5b1 correction
-  count: 0/5. Previous-run
+  count: 1/5. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
@@ -314,12 +314,15 @@ while history and unrelated recordings grow 10x.
 - M5b1 result: the store writes immutable AVL index nodes and a collection-root snapshot for every
   authority sequence. Each root contains the complete M1 order for snapshots, revisions, candidates,
   and lineage edges. Publication writes the item and index before advancing authority; recovery
-  retries that sequence. Rebuild creates and validates every sequence root before it changes the
-  active generation. The old unaccepted page route and full-scan method are removed.
-- M5b1 checks: 49 focused index, store, contract, and workflow tests passed. They cover stable
+  retries that sequence. Rebuild simulates every publication in memory and checks each root against
+  its exact prefix, then validates nodes reachable from all historical roots before it changes the
+  active generation. This detects missing nodes exclusive to an older tree and checksum-valid roots
+  with the wrong prefix. The old unaccepted page route and full-scan method are removed.
+- M5b1 checks: focused index, store, contract, and workflow tests passed. They cover stable
   order for all collections, exact lineage continuation keys, a later insertion sorting before a
   frozen cursor, bounded tree and metadata reads at 256 items, corruption checks, actual child
-  process death after item/index/authority publication, restart, and rebuild. Ruff, OpenAPI
+  process death after item/index/authority publication, restart, rebuild, missing historical-only
+  nodes, and checksum-valid wrong historical membership rejected before activation. Ruff, OpenAPI
   generation/verification, and `git diff --check` passed. A temporary 256-item local probe measured
   2,296 immutable nodes, 257 sequence roots, and 816,428 index bytes. See the
   [M5b1 report](../../reports/0117-M5b1_Ordered_History_Index.md).

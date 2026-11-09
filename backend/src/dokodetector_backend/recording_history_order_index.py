@@ -158,6 +158,71 @@ class RecordingHistoryOrderIndex:
             entries[collection] = collection_entries
         return entries
 
+    def validate_prefixes(self, items: Sequence[HistoryItem]) -> None:
+        """Validate every sequence root as the exact prefix of published items.
+
+        Simulated insertions use an in-memory node overlay. This checks the root transition
+        without writing to the generation being validated. A second pass loads the union of
+        nodes reachable from all historical roots, including nodes that later rotations no
+        longer reference.
+        """
+        roots = self.read_roots(0)
+        if roots != {collection: None for collection in _COLLECTIONS}:
+            raise ValueError("history order sequence zero is not empty")
+
+        items_by_sequence = sorted(items, key=lambda item: item.publication_sequence)
+        if [item.publication_sequence for item in items_by_sequence] != list(
+            range(1, len(items_by_sequence) + 1)
+        ):
+            raise ValueError("history items do not form a complete sequence")
+
+        all_roots = [roots]
+        for item in items_by_sequence:
+            sequence = item.publication_sequence
+            previous = roots
+            expected = dict(previous)
+            collection = self._collection(item)
+            overlay: dict[str, dict[str, Any]] = {}
+            expected[collection] = self._insert(
+                previous[collection],
+                stable_history_key(item),
+                item.item_key,
+                sequence,
+                overlay,
+            )
+            roots = self.read_roots(sequence)
+            if roots != expected:
+                raise ValueError(f"history order root {sequence} is not the exact prefix")
+            all_roots.append(roots)
+
+        self._validate_reachable_nodes(all_roots)
+
+    def _validate_reachable_nodes(self, roots: Sequence[dict[str, str | None]]) -> None:
+        checked: dict[str, tuple[tuple[str, ...], tuple[str, ...], int]] = {}
+
+        def visit(node_id: str) -> tuple[tuple[str, ...] | None, tuple[str, ...] | None, int]:
+            if node_id in checked:
+                return checked[node_id]
+            node = self._load_node(node_id)
+            left_bounds = (None, None, 0) if node["left"] is None else visit(node["left"])
+            right_bounds = (None, None, 0) if node["right"] is None else visit(node["right"])
+            key = tuple(node["key"])
+            if (
+                (left_bounds[1] is not None and left_bounds[1] >= key)
+                or (right_bounds[0] is not None and right_bounds[0] <= key)
+                or node["height"] != max(left_bounds[2], right_bounds[2]) + 1
+                or abs(left_bounds[2] - right_bounds[2]) > 1
+            ):
+                raise ValueError("history order node tree is inconsistent")
+            bounds = left_bounds[0] or key, right_bounds[1] or key, node["height"]
+            checked[node_id] = bounds
+            return bounds
+
+        for root_record in roots:
+            for root in root_record.values():
+                if root is not None:
+                    visit(root)
+
     def _write_roots(self, sequence: int, roots: dict[str, str | None]) -> None:
         if set(roots) != set(_COLLECTIONS):
             raise ValueError("history order roots have an invalid collection set")
@@ -181,7 +246,11 @@ class RecordingHistoryOrderIndex:
     def _node_path(self, node_id: str) -> Path:
         return contained_path(self.nodes_root, f"{node_id}.json")
 
-    def _load_node(self, node_id: str) -> dict[str, Any]:
+    def _load_node(
+        self, node_id: str, overlay: dict[str, dict[str, Any]] | None = None
+    ) -> dict[str, Any]:
+        if overlay is not None and node_id in overlay:
+            return overlay[node_id]
         path = self._node_path(node_id)
         try:
             raw = path.read_bytes()
@@ -220,18 +289,22 @@ class RecordingHistoryOrderIndex:
         sequence: int,
         left: str | None,
         right: str | None,
+        overlay: dict[str, dict[str, Any]] | None = None,
     ) -> str:
         node = {
             "schema_version": _NODE_SCHEMA,
             "key": list(key),
             "item_key": item_key,
             "sequence": sequence,
-            "height": max(self._height(left), self._height(right)) + 1,
+            "height": max(self._height(left, overlay), self._height(right, overlay)) + 1,
             "left": left,
             "right": right,
         }
         raw = _canonical(node)
         node_id = hashlib.sha256(raw).hexdigest()
+        if overlay is not None:
+            overlay[node_id] = node
+            return node_id
         path = self._node_path(node_id)
         if path.exists():
             if self._load_node(node_id) != node:
@@ -240,8 +313,8 @@ class RecordingHistoryOrderIndex:
             atomic_replace_json(path, node)
         return node_id
 
-    def _height(self, root: str | None) -> int:
-        return 0 if root is None else self._load_node(root)["height"]
+    def _height(self, root: str | None, overlay: dict[str, dict[str, Any]] | None = None) -> int:
+        return 0 if root is None else self._load_node(root, overlay)["height"]
 
     @staticmethod
     def _valid_node_id(value: Any) -> bool:
@@ -267,63 +340,67 @@ class RecordingHistoryOrderIndex:
         key: tuple[str, ...],
         item_key: str,
         sequence: int,
+        overlay: dict[str, dict[str, Any]] | None = None,
     ) -> str:
         if root is None:
-            return self._save_node(key, item_key, sequence, None, None)
-        node = self._load_node(root)
+            return self._save_node(key, item_key, sequence, None, None, overlay)
+        node = self._load_node(root, overlay)
         node_key = tuple(node["key"])
         if key == node_key:
             raise ValueError("duplicate stable history key")
         if key < node_key:
-            left = self._insert(node["left"], key, item_key, sequence)
+            left = self._insert(node["left"], key, item_key, sequence, overlay)
             updated = self._save_node(
-                node_key, node["item_key"], node["sequence"], left, node["right"]
+                node_key, node["item_key"], node["sequence"], left, node["right"], overlay
             )
         else:
-            right = self._insert(node["right"], key, item_key, sequence)
+            right = self._insert(node["right"], key, item_key, sequence, overlay)
             updated = self._save_node(
-                node_key, node["item_key"], node["sequence"], node["left"], right
+                node_key, node["item_key"], node["sequence"], node["left"], right, overlay
             )
-        return self._balance(updated)
+        return self._balance(updated, overlay)
 
-    def _balance(self, root: str) -> str:
-        node = self._load_node(root)
-        balance = self._height(node["left"]) - self._height(node["right"])
+    def _balance(self, root: str, overlay: dict[str, dict[str, Any]] | None = None) -> str:
+        node = self._load_node(root, overlay)
+        balance = self._height(node["left"], overlay) - self._height(node["right"], overlay)
         if balance > 1:
-            left = self._load_node(node["left"])
-            if self._height(left["left"]) < self._height(left["right"]):
-                rotated_left = self._rotate_left(node["left"])
+            left = self._load_node(node["left"], overlay)
+            if self._height(left["left"], overlay) < self._height(left["right"], overlay):
+                rotated_left = self._rotate_left(node["left"], overlay)
                 root = self._save_node(
                     tuple(node["key"]),
                     node["item_key"],
                     node["sequence"],
                     rotated_left,
                     node["right"],
+                    overlay,
                 )
-            return self._rotate_right(root)
+            return self._rotate_right(root, overlay)
         if balance < -1:
-            right = self._load_node(node["right"])
-            if self._height(right["right"]) < self._height(right["left"]):
-                rotated_right = self._rotate_right(node["right"])
+            right = self._load_node(node["right"], overlay)
+            if self._height(right["right"], overlay) < self._height(right["left"], overlay):
+                rotated_right = self._rotate_right(node["right"], overlay)
                 root = self._save_node(
                     tuple(node["key"]),
                     node["item_key"],
                     node["sequence"],
                     node["left"],
                     rotated_right,
+                    overlay,
                 )
-            return self._rotate_left(root)
+            return self._rotate_left(root, overlay)
         return root
 
-    def _rotate_left(self, root: str) -> str:
-        node = self._load_node(root)
-        pivot = self._load_node(node["right"])
+    def _rotate_left(self, root: str, overlay: dict[str, dict[str, Any]] | None = None) -> str:
+        node = self._load_node(root, overlay)
+        pivot = self._load_node(node["right"], overlay)
         new_left = self._save_node(
             tuple(node["key"]),
             node["item_key"],
             node["sequence"],
             node["left"],
             pivot["left"],
+            overlay,
         )
         return self._save_node(
             tuple(pivot["key"]),
@@ -331,17 +408,19 @@ class RecordingHistoryOrderIndex:
             pivot["sequence"],
             new_left,
             pivot["right"],
+            overlay,
         )
 
-    def _rotate_right(self, root: str) -> str:
-        node = self._load_node(root)
-        pivot = self._load_node(node["left"])
+    def _rotate_right(self, root: str, overlay: dict[str, dict[str, Any]] | None = None) -> str:
+        node = self._load_node(root, overlay)
+        pivot = self._load_node(node["left"], overlay)
         new_right = self._save_node(
             tuple(node["key"]),
             node["item_key"],
             node["sequence"],
             pivot["right"],
             node["right"],
+            overlay,
         )
         return self._save_node(
             tuple(pivot["key"]),
@@ -349,6 +428,7 @@ class RecordingHistoryOrderIndex:
             pivot["sequence"],
             pivot["left"],
             new_right,
+            overlay,
         )
 
     def _ordered_after(
