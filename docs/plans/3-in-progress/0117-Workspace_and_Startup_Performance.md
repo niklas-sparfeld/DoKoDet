@@ -196,7 +196,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M5b2 | M1-compliant pages, signed cursors, lineage continuation, corruption mapping | Complete; [report](../../reports/0117-M5b2_M1_Compliant_History_Pages.md) |
 | M5c | Source publisher adapters, gap reconciliation, and candidate-source decision | Incomplete; split by replan 7 |
 | M5c1 | Pipeline node revision publisher with bounded crash-gap recovery | Complete; [report](../../reports/0117-M5c1_Node_Revision_History_Publisher.md) |
-| M5c2 | Recording snapshot publisher with bounded crash-gap recovery | Not started |
+| M5c2 | Recording snapshot publisher with bounded crash-gap recovery | Complete; [report](../../reports/0117-M5c2_Recording_Snapshot_History_Publisher.md) |
 | M5c3 | Pipeline lineage run and edge publisher with bounded crash-gap recovery | Not started; candidate meaning remains unresolved |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
@@ -245,9 +245,9 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 4; remaining: 10. The cap covers
+- Requested run: 14 milestones, starting at M5a; completed: 5; remaining: 9. The cap covers
   M5a, M5b1, M5b2, M5c1–M5c3, and M6–M13. M14–M16 are outside this run.
-- Next milestone: M5c2. M5c replan count: 1/5; this run replan count: 2/10. M5b replan count: 1/5; M5b1 correction
+- Next milestone: M5c3. M5c replan count: 1/5; this run replan count: 2/10. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
@@ -291,12 +291,27 @@ while history and unrelated recordings grow 10x.
   authority proves the revision was committed. Reconciliation drops a missing revision only when no
   commit evidence exists. A missing uncommitted revision regression confirms the outbox can still
   clear safely. Focused tests, Ruff checks, format, diff, and link checks pass.
+- M5c2 result: complete for snapshots written through `RecordingStateSnapshotStore.put`. The
+  per-recording process lock protects one durable snapshot-history outbox entry. The entry binds
+  the exact snapshot ID, content digest, predecessor, and compact stage metadata before the
+  snapshot directory commits. Replay validates the committed metadata without reading snapshot
+  payloads, publishes the exact history item idempotently, and clears the outbox with a directory
+  sync. A history page replays only its named recording's pending snapshot entry. Missing source
+  proves that the staged write did not commit; malformed intent, source metadata mismatch, and
+  symlink paths fail closed. An exact repeated `put` can publish a legacy source without listing
+  storage. Retained snapshots without writer intents remain for the M12 rehearsal.
+  Child-process stops cover before source commit, after source commit, and after history commit.
+  Two-process writers preserve both items. The real history API recovery check forbids snapshot
+  payload reads. Focused snapshot/history/store/workflow tests, Ruff, OpenAPI verification, and
+  `git diff --check` passed. Browser and type checks do not apply: no web consumer or OpenAPI
+  contract changed, and backend has no configured type checker. M5c2 correction count: 0/2. See
+  the [M5c2 report](../../reports/0117-M5c2_Recording_Snapshot_History_Publisher.md).
 - M5c evidence: no web consumer calls the candidates endpoint. Existing UI candidates are embedded
   card/identity proposals or comparison values, not exact persisted resources. Competing meanings
   remain: all pipeline revisions (duplicates `/revisions`), outputs from successful/partial lineage
   runs, or embedded proposals (not independent exact resources). No meaning is selected. Do not
-  alias candidate pages to revisions. M5c2 snapshot publication and M5c3 lineage publication are
-  still open; discovery remains incomplete.
+  alias candidate pages to revisions. M5c3 lineage publication remains open; discovery remains
+  incomplete.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
   selection reads do the same; selection writes take the root lock before their selection lock.

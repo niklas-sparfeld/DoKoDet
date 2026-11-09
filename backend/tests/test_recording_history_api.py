@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from test_recording_state_store import _snapshot as _recording_snapshot
 
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
@@ -163,6 +164,42 @@ def test_all_collections_use_collection_specific_stable_order(tmp_path: Path):
             for item in items
         ]
         assert keys == sorted(keys)
+
+
+def test_snapshot_history_page_recovers_durable_source_gap(tmp_path: Path):
+    app = _create_app(tmp_path)
+    state_store = app.state.recording_state_store
+    payload = _recording_snapshot().model_dump(mode="json")
+    payload["recording_id"] = RECORDING
+    payload.pop("snapshot_id")
+    payload["snapshot_id"] = (
+        "rs_"
+        + hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        ).hexdigest()
+    )
+    from dokodetector_backend.recording_state_contract import RecordingStateSnapshot
+
+    snapshot = RecordingStateSnapshot.model_validate(payload)
+
+    def stop_after_source(boundary: str) -> None:
+        if boundary == "snapshot":
+            raise RuntimeError("simulated stop after source commit")
+
+    state_store._after_durable_boundary = stop_after_source
+    with pytest.raises(RuntimeError, match="after source commit"):
+        state_store.put(snapshot)
+    assert app.state.recording_history_store.get_authority(RECORDING).sequence == 0
+
+    def fail_if_snapshot_payload_is_read(*_args, **_kwargs):
+        raise AssertionError("history recovery read a snapshot payload")
+
+    state_store.get = fail_if_snapshot_payload_is_read
+
+    page = TestClient(app).get(f"/api/recordings/{RECORDING}/state/history")
+    assert page.status_code == 200
+    assert [item["snapshot_id"] for item in page.json()["items"]] == [snapshot.snapshot_id]
+    assert app.state.recording_history_store.get_authority(RECORDING).sequence == 1
 
 
 def test_cursor_tamper_request_binding_and_expiry(tmp_path: Path):

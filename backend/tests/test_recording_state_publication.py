@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from test_recording_state_store import _snapshot
 
+from dokodetector_backend.recording_history_store import RecordingHistoryStore
 from dokodetector_backend.recording_state_contract import RecordingHeadUpdate
 from dokodetector_backend.recording_state_store import (
     RecordingHeadConflict,
@@ -73,6 +74,29 @@ def _crash_worker(root: str, snapshot_id: str, boundary: str) -> None:
             action="select_snapshot",
         )
     )
+
+
+def _snapshot_history_crash_worker(root: str, snapshot_data: dict, boundary: str) -> None:
+    from dokodetector_backend.recording_state_contract import RecordingStateSnapshot
+
+    store = RecordingStateSnapshotStore(root)
+
+    def terminate_after(target: str) -> None:
+        if target == boundary:
+            os._exit(73)
+
+    store._after_durable_boundary = terminate_after
+    store.put(RecordingStateSnapshot.model_validate(snapshot_data))
+
+
+def _put_snapshot_worker(root: str, snapshot_data: dict, barrier, results) -> None:
+    from dokodetector_backend.recording_state_contract import RecordingStateSnapshot
+
+    barrier.wait()
+    stored = RecordingStateSnapshotStore(root).put(
+        RecordingStateSnapshot.model_validate(snapshot_data)
+    )
+    results.put(stored.snapshot.snapshot_id)
 
 
 def _paused_publish_worker(root: str, snapshot_id: str, head_replaced, release) -> None:
@@ -190,6 +214,112 @@ def test_two_processes_compare_and_swap_one_head(tmp_path: Path) -> None:
     assert current.head.version == 2
     assert current.head.snapshot_id in {second.snapshot_id, third.snapshot_id}
     assert current.summary.head_version == current.head.version
+
+
+@pytest.mark.parametrize("boundary", ["history_outbox", "snapshot", "history_published"])
+def test_snapshot_history_outbox_recovers_after_process_death(
+    tmp_path: Path, boundary: str
+) -> None:
+    from test_recording_state_store import _snapshot
+
+    snapshot = _snapshot()
+    process = multiprocessing.get_context("fork").Process(
+        target=_snapshot_history_crash_worker,
+        args=(str(tmp_path), snapshot.model_dump(mode="json"), boundary),
+    )
+    process.start()
+    process.join(timeout=10)
+    assert process.exitcode == 73
+
+    state_store = RecordingStateSnapshotStore(tmp_path)
+    history = RecordingHistoryStore(tmp_path)
+    outbox = state_store._snapshot_history_outbox_path(snapshot.recording_id)
+    if boundary == "history_outbox":
+        assert not state_store.snapshot_path(snapshot.recording_id, snapshot.snapshot_id).exists()
+        state_store.reconcile_snapshot_history_outbox(snapshot.recording_id)
+        assert history.get_authority(snapshot.recording_id).sequence == 0
+        state_store.put(snapshot)
+    else:
+        assert state_store.snapshot_path(snapshot.recording_id, snapshot.snapshot_id).is_dir()
+        assert outbox.exists()
+        state_store.reconcile_snapshot_history_outbox(snapshot.recording_id)
+
+    authority = history.get_authority(snapshot.recording_id)
+    assert authority.sequence == 1
+    _, items, has_more = history.ordered_page(
+        snapshot.recording_id, "snapshots", upper_bound_sequence=1, limit=10
+    )
+    assert [item.snapshot_id for item in items] == [snapshot.snapshot_id]
+    assert not has_more
+    state_store.reconcile_snapshot_history_outbox(snapshot.recording_id)
+    assert history.get_authority(snapshot.recording_id).sequence == 1
+
+
+def test_snapshot_history_recovery_fails_closed_on_corrupt_committed_source(tmp_path: Path) -> None:
+    from test_recording_state_store import _snapshot
+
+    snapshot = _snapshot()
+    store = RecordingStateSnapshotStore(tmp_path)
+
+    def stop_after_source(boundary: str) -> None:
+        if boundary == "snapshot":
+            raise RuntimeError("stop")
+
+    store._after_durable_boundary = stop_after_source
+    with pytest.raises(RuntimeError, match="stop"):
+        store.put(snapshot)
+    path = store._snapshot_history_outbox_path(snapshot.recording_id)
+    metadata_path = (
+        store.snapshot_path(snapshot.recording_id, snapshot.snapshot_id) / "metadata.json"
+    )
+    metadata = json.loads(metadata_path.read_text())
+    metadata["snapshot_sha256"] = "b" * 64
+    metadata_path.write_text(json.dumps(metadata, sort_keys=True, separators=(",", ":")))
+
+    with pytest.raises(RecordingSnapshotCorrupt, match="source identity"):
+        store.reconcile_snapshot_history_outbox(snapshot.recording_id)
+    assert path.exists()
+    assert RecordingHistoryStore(tmp_path).get_authority(snapshot.recording_id).sequence == 0
+
+
+def test_concurrent_snapshot_publishers_preserve_both_exact_history_items(tmp_path: Path) -> None:
+    from test_recording_state_store import _snapshot
+
+    first = _snapshot()
+    second = _snapshot(first.snapshot_id)
+    second.predecessor_snapshot_id = first.snapshot_id
+    from dokodetector_backend.recording_state_contract import RecordingStateSnapshot
+
+    second = RecordingStateSnapshot.model_validate(second.model_dump(mode="json"))
+    context = multiprocessing.get_context("spawn")
+    barrier = context.Barrier(2)
+    results = context.Queue()
+    processes = [
+        context.Process(
+            target=_put_snapshot_worker,
+            args=(str(tmp_path), snapshot.model_dump(mode="json"), barrier, results),
+        )
+        for snapshot in (first, second)
+    ]
+    for process in processes:
+        process.start()
+    for process in processes:
+        process.join(20)
+        assert process.exitcode == 0
+
+    assert {results.get(timeout=2), results.get(timeout=2)} == {
+        first.snapshot_id,
+        second.snapshot_id,
+    }
+    history = RecordingHistoryStore(tmp_path)
+    authority = history.get_authority(first.recording_id)
+    assert authority.sequence == 2
+    _, items, has_more = history.ordered_page(
+        first.recording_id, "snapshots", upper_bound_sequence=2, limit=10
+    )
+    assert {item.snapshot_id for item in items} == {first.snapshot_id, second.snapshot_id}
+    assert len(items) == 2
+    assert not has_more
 
 
 def test_concurrent_reader_observes_only_complete_old_or_new_state(tmp_path: Path) -> None:

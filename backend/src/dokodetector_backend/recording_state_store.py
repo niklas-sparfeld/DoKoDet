@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from threading import RLock
@@ -21,6 +22,8 @@ from dokodetector_backend.recording_state_contract import (
     RecordingHeadUpdate,
     RecordingStateSnapshot,
     RecordingStateSummary,
+    SlotName,
+    SnapshotHistoryItem,
     StageSummarySelection,
 )
 
@@ -75,6 +78,20 @@ def _stage_metadata(snapshot: RecordingStateSnapshot) -> dict[str, dict[str, str
     }
 
 
+def _verified_stage_metadata(value: Any) -> dict[str, dict[str, str]]:
+    if not isinstance(value, dict) or set(value) != set(SlotName.__args__):
+        raise ValueError("snapshot history stage metadata is invalid")
+    result = {}
+    for slot, selection in value.items():
+        if not isinstance(selection, dict) or set(selection) != {
+            "generated",
+            "completed_reference",
+        }:
+            raise ValueError("snapshot history stage metadata is invalid")
+        result[slot] = StageSummarySelection.model_validate(selection).model_dump(mode="json")
+    return result
+
+
 class RecordingStateSnapshotStore:
     """Store and load snapshots by exact recording and content-derived identity."""
 
@@ -85,6 +102,7 @@ class RecordingStateSnapshotStore:
         self.head_root = self.state_root / "heads"
         self.summary_root = self.state_root / "summaries"
         self.transaction_root = self.state_root / "transactions"
+        self.snapshot_history_outbox_root = self.state_root / "snapshot-history-outbox"
         self._thread_lock = RLock()
 
     def head_path(self, recording_id: str) -> Path:
@@ -174,6 +192,11 @@ class RecordingStateSnapshotStore:
 
     def _durable_write(self, path: Path, value: dict[str, Any], boundary: str) -> None:
         atomic_replace_json(path, value)
+        hook = getattr(self, "_after_durable_boundary", None)
+        if hook is not None:
+            hook(boundary)
+
+    def _snapshot_history_boundary(self, boundary: str) -> None:
         hook = getattr(self, "_after_durable_boundary", None)
         if hook is not None:
             hook(boundary)
@@ -339,6 +362,9 @@ class RecordingStateSnapshotStore:
         )
 
     def snapshot_path(self, recording_id: str, snapshot_id: str) -> Path:
+        candidate = self.root / recording_id / snapshot_id
+        if self.root.is_symlink() or candidate.parent.is_symlink() or candidate.is_symlink():
+            raise RecordingSnapshotCorrupt("snapshot path cannot contain symlinks")
         recording_root = contained_path(self.root, recording_id)
         return contained_path(recording_root, snapshot_id)
 
@@ -359,18 +385,173 @@ class RecordingStateSnapshotStore:
         destination = self.snapshot_path(
             verified_snapshot.recording_id, verified_snapshot.snapshot_id
         )
-        if destination.exists():
-            return self._existing_or_conflict(destination, raw, verified_snapshot)
+        with self._lock(verified_snapshot.recording_id):
+            self._reconcile_snapshot_history_outbox_locked(verified_snapshot.recording_id)
+            if destination.exists() or destination.is_symlink():
+                stored = self._existing_or_conflict(destination, raw, verified_snapshot)
+            else:
+                self._queue_snapshot_history(verified_snapshot, digest)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    with staging_directory(destination.parent, prefix=".snapshot-") as staging:
+                        (staging / "snapshot.json").write_bytes(raw)
+                        (staging / "metadata.json").write_bytes(_canonical_json(metadata))
+                        commit_staged_directory(staging, destination)
+                except FileExistsError:
+                    stored = self._existing_or_conflict(destination, raw, verified_snapshot)
+                else:
+                    stored = StoredRecordingSnapshot(
+                        verified_snapshot, digest, metadata["stage_metadata"]
+                    )
+                self._snapshot_history_boundary("snapshot")
+            # Existing snapshots can predate the publisher. An exact repeat also repairs their
+            # missing history entry without discovering or scanning other snapshots.
+            if not self._snapshot_history_outbox_path(verified_snapshot.recording_id).exists():
+                self._queue_snapshot_history(verified_snapshot, digest)
+            self._reconcile_snapshot_history_outbox_locked(verified_snapshot.recording_id)
+            return stored
 
-        destination.parent.mkdir(parents=True, exist_ok=True)
+    def _snapshot_history_outbox_path(self, recording_id: str) -> Path:
+        candidate = self.snapshot_history_outbox_root / f"{recording_id}.json"
+        if self.snapshot_history_outbox_root.is_symlink() or candidate.is_symlink():
+            raise RecordingSnapshotCorrupt("snapshot history outbox cannot be a symlink")
+        return contained_path(self.snapshot_history_outbox_root, f"{recording_id}.json")
+
+    @staticmethod
+    def _clear_snapshot_history_outbox(path: Path) -> None:
+        path.unlink(missing_ok=True)
+        descriptor = os.open(path.parent, os.O_RDONLY)
         try:
-            with staging_directory(destination.parent, prefix=".snapshot-") as staging:
-                (staging / "snapshot.json").write_bytes(raw)
-                (staging / "metadata.json").write_bytes(_canonical_json(metadata))
-                commit_staged_directory(staging, destination)
-        except FileExistsError:
-            return self._existing_or_conflict(destination, raw, verified_snapshot)
-        return StoredRecordingSnapshot(verified_snapshot, digest, metadata["stage_metadata"])
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+    def _queue_snapshot_history(
+        self, snapshot: RecordingStateSnapshot, snapshot_sha256: str
+    ) -> None:
+        path = self._snapshot_history_outbox_path(snapshot.recording_id)
+        if path.is_symlink():
+            raise RecordingSnapshotCorrupt("snapshot history outbox cannot be a symlink")
+        if path.exists():
+            try:
+                current = json.loads(path.read_bytes())
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise RecordingSnapshotCorrupt("snapshot history outbox is corrupt") from error
+            if (
+                not isinstance(current, dict)
+                or _canonical_json(current) != path.read_bytes()
+                or set(current)
+                != {"schema_version", "recording_id", "item", "stage_metadata", "sha256"}
+                or current["schema_version"] != "recording-snapshot-history-outbox/v1"
+                or current["recording_id"] != snapshot.recording_id
+            ):
+                raise RecordingSnapshotCorrupt("snapshot history outbox is corrupt")
+            payload = {key: value for key, value in current.items() if key != "sha256"}
+            if current["sha256"] != hashlib.sha256(_canonical_json(payload)).hexdigest():
+                raise RecordingSnapshotCorrupt("snapshot history outbox digest mismatch")
+            try:
+                item = SnapshotHistoryItem.model_validate(current["item"])
+                stage_metadata = _verified_stage_metadata(current["stage_metadata"])
+            except ValueError as error:
+                raise RecordingSnapshotCorrupt("snapshot history outbox item is corrupt") from error
+            if item.snapshot_id != snapshot.snapshot_id:
+                raise RecordingSnapshotCorrupt("another snapshot publication is still pending")
+            if (
+                item.sha256 != snapshot_sha256
+                or item.predecessor_snapshot_id != snapshot.predecessor_snapshot_id
+                or stage_metadata != _stage_metadata(snapshot)
+            ):
+                raise RecordingSnapshotCorrupt("snapshot history outbox digest mismatch")
+            return
+        item = SnapshotHistoryItem(
+            item_key=snapshot.snapshot_id,
+            snapshot_id=snapshot.snapshot_id,
+            sha256=snapshot_sha256,
+            publication_sequence=1,
+            predecessor_snapshot_id=snapshot.predecessor_snapshot_id,
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": "recording-snapshot-history-outbox/v1",
+            "recording_id": snapshot.recording_id,
+            "item": item.model_dump(mode="json"),
+            "stage_metadata": _stage_metadata(snapshot),
+        }
+        atomic_replace_json(
+            path,
+            {**payload, "sha256": hashlib.sha256(_canonical_json(payload)).hexdigest()},
+        )
+        self._snapshot_history_boundary("history_outbox")
+
+    def _reconcile_snapshot_history_outbox_locked(self, recording_id: str) -> None:
+        path = self._snapshot_history_outbox_path(recording_id)
+        if path.is_symlink():
+            raise RecordingSnapshotCorrupt("snapshot history outbox cannot be a symlink")
+        if not path.exists():
+            return
+        try:
+            raw = path.read_bytes()
+            value = json.loads(raw)
+            if (
+                not isinstance(value, dict)
+                or _canonical_json(value) != raw
+                or set(value)
+                != {"schema_version", "recording_id", "item", "stage_metadata", "sha256"}
+                or value["schema_version"] != "recording-snapshot-history-outbox/v1"
+                or value["recording_id"] != recording_id
+            ):
+                raise ValueError("invalid snapshot history outbox")
+            payload = {key: part for key, part in value.items() if key != "sha256"}
+            if value["sha256"] != hashlib.sha256(_canonical_json(payload)).hexdigest():
+                raise ValueError("snapshot history outbox digest mismatch")
+            item = SnapshotHistoryItem.model_validate(value["item"])
+            stage_metadata = _verified_stage_metadata(value["stage_metadata"])
+            if item.publication_sequence != 1 or item.item_key != item.snapshot_id:
+                raise ValueError("invalid snapshot history identity")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+            raise RecordingSnapshotCorrupt("snapshot history outbox is corrupt") from error
+
+        source_path = self.snapshot_path(recording_id, item.snapshot_id)
+        if source_path.is_symlink():
+            raise RecordingSnapshotCorrupt("published snapshot path cannot be a symlink")
+        if not source_path.exists():
+            # The intent is durable before the staged directory commit. Missing source is the
+            # only state that proves the snapshot write did not commit.
+            self._clear_snapshot_history_outbox(path)
+            self._snapshot_history_boundary("history_outbox_cleared")
+            return
+        try:
+            metadata_path = source_path / "metadata.json"
+            if metadata_path.is_symlink():
+                raise ValueError("snapshot source metadata cannot be a symlink")
+            metadata_raw = metadata_path.read_bytes()
+            metadata = json.loads(metadata_raw)
+            expected_metadata = {
+                "schema_version": "recording-state-snapshot-metadata/v1",
+                "recording_id": recording_id,
+                "snapshot_id": item.snapshot_id,
+                "snapshot_sha256": item.sha256,
+                "stage_metadata": stage_metadata,
+            }
+            if (
+                not isinstance(metadata, dict)
+                or _canonical_json(metadata) != metadata_raw
+                or metadata != expected_metadata
+            ):
+                raise ValueError("snapshot source metadata does not match its history intent")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+            raise RecordingSnapshotCorrupt("snapshot history source identity mismatch") from error
+        from dokodetector_backend.recording_history_store import RecordingHistoryStore
+
+        RecordingHistoryStore(self.operations_root).publish(recording_id, item)
+        self._snapshot_history_boundary("history_published")
+        self._clear_snapshot_history_outbox(path)
+        self._snapshot_history_boundary("history_outbox_cleared")
+
+    def reconcile_snapshot_history_outbox(self, recording_id: str) -> None:
+        """Replay one named snapshot publication intent without scanning snapshot history."""
+        with self._lock(recording_id):
+            self._reconcile_snapshot_history_outbox_locked(recording_id)
 
     def get(self, recording_id: str, snapshot_id: str) -> StoredRecordingSnapshot:
         """Read exactly one snapshot and its compact metadata, without listing history."""
@@ -378,6 +559,10 @@ class RecordingStateSnapshotStore:
         if not directory.is_dir():
             raise RecordingSnapshotNotFound(f"snapshot not found: {recording_id}/{snapshot_id}")
         try:
+            if (directory / "snapshot.json").is_symlink() or (
+                directory / "metadata.json"
+            ).is_symlink():
+                raise ValueError("snapshot files cannot be symlinks")
             snapshot_raw = (directory / "snapshot.json").read_bytes()
             metadata_raw = (directory / "metadata.json").read_bytes()
             snapshot_value = json.loads(snapshot_raw)
