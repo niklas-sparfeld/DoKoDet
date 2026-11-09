@@ -6,10 +6,10 @@ Date: 2026-11-09
 
 The selected family is the frozen Epic 0070 M5 50/50 training view at
 `.runtime/synthetic-visible-region-0070-m5-50-50-view/`. Keep it. The view remains an input to the
-0071 cluster-crop materializer. The bounded M3 investigation is complete. It matched all 24
-immutable revision manifests and contents, but the declared accepted-loss archive matched only
-7/24 expected reference-state hashes and 0/24 draft hashes. The canonical reference root is absent.
-Exact historical mutable review dependencies remain unavailable within the declared search
+0071 cluster-crop materializer. The bounded M3 investigation is complete. All 24 immutable revision
+manifests and contents match. Four present recovery roots contain the exact state hashes for the
+same seven recordings; no candidate root contains an exact draft hash. The canonical reference root
+is absent. The other 17 exact states and all 24 exact drafts remain unavailable within the search
 boundary. No expiry condition or removal is justified. Preserve the view and all available review
 data. No stored data changed.
 
@@ -128,33 +128,53 @@ regeneration remain unknown.
 
 ## Bounded search and legacy review roles
 
-The revised M3 search used only the exact roots named by the frozen 0068 manifest and the M0/M2
-reports. The canonical root
-`/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-references/` was absent.
-The accepted-loss evidence root
-`/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/`
-was present. Its `pipeline-references/<recording>/visible_cards/{state,draft}.json` files were
-hashed against the expected values for all 24 recordings in the 0068 manifest. No other exact
-state/draft source root is named by those records. No other worktree or filesystem was searched.
+The read-only search checked these manifests and their exact roots:
 
-The read-only hash pass reproduced 24/24 matching revision-manifest hashes and 24/24 matching
-reviewed-content hashes. Both the canonical JSON hashes and raw file SHA-256 values for archived
-state and draft files produced the same result: state matched 7/24 expected values; the other 17
-did not, and none of the 24 drafts matched. The full expected and observed canonical JSON values for
-every recording are in the [reference hash audit artifact](0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json).
-The exact mutable state and draft bytes are therefore unavailable within the declared search
-boundary. The differing archived files are not substitutes for the expected historical files.
+| Root checked | Source in the records | Result |
+| --- | --- | --- |
+| `data/operations/pipeline-references/` | Canonical `reference_path` values in the 0068 manifest | Absent |
+| `data/operations-recovery/0108-m10-20261105/migration-source/operations/pipeline-references/` | `inventory-config.json` maps `root_id=operations` to `migration-source/operations`; the inventory plans list 371 reference files under that root | 7/24 exact states; 0/24 exact drafts |
+| `data/operations-recovery/0108-m10-20261105/migration-stage/evidence/operations/pipeline-references/` | `migration-stage/migration.json` lists 371 reference files under `evidence/operations` | 7/24 exact states; 0/24 exact drafts |
+| `data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/` | Selected `migration-stage-accepted-loss/migration.json`; M0 and M2 reports | 7/24 exact states; 0/24 exact drafts |
+| `data/operations-recovery/0108-m10-20261105/operations/pipeline-references/` | Same recovery tree's sibling `operations/` contains the archived 0068 and 0070 manifests | 7/24 exact states; 0/24 exact drafts |
+
+The six JSON inventory and recovery records inspected were `inventory-config.json`, `inventory-plan.json`,
+`inventory-plan-final.json`, `inventory-plan-accepted-loss.json`,
+`migration-stage/migration.json`, and `migration-stage-accepted-loss/migration.json`. The inventory
+plans and both migration manifests enumerate 371 `pipeline-references` files with
+`root_id=operations`; the config maps the source operations root to `migration-source/operations`.
+They identify no additional `pipeline-references` root. No other worktree or filesystem was
+searched.
+
+The read-only pass checked raw SHA-256 for all 24 state and 24 draft files under each present root.
+Each present root had the same seven exact state files:
+`cardeventnet-IMG_0092`, `cardeventnet-IMG_0642`, `cardeventnet-IMG_0644`,
+`cardeventnet-IMG_0645`, `cardeventnet-IMG_0646`, `cardeventnet-IMG_0669`, and
+`cardeventnet-IMG_0674`. Seventeen state files differed from the expected hash. All 24 draft files
+were present but differed from the expected hash. The per-record, per-root expected and observed
+hashes are in the [root search audit](0118-M3_0070_Synthetic_Training_View.artifacts/reference-root-search.json).
+The prior [reference hash audit](0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json)
+also records the accepted-loss archive values and the matching immutable revision hashes. Different
+archived state or draft bytes are not substitutes for the expected historical files.
+
+All four present candidate roots and the matching state files are owned by uid 501, gid 20, and
+share the active node store's filesystem device. They are local copies on the same volume, not
+independent recovery sources.
 
 The legacy contract in `operations/src/doko_operations/pipeline_reference.py` defines
 `pipeline-reference-state/v1` and `pipeline-reference-draft/v2`. State stores the draft revision and
 status, source revision, and selected completed revision. Draft stores the current mutable review
 items, decisions, coverage, impact, and input lineage. The `PipelineReferenceStore` reader validates
 the state and draft together and checks their revision and source identities; `get_state` can read
-state without loading a draft. These mutable records establish the historical selected pointer and
-resumable review work. The `PipelineRevisionStore` reader validates the immutable revision manifest,
-content digest, content schema, and lineage. The matching immutable content establishes the reviewed
-content bytes and their revision identity. It cannot recover the historical selected pointer or the
-mutable draft contents. No mutable fact was inferred from the immutable revision.
+state without loading a draft. For each of the seven exact states, `PipelineReferenceStore.get_state`
+read the state and returned the matching `selected_completed_revision_id` in all four roots. The
+per-root audit records each selected revision and draft revision. This state-only check supports that
+pointer read; it does not restore the full reference. The `PipelineRevisionStore` reader validates
+the immutable revision manifest, content digest, content schema, and lineage. The matching immutable
+content establishes the reviewed content bytes and their revision identity. It cannot recover the
+historical selected pointer or mutable draft contents. No exact draft matches, so no complete
+state/draft pair or resumable review can be restored from these candidates. No mutable fact was
+inferred from the immutable revision.
 
 This completes the bounded M3 investigation, not full recovery or exact regeneration. Preserve the
 training view and every known review/recovery root. M3 authorizes no deletion or expiry. Exact
@@ -164,8 +184,9 @@ unknown.
 ## Checks
 
 - `mise exec -- uv run --project operations python docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3.py --repository /Users/niklas.sparfeld/Developer/doko_detector --restored-view /tmp/0118-m3-verified-view-20261109 --evidence docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json` — audit completed twice. It verified 24/24 revision manifests and content, 9/9 calibration records and 537/537 scene links, and the restored view. It found only 7/24 expected reference-state hashes and 0/24 expected draft hashes.
-- `mise exec -- uv run --project operations ruff check docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3.py` and `ruff format --check` — passed.
-- Read-only `audit_campaign_review_references` call against the main worktree's frozen 0068 manifest and accepted-loss evidence root — 24/24 manifest and content hashes matched; canonical state/draft hashes matched raw file SHA-256 results (7/24 state, 0/24 drafts). The canonical reference root was absent. No other root was searched because no other exact root was declared.
+- Read-only `audit_campaign_review_references` against the frozen 0068 manifest — 24/24 immutable manifest/content hashes matched; accepted-loss state/draft canonical hashes matched raw file SHA-256 results (7/24 states, 0/24 drafts).
+- `PYTHONPATH=backend/src:operations/src mise exec -- uv run --project backend python docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3_reference_roots.py --repository /Users/niklas.sparfeld/Developer/doko_detector --output docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/reference-root-search.json` — checked all 24 state/draft pairs under five roots; four present roots each matched seven state hashes and no draft hashes. The state reader returned all seven matching pointers in each root.
+- `mise exec -- uv run --project backend ruff check docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3_reference_roots.py` and `ruff format --check` — passed.
 - `git diff --check` and changed Markdown link validation — passed.
 
 No authoritative data changed. M3 is complete as a bounded investigation with the historical
