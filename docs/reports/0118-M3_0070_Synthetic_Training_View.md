@@ -6,7 +6,10 @@ Date: 2026-11-09
 
 The selected family is the frozen Epic 0070 M5 50/50 training view at
 `.runtime/synthetic-visible-region-0070-m5-50-50-view/`. Keep it. The view remains an input to the
-0071 cluster-crop materializer. No expiry condition or removal is justified. No stored data changed.
+0071 cluster-crop materializer. No expiry condition or removal is justified. M3 is incomplete:
+24/24 immutable review revision manifests and contents match their frozen hashes, but the archived
+reference state matches only 7/24 expected hashes and no draft matches. Preserve the view and all
+available review data. No stored data changed.
 
 ## Creator, inputs, and authority
 
@@ -35,10 +38,28 @@ M1 records reviewed source decisions and file hashes. M2 binds each of its 537 r
 scene and retains the accepted empty-table decision, calibration digest, and placement data. The
 training-view manifest also binds these roots to the 0068 reviewed real-data materialization.
 The synthetic rows remain synthetic training evidence. They do not replace reviewed references.
+The exact 0068 review references are in `data/operations/rfdetr-visible-card-detector-0068-m0-manifest.json`.
+Their archived roots are under
+`data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/`:
+`pipeline/revisions/<revision-id>/manifest.json` and `content.json`, plus
+`pipeline-references/<recording-id>/visible_cards/state.json` and `draft.json`. The canonical
+`data/operations/pipeline-references/` root is absent. The archive has all 24 expected revision
+manifest hashes and content hashes, 7 of 24 expected state hashes, and 0 of 24 expected draft
+hashes. For `cardeventnet-IMG_0090`, the expected state/draft hashes are
+`2000bfa9401de0c3ac11cb43caf5856912faace04761beefd2d34266c5f8adc7` and
+`c52a97ed072f0689c502891aeaab34985c0ce6a5f4dcb4969b3517eba75a3c70`; archived values are
+`efcbb8ec2e68eb53635f150d663c44899af240cf3f8e769c941538417853ed11` and
+`87225bb692f635d9a306e24e93bada07a70fc65dae70998db52f773d8e8f5d66`. These are different human
+review state and draft bytes. The frozen manifest preserves their former digests, but not those
+exact bytes. This gap prevents a complete review-dependency check and blocks an expiry decision.
+
+The M2 manifest pins nine calibration digests. The audit maps all nine to M2 calibration records;
+all 537 scene calibration links match both a calibration record and the corresponding receipt.
 The 0071 reader validates its own training-view schema and digest, COCO rows, synthetic image
-hashes, and receipt self-digests. It does not check the M0, M1, or M2 manifest file links or compare
-the M2 receipt digest listed in each scene summary. The independent verifier linked below performs
-those checks and verifies each M1 source/review file, M2 scene image, and receipt.
+hashes, and receipt self-digests. It does not check the M0/M1/M2 manifest file links, M0 review
+reference hashes, or compare the M2 receipt digest listed in each scene summary. The independent
+audit linked below performs the manifest, receipt, and calibration-link checks and records the
+M0 review-reference hash mismatch.
 
 ## Consumers, run references, and retention decision
 
@@ -77,11 +98,12 @@ Reproduce the disposable restore and dependency check from the repository root:
 ```sh
 cp -cR .runtime/synthetic-visible-region-0070-m5-50-50-view /tmp/0118-m3-campaign-view
 mise exec -- uv run --project operations python \
-  docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/verify_0118_m3.py \
-  --repository "$PWD" --restored-view /tmp/0118-m3-campaign-view
+  docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3.py \
+  --repository "$PWD" --restored-view /tmp/0118-m3-campaign-view \
+  --evidence docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json
 ```
 
-The [independent verifier](0118-M3_0070_Synthetic_Training_View.artifacts/verify_0118_m3.py)
+The [independent audit](0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3.py)
 checks the frozen M0/M1/M2 manifest file and content digests; all 447 M1 accepted source/review
 files; all 537 M2 scene image and receipt links and digests; all 789 files in the 0068
 materialization and all 24 source-video byte lengths and SHA-256 values; the 0070 comparison and
@@ -89,9 +111,14 @@ run/bundle/checkpoint references; and every restored view file by path, length, 
 It then calls the actual 0071 `_load_synthetic_input` reader. Two fresh processes passed. Both
 checked 1,328 restored files (539,044,062 logical bytes), 537 rows, and train COCO SHA-256
 `36cb12e81c4162a88d154ace161424e9428e2b7caabba416a83397bc64d59212`; all manifest and run
-identities matched the table above. The rehearsal used the canonical retained source, review,
-calibration, and receipt roots; it did not copy or qualify an independent backup of those
+identities matched the table above. The audit reports the review root mismatch above; it does not
+pass the full review-dependency acceptance check. The rehearsal used the canonical retained source,
+review, calibration, and receipt roots; it did not copy or qualify an independent backup of those
 dependencies. It verifies this restore and reader path, not full regeneration.
+
+The [reference hash audit artifact](0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json)
+contains the expected and observed state, draft, revision-manifest, and content hashes for all 24
+recordings.
 
 No expiry or removal is authorized. Logical bytes, path allocation, and summed allocated blocks are
 reported separately. Physical APFS allocation, off-volume recovery, live pins, and exact byte
@@ -99,7 +126,9 @@ regeneration remain unknown.
 
 ## Checks
 
-- `mise exec -- uv run --project operations python docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/verify_0118_m3.py --repository /Users/niklas.sparfeld/Developer/doko_detector --restored-view /tmp/0118-m3-verified-view-20261109` — passed twice. It checked all manifest, source, review, calibration, receipt, model, run, and restored-file references listed above.
+- `mise exec -- uv run --project operations python docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3.py --repository /Users/niklas.sparfeld/Developer/doko_detector --restored-view /tmp/0118-m3-verified-view-20261109 --evidence docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json` — audit completed twice. It verified 24/24 revision manifests and content, 9/9 calibration records and 537/537 scene links, and the restored view. It found only 7/24 expected reference-state hashes and 0/24 expected draft hashes.
+- `mise exec -- uv run --project operations ruff check docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3.py` and `ruff format --check` — passed.
 - `git diff --check` and changed Markdown link validation — passed.
 
-No authoritative data changed.
+No authoritative data changed. M3 remains incomplete pending a safe disposition of the mismatched
+review-state and draft roots. No expiry or deletion is authorized.

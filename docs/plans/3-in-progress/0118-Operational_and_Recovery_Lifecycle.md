@@ -30,7 +30,7 @@ Relocation is not reclaimed space. Record physical allocation only when directly
 | M0 | Inventory exact log, recovery-copy, and campaign-intermediate writers; identify retention roots, recovery evidence, and a small candidate scope | Complete; [report](../../reports/0118-M0_Lifecycle_Family_Inventory.md) |
 | M1 | Specify the managed-job operational-log family's retention and recovery contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M1_Managed_Job_Log_Audit.md) |
 | M2 | Specify one exact recovery-copy family's retention and restore contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md) |
-| M3 | Specify one exact campaign-intermediate family's retention and restore contract; keep it separate from recovery copies | Complete; [report](../../reports/0118-M3_0070_Synthetic_Training_View.md) |
+| M3 | Specify one exact campaign-intermediate family's retention and restore contract; keep it separate from recovery copies | Incomplete; [audit report](../../reports/0118-M3_0070_Synthetic_Training_View.md) |
 | M4 | Implement and verify only the selected contracts, with preserved recovery and human-work evidence | Not started |
 
 ## M0 — Select exact lifecycle families
@@ -46,10 +46,10 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
 
 ## Execution handoff
 
-- Run: requested 4 milestones; completed 4; 0 remain in this run. M0–M4 are planned; M4 is
+- Run: requested 4 milestones; completed 3; 1 remains in this run. M0–M4 are planned; M4 is
   outside this run's authorization.
 - Completed: M0 inventory and family selection; M1 managed-job log audit; M2 accepted-loss
-  recovery-copy audit; M3 0070 synthetic training-view audit. See the
+  recovery-copy audit. M3 selected the 0070 M5 view but remains incomplete. See the
   [M0 report](../../reports/0118-M0_Lifecycle_Family_Inventory.md),
   [M1 report](../../reports/0118-M1_Managed_Job_Log_Audit.md),
   [M2 report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md), and
@@ -61,10 +61,12 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
   store share one volume; off-volume recovery and physical APFS reclamation remain unknown. The 156
   uncertain histories and three declared-lost revisions remain preserved, so M2 sets no expiry.
   M3 selected the 0070 M5 50/50 synthetic training view. The 0071 cluster-crop materializer reads
-  it, and 0070 run and bundle references remain. Two fresh-process reads of a disposable APFS clone
-  validated all 537 synthetic rows and scene receipts against the frozen manifest. Its exact
-  source, review, and receipt roots remain protected. Byte regeneration and independent backup are
-  unverified. No expiry is justified.
+  it, and 0070 run and bundle references remain. The disposable clone and 0071 reader checks passed.
+  The independent reference audit matched 24/24 immutable revision manifests and contents, 9/9
+  calibrations, and 537/537 calibration links. It matched only 7/24 archived review-state hashes
+  and 0/24 draft hashes to the 0068 campaign manifest. The expected state/draft bytes are absent
+  from the canonical reference root; archived replacements differ. Preserve all current roots and
+  the training view. No expiry is justified; M3 acceptance remains incomplete.
 - Checks: M1's `mise exec -- uv run --project backend pytest -q backend/tests/test_job_recovery.py`
   passed (13 tests). M2's `mise exec -- uv run --project backend python
   scripts/verify_0115_recovery.py --data-root /Users/niklas.sparfeld/Developer/doko_detector/data
@@ -72,19 +74,20 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
   /tmp/0118-m2-current-verification.json` passed with 2,086 resources, 34,414 manifest files,
   and snapshot `c8979c9a…`. A disposable APFS clone passed `_verify_package` with the same digest.
   M1's matching-snapshot API restore and restart reads remain the API-level rehearsal evidence.
-  M3's independent verifier passed twice. It checked frozen M0/M1/M2 path and manifest digests,
-  all 447 M1 source/review files, 537 M2 image/receipt references, all 789 0068 generated files,
-  and all 1,328 restored view files. The actual 0071 reader returned 537 rows with matching COCO
-  and training-view digests.
+  M3's independent audit completed twice. It verified the manifest and restore references and
+  recorded the 7/24 state and 0/24 draft mismatch in the [reference audit artifact](../../reports/0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json).
+  This is an acceptance gap, not a pass. The actual 0071 reader returned 537 rows with matching
+  COCO and training-view digests.
   `git diff --check` and changed-link checks passed. No authoritative data changed.
-- Decisions and limits: M3 sets no expiry or removal policy. Current configured
+- Decisions and limits: M3 sets no expiry or removal policy. The original state/draft hashes for
+  the 0068 review dependencies do not match the accepted-loss archive. Keep all view and recovery
+  roots; do not claim those historical review resources were verified. Current configured
   `data/operations/jobs` is absent in this checkout.
   The active process root, live job set, log sizes, pins, expiry authority, and independent recovery
   source remain unknown. The existing rolling window is code behavior, not evidence that older
   entries are disposable. Off-volume recovery and physical APFS allocation remain unknown.
-- Next: M4 may implement only policies justified by M1–M3. The 0070 view policy preserves the
-  materialization and its dependencies. M4 is outside this run. Run count: requested 4; completed
-  4; 0 remain.
+- Next: M3 needs a safe disposition for its unresolved exact review-state and draft dependencies.
+  M4 is outside this run. Run count: requested 4; completed 3; 1 remains.
 
 ## M1 — Specify operational-log retention
 
@@ -132,12 +135,14 @@ dependencies, model/run references, and restart reads. Record logical bytes, pat
 physical allocation separately when available. If one campaign contains independent writer or
 recovery contracts, split its specification before implementation.
 
-Outcome: Complete. The [M3 report](../../reports/0118-M3_0070_Synthetic_Training_View.md) selects
-the exact 0070 M5 50/50 synthetic training view. It records its creator, frozen source and review
-manifests, scene receipts, 0070 run and bundle references, the 0071 consumer, storage measurements,
-and a disposable clone rehearsal through the actual 0071 reader in two fresh processes. The view
-remains a consumer input. Exact byte regeneration, live pins, off-volume recovery, and physical
-APFS allocation remain unknown. No expiry or deletion is authorized.
+Outcome: Incomplete. The [M3 report](../../reports/0118-M3_0070_Synthetic_Training_View.md) selects
+the exact 0070 M5 50/50 view and verifies its immutable revision contents, scene receipts,
+calibration links, model/run references, and restored reads. Its exact old reference-state hashes
+match only 7/24 archived states; none of the 24 archived draft hashes match. The canonical
+`data/operations/pipeline-references/` root is absent. Preserve the training view and all available
+review roots; no expiry or deletion is authorized. Resolve or bound the missing historical review
+state and draft dependencies before completing M3. Exact byte regeneration, independent backup,
+live pins, off-volume recovery, and physical APFS allocation remain unknown.
 
 ## M4 — Implement selected lifecycle contracts
 

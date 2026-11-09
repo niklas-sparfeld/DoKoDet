@@ -1,0 +1,637 @@
+{
+  "archive_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations",
+  "counts_matching": {
+    "content_sha256": 24,
+    "draft_sha256": 0,
+    "revision_manifest_sha256": 24,
+    "state_sha256": 7
+  },
+  "records": [
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-3c7e7aec4ab3d9f668218a9f4c0349c7/content.json",
+      "expected": {
+        "content_sha256": "fe04d276dbd33c1960676dbeffe3c67a825bbadf60f034d831a6079132be21b7",
+        "draft_sha256": "c52a97ed072f0689c502891aeaab34985c0ce6a5f4dcb4969b3517eba75a3c70",
+        "revision_manifest_sha256": "ae46383d252989fb856206d807d2cb6d4f656e8d6b0cefd88d11c135c22e5dff",
+        "state_sha256": "2000bfa9401de0c3ac11cb43caf5856912faace04761beefd2d34266c5f8adc7"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "fe04d276dbd33c1960676dbeffe3c67a825bbadf60f034d831a6079132be21b7",
+        "draft_sha256": "87225bb692f635d9a306e24e93bada07a70fc65dae70998db52f773d8e8f5d66",
+        "revision_manifest_sha256": "ae46383d252989fb856206d807d2cb6d4f656e8d6b0cefd88d11c135c22e5dff",
+        "state_sha256": "efcbb8ec2e68eb53635f150d663c44899af240cf3f8e769c941538417853ed11"
+      },
+      "recording_id": "cardeventnet-IMG_0090",
+      "reference_revision_id": "reference-visible_cards-3c7e7aec4ab3d9f668218a9f4c0349c7",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0090/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-3c7e7aec4ab3d9f668218a9f4c0349c7/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-3bfc13a1cf4deded6fad5819e8ab3020/content.json",
+      "expected": {
+        "content_sha256": "c46a0963cd7d0aa111eabf7d5cded5e1ccdfbb8371082152fdcc6e18fb253f51",
+        "draft_sha256": "cce35f3d58ac7b4801e6b20768bdca9fd084753507db9139e4a30559faf57715",
+        "revision_manifest_sha256": "60ce5252ba41a13ae729d6f902f60835e9b7bcce3bc87c2cc47fffdd96c6f1f8",
+        "state_sha256": "704e0e70b1e1244cfe99b4599fc2c1b82661846f1f6f3bfbff0fae407ff8d599"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "c46a0963cd7d0aa111eabf7d5cded5e1ccdfbb8371082152fdcc6e18fb253f51",
+        "draft_sha256": "5f2166340d27bb0d4de94af4c507a06022d4bf542c47744ed18fa87bf24cada6",
+        "revision_manifest_sha256": "60ce5252ba41a13ae729d6f902f60835e9b7bcce3bc87c2cc47fffdd96c6f1f8",
+        "state_sha256": "ec5ec1351dbca6513b01f9b49ffb1ead885e2e555d5323debceb4b3c85fe4e4c"
+      },
+      "recording_id": "cardeventnet-IMG_0091",
+      "reference_revision_id": "reference-visible_cards-3bfc13a1cf4deded6fad5819e8ab3020",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0091/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-3bfc13a1cf4deded6fad5819e8ab3020/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-22677c823fd7182f65fff938c213568e/content.json",
+      "expected": {
+        "content_sha256": "53ee15ad7103da72c3e29573855be373d20eb00d1c36a13481c398f7188ed679",
+        "draft_sha256": "97cdb158d5a69eeb12761fcc161f1883fb0dd98b8aaecee70b70e2842764e73b",
+        "revision_manifest_sha256": "8af795d74ff87c9018b3f6221cc7f8913266527062cb1161a2f6fbca9ed1d5f4",
+        "state_sha256": "98ac4226dcb4cf1531639ecdf8f2a74e3a7a201c750fd837ad0a2ee056628e9f"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": true
+      },
+      "observed": {
+        "content_sha256": "53ee15ad7103da72c3e29573855be373d20eb00d1c36a13481c398f7188ed679",
+        "draft_sha256": "0566970474de10c6aea547ee2b45b8810961de90a3d3b83017b6f45973050d9a",
+        "revision_manifest_sha256": "8af795d74ff87c9018b3f6221cc7f8913266527062cb1161a2f6fbca9ed1d5f4",
+        "state_sha256": "98ac4226dcb4cf1531639ecdf8f2a74e3a7a201c750fd837ad0a2ee056628e9f"
+      },
+      "recording_id": "cardeventnet-IMG_0092",
+      "reference_revision_id": "reference-visible_cards-22677c823fd7182f65fff938c213568e",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0092/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-22677c823fd7182f65fff938c213568e/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-54e8b7d89787b9d8b8e64745fc3cafbf/content.json",
+      "expected": {
+        "content_sha256": "ce1697f8439a332793deb24295eb31a57f94b4a8fe335a89e9d92ecf2be9b784",
+        "draft_sha256": "74ee70539d348b77a2fd170906734ca6ef7c22ab29536917a2a4350a1e8652cb",
+        "revision_manifest_sha256": "87df912fb0f61dc716797ef7a4b3ff545621876305769e84cd53a3f94369a01f",
+        "state_sha256": "6129a64a554881aa3bcaec9ac1db99d7d3ee3ebceadafd992aca7ff80189ba70"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "ce1697f8439a332793deb24295eb31a57f94b4a8fe335a89e9d92ecf2be9b784",
+        "draft_sha256": "08c55eb4c0491961b4ad569c486f75d77dad6a911f535974c44180f09e7ccc84",
+        "revision_manifest_sha256": "87df912fb0f61dc716797ef7a4b3ff545621876305769e84cd53a3f94369a01f",
+        "state_sha256": "63561af353c4e244e46771c0044f50edfb26d988d36c654e1b0a5c1d2b2887e5"
+      },
+      "recording_id": "cardeventnet-IMG_0095",
+      "reference_revision_id": "reference-visible_cards-54e8b7d89787b9d8b8e64745fc3cafbf",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0095/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-54e8b7d89787b9d8b8e64745fc3cafbf/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-bc276ee37bdcfc12a23c6b76b98299d7/content.json",
+      "expected": {
+        "content_sha256": "795225e1859e8db9a332cfd67f808ac2e9a874569b92477bd8907b21b99b7693",
+        "draft_sha256": "b7adda63332a9f2905bc358f86a6d9cfbf43b9b936abcc57a32554d23abeff61",
+        "revision_manifest_sha256": "017c6a49c9614c7f7c72f04209b23dabc7c123e099fa32d5e6391675210ea902",
+        "state_sha256": "bebcb3d42185adc07b539eaf0dbe6f68b915b501be3dae84d7bf4920fbabf418"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "795225e1859e8db9a332cfd67f808ac2e9a874569b92477bd8907b21b99b7693",
+        "draft_sha256": "4a1a178970c3943277c549e2b3c7e7e299a6c02c216f381f984b38093d488a34",
+        "revision_manifest_sha256": "017c6a49c9614c7f7c72f04209b23dabc7c123e099fa32d5e6391675210ea902",
+        "state_sha256": "6d150527377a39c8b6f9c8e0d174c0e66a64e7dc65c9182b32ace192af8c895f"
+      },
+      "recording_id": "cardeventnet-IMG_0096",
+      "reference_revision_id": "reference-visible_cards-bc276ee37bdcfc12a23c6b76b98299d7",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0096/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-bc276ee37bdcfc12a23c6b76b98299d7/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-96d07f81490caa597b99ba13c5f00497/content.json",
+      "expected": {
+        "content_sha256": "1ac20c7c9eebfe967770fdf029ea98bfaa022bc0061ef79df7ff8f643a2802c4",
+        "draft_sha256": "8e5eb26b6da69bf8e7017c6a52728f0e5b1d61d4b57f7de0d9db210e2d224115",
+        "revision_manifest_sha256": "686a707e47fdd8f636f33cbc3b2754c3d29ba9345c2ab749dc5def82ed40dae7",
+        "state_sha256": "49d36982733120ade456ba393471d3590f25c29f38e3f254312c22f40e193103"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "1ac20c7c9eebfe967770fdf029ea98bfaa022bc0061ef79df7ff8f643a2802c4",
+        "draft_sha256": "29e4e0cb3e31b30cd6890f29a2072f7d7e1ac040d4d3d349c7304134318906bf",
+        "revision_manifest_sha256": "686a707e47fdd8f636f33cbc3b2754c3d29ba9345c2ab749dc5def82ed40dae7",
+        "state_sha256": "678613a9fb327e321b21c24d2ad1f4132f60e92de3bccfe48ecf7518de16860a"
+      },
+      "recording_id": "cardeventnet-IMG_0097",
+      "reference_revision_id": "reference-visible_cards-96d07f81490caa597b99ba13c5f00497",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0097/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-96d07f81490caa597b99ba13c5f00497/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-55baece58e4bd513a4110d4be0acd26e/content.json",
+      "expected": {
+        "content_sha256": "b7fde379a35174da8116c047fb6380accf3679d477ece31f0a651557e79dc3ae",
+        "draft_sha256": "4f561840f5f669d99ebf4ce759a8529e65ee8e286ed2d9b35b63f34585da7e23",
+        "revision_manifest_sha256": "1bb8583d34ccfa366769a7e5a7b9c06fd038a75eff23e5cc7ee8dc162b8a9b78",
+        "state_sha256": "6ff7aa63faba55af158911188f8ce9740f82ed7967cd667b1f56a32ef53dd5e5"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "b7fde379a35174da8116c047fb6380accf3679d477ece31f0a651557e79dc3ae",
+        "draft_sha256": "9a3880889446fca6f8b47c8bba1dd3e52865e064af63b23954517fc24c68c554",
+        "revision_manifest_sha256": "1bb8583d34ccfa366769a7e5a7b9c06fd038a75eff23e5cc7ee8dc162b8a9b78",
+        "state_sha256": "fb5d8f5184890f3b1cd2dec45f28a7058008f8d5b912b8a9a10fe08af5c8281d"
+      },
+      "recording_id": "cardeventnet-IMG_0635",
+      "reference_revision_id": "reference-visible_cards-55baece58e4bd513a4110d4be0acd26e",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0635/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-55baece58e4bd513a4110d4be0acd26e/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-59fa12197f503da2bf336018f8987cd2/content.json",
+      "expected": {
+        "content_sha256": "afe81dc5843db702ce28f1e8e9aca00292bbdee9bc3725b036a08e9d0117328e",
+        "draft_sha256": "b4a3c9828d40f917a8827654f6f3c2215492694cfb8444673ed842884f548d12",
+        "revision_manifest_sha256": "8644abf2e038519de86d242ad83efe7d5a523cae8745ad2d98b5d4cf1296982c",
+        "state_sha256": "67d885e5d648730f8dd93474fd03a5edc8ad8a7ead0f6cf9ae5b6b56814dae88"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "afe81dc5843db702ce28f1e8e9aca00292bbdee9bc3725b036a08e9d0117328e",
+        "draft_sha256": "105ac57daf14fb08f510d4d253fe1ef304be0814c1ef43a73744d33670917d45",
+        "revision_manifest_sha256": "8644abf2e038519de86d242ad83efe7d5a523cae8745ad2d98b5d4cf1296982c",
+        "state_sha256": "b73de1027385c068a79ac5942de5134965966ed04467a5da6f57acf7b835fd78"
+      },
+      "recording_id": "cardeventnet-IMG_0636",
+      "reference_revision_id": "reference-visible_cards-59fa12197f503da2bf336018f8987cd2",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0636/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-59fa12197f503da2bf336018f8987cd2/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-cef7d432e8d54081d89814dfd905da71/content.json",
+      "expected": {
+        "content_sha256": "585fbe742fc9193edcb86094aaf62f02e6989b065bf610b681241a62cdea6802",
+        "draft_sha256": "0c5f8cde53a7f013f771c74f1befe0af86800cd003d5c616fcc6cdb925dbfb7d",
+        "revision_manifest_sha256": "caf82acfb6572439d0c8657ab6278be5aabbf0e4ebfbb0d2b9cfede8ba5efc11",
+        "state_sha256": "2acb2515e183d44f9191e1f781f9248d4d51d8b154d36b252e2dcf6ad2ee6b29"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "585fbe742fc9193edcb86094aaf62f02e6989b065bf610b681241a62cdea6802",
+        "draft_sha256": "cfeed569a666e85e3f451a9919ba5bd83fbd65f4d94238043219c5ee964ffe9e",
+        "revision_manifest_sha256": "caf82acfb6572439d0c8657ab6278be5aabbf0e4ebfbb0d2b9cfede8ba5efc11",
+        "state_sha256": "fb95023565c11326e8aee7d665877ae6eaab2ea2501a6484e59d098c1c3a7a90"
+      },
+      "recording_id": "cardeventnet-IMG_0637",
+      "reference_revision_id": "reference-visible_cards-cef7d432e8d54081d89814dfd905da71",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0637/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-cef7d432e8d54081d89814dfd905da71/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-85889936d456b7d1cf0a9dbb4514975a/content.json",
+      "expected": {
+        "content_sha256": "196a2a59a588df5c3c78271accc7b6b2732dc07258f4b06f82b8258e34fd3cad",
+        "draft_sha256": "5a281b38c919d911e7e1769db2bf1d8044e62363b15360b1ab9671afcf839e84",
+        "revision_manifest_sha256": "e07105495c5ccb0b85fb2ec48b39e3dfd2346a2c612fd5a21a87d537856c344e",
+        "state_sha256": "4492b06685df937056e0da94c82f5d3afe617dbc4c18c02a22af57a8c54768d4"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "196a2a59a588df5c3c78271accc7b6b2732dc07258f4b06f82b8258e34fd3cad",
+        "draft_sha256": "fb1699a7b3ce80ade430217da8d90a69d1145ead84fbda5ebdfb8d11a9f38533",
+        "revision_manifest_sha256": "e07105495c5ccb0b85fb2ec48b39e3dfd2346a2c612fd5a21a87d537856c344e",
+        "state_sha256": "c98e5e62175db6b7f5ee9a2bec489d4dd502c134b5b8f406bd5d839525821b30"
+      },
+      "recording_id": "cardeventnet-IMG_0638",
+      "reference_revision_id": "reference-visible_cards-85889936d456b7d1cf0a9dbb4514975a",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0638/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-85889936d456b7d1cf0a9dbb4514975a/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-7d70b0d126e69dd676b5f98636c9c328/content.json",
+      "expected": {
+        "content_sha256": "82b894c47617f198c15e4596cdbd9d44d73bad1d3e49bc32690c8789ce537038",
+        "draft_sha256": "36accd07304fa50d66d909df3d154eb725d1fc575e18b115cff51d339b1e71e2",
+        "revision_manifest_sha256": "6a8c59f232486611f99777a78bd568f4b7f86bf7c6fdc54ff19b42da58f3f2e3",
+        "state_sha256": "29525dc99a81654ec7e81c01d1b782b5b984d758ff647299dd8fd563ebaf2172"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "82b894c47617f198c15e4596cdbd9d44d73bad1d3e49bc32690c8789ce537038",
+        "draft_sha256": "b9c765efdbf83ca627bd9e01b71769bd8a2a17f0486381490cde58f860af49ad",
+        "revision_manifest_sha256": "6a8c59f232486611f99777a78bd568f4b7f86bf7c6fdc54ff19b42da58f3f2e3",
+        "state_sha256": "439a0770c4f127a96f930aacb2ca4861cfb28f091e015876015d6eb48284f74a"
+      },
+      "recording_id": "cardeventnet-IMG_0639",
+      "reference_revision_id": "reference-visible_cards-7d70b0d126e69dd676b5f98636c9c328",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0639/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-7d70b0d126e69dd676b5f98636c9c328/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-887f6b268b30ff5e5895297222f37d8d/content.json",
+      "expected": {
+        "content_sha256": "5de38abb7a6d902bff55e220314fa67961c4f59c565709124159bfd7c68bb40f",
+        "draft_sha256": "123b77e5cd069e4f6894ba0a263ab856444a37fe163b3772f88361f595cd1869",
+        "revision_manifest_sha256": "a956eddc1c1c72dad5e3ca9c97fa5e03fd86ee9439c97bc63c61e3b5c1903cde",
+        "state_sha256": "17aa0c97b5bf3609b227e3579b8c5697e64c6d53ec265924e656e09d4e6a465c"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "5de38abb7a6d902bff55e220314fa67961c4f59c565709124159bfd7c68bb40f",
+        "draft_sha256": "ed86d79c186b55d463ed913d02b647691fcd70760c276ded3d06f2a0e7a65411",
+        "revision_manifest_sha256": "a956eddc1c1c72dad5e3ca9c97fa5e03fd86ee9439c97bc63c61e3b5c1903cde",
+        "state_sha256": "529e022b73d32330e21c16c7afe5c36de8dcf68961ee8bf1c667cb044c2021a0"
+      },
+      "recording_id": "cardeventnet-IMG_0640",
+      "reference_revision_id": "reference-visible_cards-887f6b268b30ff5e5895297222f37d8d",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0640/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-887f6b268b30ff5e5895297222f37d8d/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-7b5bbc7db83cd6a3e7800c3a6fde3f1d/content.json",
+      "expected": {
+        "content_sha256": "6608e58d4b8d6228e0c0d29287210f5590975d64f24a507fe062f2a42f97e97e",
+        "draft_sha256": "43e4e684c53b295c50390f4b66ad2ab018868b5cd55fc7be48d79481f52365d6",
+        "revision_manifest_sha256": "156f5296778bcbb334799c1a5bdf6a92d44ee818e1c042dbaffcd82b987981ab",
+        "state_sha256": "ad5ffe2e4d9a751c396dab4bc18c29bb83f96adaf0b40fefca84b9ef46fb58ec"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "6608e58d4b8d6228e0c0d29287210f5590975d64f24a507fe062f2a42f97e97e",
+        "draft_sha256": "722f02b6baf4c35985709ba642f43c1008f3f8e6243861ef5a055462315a472a",
+        "revision_manifest_sha256": "156f5296778bcbb334799c1a5bdf6a92d44ee818e1c042dbaffcd82b987981ab",
+        "state_sha256": "1b15593d58c81ff8c5b39a312d73c761d1ad1e9213f9bcf3a067a2164e0de478"
+      },
+      "recording_id": "cardeventnet-IMG_0641",
+      "reference_revision_id": "reference-visible_cards-7b5bbc7db83cd6a3e7800c3a6fde3f1d",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0641/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-7b5bbc7db83cd6a3e7800c3a6fde3f1d/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-84bc4c78d55d121cbd3f9b2a3dec2fc7/content.json",
+      "expected": {
+        "content_sha256": "5be15d825026d9e0c8b7cf9d350d24bee2cacaa985f860f0ee89101f5f6c4d95",
+        "draft_sha256": "d6330954fdc20d0a209ded49633853b4691ab5fd569e023caab831584b744b0a",
+        "revision_manifest_sha256": "7a62cbcf7100a0488c0d0f659e8f8b30dd0caa8aba3b497542858b848da36efa",
+        "state_sha256": "4189cd5783435dde6dd8ed79f653f47719a0304b8beb5eb21d9735806bda371c"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": true
+      },
+      "observed": {
+        "content_sha256": "5be15d825026d9e0c8b7cf9d350d24bee2cacaa985f860f0ee89101f5f6c4d95",
+        "draft_sha256": "e80375b7d3427ddb2815ffa1a518fdde4830782f53910c8eeca96389c41b7f7e",
+        "revision_manifest_sha256": "7a62cbcf7100a0488c0d0f659e8f8b30dd0caa8aba3b497542858b848da36efa",
+        "state_sha256": "4189cd5783435dde6dd8ed79f653f47719a0304b8beb5eb21d9735806bda371c"
+      },
+      "recording_id": "cardeventnet-IMG_0642",
+      "reference_revision_id": "reference-visible_cards-84bc4c78d55d121cbd3f9b2a3dec2fc7",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0642/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-84bc4c78d55d121cbd3f9b2a3dec2fc7/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-b817b6b3337baec07204120d989dd428/content.json",
+      "expected": {
+        "content_sha256": "bb462343e0690f2d34adbcd1afa6a737b089ff690c2604f3a9fdb389580e2f0b",
+        "draft_sha256": "4b34e48f7c91cad3a0ff9eacb8a5c3c7ae51bce44a4c335bc4740fdec81c5c13",
+        "revision_manifest_sha256": "1edacc3619a4ef585825ca13dd6ec5a36996f018e516ab3c2cf9f9c5e1733cba",
+        "state_sha256": "b71c7cab820f44c0c2d537a696f911b68ea5349e96b06b8d99dc6c96187d105c"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "bb462343e0690f2d34adbcd1afa6a737b089ff690c2604f3a9fdb389580e2f0b",
+        "draft_sha256": "e25cab12dccbde64247ea059b0d068d9154a144a59964e5a917d9e9a349bf3ed",
+        "revision_manifest_sha256": "1edacc3619a4ef585825ca13dd6ec5a36996f018e516ab3c2cf9f9c5e1733cba",
+        "state_sha256": "48030749b166cfcb963b02818916ee00a952ab9ed5b3d41a992c208785b0468f"
+      },
+      "recording_id": "cardeventnet-IMG_0643",
+      "reference_revision_id": "reference-visible_cards-b817b6b3337baec07204120d989dd428",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0643/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-b817b6b3337baec07204120d989dd428/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-44c56fc8fc395ee43f3220e9b60bb1e9/content.json",
+      "expected": {
+        "content_sha256": "2876a02ef6f040cdaae61b671566f721dfb419cfcb6f962056a12086bc6155ab",
+        "draft_sha256": "3ef379dc58b01b66f60ad751a17f7dd3c2b7f4086327de996fd18ce93ff7e61f",
+        "revision_manifest_sha256": "4a6eb3a8e5f799bbb88219552f100a61c08a377e3d08ffc531ded21fb46aaae2",
+        "state_sha256": "dc61b35dc57527500ecc068782b7b0793eef949f2b588eda82eb218bf2992a2f"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": true
+      },
+      "observed": {
+        "content_sha256": "2876a02ef6f040cdaae61b671566f721dfb419cfcb6f962056a12086bc6155ab",
+        "draft_sha256": "789c1b56f9b884cf9e9b05d03561079c748b6837f716ac819fecb941c6e0bafa",
+        "revision_manifest_sha256": "4a6eb3a8e5f799bbb88219552f100a61c08a377e3d08ffc531ded21fb46aaae2",
+        "state_sha256": "dc61b35dc57527500ecc068782b7b0793eef949f2b588eda82eb218bf2992a2f"
+      },
+      "recording_id": "cardeventnet-IMG_0644",
+      "reference_revision_id": "reference-visible_cards-44c56fc8fc395ee43f3220e9b60bb1e9",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0644/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-44c56fc8fc395ee43f3220e9b60bb1e9/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-2cb6063328acc3a69e778a133f7d16bd/content.json",
+      "expected": {
+        "content_sha256": "9b8aa5c67f60ab75ab421f9f756ca3d80d0e46e39f2e1f654d8381fcd3ea5f8b",
+        "draft_sha256": "58ac00181546c4320353baa71d9247ad83d59bf5989f4f18c9104c67f937997e",
+        "revision_manifest_sha256": "aabd793f24a4f00824053bc5081e95dd62864ef0f5c15653ce83fb752ff804f7",
+        "state_sha256": "cafc0aed9c4cfb56f4de32e0e684f0ababc9c2f9fe24f4daf5120ddaddfc270b"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": true
+      },
+      "observed": {
+        "content_sha256": "9b8aa5c67f60ab75ab421f9f756ca3d80d0e46e39f2e1f654d8381fcd3ea5f8b",
+        "draft_sha256": "5e1f891791ab067e57e890d975584496b351ed06cfad8039288ea65f39d7dc0d",
+        "revision_manifest_sha256": "aabd793f24a4f00824053bc5081e95dd62864ef0f5c15653ce83fb752ff804f7",
+        "state_sha256": "cafc0aed9c4cfb56f4de32e0e684f0ababc9c2f9fe24f4daf5120ddaddfc270b"
+      },
+      "recording_id": "cardeventnet-IMG_0645",
+      "reference_revision_id": "reference-visible_cards-2cb6063328acc3a69e778a133f7d16bd",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0645/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-2cb6063328acc3a69e778a133f7d16bd/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-719db93249b549be3d997c0c33c5cafd/content.json",
+      "expected": {
+        "content_sha256": "56eeb24fba2501c0c7157f7b6cafcfa54e6f7a445ec875747800fff882c07c48",
+        "draft_sha256": "c90a7fbf101b66d7e2c642b813a4259e0f8658a51469e280b3f878ab4af45ec5",
+        "revision_manifest_sha256": "2092d473c9e1d30267990888581f245e5ed7c8388446a7f86ae800f65dcb723a",
+        "state_sha256": "1bf03d47317a13ccabec028449d31aa2206dbd6e98ab04c183276eea396476f5"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": true
+      },
+      "observed": {
+        "content_sha256": "56eeb24fba2501c0c7157f7b6cafcfa54e6f7a445ec875747800fff882c07c48",
+        "draft_sha256": "fee37344250bf3b1f1895a67126a36220ab778498cd4644cd701b178603bda50",
+        "revision_manifest_sha256": "2092d473c9e1d30267990888581f245e5ed7c8388446a7f86ae800f65dcb723a",
+        "state_sha256": "1bf03d47317a13ccabec028449d31aa2206dbd6e98ab04c183276eea396476f5"
+      },
+      "recording_id": "cardeventnet-IMG_0646",
+      "reference_revision_id": "reference-visible_cards-719db93249b549be3d997c0c33c5cafd",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0646/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-719db93249b549be3d997c0c33c5cafd/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-bfc0ec1522aba2c30db1930fa542bafe/content.json",
+      "expected": {
+        "content_sha256": "fac2a48bdd87c482c403bc1bc9e8819ba590836220543d91bfb7f19ddecd3a9d",
+        "draft_sha256": "549b73383cf6f9916787025a5e8c745924aefd64606af7608d47050d2c5c9a53",
+        "revision_manifest_sha256": "921bf99bd7305729e63c26d7cac26481c495c769edb0abe531d506991c046feb",
+        "state_sha256": "90ad20f4d187e692c51b51f4f8132d14f29285209f114adc924283481f2b9de0"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "fac2a48bdd87c482c403bc1bc9e8819ba590836220543d91bfb7f19ddecd3a9d",
+        "draft_sha256": "1a7c60a2ad8561323c5ec4b216ab254e4f732c79ee53d4bd3c41fd7b721fe0f4",
+        "revision_manifest_sha256": "921bf99bd7305729e63c26d7cac26481c495c769edb0abe531d506991c046feb",
+        "state_sha256": "dd3e2b3b2b28192835b4982ca2b30ab87d6e082c672c6fd07325dcccdb4c5bc7"
+      },
+      "recording_id": "cardeventnet-IMG_0648",
+      "reference_revision_id": "reference-visible_cards-bfc0ec1522aba2c30db1930fa542bafe",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0648/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-bfc0ec1522aba2c30db1930fa542bafe/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-dde0cfd22042f10352857c21e398b201/content.json",
+      "expected": {
+        "content_sha256": "be8bb8a0e316e41b8c3807c82d55aeedc77b45865ae97b1ae8041f9dc0da05d2",
+        "draft_sha256": "16d1da012d7bb9679bddc1dffdc2e25489de23aeb19aa1eca3148556dd71a88b",
+        "revision_manifest_sha256": "9e34ffba44d9ac23ba5f3218917f306e707be4a8be073c370827da17d742cce0",
+        "state_sha256": "ac61b7663a1206374a68e142328e5555f74f268658c64c59aacf967f00b52f42"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "be8bb8a0e316e41b8c3807c82d55aeedc77b45865ae97b1ae8041f9dc0da05d2",
+        "draft_sha256": "0a6283c683b1bc439c9fed7219864217594291594e6c0b12e822dc50556e2226",
+        "revision_manifest_sha256": "9e34ffba44d9ac23ba5f3218917f306e707be4a8be073c370827da17d742cce0",
+        "state_sha256": "a0c2b895506f58c7a6f05abab059b6eee4542f3bba73cf9e1537eb02ee6488eb"
+      },
+      "recording_id": "cardeventnet-IMG_0649",
+      "reference_revision_id": "reference-visible_cards-dde0cfd22042f10352857c21e398b201",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0649/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-dde0cfd22042f10352857c21e398b201/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-b882b68535ff74003e168b1b3a93231b/content.json",
+      "expected": {
+        "content_sha256": "4732b3f12012c523c3ccd304266380d66657bc2bf7dc24402845ac57628f5a31",
+        "draft_sha256": "4ac3ad9209e612ed1cdad4d975340af4645baaa3e1890acf3b3ae7f6a50276c9",
+        "revision_manifest_sha256": "7d0a765f110d17bf15a282103f57de7ffb021a81ada4e3bed876edd0fd55c6dd",
+        "state_sha256": "f26c5b6c45429e7a054ba7c54861327041105e1f45f23d752d3671e3c6cb58ec"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "4732b3f12012c523c3ccd304266380d66657bc2bf7dc24402845ac57628f5a31",
+        "draft_sha256": "de777bf5c12c137907df6ca2c6c341032dfee24263355edbacc6ce6bf1afb572",
+        "revision_manifest_sha256": "7d0a765f110d17bf15a282103f57de7ffb021a81ada4e3bed876edd0fd55c6dd",
+        "state_sha256": "d5a976648661ed250aef9381844cdfcc9a5495164a3335d4e944310d314ae267"
+      },
+      "recording_id": "cardeventnet-IMG_0655",
+      "reference_revision_id": "reference-visible_cards-b882b68535ff74003e168b1b3a93231b",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0655/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-b882b68535ff74003e168b1b3a93231b/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-720a1ae3ff1f2fa677784847b99f794e/content.json",
+      "expected": {
+        "content_sha256": "feed083aa1902f85d7d4cfe9e9c2830efa348a912470bbbfd87d8454eb0d2905",
+        "draft_sha256": "1c2a5d539f821ab3ff23454d754eb5a0a8517a0c5dbee2ffce036d35604d4fd8",
+        "revision_manifest_sha256": "d856436619e156747c60ca7fbe39db7464d7a0b8dc6aa192daca1cc2301e78f4",
+        "state_sha256": "b1245d4c3a4b6b2e3e545516d474b922bf09900c004896b6d9e0c5d1f922bc0c"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": false
+      },
+      "observed": {
+        "content_sha256": "feed083aa1902f85d7d4cfe9e9c2830efa348a912470bbbfd87d8454eb0d2905",
+        "draft_sha256": "27b287e7d7c2038aaea2a5634d95e1d538c6a5c44fc8ba4553f5065c7e4050de",
+        "revision_manifest_sha256": "d856436619e156747c60ca7fbe39db7464d7a0b8dc6aa192daca1cc2301e78f4",
+        "state_sha256": "fa261074f8df3524c59da653310413abb95104c8537c51e9c35a601f45601edc"
+      },
+      "recording_id": "cardeventnet-IMG_0661",
+      "reference_revision_id": "reference-visible_cards-720a1ae3ff1f2fa677784847b99f794e",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0661/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-720a1ae3ff1f2fa677784847b99f794e/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-eeeb63081b27ebec777c268d4d7e1552/content.json",
+      "expected": {
+        "content_sha256": "d1366a2a4850c9de72fe3c5ffeac20c5e7d61f91c91fb233451cd2f504d8bc6a",
+        "draft_sha256": "e8edc53bf1ff07e470221b99c1d159309528b7cf68de9316ab81f5f6373139fe",
+        "revision_manifest_sha256": "1605f17ce5fab77edcd28adfa029e1c78bdb783eaa790bfea49202ed9cb4e23a",
+        "state_sha256": "643318c7660fd89d718befa21ff68d610c36d64aa9a07d771a661a9bb6445a8d"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": true
+      },
+      "observed": {
+        "content_sha256": "d1366a2a4850c9de72fe3c5ffeac20c5e7d61f91c91fb233451cd2f504d8bc6a",
+        "draft_sha256": "12540a00c242c3f91f0946efb5d6989a6c1889ee86259857b95802516b33e673",
+        "revision_manifest_sha256": "1605f17ce5fab77edcd28adfa029e1c78bdb783eaa790bfea49202ed9cb4e23a",
+        "state_sha256": "643318c7660fd89d718befa21ff68d610c36d64aa9a07d771a661a9bb6445a8d"
+      },
+      "recording_id": "cardeventnet-IMG_0669",
+      "reference_revision_id": "reference-visible_cards-eeeb63081b27ebec777c268d4d7e1552",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0669/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-eeeb63081b27ebec777c268d4d7e1552/manifest.json"
+    },
+    {
+      "content_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-2d0088456473d4b5d8b7aaf483c1da7d/content.json",
+      "expected": {
+        "content_sha256": "8e0fc27a863bad87ed4877ace31ab3fc528c0e533357743641838480fe134307",
+        "draft_sha256": "4d48f07d950d1251f6f30e9ce9015e278b0ea422f8ea152be54691c9a8c512d5",
+        "revision_manifest_sha256": "7df07e881e767e1f5376224308290f3a12da445ff67876bee3fcfb79034ac47e",
+        "state_sha256": "7ddebee00e5dca9600b8472e4882b3adaa7dc44896ad36bb17c4bdb76032d7fd"
+      },
+      "matches": {
+        "content_sha256": true,
+        "draft_sha256": false,
+        "revision_manifest_sha256": true,
+        "state_sha256": true
+      },
+      "observed": {
+        "content_sha256": "8e0fc27a863bad87ed4877ace31ab3fc528c0e533357743641838480fe134307",
+        "draft_sha256": "9c1c40bdce769a85eb9d2025d0fa028463e2be5d6adef60644da6457e3d94f24",
+        "revision_manifest_sha256": "7df07e881e767e1f5376224308290f3a12da445ff67876bee3fcfb79034ac47e",
+        "state_sha256": "7ddebee00e5dca9600b8472e4882b3adaa7dc44896ad36bb17c4bdb76032d7fd"
+      },
+      "recording_id": "cardeventnet-IMG_0674",
+      "reference_revision_id": "reference-visible_cards-2d0088456473d4b5d8b7aaf483c1da7d",
+      "reference_root": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline-references/cardeventnet-IMG_0674/visible_cards",
+      "revision_manifest_identity_matches": true,
+      "revision_manifest_path": "data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/pipeline/revisions/reference-visible_cards-2d0088456473d4b5d8b7aaf483c1da7d/manifest.json"
+    }
+  ],
+  "reference_count": 24,
+  "revision_manifest_identity_matches": 24
+}
