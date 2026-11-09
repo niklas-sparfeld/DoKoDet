@@ -187,7 +187,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M5a | Durable shared history authority and rebuild contract | Complete; [report](../../reports/0117-M5a_History_Authority.md) |
 | M5b | Bounded history API pages over the durable metadata index | Incomplete; split by replan 6 |
 | M5b1 | Ordered cursor-addressable history index with atomic publication and rebuild | Complete; correction 1/2; [report](../../reports/0117-M5b1_Ordered_History_Index.md) |
-| M5b2 | M1-compliant pages, signed cursors, lineage continuation, corruption mapping | In progress; [report](../../reports/0117-M5b2_M1_Compliant_History_Pages.md) |
+| M5b2 | M1-compliant pages, signed cursors, lineage continuation, corruption mapping | Complete; [report](../../reports/0117-M5b2_M1_Compliant_History_Pages.md) |
 | M5c | Source publisher adapters and durable-to-index gap reconciliation | Not started; candidate source must be identified |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
@@ -236,13 +236,13 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 2; remaining: 12. The cap covers
+- Requested run: 14 milestones, starting at M5a; completed: 3; remaining: 11. The cap covers
   M5a, M5b1, M5b2, M5c, and M6–M15; M16 is outside this run.
-- Next milestone: M5b2. M5b replan count: 1/5; this run replan count: 1/10. M5b1 correction
+- Next milestone: M5c. M5b replan count: 1/5; this run replan count: 1/10. M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
-- M5b2 result: incomplete after review. The four history routes use M5b1's stable collection order and frozen
+- M5b2 result: complete after the resumed authority-loss fix. The four history routes use M5b1's stable collection order and frozen
   sequence roots. HMAC cursors bind recording, collection, empty-filter digest, generation,
   sequence, full stable key, and page size. The private cursor key and local digest record use
   atomic mode-0600 writes with file and directory sync. A separate operations-root authority stores
@@ -255,10 +255,13 @@ while history and unrelated recordings grow 10x.
   publication, exact lineage endpoint checks, and bounded metadata/no-payload API evidence. Source
   publication and durable gap reconciliation remain with M5c. See the
   [M5b2 report](../../reports/0117-M5b2_M1_Compliant_History_Pages.md).
-- The run stopped after two M5b2 corrections. The key-loss check inspects only the active
-  generation. After issuing a cursor and rebuilding to an empty generation, loss of the key,
-  marker, and authority can trigger silent replacement despite retained historical generations.
-  Check retained generation evidence and add a regression before accepting M5b2.
+  The resumed fix checks inactive retained generations when the active generation is empty. Its
+  regression proves that loss of the key, marker, and authority after a non-empty generation was
+  retained returns HTTP 500 and requires explicit cursor invalidation. Initial empty-generation
+  rebuilds remain supported. Focused API/store/index/contract/workflow tests, Ruff check and format,
+  and OpenAPI verification passed. Browser checks were not applicable because no web consumer or
+  API contract changed. M5c starts with correction count 0/2. No replan was required; existing run
+  replan counts are unchanged.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
   selection reads do the same; selection writes take the root lock before their selection lock.

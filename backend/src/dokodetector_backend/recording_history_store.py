@@ -331,6 +331,23 @@ class RecordingHistoryStore:
                 items_root = generation_root / "items"
                 if items_root.exists() and any(items_root.rglob("*.json")):
                     return True
+                # A rebuild can leave the active generation empty while an older generation
+                # still proves that cursors were issued against retained history.
+                generations_root = recording_root / "generations"
+                for retained_root in generations_root.iterdir():
+                    if retained_root == generation_root or retained_root.name.startswith(
+                        ".staging-"
+                    ):
+                        continue
+                    retained_authority = self._read_object(
+                        retained_root / "authority.json", "retained history authority"
+                    )
+                    retained_sequence = retained_authority.get("sequence")
+                    if not isinstance(retained_sequence, int) or retained_sequence > 0:
+                        return True
+                    retained_items = retained_root / "items"
+                    if retained_items.exists() and any(retained_items.rglob("*.json")):
+                        return True
             except (KeyError, OSError, TypeError, ValueError):
                 return True
         return False

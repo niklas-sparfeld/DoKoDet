@@ -385,6 +385,34 @@ def test_established_cursor_key_loss_returns_http_500(tmp_path: Path):
     assert response.json()["error"]["code"] == "recording_history_corrupt"
 
 
+def test_cursor_authority_loss_detects_retained_generation_after_empty_rebuild(tmp_path: Path):
+    app = _create_app(tmp_path)
+    store: RecordingHistoryStore = app.state.recording_history_store
+    store.publish(RECORDING, _snapshot("a"))
+    store.publish(RECORDING, _snapshot("b"))
+    client = TestClient(app)
+    first = client.get(f"/api/recordings/{RECORDING}/state/history", params={"limit": 1}).json()
+    assert first["next_cursor"]
+
+    old_generation = store.get_authority(RECORDING).generation
+    empty_generation, _ = store.rebuild(RECORDING, [])
+    assert empty_generation != old_generation
+    assert store.get_authority(RECORDING).sequence == 0
+    assert (store.root / RECORDING / "generations" / old_generation).is_dir()
+
+    (store.root / "cursor-integrity-key").unlink()
+    (store.root / "cursor-integrity-key-state.json").unlink()
+    (store.root.parent / "recording-history-cursor-authority.json").unlink()
+    response = client.get(
+        f"/api/recordings/{RECORDING}/state/history",
+        params={"limit": 1, "cursor": first["next_cursor"]},
+    )
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "recording_history_corrupt"
+    with pytest.raises(RecordingHistoryCorrupt, match="explicit cursor invalidation"):
+        store.bootstrap_cursor_integrity_key_for_existing_history()
+
+
 def test_simultaneous_revisions_stay_outside_frozen_history_page(tmp_path: Path):
     app = _create_app(tmp_path)
     store: RecordingHistoryStore = app.state.recording_history_store

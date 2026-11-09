@@ -40,3 +40,26 @@ durable-to-index crash-gap reconciliation, so complete source discovery is not c
 - Correction 2/2 tests cover process death after key, local marker, and independent authority publication; local marker loss and key replacement; loss of all three authority files after cursor issuance; authority loss with existing history; and explicit legacy bootstrap with key preservation or cursor invalidation.
 - M5b1 tests cover bounded index-node and metadata reads at 256 items. The page implementation does not call payload readers.
 - `git diff --check` and local Markdown link checks — passed.
+
+## Resumed acceptance fix
+
+The resumed M5b2 review found one remaining authority-loss case. After a cursor was issued against
+non-empty history, a rebuild could make an empty generation active while retaining the earlier
+generation. If the key, local marker, and independent authority were then all lost, the active
+generation alone looked like a fresh empty store. The API silently created a new key and returned
+422 for the old cursor instead of failing closed with 500.
+
+`_has_history_generation_data()` now checks inactive retained generations when the active
+generation is empty. A retained non-empty authority or item set proves that cursor authority was
+established. It requires restore or explicit cursor invalidation if all key authority files are
+lost. An initial empty generation does not count as history, so a new store can still establish
+its key before its first publication.
+
+The regression issues a cursor, rebuilds to an empty generation, removes all three key authority
+files, and verifies that the history route returns 500 and explicit bootstrap refuses to replace
+the missing authority by default. Existing initial-empty-generation rebuild tests also pass.
+
+Checks after the fix: the focused history API, store, ordered-index, contract, and workflow suites
+passed. Ruff check, Ruff format check, and `npm run verify:api` passed. No web consumer or OpenAPI
+contract changed, so browser checks were not applicable. M5b2 is complete; M5c owns source
+publication and durable-to-index gap reconciliation.
