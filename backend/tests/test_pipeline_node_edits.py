@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from dokodetector_backend.filesystem import atomic_write_json
 from dokodetector_backend.pipeline_item_provenance import ItemProvenanceService
 from dokodetector_backend.pipeline_node_edits import PipelineNodeEdits
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
@@ -176,6 +177,40 @@ def test_retry_after_revision_published_but_head_update_failed(tmp_path: Path, m
     assert not result["copied"]
     assert store.read_revision("n", result["revision_id"]).content == content(300)
     assert len(store.history("n")) == 2
+
+
+def test_retry_does_not_delete_orphan_with_dependent_records(tmp_path: Path, monkeypatch) -> None:
+    store = PipelineNodeStore(tmp_path)
+    initial = store.create("n", "Events", "events", SOURCE, content(200), {})
+    edits = PipelineNodeEdits(store)
+
+    def fail_head(*args, **kwargs):
+        raise OSError("head update failed")
+
+    with monkeypatch.context() as context:
+        context.setattr("dokodetector_backend.pipeline_node_store.atomic_replace_json", fail_head)
+        with pytest.raises(OSError, match="head update failed"):
+            edits.edit("n", initial.revision_id, content(300), "dependent-retry", ACTOR)
+
+    orphan = next(
+        path.name
+        for path in (tmp_path / "n" / "revisions").iterdir()
+        if path.name != initial.revision_id
+    )
+    atomic_write_json(
+        tmp_path / ".accepted-uses" / "legacy-use.json",
+        {"inputs": [{"node_id": "n", "revision_id": orphan}]},
+    )
+    atomic_write_json(
+        tmp_path / ".review-records" / "legacy-review.json",
+        {"node_id": "n", "revision_id": orphan},
+    )
+
+    with pytest.raises(NodeConflict, match="unpublished revision has review or accepted-use"):
+        edits.edit("n", initial.revision_id, content(300), "dependent-retry", ACTOR)
+
+    assert store.has_revision("n", orphan)
+    assert store.get("n").head_revision_id == initial.revision_id
 
 
 def test_run_acceptance_and_service_edit_race(tmp_path: Path) -> None:

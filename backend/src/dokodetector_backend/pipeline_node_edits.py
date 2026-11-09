@@ -158,13 +158,13 @@ class PipelineNodeEdits:
                 return recovered
             self._remove_uncommitted_revision(node_id, output_revision_id, digest)
             node = self.store.get(node_id)
-            current = self.store.read_revision_record(node_id, expected)
+            current = self.store.read_published_revision(node_id, expected)
             if kind != "copy" and node.head_revision_id != expected:
                 raise NodeConflict("working head changed")
             if kind == "restore":
                 if historical_revision_id is None:
                     raise ValueError("historical revision is required")
-                target_content = self.store.read_revision_record(
+                target_content = self.store.read_published_revision(
                     node_id, historical_revision_id
                 ).content
             elif kind == "copy":
@@ -278,8 +278,27 @@ class PipelineNodeEdits:
         operation = record.get("metadata", {}).get("_edit_operation", {})
         if operation.get("digest") != digest:
             raise NodeConflict("uncommitted revision conflicts with existing data")
-        # The caller checked the committed history under the transaction lock first.
+        if self._revision_has_dependents(node_id, revision_id):
+            raise NodeConflict("unpublished revision has review or accepted-use records")
+        # The caller checked exact HEAD reachability under the transaction lock first.
         shutil.rmtree(path)
+
+    def _revision_has_dependents(self, node_id: str, revision_id: str) -> bool:
+        uses_root = self.store.root / ".accepted-uses"
+        if uses_root.exists():
+            for path in uses_root.glob("*.json"):
+                if any(
+                    item["node_id"] == node_id and item["revision_id"] == revision_id
+                    for item in _read_json(path)["inputs"]
+                ):
+                    return True
+        reviews_root = self.store.root / ".review-records"
+        if reviews_root.exists():
+            for path in reviews_root.glob("*.json"):
+                record = _read_json(path)
+                if record.get("node_id") == node_id and record.get("revision_id") == revision_id:
+                    return True
+        return False
 
     def _is_used(self, node_id: str) -> bool:
         root = self.store.root / ".accepted-uses"
@@ -297,29 +316,17 @@ class PipelineNodeEdits:
                 continue
             if not self.store.has_revision(candidate, revision_id):
                 continue
-            node = self.store.get(candidate)
             revision = self.store.read_revision_record(candidate, revision_id)
             operation = revision.metadata.get("_edit_operation")
             if not isinstance(operation, dict) or operation.get("digest") != digest:
                 raise NodeConflict("operation revision conflicts with existing data")
-            if self._is_revision_reachable(candidate, node.head_revision_id, revision_id):
+            try:
+                self.store.read_published_revision(candidate, revision_id)
+            except KeyError:
+                continue
+            else:
                 return operation["result"]
         return None
-
-    def _is_revision_reachable(
-        self, node_id: str, head_revision_id: str, target_revision_id: str
-    ) -> bool:
-        """Check one exact revision's ancestry without materializing the full history."""
-        revision_id: str | None = head_revision_id
-        seen: set[str] = set()
-        while revision_id is not None:
-            if revision_id == target_revision_id:
-                return True
-            if revision_id in seen:
-                raise NodeConflict("revision ancestry contains a cycle")
-            seen.add(revision_id)
-            revision_id = self.store.read_revision_record(node_id, revision_id).parent_revision_id
-        return False
 
     @staticmethod
     def _journal(path: Path, key: str, digest: str, result: dict[str, Any] | None) -> None:

@@ -1,9 +1,16 @@
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import pytest
 
-from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
+from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
+from dokodetector_backend.pipeline_node_store import (
+    NodeConflict,
+    PipelineNodeStore,
+    atomic_replace_json,
+)
+from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 
 SOURCE = {
     "schema_version": "recording-video/v1",
@@ -87,6 +94,79 @@ def test_interrupted_head_update_does_not_publish_revision(tmp_path: Path, monke
     )
     with pytest.raises(KeyError):
         reopened.read_revision("n", unpublished)
+    with pytest.raises(KeyError):
+        reopened.read_published_revision("n", unpublished)
+    with pytest.raises(KeyError):
+        PipelineNodeUses(reopened).accept(
+            "orphan-use", [("n", unpublished)], revision_policy="historical"
+        )
+    reviews = PipelineNodeReviews(reopened)
+    with pytest.raises(KeyError):
+        reviews.overall(
+            "orphan-review",
+            "n",
+            unpublished,
+            "Is this revision approved?",
+            "yes",
+            {"kind": "human", "id": "reviewer"},
+            {"policy": "orphan-test/v1", "evidence": "crash fixture"},
+        )
+    assert not (tmp_path / ".accepted-uses" / "orphan-use.json").exists()
+    assert not (reviews.root / "orphan-review.json").exists()
+
+
+def test_reader_and_dependent_use_cannot_observe_pre_head_revision(
+    tmp_path: Path, monkeypatch
+) -> None:
+    store = PipelineNodeStore(tmp_path)
+    first = store.create("n", "Events", "events", SOURCE, events(1), {})
+    revision_id = "published-after-head"
+    revision_written = Event()
+    publish_head = Event()
+    original_replace = atomic_replace_json
+
+    def pause_before_head(path, value):
+        if Path(path) == store._node_path("n") / "head.json":
+            revision_written.set()
+            assert publish_head.wait(5), "test did not release the HEAD writer"
+        return original_replace(path, value)
+
+    monkeypatch.setattr(
+        "dokodetector_backend.pipeline_node_store.atomic_replace_json", pause_before_head
+    )
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        writer = pool.submit(
+            store.save,
+            "n",
+            first.revision_id,
+            events(20),
+            {},
+            revision_id=revision_id,
+        )
+        assert revision_written.wait(5), "writer did not reach the HEAD replacement boundary"
+        assert store.has_revision("n", revision_id)
+        reader = PipelineNodeStore(tmp_path)
+        with pytest.raises(KeyError):
+            reader.read_published_revision("n", revision_id)
+
+        use_started = Event()
+
+        def accept_pending_revision():
+            use_started.set()
+            return PipelineNodeUses(PipelineNodeStore(tmp_path)).accept(
+                "concurrent-use", [("n", revision_id)]
+            )
+
+        dependent = pool.submit(accept_pending_revision)
+        assert use_started.wait(5)
+        assert not dependent.done()
+        publish_head.set()
+        published = writer.result(timeout=5)
+        accepted = dependent.result(timeout=5)
+
+    assert published.revision_id == revision_id
+    assert accepted["inputs"] == [{"node_id": "n", "revision_id": revision_id}]
+    assert reader.read_published_revision("n", revision_id).content == events(20)
 
 
 def test_node_enforces_content_type_and_source_duration(tmp_path: Path) -> None:

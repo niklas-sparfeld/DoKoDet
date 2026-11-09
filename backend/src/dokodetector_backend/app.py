@@ -54,6 +54,7 @@ from dokodetector_backend.proposed_card_scene_jobs import ProposedCardSceneJobPa
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
 from dokodetector_backend.recording_state_api import router as recording_state_router
 from dokodetector_backend.recording_state_store import RecordingStateSnapshotStore
+from dokodetector_backend.recording_state_working_editor import RecordingStateWorkingEditor
 from dokodetector_backend.recording_thumbnail import RecordingThumbnailCache
 from dokodetector_backend.recordings_api import router as recordings_router
 from dokodetector_backend.repository_bundle_api import router as repository_bundle_router
@@ -222,6 +223,10 @@ def create_app(
         event_provider=event_provider,
     )
     install_pipeline_composition(app.state, pipeline_composition)
+    app.state.recording_state_working_editor = RecordingStateWorkingEditor(
+        app.state.recording_state_store,
+        app.state.pipeline_node_edits,
+    )
     app.state.proposed_card_scene_pipeline_service.job_manager_provider = (
         app.state.job_manager_service.get_manager
     )

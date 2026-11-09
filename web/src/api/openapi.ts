@@ -923,6 +923,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/state/events/working-content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit Selected Event Content
+         * @description Edit selected event work and publish its replacement as the current snapshot.
+         */
+        put: operations["edit_selected_event_content_api_recordings__recording_id__state_events_working_content_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/state/snapshots/{snapshot_id}": {
         parameters: {
             query?: never;
@@ -3360,6 +3380,21 @@ export interface components {
             };
             /** Snapshot Id */
             snapshot_id: string;
+        };
+        /** RecordingStateWorkingEditRequest */
+        RecordingStateWorkingEditRequest: {
+            /** Actor */
+            actor: {
+                [key: string]: unknown;
+            };
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Expected Head Version */
+            expected_head_version: number;
+            /** Idempotency Key */
+            idempotency_key: string;
         };
         /**
          * RecordingSummary
@@ -6189,6 +6224,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RecordingStateSnapshot"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_selected_event_content_api_recordings__recording_id__state_events_working_content_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordingStateWorkingEditRequest"];
             };
         };
         responses: {

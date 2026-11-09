@@ -57,7 +57,7 @@ class PipelineNodeUses:
                     and node.head_revision_id != ref["revision_id"]
                 ):
                     raise NodeConflict("input working head changed before acceptance")
-                self.store.read_revision_record(ref["node_id"], ref["revision_id"])
+                self.store.read_published_revision(ref["node_id"], ref["revision_id"])
             record = {
                 "schema_version": "pipeline-accepted-use/v1",
                 "run_id": run_id,

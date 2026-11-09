@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from typing import Any
 
+from fastapi import APIRouter, Request
+from pydantic import Field
+
+from dokodetector_backend.contract import ContractModel
 from dokodetector_backend.errors import ContractError
 from dokodetector_backend.recording_state_contract import (
     RecordingHeadUpdate,
@@ -17,6 +21,13 @@ from dokodetector_backend.recording_state_store import (
 )
 
 router = APIRouter(prefix="/api/recordings/{recording_id}/state")
+
+
+class RecordingStateWorkingEditRequest(ContractModel):
+    expected_head_version: int = Field(ge=1)
+    idempotency_key: str = Field(min_length=1)
+    actor: dict[str, Any]
+    content: dict[str, Any]
 
 
 def _execute(operation):
@@ -77,6 +88,23 @@ def update_recording_state(
 
     return _execute(
         lambda: _published_mapping(request.app.state.recording_state_store.publish(update))
+    )
+
+
+@router.put("/events/working-content")
+def edit_selected_event_content(
+    recording_id: str, body: RecordingStateWorkingEditRequest, request: Request
+) -> dict:
+    """Edit selected event work and publish its replacement as the current snapshot."""
+
+    return _execute(
+        lambda: request.app.state.recording_state_working_editor.edit_events(
+            recording_id,
+            body.expected_head_version,
+            body.idempotency_key,
+            body.actor,
+            body.content,
+        )
     )
 
 

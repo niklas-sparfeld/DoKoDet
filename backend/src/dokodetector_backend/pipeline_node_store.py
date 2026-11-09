@@ -322,10 +322,22 @@ class PipelineNodeStore:
         return tuple(result)
 
     def read_revision(self, node_id: str, revision_id: str) -> NodeRevision:
+        """Read an exact revision only when the current node head publishes it."""
+        return self.read_published_revision(node_id, revision_id)
+
+    def read_published_revision(self, node_id: str, revision_id: str) -> NodeRevision:
+        """Verify one revision is reachable from the current head without listing history."""
         _safe_id(revision_id, "revision_id")
-        for revision in self.history(node_id):
-            if revision.revision_id == revision_id:
-                return revision
+        node = self.get(node_id)
+        current_id: str | None = node.head_revision_id
+        seen: set[str] = set()
+        while current_id is not None:
+            if current_id == revision_id:
+                return self._read_revision(node, revision_id)
+            if current_id in seen:
+                raise ValueError("revision history contains a cycle")
+            seen.add(current_id)
+            current_id = self._read_revision(node, current_id).parent_revision_id
         raise KeyError(revision_id)
 
     def read_revision_record(self, node_id: str, revision_id: str) -> NodeRevision:

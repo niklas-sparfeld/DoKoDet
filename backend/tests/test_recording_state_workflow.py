@@ -125,7 +125,7 @@ def _produce_events_from_frozen_inputs(frozen, node_store, state_store, output_n
     node = node_store.get(resource.node_id)
     if node.source.get("recording_id") != request.recording_id or node.content_type != "events":
         raise ValueError("frozen event resource belongs to another recording or content type")
-    revision = node_store.read_revision_record(resource.node_id, resource.revision_id)
+    revision = node_store.read_published_revision(resource.node_id, resource.revision_id)
     if (
         revision.content_sha256 != resource.sha256
         or revision.revision_id != resource.resource_id
@@ -266,22 +266,6 @@ def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatc
     output_content = json.loads(json.dumps(input_content))
     output_content["events"][0]["end_us"] += 50
     output_ref = _reference(output_revision, "events-generated")
-    generated_snapshot = _snapshot_payload(
-        generated=output_ref,
-        completed=_reference(decoy_revision, "events-decoy"),
-        predecessor=decoy_snapshot["snapshot_id"],
-    )
-    store.put(RecordingStateSnapshot.model_validate(generated_snapshot))
-    second_update = {
-        "recording_id": RECORDING,
-        "expected_head_version": 2,
-        "snapshot_id": generated_snapshot["snapshot_id"],
-        "action": "select_snapshot",
-    }
-    second = client.put(f"/api/recordings/{RECORDING}/state", json=second_update).json()
-    assert second["head"]["version"] == 3
-    assert second["snapshot"]["slots"]["events"]["generated"]["resource"] == output_ref
-
     review = client.post(
         "/api/pipeline/nodes/events-generated/reviews/overall",
         json={
@@ -309,6 +293,36 @@ def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatc
     assert second_review.status_code == 200, second_review.text
     assert second_review.json()["decision"] == "needs_correction"
 
+    generated_snapshot = _snapshot_payload(
+        generated=output_ref,
+        completed=_reference(decoy_revision, "events-decoy"),
+        reviews=[
+            {
+                "review_kind": "pipeline-review",
+                "review_id": "review-m4-a",
+                "resource": output_ref,
+                "state": "completed",
+            },
+            {
+                "review_kind": "pipeline-review",
+                "review_id": "review-m4-b",
+                "resource": output_ref,
+                "state": "completed",
+            },
+        ],
+        predecessor=decoy_snapshot["snapshot_id"],
+    )
+    store.put(RecordingStateSnapshot.model_validate(generated_snapshot))
+    second_update = {
+        "recording_id": RECORDING,
+        "expected_head_version": 2,
+        "snapshot_id": generated_snapshot["snapshot_id"],
+        "action": "select_snapshot",
+    }
+    second = client.put(f"/api/recordings/{RECORDING}/state", json=second_update).json()
+    assert second["head"]["version"] == 3
+    assert second["snapshot"]["slots"]["events"]["generated"]["resource"] == output_ref
+
     # Accepted downstream use protects generated content; the first edit copies it.
     PipelineNodeUses(node_store).accept(
         "m4-run", [("events-generated", output_revision.revision_id)]
@@ -324,80 +338,54 @@ def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatc
             }
         ],
     }
-    edited = client.post(
-        "/api/pipeline/nodes/events-generated/edit",
+    edited = client.put(
+        f"/api/recordings/{RECORDING}/state/events/working-content",
         json={
-            "expected_revision_id": output_revision.revision_id,
+            "expected_head_version": 3,
             "idempotency_key": "m4-edit-1",
             "actor": ACTOR,
             "content": edited_content,
         },
     )
     assert edited.status_code == 200, edited.text
-    edited_result = edited.json()
+    edit_response = edited.json()
+    edited_result = edit_response["edit"]
     assert edited_result["copied"] is True
     assert edited_result["node_id"] != "events-generated"
 
-    # Keep the generated pointer and independent review while selecting edited work.
-    edited_revision = node_store.read_revision_record(
-        edited_result["node_id"], edited_result["revision_id"]
-    )
-    edited_ref = _reference(edited_revision, edited_result["node_id"])
-    third_snapshot = _snapshot_payload(
-        generated=output_ref,
-        completed=edited_ref,
-        reviews=[
-            {
-                "review_kind": "pipeline-review",
-                "review_id": "review-m4-a",
-                "resource": output_ref,
-                "state": "completed",
-            },
-            {
-                "review_kind": "pipeline-review",
-                "review_id": "review-m4-b",
-                "resource": output_ref,
-                "state": "completed",
-            },
-        ],
-        predecessor=generated_snapshot["snapshot_id"],
-    )
-    store.put(RecordingStateSnapshot.model_validate(third_snapshot))
-    third = client.put(
-        f"/api/recordings/{RECORDING}/state",
-        json={
-            "recording_id": RECORDING,
-            "expected_head_version": 3,
-            "snapshot_id": third_snapshot["snapshot_id"],
-            "action": "select_snapshot",
-        },
-    ).json()
+    # The selected working adapter updates generated state and leaves the reference and reviews.
+    third = edit_response
+    third_snapshot = third["snapshot"]
+    edited_ref = third_snapshot["slots"]["events"]["generated"]["resource"]
     assert third["head"]["version"] == 4
-    assert third["snapshot"]["slots"]["events"]["generated"]["resource"] == output_ref
-    assert third["snapshot"]["slots"]["events"]["completed_reference"]["resource"] == edited_ref
-    assert [item["review_id"] for item in third["snapshot"]["independent_reviews"]] == [
+    assert edited_ref["node_id"] == edited_result["node_id"]
+    assert third_snapshot["slots"]["events"]["completed_reference"]["resource"] == (
+        _reference(decoy_revision, "events-decoy")
+    )
+    assert [item["review_id"] for item in third_snapshot["independent_reviews"]] == [
         "review-m4-a",
         "review-m4-b",
     ]
+    assert all(item["resource"] == output_ref for item in third_snapshot["independent_reviews"])
     review_list = client.get(
         f"/api/pipeline/nodes/events-generated/revisions/{output_revision.revision_id}/reviews"
     ).json()
     assert {item["review_id"] for item in review_list} == {"review-m4-a", "review-m4-b"}
     assert {item["decision"] for item in review_list} == {"accepted", "needs_correction"}
     assert (
-        node_store.read_revision_record("events-generated", output_revision.revision_id).content
+        node_store.read_published_revision("events-generated", output_revision.revision_id).content
         == output_content
     )
     assert (
-        node_store.read_revision_record(
+        node_store.read_published_revision(
             edited_result["node_id"], edited_result["revision_id"]
         ).content
         == edited_content
     )
     assert (
-        node_store.read_revision_record("events-generated", output_revision.revision_id).metadata[
-            "frozen_inputs"
-        ]
+        node_store.read_published_revision(
+            "events-generated", output_revision.revision_id
+        ).metadata["frozen_inputs"]
         == frozen
     )
 

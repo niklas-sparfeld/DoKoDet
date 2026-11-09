@@ -107,7 +107,7 @@ def get_pipeline_node_revision(node_id: str, revision_id: str, request: Request)
     """Return the immutable content and metadata for one exact node revision."""
     try:
         node = request.app.state.pipeline_node_edits.store.get(node_id)
-        revision = request.app.state.pipeline_node_edits.store.read_revision_record(
+        revision = request.app.state.pipeline_node_edits.store.read_published_revision(
             node_id, revision_id
         )
         return {
