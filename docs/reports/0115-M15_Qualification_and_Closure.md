@@ -15,7 +15,7 @@ No retained data changed.
 
 This closes the revised cleanup and selected cache-policy scope. It does not close every original
 M0 goal or assert that all remaining growth risks are bounded. The independent lifecycle work for
-operational logs, recovery copies, and campaign intermediates moves to [Epic 0118](../plans/3-in-progress/0118-Operational_and_Recovery_Lifecycle.md).
+operational logs, recovery copies, and campaign intermediates moves to [Epic 0118](../plans/5-closed/0118-Operational_and_Recovery_Lifecycle.md).
 
 ## Frozen M0 targets and outcomes
 

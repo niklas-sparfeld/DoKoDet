@@ -2,12 +2,15 @@
 
 ## Plan status
 
-- **Status:** In Progress
-- **Depends on:** [Epic 0115 closure](../5-closed/0115-Data_Cleanup.md), its [M14 storage map](../../reports/0115-M14_Maintained_Storage_Map.md), and the
+- **Status:** Closed
+- **Depends on:** [Epic 0115 closure](0115-Data_Cleanup.md), its [M14 storage map](../../reports/0115-M14_Maintained_Storage_Map.md), and the
   [M15 closure report](../../reports/0115-M15_Qualification_and_Closure.md) complete.
+- **Closure reason:** Complete. M0–M4 audited the selected writers and dependencies. No safe
+  expiry or removal policy was established, so the lifecycle scope closes with all affected data
+  preserved and no cleanup code added.
 - **Outcome:** Define safe, evidence-based retention and growth controls for selected operational
   logs, recovery copies, and campaign intermediates. Preserve active work, recovery evidence, and
-  exact dependencies.
+  exact dependencies. Physical space reclaimed is not established.
 - **Origin:** Epic 0115 deferred these independent writer families from M13 so its cache policies
   can close on their own recovery and concurrency evidence. See the [0115 M13 report](../../reports/0115-M13_Growth_Bounds.md).
 
@@ -31,7 +34,7 @@ Relocation is not reclaimed space. Record physical allocation only when directly
 | M1 | Specify the managed-job operational-log family's retention and recovery contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M1_Managed_Job_Log_Audit.md) |
 | M2 | Specify one exact recovery-copy family's retention and restore contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md) |
 | M3 | Complete a bounded, read-only search for the 24 exact historical review-state and draft dependencies of the selected campaign view; distinguish their roles from matching immutable reviewed content; record a conservative retention and restore outcome | Complete; [audit report](../../reports/0118-M3_0070_Synthetic_Training_View.md) |
-| M4 | Implement and verify only the selected contracts, with preserved recovery and human-work evidence | Not started |
+| M4 | Implement and verify only the selected contracts, with preserved recovery and human-work evidence | Complete; [closure report](../../reports/0118-M4_Lifecycle_Closure.md) |
 
 ## M0 — Select exact lifecycle families
 
@@ -46,63 +49,27 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
 
 ## Execution handoff
 
-- Run: requested 2 milestones; completed 1; 1 remains in this run. M4 is the remaining
-  planned milestones. Do not add milestones or expand this run.
-- Completed: M0 inventory and family selection; M1 managed-job log audit; M2 accepted-loss
-  recovery-copy audit. M3 selected the 0070 M5 view and completed a bounded search of the declared
-  reference roots. See the
+- Run: requested 2 milestones; completed 2; 0 remain. M4 was the final planned milestone.
+- Completed: M0 inventory, M1 managed-job log audit, M2 accepted-loss recovery-copy audit, M3
+  bounded 0070 M5 dependency search, and M4 lifecycle closure. Detailed evidence is in the
   [M0 report](../../reports/0118-M0_Lifecycle_Family_Inventory.md),
   [M1 report](../../reports/0118-M1_Managed_Job_Log_Audit.md),
-  [M2 report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md), and
-  [M3 report](../../reports/0118-M3_0070_Synthetic_Training_View.md).
-- Changes: M1 found an existing 1,000-entry rolling window, no per-entry byte bound, and no
-  independent log restore source. It freezes no new expiry or size policy and preserves all log
-  files. M2 revalidated the accepted-loss package in the main worktree and a disposable APFS clone.
-  Its snapshot and active node-store digests match prior recovery evidence. The source and active
-  store share one volume; off-volume recovery and physical APFS reclamation remain unknown. The 156
-  uncertain histories and three declared-lost revisions remain preserved, so M2 sets no expiry.
-  M3 selected the 0070 M5 50/50 synthetic training view. The 0071 cluster-crop materializer reads
-  it, and 0070 run and bundle references remain. The disposable clone and 0071 reader checks passed.
-  The independent reference audit matched 24/24 immutable revision manifests and contents, 9/9
-  calibrations, and 537/537 calibration links. The root search checked the canonical path and four
-  present recovery candidates: the declared migration source, migration-stage evidence, accepted-
-  loss evidence, and preserved operations copy. Each present root matched the same seven state
-  hashes and no draft hashes. The legacy `get_state` reader read all seven states in each root and
-  confirmed that each selected pointer matches its immutable revision. All candidates are owned by
-  uid 501 and share the active node store's device; they are not independent backups. Seventeen
-  exact states and all 24 exact drafts remain unavailable. Preserve all roots and the training view.
-  No expiry or deletion is justified.
-- Checks: M1's `mise exec -- uv run --project backend pytest -q backend/tests/test_job_recovery.py`
-  passed (13 tests). M2's `mise exec -- uv run --project backend python
-  scripts/verify_0115_recovery.py --data-root /Users/niklas.sparfeld/Developer/doko_detector/data
-  --runtime-root /Users/niklas.sparfeld/Developer/doko_detector/.runtime --output
-  /tmp/0118-m2-current-verification.json` passed with 2,086 resources, 34,414 manifest files,
-  and snapshot `c8979c9a…`. A disposable APFS clone passed `_verify_package` with the same digest.
-  M1's matching-snapshot API restore and restart reads remain the API-level rehearsal evidence.
-  M3's independent audit completed twice. It verified the manifest and restore references and
-  recorded the 7/24 state and 0/24 draft mismatch in the [reference audit artifact](../../reports/0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json).
-  The revised read-only audit checked all 24 expected state/draft pairs against five roots, reported
-  each root's ownership and observed hashes, and exercised the state-only reader. The actual 0071
-  reader returned 537 rows with matching
-  COCO and training-view digests.
-  `git diff --check` and changed-link checks passed. No authoritative data changed.
-- Decisions and limits: M3 sets no expiry or removal policy. Seventeen expected state hashes and
-  all 24 draft hashes do not match any searched recovery candidate. The canonical reference root is
-  absent. Four present candidates contain the same seven exact state files and no exact drafts; all
-  are on the active node store's volume. Keep all view and recovery roots; do not claim full
-  historical mutable review restoration. Current configured
-  `data/operations/jobs` is absent in this checkout.
-  The active process root, live job set, log sizes, pins, expiry authority, and independent recovery
-  source remain unknown. The existing rolling window is code behavior, not evidence that older
-  entries are disposable. Off-volume recovery and physical APFS allocation remain unknown.
-- Replan: The bounded search is complete. It covered the canonical root and the four recovery
-  candidates named by the inventory config/plans, migration manifests, and retained campaign copy.
-  The same seven exact states were present in each recovery candidate; no draft matched. The 17
-  other expected states and all drafts remain unresolved. Do not infer or regenerate them. Preserve
-  the training view and every known review/recovery root. No full recovery, exact regeneration,
-  expiry, or deletion was verified or authorized. M4 must close the affected lifecycle scope without
-  removal unless later evidence establishes a safe contract.
-- Next: implement M4 within this run. Run count: requested 2; completed 1; 1 remains.
+  [M2 report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md),
+  [M3 report](../../reports/0118-M3_0070_Synthetic_Training_View.md), and
+  [M4 closure report](../../reports/0118-M4_Lifecycle_Closure.md).
+- Changes: no safe expiry or removal policy was established. M4 adds no cleanup code and removes
+  no data. Preserve all logs, the accepted-loss recovery package, the 0070 view, and known review
+  and recovery roots. Logical removal and relocation are zero; allocation change and physical
+  reclamation were not measured.
+- Checks: the managed-job log test passed (13 tests); the current accepted-loss verifier passed
+  with matching M2 snapshot and plan digests; the fresh 0070 audit verified 1,328 restored files,
+  537 rows, and the established 24/24 immutable, 7/24 state, and 0/24 draft counts. Documentation
+  link validation and `git diff --check` passed. See the M4 report for commands and limits.
+- Decisions and limits: no removal manifest or receipt is applicable because no removal was
+  authorized. Unknown dependencies fail closed. The 17 expected mutable states and all 24 exact
+  drafts remain unavailable within the bounded search. No full historical review recovery,
+  independent off-volume recovery, exact regeneration, or physical space reclamation is established.
+- Next: none. Epic 0118 is closed with the limits above.
 
 ## M1 — Specify operational-log retention
 
