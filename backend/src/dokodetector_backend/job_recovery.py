@@ -135,19 +135,34 @@ class JobRecovery:
                 parent = self.operations.get(intent.job.id)
             except JobStorageError:
                 continue
-            if (
-                parent.type != "automated_pipeline"
-                or not isinstance(parent.request.get("run_id"), str)
-                or parent.state != "waiting"
-            ):
+            if parent.type != "automated_pipeline" or parent.state != "waiting":
                 continue
-            children = [item.job for item in intents if item.job.parent_id == parent.id]
-            if not any(self.operations.get(child.id).state not in _TERMINAL for child in children):
-                parent.state = "queued"
-                parent.finished_at = None
-                parent.updated_at = _now()
-                parent.revision += 1
-                self.operations.write_job(parent)
+            children = sorted(
+                (item for item in intents if item.committed and item.job.parent_id == parent.id),
+                key=lambda item: item.sequence,
+            )
+            terminal_children: list[tuple[int, Job]] = []
+            for child_intent in children:
+                child = self.operations.get(child_intent.job.id)
+                if child.state in _TERMINAL:
+                    terminal_children.append((child_intent.sequence, child))
+            if not terminal_children:
+                continue
+            _, terminal_child = max(
+                terminal_children, key=lambda item: (item[1].updated_at, item[0])
+            )
+
+            now = _now()
+            parent.state = "cancelled" if terminal_child.state == "cancelled" else "queued"
+            parent.finished_at = now if parent.state == "cancelled" else None
+            parent.updated_at = now
+            parent.revision += 1
+            if parent.state == "cancelled":
+                for step in parent.steps:
+                    if step.state in {"pending", "running"}:
+                        step.state = "cancelled"
+                        step.finished_at = now
+            self.operations.write_job(parent)
         self.rebuild_queue(intents)
         self.operations.rebuild_parent_children(intents)
         self.operations.mark_queue_ready()
