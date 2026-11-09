@@ -239,7 +239,7 @@ while history and unrelated recordings grow 10x.
 - Requested run: 14 milestones, starting at M5a; completed: 2; remaining: 12. The cap covers
   M5a, M5b1, M5b2, M5c, and M6–M15; M16 is outside this run.
 - Next milestone: M5b2. M5b replan count: 1/5; this run replan count: 1/10. M5b1 correction
-  count: 1/5. Previous-run
+  count: 1/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
