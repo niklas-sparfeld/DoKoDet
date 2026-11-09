@@ -6,10 +6,12 @@ Date: 2026-11-09
 
 The selected family is the frozen Epic 0070 M5 50/50 training view at
 `.runtime/synthetic-visible-region-0070-m5-50-50-view/`. Keep it. The view remains an input to the
-0071 cluster-crop materializer. No expiry condition or removal is justified. M3 is incomplete:
-24/24 immutable review revision manifests and contents match their frozen hashes, but the archived
-reference state matches only 7/24 expected hashes and no draft matches. Preserve the view and all
-available review data. No stored data changed.
+0071 cluster-crop materializer. The bounded M3 investigation is complete. It matched all 24
+immutable revision manifests and contents, but the declared accepted-loss archive matched only
+7/24 expected reference-state hashes and 0/24 draft hashes. The canonical reference root is absent.
+Exact historical mutable review dependencies remain unavailable within the declared search
+boundary. No expiry condition or removal is justified. Preserve the view and all available review
+data. No stored data changed.
 
 ## Creator, inputs, and authority
 
@@ -124,11 +126,47 @@ No expiry or removal is authorized. Logical bytes, path allocation, and summed a
 reported separately. Physical APFS allocation, off-volume recovery, live pins, and exact byte
 regeneration remain unknown.
 
+## Bounded search and legacy review roles
+
+The revised M3 search used only the exact roots named by the frozen 0068 manifest and the M0/M2
+reports. The canonical root
+`/Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-references/` was absent.
+The accepted-loss evidence root
+`/Users/niklas.sparfeld/Developer/doko_detector/data/operations-recovery/0108-m10-20261105/migration-stage-accepted-loss/evidence/operations/`
+was present. Its `pipeline-references/<recording>/visible_cards/{state,draft}.json` files were
+hashed against the expected values for all 24 recordings in the 0068 manifest. No other exact
+state/draft source root is named by those records. No other worktree or filesystem was searched.
+
+The read-only hash pass reproduced 24/24 matching revision-manifest hashes and 24/24 matching
+reviewed-content hashes. Both the canonical JSON hashes and raw file SHA-256 values for archived
+state and draft files produced the same result: state matched 7/24 expected values; the other 17
+did not, and none of the 24 drafts matched. The full expected and observed canonical JSON values for
+every recording are in the [reference hash audit artifact](0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json).
+The exact mutable state and draft bytes are therefore unavailable within the declared search
+boundary. The differing archived files are not substitutes for the expected historical files.
+
+The legacy contract in `operations/src/doko_operations/pipeline_reference.py` defines
+`pipeline-reference-state/v1` and `pipeline-reference-draft/v2`. State stores the draft revision and
+status, source revision, and selected completed revision. Draft stores the current mutable review
+items, decisions, coverage, impact, and input lineage. The `PipelineReferenceStore` reader validates
+the state and draft together and checks their revision and source identities; `get_state` can read
+state without loading a draft. These mutable records establish the historical selected pointer and
+resumable review work. The `PipelineRevisionStore` reader validates the immutable revision manifest,
+content digest, content schema, and lineage. The matching immutable content establishes the reviewed
+content bytes and their revision identity. It cannot recover the historical selected pointer or the
+mutable draft contents. No mutable fact was inferred from the immutable revision.
+
+This completes the bounded M3 investigation, not full recovery or exact regeneration. Preserve the
+training view and every known review/recovery root. M3 authorizes no deletion or expiry. Exact
+recovery, independent backup, live pins, off-volume recovery, and physical APFS allocation remain
+unknown.
+
 ## Checks
 
 - `mise exec -- uv run --project operations python docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3.py --repository /Users/niklas.sparfeld/Developer/doko_detector --restored-view /tmp/0118-m3-verified-view-20261109 --evidence docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json` — audit completed twice. It verified 24/24 revision manifests and content, 9/9 calibration records and 537/537 scene links, and the restored view. It found only 7/24 expected reference-state hashes and 0/24 expected draft hashes.
 - `mise exec -- uv run --project operations ruff check docs/reports/0118-M3_0070_Synthetic_Training_View.artifacts/audit_0118_m3.py` and `ruff format --check` — passed.
+- Read-only `audit_campaign_review_references` call against the main worktree's frozen 0068 manifest and accepted-loss evidence root — 24/24 manifest and content hashes matched; canonical state/draft hashes matched raw file SHA-256 results (7/24 state, 0/24 drafts). The canonical reference root was absent. No other root was searched because no other exact root was declared.
 - `git diff --check` and changed Markdown link validation — passed.
 
-No authoritative data changed. M3 remains incomplete pending a safe disposition of the mismatched
-review-state and draft roots. No expiry or deletion is authorized.
+No authoritative data changed. M3 is complete as a bounded investigation with the historical
+state/draft gap recorded. No expiry or deletion is authorized.

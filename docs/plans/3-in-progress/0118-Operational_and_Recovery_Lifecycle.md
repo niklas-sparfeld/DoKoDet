@@ -30,7 +30,7 @@ Relocation is not reclaimed space. Record physical allocation only when directly
 | M0 | Inventory exact log, recovery-copy, and campaign-intermediate writers; identify retention roots, recovery evidence, and a small candidate scope | Complete; [report](../../reports/0118-M0_Lifecycle_Family_Inventory.md) |
 | M1 | Specify the managed-job operational-log family's retention and recovery contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M1_Managed_Job_Log_Audit.md) |
 | M2 | Specify one exact recovery-copy family's retention and restore contract, or record why no safe bounded policy is justified | Complete; [report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md) |
-| M3 | Complete a bounded, read-only search for the 24 exact historical review-state and draft dependencies of the selected campaign view; distinguish their roles from matching immutable reviewed content; record a conservative retention and restore outcome | Incomplete; [audit report](../../reports/0118-M3_0070_Synthetic_Training_View.md) |
+| M3 | Complete a bounded, read-only search for the 24 exact historical review-state and draft dependencies of the selected campaign view; distinguish their roles from matching immutable reviewed content; record a conservative retention and restore outcome | Complete; [audit report](../../reports/0118-M3_0070_Synthetic_Training_View.md) |
 | M4 | Implement and verify only the selected contracts, with preserved recovery and human-work evidence | Not started |
 
 ## M0 — Select exact lifecycle families
@@ -46,10 +46,11 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
 
 ## Execution handoff
 
-- Run: requested 2 milestones; completed 0; 2 remain in this run. M3 and M4 are the remaining
+- Run: requested 2 milestones; completed 1; 1 remains in this run. M4 is the remaining
   planned milestones. Do not add milestones or expand this run.
 - Completed: M0 inventory and family selection; M1 managed-job log audit; M2 accepted-loss
-  recovery-copy audit. M3 selected the 0070 M5 view but remains incomplete. See the
+  recovery-copy audit. M3 selected the 0070 M5 view and completed a bounded search of the declared
+  reference roots. See the
   [M0 report](../../reports/0118-M0_Lifecycle_Family_Inventory.md),
   [M1 report](../../reports/0118-M1_Managed_Job_Log_Audit.md),
   [M2 report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md), and
@@ -63,10 +64,12 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
   M3 selected the 0070 M5 50/50 synthetic training view. The 0071 cluster-crop materializer reads
   it, and 0070 run and bundle references remain. The disposable clone and 0071 reader checks passed.
   The independent reference audit matched 24/24 immutable revision manifests and contents, 9/9
-  calibrations, and 537/537 calibration links. It matched only 7/24 archived review-state hashes
-  and 0/24 draft hashes to the 0068 campaign manifest. The expected state/draft bytes are absent
-  from the canonical reference root; archived replacements differ. Preserve all current roots and
-  the training view. No expiry is justified; M3 acceptance remains incomplete.
+  calibrations, and 537/537 calibration links. The declared-root search found the canonical
+  reference root absent and the accepted-loss archive present. It matched only 7/24 archived
+  review-state hashes and 0/24 draft hashes to the 0068 campaign manifest. The remaining exact
+  mutable bytes are unavailable within the search boundary. Legacy readers show that state holds
+  the selected completed pointer while drafts hold mutable review work; immutable content cannot
+  replace them. Preserve all current roots and the training view. No expiry or deletion is justified.
 - Checks: M1's `mise exec -- uv run --project backend pytest -q backend/tests/test_job_recovery.py`
   passed (13 tests). M2's `mise exec -- uv run --project backend python
   scripts/verify_0115_recovery.py --data-root /Users/niklas.sparfeld/Developer/doko_detector/data
@@ -76,28 +79,25 @@ Report unknown ownership, physical-allocation limits, and unresolved dependencie
   M1's matching-snapshot API restore and restart reads remain the API-level rehearsal evidence.
   M3's independent audit completed twice. It verified the manifest and restore references and
   recorded the 7/24 state and 0/24 draft mismatch in the [reference audit artifact](../../reports/0118-M3_0070_Synthetic_Training_View.artifacts/reference-dependency-audit.json).
-  This is an acceptance gap, not a pass. The actual 0071 reader returned 537 rows with matching
+  A revised read-only hash pass rechecked all 24 expected state/draft pairs against the exact
+  accepted-loss root. The actual 0071 reader returned 537 rows with matching
   COCO and training-view digests.
   `git diff --check` and changed-link checks passed. No authoritative data changed.
-- Decisions and limits: M3 sets no expiry or removal policy. The original state/draft hashes for
-  the 0068 review dependencies do not match the accepted-loss archive. Keep all view and recovery
-  roots; do not claim those historical review resources were verified. Current configured
+- Decisions and limits: M3 sets no expiry or removal policy. Seventeen expected state hashes and
+  all 24 draft hashes do not match the accepted-loss archive. The canonical reference root is
+  absent. Keep all view and recovery roots; do not claim those historical mutable review resources
+  were recovered. Current configured
   `data/operations/jobs` is absent in this checkout.
   The active process root, live job set, log sizes, pins, expiry authority, and independent recovery
   source remain unknown. The existing rolling window is code behavior, not evidence that older
   entries are disposable. Off-volume recovery and physical APFS allocation remain unknown.
-- Replan: M3 is still incomplete. Its next step is a bounded, read-only search of plausible retained
-  sources named by the 0068 manifest, the M0/M2 reports, and existing recovery manifests. Check the
-  canonical reference root, the accepted-loss evidence root, and only other exact roots those
-  records declare. Do not scan unrelated filesystems or worktrees. For any candidate, verify the
-  expected hash for each of the 24 state and draft files. Explain what immutable reviewed revision
-  manifests and content establish, and what mutable reference state and review drafts establish,
-  using the applicable legacy schemas and reader contracts. Do not infer missing mutable bytes from
-  immutable content. If exact dependencies remain unavailable, record them as unavailable; preserve
-  the training view and every known review/recovery root, and state that no recovery or expiry was
-  verified or authorized. M4 remains the existing final milestone and must use that outcome without
-  deleting data when no safe contract is established.
-- Next: implement the revised M3 investigation only. Run count: requested 2; completed 0; 2 remain.
+- Replan: The bounded search is complete. It covered the canonical reference root (absent) and the
+  accepted-loss evidence root (present), the only exact roots declared by the frozen manifest and
+  M0/M2 records. The 17 nonmatching state files and 24 nonmatching draft files remain unresolved;
+  do not infer or regenerate them. Preserve the training view and every known review/recovery root.
+  No recovery, exact regeneration, expiry, or deletion was verified or authorized. M4 must close the
+  affected lifecycle scope without removal unless later evidence establishes a safe contract.
+- Next: implement M4 within this run. Run count: requested 2; completed 1; 1 remains.
 
 ## M1 — Specify operational-log retention
 
@@ -162,14 +162,15 @@ retain the existing 0071 reader and immutable-view verification as separate evid
 a recovery or regeneration action for missing mutable files. Run focused Markdown-link validation
 and `git diff --check` after the plan and report updates.
 
-Outcome: Incomplete. The [M3 report](../../reports/0118-M3_0070_Synthetic_Training_View.md) selects
-the exact 0070 M5 50/50 view and verifies its immutable revision contents, scene receipts,
-calibration links, model/run references, and restored reads. Its exact old reference-state hashes
-match only 7/24 archived states; none of the 24 archived draft hashes match. The canonical
-`data/operations/pipeline-references/` root is absent. Preserve the training view and all available
-review roots; no expiry or deletion is authorized. Resolve or bound the missing historical review
-state and draft dependencies before completing M3. Exact byte regeneration, independent backup,
-live pins, off-volume recovery, and physical APFS allocation remain unknown.
+Outcome: Complete as a bounded investigation. The [M3 report](../../reports/0118-M3_0070_Synthetic_Training_View.md)
+selects the exact 0070 M5 50/50 view and verifies its immutable revision contents, scene receipts,
+calibration links, model/run references, and restored reads. The declared-root search found the
+canonical reference root absent and the accepted-loss archive present. The archive matches 7/24
+expected state hashes and 0/24 expected draft hashes; the remaining exact mutable dependencies are
+unavailable within that search boundary. Legacy schemas and readers establish that immutable
+revision content cannot recover the selected pointer or draft work. Preserve the training view and
+all available review roots; no recovery, expiry, or deletion is authorized. Exact byte regeneration,
+independent backup, live pins, off-volume recovery, and physical APFS allocation remain unknown.
 
 ## M4 — Implement selected lifecycle contracts
 
