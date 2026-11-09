@@ -166,7 +166,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
 | M4a | Durable node revision authority and direct revision lookup; transaction scan excluded | Complete; [report](../../reports/0117-M4a_Node_Publication_Authority.md) |
-| M4b | Bounded coordinated transaction recovery and pending-journal authority | Not started; separate storage/transaction contract |
+| M4b | Bounded coordinated transaction recovery and pending-journal authority | Complete; [report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md) |
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Not started; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
@@ -216,9 +216,9 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 15 milestones, starting at M4a; completed: 1; remaining: 14. The cap covers M4a,
+- Requested run: 15 milestones, starting at M4a; completed: 2; remaining: 13. The cap covers M4a,
   M4b, M4c, and M5–M16.
-- Next milestone: M4b. M4a replan count: 0/5; this run replan count: 0/10. The two earlier M4a
+- Next milestone: M4c. M4b replan count: 0/5; this run replan count: 0/10. The two earlier M4a
   replans and two correction turns belong to the prior run and are preserved in the milestone report.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
@@ -234,12 +234,15 @@ while history and unrelated recordings grow 10x.
 - Earlier M4a evidence remains valid: direct authority lookup over 11 revisions reads no parents;
   crash/restart and stale-writer checks cover node and coordinated publication boundaries; the
   earlier correction turns proved recovery serialization. See the [M4a report](../../reports/0117-M4a_Node_Publication_Authority.md).
-- M4b boundary: add one durable pending-transaction locator so normal authority reads inspect at
-  most the active prepared transaction, not all committed journal history. Preserve transaction
-  idempotency and recovery evidence. Define its writer, atomicity, lock order, freshness, and crash
-  recovery. Prove bounded recovery work as committed transaction history grows, plus competing
-  readers/writers and separate crash/restart cases. This is an explicit storage/transaction
-  milestone; do not fold it into M5.
+- M4b result: `.coordinated-transactions/pending.json` names at most one active prepared
+  transaction. The writer publishes it atomically before the prepared journal under the root
+  transaction lock. Recovery reads only that journal, rolls it forward idempotently, and atomically
+  clears the locator. Committed journals remain available for direct transaction-ID replay checks.
+  Exact authority reads inspect no committed journals when there is no pending transaction.
+- M4b checks: transaction tests pass, including 100 committed journals with zero journal reads for
+  an exact authority read; same-ID replay and conflicting reuse; six separate-process crash points
+  from locator through committed journal; restart recovery; and existing thread/process lock
+  interleavings. Ruff check, Ruff format check, and `git diff --check` pass. See the [M4b report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md).
 - M4c remains separate: adapt the existing disposable real-API workflow to the direct authority
   read and M4b bounded recovery. Keep legacy selection/history discovery disabled. Prove frozen
   inputs, selection/editing, independent reviews, stale writes, older snapshot reads, and restart.
@@ -247,7 +250,7 @@ while history and unrelated recordings grow 10x.
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.
-- Next: implement M4b only. Run count: 0 complete, 15 remaining.
+- Next: implement M4c only. Run count: 2 complete, 13 remaining.
 
 ## M1 — Define current-state operation contracts
 

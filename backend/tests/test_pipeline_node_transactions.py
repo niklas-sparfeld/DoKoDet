@@ -10,7 +10,7 @@ from doko_operations.pipeline_data import canonical_json_bytes
 
 from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
-from dokodetector_backend.pipeline_node_store import PipelineNodeStore
+from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
 from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
 
 SOURCE = {
@@ -51,7 +51,15 @@ def _crash_coordinated_transaction(root: str, boundary: str) -> None:
                 "metadata": {"reflow": True},
             },
         ],
-        selection_updates=[],
+        selection_updates=[
+            {
+                "recording_id": "recording-01",
+                "content_type": "visible_cards",
+                "expected_revision": 0,
+                "selected_generated": {"node_id": "visible-node", "revision_id": "visible-r2"},
+                "selected_completed_reference": None,
+            }
+        ],
     )
 
 
@@ -154,6 +162,14 @@ def _install_prepared_two_node_journal(root: Path, selection_updates=None) -> No
             "digest": digest,
             "plan": plan,
             "status": "prepared",
+        },
+    )
+    atomic_replace_json(
+        root / ".coordinated-transactions" / "pending.json",
+        {
+            "schema_version": "pipeline-node-pending-transaction/v1",
+            "transaction_id": "recovery-test",
+            "request_digest": "test",
         },
     )
 
@@ -326,6 +342,26 @@ def test_coordinated_transaction_publishes_both_nodes_and_exact_selections(
     assert nodes.read_authorized_revision("scene-node", scenes_new).revision_id == scenes_new
 
 
+def test_transaction_replay_is_directly_idempotent_and_rejects_reused_id(tmp_path: Path) -> None:
+    nodes = PipelineNodeStore(tmp_path / "nodes")
+    node = nodes.create(
+        "visible-node", "Visible", "visible_cards", SOURCE, VISIBLE, {}, revision_id="visible-r1"
+    )
+    transactions = PipelineNodeTransactions(nodes)
+    update = {
+        "node_id": "visible-node",
+        "expected_revision_id": node.revision_id,
+        "revision_id": "visible-r2",
+        "content": VISIBLE,
+        "metadata": {"operation": "replay"},
+    }
+    first = transactions.commit("stable-id", node_updates=[update], selection_updates=[])
+    assert transactions.commit("stable-id", node_updates=[update], selection_updates=[]) == first
+    changed = {**update, "metadata": {"operation": "different"}}
+    with pytest.raises(NodeConflict, match="transaction_id is already bound"):
+        transactions.commit("stable-id", node_updates=[changed], selection_updates=[])
+
+
 def test_reader_recovers_interrupted_publication_before_returning_mixed_state(
     tmp_path: Path,
 ) -> None:
@@ -380,6 +416,14 @@ def test_reader_recovers_interrupted_publication_before_returning_mixed_state(
             "status": "prepared",
         },
     )
+    atomic_replace_json(
+        journal.parent / "pending.json",
+        {
+            "schema_version": "pipeline-node-pending-transaction/v1",
+            "transaction_id": "reflow-interrupted",
+            "request_digest": "fixture-request-digest",
+        },
+    )
     first = plan["nodes"][0]
     revision = nodes._new_revision(
         first["node_id"],
@@ -414,7 +458,9 @@ def test_reader_recovers_interrupted_publication_before_returning_mixed_state(
     assert nodes.read_authorized_revision("scene-node", "scene-r2").revision_id == "scene-r2"
 
 
-@pytest.mark.parametrize("boundary", ["head", "publication"])
+@pytest.mark.parametrize(
+    "boundary", ["locator", "journal", "head", "publication", "selection", "commit"]
+)
 def test_coordinated_transaction_recovers_authority_after_process_death(
     tmp_path: Path, boundary: str
 ) -> None:
@@ -432,10 +478,61 @@ def test_coordinated_transaction_recovers_authority_after_process_death(
     assert worker.exitcode == 72
 
     reopened = PipelineNodeStore(tmp_path / "nodes")
-    assert reopened.read_authorized_revision("visible-node", "visible-r2").revision_id == (
-        "visible-r2"
+    should_commit = boundary != "locator"
+    expected_visible = "visible-r2" if should_commit else "visible-r1"
+    expected_scene = "scene-r2" if should_commit else "scene-r1"
+    assert reopened.get("visible-node").head_revision_id == expected_visible
+    assert reopened.get("scene-node").head_revision_id == expected_scene
+    assert reopened.read_authorized_revision("visible-node", expected_visible).revision_id == (
+        expected_visible
     )
-    assert reopened.read_authorized_revision("scene-node", "scene-r2").revision_id == "scene-r2"
+    assert (
+        reopened.read_authorized_revision("scene-node", expected_scene).revision_id
+        == expected_scene
+    )
+    selection = PipelineNodeSelectionStore(reopened).get_exact("recording-01", "visible_cards")
+    if should_commit:
+        assert selection.selected_generated == {
+            "node_id": "visible-node",
+            "revision_id": "visible-r2",
+        }
+    else:
+        assert selection is None
+
+
+def test_authority_read_does_not_scan_committed_transaction_history(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import dokodetector_backend.pipeline_node_transactions as transaction_module
+
+    nodes = PipelineNodeStore(tmp_path / "nodes")
+    nodes.create(
+        "visible-node", "Visible", "visible_cards", SOURCE, VISIBLE, {}, revision_id="visible-r1"
+    )
+    archive = nodes.root / ".coordinated-transactions"
+    archive.mkdir()
+    for index in range(100):
+        atomic_replace_json(
+            archive / f"committed-{index:04}.json",
+            {
+                "schema_version": "pipeline-node-transaction/v1",
+                "request_digest": f"request-{index}",
+                "digest": "unused",
+                "plan": {},
+                "status": "committed",
+            },
+        )
+    reads: list[Path] = []
+    original = transaction_module._read_json
+
+    def count_reads(path: Path):
+        if path.parent == archive:
+            reads.append(path)
+        return original(path)
+
+    monkeypatch.setattr(transaction_module, "_read_json", count_reads)
+    assert nodes.read_authorized_revision("visible-node", "visible-r1").revision_id == "visible-r1"
+    assert reads == []
 
 
 @pytest.mark.parametrize("pause_at", ["after_plan", "after_journal"])
@@ -721,6 +818,14 @@ def test_selection_writer_takes_root_lock_before_selection_lock(tmp_path: Path) 
             "digest": digest,
             "plan": plan,
             "status": "prepared",
+        },
+    )
+    atomic_replace_json(
+        tmp_path / ".coordinated-transactions" / "pending.json",
+        {
+            "schema_version": "pipeline-node-pending-transaction/v1",
+            "transaction_id": "selection-lock-order",
+            "request_digest": "test",
         },
     )
 

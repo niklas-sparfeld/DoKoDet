@@ -38,6 +38,7 @@ class PipelineNodeTransactions:
     def __init__(self, node_store: PipelineNodeStore) -> None:
         self.node_store = node_store
         self.root = node_store.root / ".coordinated-transactions"
+        self.pending_path = self.root / "pending.json"
 
     def commit(
         self,
@@ -62,6 +63,18 @@ class PipelineNodeTransactions:
             else:
                 plan = self._prepare_plan(node_updates, selection_updates)
                 digest = hashlib.sha256(canonical_json_bytes(plan)).hexdigest()
+                # Publish the locator first. If the process stops before the journal rename,
+                # recovery sees the locator without a journal and clears it. If it stops after the
+                # rename, the locator names the only journal that can need recovery.
+                atomic_replace_json(
+                    self.pending_path,
+                    {
+                        "schema_version": "pipeline-node-pending-transaction/v1",
+                        "transaction_id": transaction_id,
+                        "request_digest": request_digest,
+                    },
+                )
+                self.node_store._after_durable_boundary("locator")
                 atomic_replace_json(
                     journal,
                     {
@@ -72,6 +85,7 @@ class PipelineNodeTransactions:
                         "status": "prepared",
                     },
                 )
+                self.node_store._after_durable_boundary("journal")
             self.recover()
             result = _read_json(journal)
             return {
@@ -85,10 +99,41 @@ class PipelineNodeTransactions:
             self.node_store.recover_transactions()
 
     def _recover_under_lock(self) -> None:
-        if not self.root.is_dir() or self.root.is_symlink():
+        if not self.root.exists() or self.root.is_symlink() or not self.root.is_dir():
             return
-        for journal in sorted(self.root.glob("*.json")):
+        if not self.pending_path.exists():
+            return
+        pending = _read_json(self.pending_path)
+        if (
+            set(pending) != {"schema_version", "transaction_id", "request_digest"}
+            or pending["schema_version"] != "pipeline-node-pending-transaction/v1"
+        ):
+            raise ValueError("invalid pending coordinated transaction locator")
+        transaction_id = pending["transaction_id"]
+        request_digest = pending["request_digest"]
+        if transaction_id is None:
+            if request_digest is not None:
+                raise ValueError("empty pending locator has a request digest")
+            return
+        transaction_id = _safe_id(transaction_id, "transaction_id")
+        if not isinstance(request_digest, str):
+            raise ValueError("pending locator has no request digest")
+        journal = contained_path(self.root, f"{transaction_id}.json")
+        if journal.exists():
+            record = _read_json(journal)
+            if record.get("request_digest") != request_digest:
+                raise ValueError("pending locator does not match coordinated transaction")
             self._recover_one(journal)
+        # A committed journal is retained for direct idempotency lookup. A missing journal means
+        # the process stopped after publishing the locator but before preparing the journal.
+        atomic_replace_json(
+            self.pending_path,
+            {
+                "schema_version": "pipeline-node-pending-transaction/v1",
+                "transaction_id": None,
+                "request_digest": None,
+            },
+        )
 
     def _prepare_plan(
         self,
@@ -300,7 +345,9 @@ class PipelineNodeTransactions:
                 selected_generated=update["selected_generated"],
                 selected_completed_reference=update["selected_completed_reference"],
             )
+            self.node_store._after_durable_boundary("selection")
         atomic_replace_json(path, {**record, "status": "committed"})
+        self.node_store._after_durable_boundary("commit")
 
 
 __all__ = ["PipelineNodeTransactions"]
