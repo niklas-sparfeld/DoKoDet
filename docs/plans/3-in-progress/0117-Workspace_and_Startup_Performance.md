@@ -213,7 +213,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M5c4 | Remove unsupported generic candidate history while preserving exact proposal discovery | Complete; [report](../../reports/0117-M5c4_Candidate_History_Removal.md) |
 | M6 | Compact recording catalog without revision/history reconstruction | Incomplete; split by replan 9 |
 | M6a | Durable Job Manager authority and journaled job-record transitions | Complete; [report](../../reports/0117-M6a_Job_Projection_Authority.md) |
-| M6b | Bounded active-job projections over the M6a authority | Not started |
+| M6b | Bounded active-job projections over the M6a authority | Complete; [report](../../reports/0117-M6b_Bounded_Active_Job_Projections.md) |
 | M6c | Bounded analysis and package metadata pages | Not started |
 | M6d | Recording catalog from verified HEAD and compact metadata | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
@@ -262,9 +262,10 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 8; remaining: 6. The revised cap
+- Requested run: 14 milestones, starting at M5a; completed: 9; remaining: 5. The revised cap
   covers M5a, M5b1, M5b2, M5c1–M5c4, M6a–M6d, and M7–M9. M10–M16 are outside this run.
-- Next: M6b. M6a replan count: 0/5; M6a correction count: 2/2; M5c replan count: 2/5; this run
+- Next: M6c. M6b replan count: 0/5; correction count: 0/2. M6a replan count: 0/5; M6a
+  correction count: 2/2; M5c replan count: 2/5; this run
   replan count: 4/10. M5c4 correction count:
   0/2. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
@@ -277,8 +278,13 @@ while history and unrelated recordings grow 10x.
   when old and new job digests are identical and authority already advanced; a crash/restart test
   confirms the journal clears and the sequence advances once. Distinct-digest recovery still rejects
   old-job/new-authority state before either write.
-  The M6a commit does not implement job projections, analysis/package metadata pages, or catalog
-  conversion. Those remain M6b–M6d. M6b is next; 6 run milestones remain.
+  M6b exposes `GET /api/recordings/{recording_id}/state/jobs`. Its per-recording compact index
+  carries the M6a authority epoch and sequence; missing or stale indexes rebuild from authoritative
+  jobs. Pages contain at most 20 active jobs, exclude terminal jobs, and use signed cursors pinned
+  to the authority. The manager lock covers authority checks and page reads. API tests cover paging,
+  status transitions, cursor expiry, restart, and recording isolation; a threaded test confirms the
+  reader waits for the writer and returns the new state. See the [M6b report](../../reports/0117-M6b_Bounded_Active_Job_Projections.md).
+  M6c remains next; five run milestones remain.
 - M5b2 result: complete after the resumed authority-loss fix. The four history routes use M5b1's stable collection order and frozen
   sequence roots. HMAC cursors bind recording, collection, empty-filter digest, generation,
   sequence, full stable key, and page size. The private cursor key and local digest record use
@@ -693,11 +699,16 @@ and journaled job transition boundary with tests and report.
 
 Use the M6a authority to build compact active-job projections. Validate freshness across processes
 and rebuild stale or missing projections from authoritative Job Manager records. Keep terminal job
-history out of the active projection and preserve M11 output publication ownership.
+history out of the active projection and preserve M11 output publication ownership. Expose the M1
+`RecordingJobProjection` through a recording-scoped read route with pages of at most 20 jobs. Sign
+cursors with a durable local key and bind them to recording, collection, filters, page size, and the
+M6a authority epoch and sequence. Hold the Job Manager lock through authority comparison, repair,
+and page construction so an in-process writer cannot make the returned projection stale.
 
 Checks: active job pages, status transitions, frozen cursor authority, process restart, stale
-projection detection/rebuild, concurrent reader/writer freshness, and recording isolation. Commit:
-bounded job projection read contract and tests.
+projection detection/rebuild, concurrent reader/writer freshness, and recording isolation. Also run
+the backend API, contract, lint, and formatting checks and regenerate the OpenAPI client. Commit:
+bounded job projection read contract and tests, with this plan and report.
 
 ## M6c — Add bounded analysis and package metadata
 

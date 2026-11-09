@@ -18,11 +18,16 @@ from dokodetector_backend.recording_history_store import (
     RecordingHistoryCorrupt,
     RecordingHistoryCursorExpired,
 )
+from dokodetector_backend.recording_job_projection_store import (
+    JobProjectionCursorExpired,
+    JobProjectionCursorInvalid,
+)
 from dokodetector_backend.recording_state_contract import (
     HistoryPageCursor,
     Identifier,
     RecordingHeadUpdate,
     RecordingHistoryPage,
+    RecordingJobProjection,
     RecordingStateSnapshot,
 )
 from dokodetector_backend.recording_state_store import (
@@ -205,6 +210,34 @@ for _path, _collection_name in (
         response_model=RecordingHistoryPage,
         name=f"recording_{_collection_name}_history",
     )
+
+
+@router.get("/jobs", response_model=RecordingJobProjection)
+def get_recording_jobs(
+    recording_id: str,
+    request: Request,
+    cursor: str | None = Query(default=None, max_length=2048),
+) -> RecordingJobProjection:
+    """Return one bounded page of active jobs for this recording."""
+    try:
+        recording_id = _IDENTIFIER_ADAPTER.validate_python(recording_id)
+    except ValidationError as error:
+        raise ContractError("invalid_request", "The request failed validation.") from error
+    if request.app.state.recording_bundle_store.get_metadata(recording_id) is None:
+        raise ContractError("recording_not_found", "The recording was not found.", status_code=404)
+    try:
+        manager = request.app.state.job_manager_service.get_manager()
+        return manager.recording_job_projection(recording_id, cursor)
+    except JobProjectionCursorInvalid as error:
+        raise ContractError("recording_cursor_invalid", "The job cursor is invalid.") from error
+    except JobProjectionCursorExpired as error:
+        raise ContractError(
+            "recording_cursor_expired", "The job cursor has expired.", status_code=410
+        ) from error
+    except (OSError, ValueError) as error:
+        raise ContractError(
+            "recording_state_corrupt", "The job projection is corrupt.", status_code=500
+        ) from error
 
 
 class RecordingStateWorkingEditRequest(ContractModel):
