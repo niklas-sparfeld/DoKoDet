@@ -59,12 +59,14 @@ observation checks that HEAD, selected snapshot, and summary agree.
 
 The deterministic contention test starts a separate publisher and pauses it immediately after the
 atomic HEAD replacement, before the summary replacement. At that point, the test confirms the
-on-disk HEAD is version 2 while the summary remains version 1. It then starts a separate reader;
-the reader signals its `get_current` attempt before calling the API. The result queue remains empty
-while publication still holds the lock. After release, both processes exit successfully and the
-reader returns version 2 with the same new snapshot ID in HEAD, snapshot, and summary. This directly
-exercises a read attempt during the partial on-disk interval and proves that the API does not return
-that partial state.
+on-disk HEAD is version 2 while the summary remains version 1. It then starts a separate reader
+with an instrumented `flock` call. The reader signals immediately before a nonblocking exclusive
+lock attempt; the operating system reports that the attempt is blocked by the publisher's lock.
+The reader then performs the normal blocking lock acquisition and `get_current` read. The result
+queue remains empty while publication still holds the lock. After release, both processes exit
+successfully and the reader returns version 2 with the same new snapshot ID in HEAD, snapshot, and
+summary. This proves the reader reached and failed the actual process-lock boundary while the
+on-disk files were partial, then returned only the complete state.
 
 Stale expected versions are rejected. Four process deaths (`journal_prepared`, `head`, `summary`,
 and `journal_committed`) are reopened with a new store instance; recovery leaves HEAD version 2 and

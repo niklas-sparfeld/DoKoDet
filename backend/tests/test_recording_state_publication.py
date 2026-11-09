@@ -95,9 +95,25 @@ def _paused_publish_worker(root: str, snapshot_id: str, head_replaced, release) 
     )
 
 
-def _single_read_worker(root: str, attempted, results) -> None:
+def _single_read_worker(root: str, attempt_started, contention_confirmed, results) -> None:
+    from fcntl import LOCK_EX, LOCK_NB
+    from fcntl import flock as real_flock
+
+    from dokodetector_backend import pipeline_storage
+
+    def observe_lock_attempt(fd: int, operation: int) -> None:
+        if operation == LOCK_EX:
+            attempt_started.set()
+            try:
+                real_flock(fd, LOCK_EX | LOCK_NB)
+            except BlockingIOError:
+                contention_confirmed.set()
+                real_flock(fd, LOCK_EX)
+            return
+        real_flock(fd, operation)
+
+    pipeline_storage.flock = observe_lock_attempt
     store = RecordingStateSnapshotStore(root)
-    attempted.set()
     try:
         state = store.get_current("recording-1")
         results.put(
@@ -231,7 +247,8 @@ def test_reader_waits_for_head_and_summary_publication_to_finish(tmp_path: Path)
     context = multiprocessing.get_context("spawn")
     head_replaced = context.Event()
     release_publisher = context.Event()
-    reader_attempted = context.Event()
+    lock_attempt_started = context.Event()
+    lock_contention_confirmed = context.Event()
     results = context.Queue()
     publisher = context.Process(
         target=_paused_publish_worker,
@@ -239,7 +256,7 @@ def test_reader_waits_for_head_and_summary_publication_to_finish(tmp_path: Path)
     )
     reader = context.Process(
         target=_single_read_worker,
-        args=(str(tmp_path), reader_attempted, results),
+        args=(str(tmp_path), lock_attempt_started, lock_contention_confirmed, results),
     )
     publisher.start()
     try:
@@ -248,7 +265,10 @@ def test_reader_waits_for_head_and_summary_publication_to_finish(tmp_path: Path)
         assert store._read_summary("recording-1").head_version == 1
 
         reader.start()
-        assert reader_attempted.wait(10), "reader did not attempt get_current"
+        assert lock_attempt_started.wait(10), "reader did not reach the process-lock attempt"
+        assert lock_contention_confirmed.wait(10), (
+            "reader lock attempt was not blocked by publisher"
+        )
         with pytest.raises(queue.Empty):
             results.get(timeout=0.2)
 

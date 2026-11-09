@@ -226,9 +226,10 @@ while history and unrelated recordings grow 10x.
   verified HEAD snapshot. The existing node transaction journal is not used: it owns node revisions
   and legacy selections, while this transaction coordinates separate recording-state files.
 - Replanned reader acceptance passes: a separate publisher pauses after HEAD replacement; a
-  separate reader attempts a read while the summary is old and cannot return until the publisher is
-  released; it then returns matching HEAD, snapshot, and summary at version 2. Existing observations
-  of versions 1–8 remain in place.
+  separate reader reaches a nonblocking process-lock attempt while the summary is old, confirms the
+  publisher holds the lock, and then performs the normal blocking read. It cannot return until the
+  publisher is released; it then returns matching HEAD, snapshot, and summary at version 2. Existing
+  observations of versions 1–8 remain in place.
 - Checks: `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_publication.py`
   passed (14 tests). The wider publication, immutable-store, and contract tests plus Ruff check,
   format, and `git diff --check` passed. No API generation or browser check applies because M3 adds
@@ -290,11 +291,12 @@ summary defined in M1. Use existing transaction infrastructure where valid. Defi
 orphan snapshots and interrupted publication. No request may reconstruct authority from history.
 
 Replanned acceptance for the remaining reader gap: deterministically pause a separate publisher
-after the HEAD replacement and before the summary replacement. Start a separate reader while the
-publisher holds the recording lock, signal its read attempt, and prove it cannot return during the
-partial on-disk interval. Release the publisher and verify the reader returns the complete new
-HEAD, snapshot, and summary. Keep the existing version observations and all other concurrency,
-stale-version, and crash/recovery checks.
+after the HEAD replacement and before the summary replacement. Instrument a separate reader's
+process-lock call to signal immediately before a nonblocking exclusive lock attempt and confirm
+that attempt fails while the publisher holds the lock. Then let the reader perform its normal
+blocking read. Release the publisher and verify the reader returns the complete new HEAD, snapshot,
+and summary. Keep the existing version observations and all other concurrency, stale-version, and
+crash/recovery checks.
 
 Checks: two processes updating one HEAD; deterministic separate-process reader contention at the
 HEAD/summary boundary; existing version observations; stale expected version rejection; crash
