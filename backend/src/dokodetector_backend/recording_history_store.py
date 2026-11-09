@@ -19,6 +19,10 @@ from dokodetector_backend.filesystem import (
     staging_directory,
 )
 from dokodetector_backend.pipeline_storage import _process_lock
+from dokodetector_backend.recording_history_order_index import (
+    RecordingHistoryOrderIndex,
+    stable_history_key,
+)
 from dokodetector_backend.recording_state_contract import (
     HistoryItem,
     Identifier,
@@ -225,6 +229,20 @@ class RecordingHistoryStore:
                     raise RecordingHistoryCorrupt("history item sequence exceeds its authority")
                 if _without_sequence(stored) != _without_sequence(item):
                     raise RecordingHistoryConflict("history item key is already bound")
+                try:
+                    indexed = RecordingHistoryOrderIndex(generation_root).contains(
+                        _collection(stored),
+                        authority.sequence,
+                        stable_history_key(stored),
+                        stored.item_key,
+                        stored.publication_sequence,
+                    )
+                except (OSError, ValueError) as error:
+                    raise RecordingHistoryCorrupt(
+                        "history order index failed validation"
+                    ) from error
+                if not indexed:
+                    raise RecordingHistoryCorrupt("published item is missing from history order")
                 return stored
             payload = {
                 "schema_version": "recording-history-publication/v1",
@@ -265,53 +283,65 @@ class RecordingHistoryStore:
                 raise RecordingHistoryCorrupt("history item sequence exceeds its authority")
             return item
 
-    def page(
+    def _read_history_item(
+        self, generation_root: Path, collection: str, item_key: str
+    ) -> HistoryItem:
+        digest = hashlib.sha256(item_key.encode("utf-8")).hexdigest()
+        path = contained_path(generation_root, Path("items") / collection / f"{digest}.json")
+        if not path.exists():
+            raise RecordingHistoryCorrupt("history order index references a missing item")
+        item = self._read_item_file(path, collection)
+        if item.item_key != item_key or _collection(item) != collection:
+            raise RecordingHistoryCorrupt("history order index item address mismatch")
+        return item
+
+    @staticmethod
+    def _publish_order_index(generation_root: Path, item: HistoryItem) -> None:
+        try:
+            RecordingHistoryOrderIndex(generation_root).publish(item)
+        except (OSError, ValueError) as error:
+            raise RecordingHistoryCorrupt("history order publication failed") from error
+
+    def ordered_page(
         self,
         recording_id: str,
         collection: str,
         *,
         upper_bound_sequence: int | None = None,
         history_generation: str | None = None,
-        after_sequence: int = 0,
+        after_key: tuple[str, ...] | None = None,
         limit: int = 50,
     ) -> tuple[RecordingHistoryAuthority, list[HistoryItem], bool]:
-        """Read one stable metadata page without opening referenced resource payloads."""
-        if collection not in {"snapshots", "revisions", "candidates", "lineage_edges"}:
-            raise ValueError("unknown recording history collection")
-        if not 1 <= limit <= 100 or after_sequence < 0:
-            raise ValueError("history page bounds are invalid")
+        """Read a stable-key page from its immutable publication-sequence index root."""
         with self._lock(recording_id):
             self._recover_locked(recording_id)
             self._recover_generation_locked(recording_id)
-            generation = self._active_generation(recording_id)
-            if generation is None:
+            current = self._active_generation(recording_id)
+            if current is None:
                 if self._has_generation_data(recording_id):
                     raise RecordingHistoryCorrupt(
                         "history generations exist without an active pointer"
                     )
-                generation = self._ensure_generation(recording_id)
-            generation_id, generation_root = generation
-            if history_generation is not None and history_generation != generation_id:
+                current = self._ensure_generation(recording_id)
+            generation, generation_root = current
+            if history_generation is not None and history_generation != generation:
                 raise RecordingHistoryCursorExpired("history cursor belongs to an old generation")
-            authority = self._authority(recording_id, generation_id, generation_root)
+            authority = self._authority(recording_id, generation, generation_root)
             boundary = authority.sequence if upper_bound_sequence is None else upper_bound_sequence
             if boundary < 0 or boundary > authority.sequence:
                 raise RecordingHistoryCorrupt("history cursor boundary exceeds its authority")
-            collection_root = contained_path(generation_root, Path("items") / collection)
-            items: list[HistoryItem] = []
-            if collection_root.exists():
-                for path in collection_root.iterdir():
-                    if path.is_symlink() or not path.is_file() or path.suffix != ".json":
-                        raise RecordingHistoryCorrupt("history collection has an invalid item")
-                    item = self._read_item_file(path, collection)
-                    if _item_path(generation_root, item) != path:
-                        raise RecordingHistoryCorrupt("history item filename does not match key")
-                    if not 1 <= item.publication_sequence <= authority.sequence:
-                        raise RecordingHistoryCorrupt("history item sequence exceeds its authority")
-                    if after_sequence < item.publication_sequence <= boundary:
-                        items.append(item)
-            items.sort(key=lambda item: item.publication_sequence)
-            return authority, items[:limit], len(items) > limit
+            index = RecordingHistoryOrderIndex(generation_root)
+            try:
+                refs, has_more = index.next_refs(collection, boundary, after_key, limit)
+            except (OSError, ValueError) as error:
+                raise RecordingHistoryCorrupt("history order index failed validation") from error
+            items = []
+            for key, item_key, sequence in refs:
+                item = self._read_history_item(generation_root, collection, item_key)
+                if item.publication_sequence != sequence or stable_history_key(item) != key:
+                    raise RecordingHistoryCorrupt("history order entry does not match its item")
+                items.append(item)
+            return authority, items, has_more
 
     def validate_generation(self, recording_id: str, generation: str) -> None:
         """Reject a cursor after an offline rebuild changes history membership."""
@@ -360,10 +390,13 @@ class RecordingHistoryStore:
         try:
             with staging_directory(generations_root) as staging:
                 self._after_boundary("rebuild_staging_started")
+                index = RecordingHistoryOrderIndex(staging)
+                index.initialize()
                 for sequence, item in enumerate(ordered, start=1):
                     stored = item.model_copy(update={"publication_sequence": sequence})
                     path = _item_path(staging, stored)
                     self._write_item_file(path, stored)
+                    index.publish(stored)
                     self._after_boundary("rebuild_item_staged")
                 authority = RecordingHistoryAuthority(
                     recording_id=recording_id,
@@ -494,6 +527,26 @@ class RecordingHistoryStore:
             range(1, authority.sequence + 1)
         ):
             raise RecordingHistoryCorrupt("history generation does not match its authority")
+        try:
+            index = RecordingHistoryOrderIndex(root)
+            roots = [index.read_roots(sequence) for sequence in range(authority.sequence + 1)]
+            indexed_entries = index.validate_latest(authority.sequence)
+        except (OSError, ValueError) as error:
+            raise RecordingHistoryCorrupt("history order index failed validation") from error
+        expected_entries = {
+            collection: sorted(
+                (
+                    stable_history_key(item),
+                    item.item_key,
+                    item.publication_sequence,
+                )
+                for item in observed
+                if _collection(item) == collection
+            )
+            for collection in ("snapshots", "revisions", "candidates", "lineage_edges")
+        }
+        if indexed_entries != expected_entries or len(roots) != authority.sequence + 1:
+            raise RecordingHistoryCorrupt("history order index does not match its metadata")
 
     def _after_boundary(self, boundary: str) -> None:
         hook = getattr(self, "_after_durable_boundary", None)
@@ -544,6 +597,8 @@ class RecordingHistoryStore:
             else:
                 self._write_item_file(destination, stored_item)
             self._after_boundary("item")
+            self._publish_order_index(generation_root, stored_item)
+            self._after_boundary("order_index")
             atomic_replace_json(
                 contained_path(generation_root, "authority.json"),
                 RecordingHistoryAuthority(
@@ -559,6 +614,18 @@ class RecordingHistoryStore:
             existing = self._read_item_file(destination, _collection(item))
             if existing != stored_item:
                 raise RecordingHistoryCorrupt("committed authority item does not match journal")
+            try:
+                indexed = RecordingHistoryOrderIndex(generation_root).contains(
+                    _collection(existing),
+                    authority.sequence,
+                    stable_history_key(existing),
+                    existing.item_key,
+                    existing.publication_sequence,
+                )
+            except (OSError, ValueError) as error:
+                raise RecordingHistoryCorrupt("history order index failed validation") from error
+            if not indexed:
+                raise RecordingHistoryCorrupt("committed history item is absent from its index")
         else:
             raise RecordingHistoryCorrupt("history authority sequence changed during publication")
         pending_path.unlink(missing_ok=True)

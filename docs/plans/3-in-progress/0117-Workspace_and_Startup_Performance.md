@@ -30,7 +30,12 @@
   crash gap, and M1/M0 do not identify a persisted candidate source. Replan 5 assigns the bounded
   query APIs to M5b and source adapters, gap reconciliation, and candidate-source identification to
   M5c. The prior 15-slot run ended at M14. A new 14-milestone run starts at M5a and includes M5b,
-  M5c, and M6–M16.
+  M5c, and M6–M16. On 2026-11-09, review found that the M5b API used sequence order, unsigned
+  base64 cursors, and a full metadata scan per page. M1 requires collection-key ordering, signed
+  cursors, and bounded page reads. Replan 6 splits M5b into M5b1, an ordered cursor-addressable
+  index with atomic publication and rebuild, and M5b2, the M1-compliant API. The committed M5b API
+  is unaccepted and disabled until M5b2. Persisted corruption must return HTTP 500. M5c remains
+  independent. The current 14-slot run ends at M15; M16 is outside this run.
 
 ## Evidence and scope
 
@@ -180,7 +185,9 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M4b | Bounded coordinated transaction recovery and pending-journal authority | Complete; [report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md) |
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Complete; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5a | Durable shared history authority and rebuild contract | Complete; [report](../../reports/0117-M5a_History_Authority.md) |
-| M5b | Bounded history API pages over the durable metadata index | Complete; [report](../../reports/0117-M5b_Bounded_History_API_Pages.md); full source coverage waits for M5c |
+| M5b | Bounded history API pages over the durable metadata index | Incomplete; split by replan 6 |
+| M5b1 | Ordered cursor-addressable history index with atomic publication and rebuild | Complete; [report](../../reports/0117-M5b1_Ordered_History_Index.md) |
+| M5b2 | M1-compliant pages, signed cursors, lineage continuation, corruption mapping | Not started; depends on M5b1 |
 | M5c | Source publisher adapters and durable-to-index gap reconciliation | Not started; candidate source must be identified |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
@@ -229,9 +236,10 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 2; remaining: 12. The cap covers
-  M5a, M5b, M5c, and M6–M16.
-- Next milestone: M5c. M5b replan count: 0/5; this run replan count: 0/10. Previous-run
+- Requested run: 14 milestones, starting at M5a; completed: 1; remaining: 13. The cap covers
+  M5a, M5b1, M5b2, M5c, and M6–M15; M16 is outside this run.
+- Next milestone: M5b2. M5b replan count: 1/5; this run replan count: 1/10. M5b1 correction
+  count: 0/5. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
@@ -298,17 +306,23 @@ while history and unrelated recordings grow 10x.
 - M5a current-run correction 2/2 also preserves the retry journal after a caught exception during
   initial nonempty staging. Restart still requires the source metadata; tests verify this path and
   the existing publication, rebuild, and pointer-recovery boundaries.
-- M5b result: metadata pages now expose snapshots, revisions, candidates, and lineage edges from
-  the M5a generation. Cursors pin collection, page size, authority generation, and the initial
-  sequence boundary. New publications do not enter an existing traversal; rebuild expires its
-  cursors. Pages contain metadata only and retain exact resource references and snapshot ancestry.
-  Direct historical revision reads remain available. Full source coverage is not claimed; M5c owns
-  publishers and durable-to-index gap reconciliation.
-- M5b checks: 43 focused history-store, state-contract, and real-API workflow tests passed. They
-  cover stable pages while new revisions publish, exact snapshot ancestry, cursor mismatch and
-  rebuild expiry, bounded page results, and metadata-only resource references. Ruff check/format,
-  OpenAPI generation/verification, and `git diff --check` passed. See the
-  [M5b report](../../reports/0117-M5b_Bounded_History_API_Pages.md).
+- M5b status: incomplete. Commit `475f011f` exposed a sequence-ordered API with unsigned base64
+  cursors and a full metadata scan on each request. This violates M1 stable-key ordering, cursor
+  integrity, and bounded page reads. Replan 6 splits the ordered index contract into M5b1 and the
+  M1-compliant API into M5b2. Disable the current API until M5b2. M5c retains source publishers and
+  durable-to-index gap reconciliation.
+- M5b1 result: the store writes immutable AVL index nodes and a collection-root snapshot for every
+  authority sequence. Each root contains the complete M1 order for snapshots, revisions, candidates,
+  and lineage edges. Publication writes the item and index before advancing authority; recovery
+  retries that sequence. Rebuild creates and validates every sequence root before it changes the
+  active generation. The old unaccepted page route and full-scan method are removed.
+- M5b1 checks: 49 focused index, store, contract, and workflow tests passed. They cover stable
+  order for all collections, exact lineage continuation keys, a later insertion sorting before a
+  frozen cursor, bounded tree and metadata reads at 256 items, corruption checks, actual child
+  process death after item/index/authority publication, restart, and rebuild. Ruff, OpenAPI
+  generation/verification, and `git diff --check` passed. A temporary 256-item local probe measured
+  2,296 immutable nodes, 257 sequence roots, and 816,428 index bytes. See the
+  [M5b1 report](../../reports/0117-M5b1_Ordered_History_Index.md).
 - Replan 1 split M5 into the durable authority store (M5a) and discovery APIs (M5b). Replan 2
   added generation pinning because sequence-only cursors cannot expire safely after rebuild.
 - Replan 3 assigns source publication and crash-gap reconciliation to M5c. The current owners are
@@ -476,16 +490,38 @@ publication; two-process writer serialization; metadata and authority visibility
 crash point; restart recovery; corruption and rebuild behavior; no content-payload reads. Commit:
 history authority contract, store, tests, report, board, and plan.
 
-## M5b — Add bounded history API pages
+## M5b1 — Add the ordered history index contract
 
-Implement metadata-only pages for snapshots, node revisions, candidates, and lineage edges using
-M1 contracts and the M5a index. Keep direct historical revision access. This milestone implements
-the bounded API page boundary. It does not complete source discovery until M5c publishes all source
-items and proves that no durable-to-index crash gap omits an item.
+Extend the M5a generation with an immutable ordered index for snapshots, revisions, candidates,
+and lineage edges. A page at authority sequence N must resolve an index root for exactly N, so later
+publications cannot move or enter that traversal. Use the M1 collection-specific total-order keys.
+Lineage keys include every exact endpoint identity, edge kind, role, and stable item key. Publish
+the immutable item and index nodes before advancing the authority sequence. Recovery must complete
+or reject each crash state without scanning source history. Rebuild creates and validates every
+sequence root before switching the generation pointer. Keep source publishers and their durable to
+index gap reconciliation in M5c. Disable the prior M5b API and remove its full metadata scan.
 
-Checks: complete stable traversal, simultaneous new revisions, no duplicate/missing records within
-the cursor's frozen boundary, exact ancestry, corrupt requested entries, and bounded payload reads.
-Commit: historical discovery APIs, tests, and evidence.
+Checks: exact sorted traversal for every collection; frozen membership when a later key sorts
+before the cursor; bounded node and item reads as history grows; complete lineage-key continuation;
+index corruption and missing-node detection; duplicate index identity rejection; two-process
+publication; death after item, index-root, and authority publication; retry and restart; deterministic
+rebuild; and generation cursor expiry. Commit: ordered-index storage contract, recovery and rebuild,
+tests, evidence, and the disabled unaccepted API. No page API or source publisher is completed here.
+
+## M5b2 — Expose M1-compliant history pages
+
+Expose metadata-only pages over M5b1's immutable ordered roots. Sign cursors with an integrity key
+and bind recording, collection, normalized filters, generation, frozen sequence, full canonical
+last key, and page size. Continue by the exact M1 total order. Keep direct historical revision
+access. Map invalid input to 422, expired cursors to 410, and corrupt persisted authority or index
+state to 500. Do not read content payloads. M5b2 does not complete source discovery until M5c
+publishes all source items and closes durable-to-index crash gaps.
+
+Checks: complete stable traversal and canonical lineage continuation; simultaneous new revisions,
+including keys before the current cursor; no duplicate or missing entries at the frozen sequence;
+cursor tamper, filter, collection, page-size, and generation checks; exact ancestry; corrupt requested
+entries map to 500; bounded metadata and content reads; OpenAPI generation; and real API restart.
+Commit: historical discovery APIs, signed cursors, tests, API types, evidence, and board updates.
 
 ## M5c — Connect history source publishers and reconcile gaps
 

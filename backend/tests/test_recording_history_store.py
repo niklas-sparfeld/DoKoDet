@@ -121,6 +121,17 @@ def _process_stop_before_retry_journal_replacement(root: str) -> None:
     store.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
 
 
+def _process_stop_during_history_publish(root: str, boundary: str) -> None:
+    store = RecordingHistoryStore(root)
+
+    def stop_after(target: str) -> None:
+        if target == boundary:
+            os._exit(77)
+
+    store._after_durable_boundary = stop_after
+    store.publish("recording-1", _snapshot("snapshot-published"))
+
+
 def test_history_publication_assigns_sequence_and_retries_idempotently(tmp_path: Path):
     store = RecordingHistoryStore(tmp_path)
     first = store.publish("recording-1", _snapshot("snapshot-1"))
@@ -133,73 +144,9 @@ def test_history_publication_assigns_sequence_and_retries_idempotently(tmp_path:
         store.publish("recording-1", _snapshot("snapshot-1", "c"))
 
 
-def test_history_pages_freeze_sequence_boundary_and_expire_after_rebuild(tmp_path: Path):
-    store = RecordingHistoryStore(tmp_path)
-    for index in range(5):
-        predecessor = None if index == 0 else "rs_" + format(index, "x") * 64
-        store.publish(
-            "recording-1",
-            _snapshot(f"snapshot-{index}", format(index + 1, "x"), predecessor),
-        )
-    authority, first, has_more = store.page("recording-1", "snapshots", limit=2)
-    assert [item.publication_sequence for item in first] == [1, 2]
-    assert first[1].predecessor_snapshot_id == first[0].snapshot_id
-    assert has_more
-
-    store.publish("recording-1", _snapshot("snapshot-new", "f"))
-    _, second, has_more = store.page(
-        "recording-1",
-        "snapshots",
-        upper_bound_sequence=authority.sequence,
-        history_generation=authority.generation,
-        after_sequence=first[-1].publication_sequence,
-        limit=2,
-    )
-    assert [item.publication_sequence for item in second] == [3, 4]
-    assert has_more
-    _, final, has_more = store.page(
-        "recording-1",
-        "snapshots",
-        upper_bound_sequence=authority.sequence,
-        history_generation=authority.generation,
-        after_sequence=second[-1].publication_sequence,
-        limit=2,
-    )
-    assert [item.publication_sequence for item in final] == [5]
-    assert not has_more
-
-    store.rebuild("recording-1", [_snapshot("snapshot-rebuilt")])
-    with pytest.raises(RecordingHistoryCursorExpired):
-        store.page(
-            "recording-1",
-            "snapshots",
-            upper_bound_sequence=authority.sequence,
-            history_generation=authority.generation,
-            after_sequence=2,
-            limit=2,
-        )
-
-
-def test_history_page_rejects_corrupt_requested_metadata(tmp_path: Path):
-    store = RecordingHistoryStore(tmp_path)
-    store.publish("recording-1", _snapshot("snapshot-1"))
-    authority = store.get_authority("recording-1")
-    item_hash = hashlib.sha256(b"snapshot-1").hexdigest()
-    item_path = (
-        store.root
-        / "recording-1"
-        / "generations"
-        / authority.generation
-        / "items"
-        / "snapshots"
-        / f"{item_hash}.json"
-    )
-    item_path.write_text("{}")
-    with pytest.raises(RecordingHistoryCorrupt):
-        store.page("recording-1", "snapshots", limit=1)
-
-
-@pytest.mark.parametrize("boundary", ["journal", "item", "authority", "journal_cleared"])
+@pytest.mark.parametrize(
+    "boundary", ["journal", "item", "order_index", "authority", "journal_cleared"]
+)
 def test_history_publication_recovers_after_each_durable_boundary(tmp_path: Path, boundary: str):
     store = RecordingHistoryStore(tmp_path)
 
@@ -214,6 +161,26 @@ def test_history_publication_recovers_after_each_durable_boundary(tmp_path: Path
     restarted = RecordingHistoryStore(tmp_path)
     assert restarted.get_authority("recording-1").sequence == 1
     assert restarted.read_item("recording-1", "snapshots", "snapshot-1").publication_sequence == 1
+
+
+@pytest.mark.parametrize("boundary", ["item", "order_index", "authority"])
+def test_history_publication_process_death_recovers_ordered_root(tmp_path: Path, boundary: str):
+    process = multiprocessing.get_context("fork").Process(
+        target=_process_stop_during_history_publish,
+        args=(str(tmp_path), boundary),
+    )
+    process.start()
+    process.join(timeout=10)
+    assert process.exitcode == 77
+
+    restarted = RecordingHistoryStore(tmp_path)
+    authority = restarted.get_authority("recording-1")
+    assert authority.sequence == 1
+    _, items, has_more = restarted.ordered_page(
+        "recording-1", "snapshots", upper_bound_sequence=authority.sequence, limit=1
+    )
+    assert [item.item_key for item in items] == ["snapshot-published"]
+    assert not has_more
 
 
 @pytest.mark.parametrize("failure", ["metadata_digest", "authority_sequence"])
@@ -261,6 +228,15 @@ def test_rebuild_publishes_a_new_generation_and_expires_old_cursors(tmp_path: Pa
     with pytest.raises(RecordingHistoryCursorExpired):
         store.validate_generation("recording-1", old_generation)
     assert store.read_item("recording-1", "snapshots", "snapshot-1").publication_sequence == 2
+    _, page, has_more = store.ordered_page(
+        "recording-1",
+        "snapshots",
+        upper_bound_sequence=authority.sequence,
+        history_generation=authority.generation,
+        limit=1,
+    )
+    assert [item.item_key for item in page] == ["snapshot-1"]
+    assert not has_more
 
 
 def test_rebuild_restart_observes_complete_active_generation(tmp_path: Path):
