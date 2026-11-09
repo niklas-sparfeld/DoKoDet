@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -260,8 +261,9 @@ def test_ordinary_job_transitions_do_not_scan_committed_jobs(tmp_path: Path, mon
         assert manager.get(second.id).state == "queued"
 
 
+@pytest.mark.parametrize("growth", [1, 10])
 def test_child_transition_uses_bounded_queue_and_dependency_lookups(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, growth: int
 ) -> None:
     participant = FakeParticipant(tmp_path / "domain")
     with JobManager(tmp_path, participant) as manager:
@@ -286,13 +288,27 @@ def test_child_transition_uses_bounded_queue_and_dependency_lookups(
                     "parent_step_id": str(i),
                 },
             )
-            for i in range(20)
+            for i in range(20 * growth)
         ]
+        for i in range(20 * growth):
+            manager.accept(
+                str(uuid4()),
+                {
+                    "type": "fake",
+                    "context": {"recording_id": f"unrelated-{i % growth}"},
+                    "request": {"input": f"unrelated-{i}"},
+                },
+            )
 
         def fail_history_scan():
             raise AssertionError("child transition scanned intent history")
 
         monkeypatch.setattr(manager.persistence, "_intents", fail_history_scan)
+        monkeypatch.setattr(
+            manager.persistence,
+            "list_jobs",
+            lambda: (_ for _ in ()).throw(AssertionError("child transition scanned jobs")),
+        )
         intent_reads = []
         read_intent = manager.persistence._read_intent
 
@@ -321,13 +337,85 @@ def test_child_transition_uses_bounded_queue_and_dependency_lookups(
                 "AND sequence < ? AND state != 'succeeded' ORDER BY sequence LIMIT 1",
                 (parent.id, next_sequence),
             ).fetchall()
-            assert any("parent_children_dependency" in str(row) for row in query_plan)
+            assert any("parent_children_pending_dependency" in str(row) for row in query_plan)
             queue_plan = connection.execute(
                 "EXPLAIN QUERY PLAN SELECT child_id FROM queue_children WHERE parent_id = ? "
                 "ORDER BY sequence LIMIT 1",
                 (parent.id,),
             ).fetchall()
             assert any("queue_child_order" in str(row) for row in queue_plan)
+
+
+@pytest.mark.parametrize("crash_point", ["child_terminal_commit", "parent_transition_index"])
+def test_parent_queue_tail_reorder_recovers_with_parent_transition(
+    tmp_path: Path, crash_point: str
+) -> None:
+    class RunParticipant(FakeParticipant):
+        def validate(self, request: dict) -> None:
+            normalized = {**request, "request": dict(request["request"])}
+            normalized["request"].pop("run_id", None)
+            super().validate(normalized)
+
+    participant = RunParticipant(tmp_path / "domain")
+    transition_path = tmp_path / "jobs" / "recording-projections" / "job-transition.json"
+    armed = False
+    parent_id = None
+    child_id = None
+
+    def crash(point: str) -> None:
+        if not armed:
+            return
+        if crash_point == "child_terminal_commit" and point == "job_transition_committed":
+            child_record = Job.model_validate_json(
+                (tmp_path / "jobs" / child_id / "job.json").read_bytes()
+            )
+            if child_record.state == "succeeded":
+                raise RuntimeError("simulated crash")
+        if (
+            crash_point == "parent_transition_index"
+            and point == "job_transition_index"
+            and json.loads(transition_path.read_bytes())["job_id"] == parent_id
+        ):
+            raise RuntimeError("simulated crash")
+
+    with JobManager(tmp_path, participant, after_write=crash) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "r"},
+                "request": {"input": "parent", "run_id": str(uuid4())},
+            },
+        )
+        parent_id = parent.id
+        other = manager.accept(str(uuid4()), _request())
+        manager.transition(parent.id, "running")
+        manager.transition(parent.id, "waiting")
+        child = manager.accept(
+            str(uuid4()),
+            {
+                "type": "fake",
+                "context": {"recording_id": "r"},
+                "request": {"input": "child"},
+                "parent_id": parent.id,
+                "parent_step_id": "step",
+            },
+        )
+        child_id = child.id
+        manager.transition(child.id, "running")
+        armed = True
+        with pytest.raises(RuntimeError, match="simulated crash"):
+            manager.transition(child.id, "succeeded")
+
+    with JobManager(tmp_path, participant) as manager:
+        assert manager.get(parent.id).state == "queued"
+        assert manager.get(child.id).state == "succeeded"
+        assert manager.queue().job_ids == [other.id, parent.id]
+        with sqlite3.connect(
+            tmp_path / "jobs" / "recording-projections" / "active-jobs.sqlite3"
+        ) as connection:
+            positions = dict(connection.execute("SELECT group_id, position FROM queue_groups"))
+        assert positions[other.id] < positions[parent.id]
 
 
 def test_missing_queue_authority_table_fails_closed(tmp_path: Path) -> None:

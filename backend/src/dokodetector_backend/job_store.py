@@ -515,14 +515,7 @@ class JobManager:
             if job.parent_id is not None and state in _TERMINAL:
                 parent = self.get(job.parent_id)
                 if parent.state == "waiting":
-                    parent = self.transition(
-                        parent.id, "cancelled" if state == "cancelled" else "queued"
-                    )
-                    if parent.state == "queued" and isinstance(parent.request.get("run_id"), str):
-                        self.persistence.projection_authority.index.move_queue_group_to_end(
-                            parent.id
-                        )
-                elif parent.state == "cancelling":
-                    if not self.has_active_children(parent.id):
-                        self.transition(parent.id, "cancelled")
+                    self.transition(parent.id, "cancelled" if state == "cancelled" else "queued")
+                elif parent.state == "cancelling" and not self.has_active_children(parent.id):
+                    self.transition(parent.id, "cancelled")
             return job

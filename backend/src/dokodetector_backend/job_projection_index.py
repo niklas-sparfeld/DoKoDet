@@ -79,7 +79,6 @@ class JobProjectionIndexStore:
                     ("table", "parent_children"),
                     ("index", "queue_group_order"),
                     ("index", "queue_child_order"),
-                    ("index", "parent_children_dependency"),
                 }
                 stored_state = None
                 if ("table", "index_state") in objects:
@@ -91,6 +90,10 @@ class JobProjectionIndexStore:
                     raise JobStorageError("job recording index schema is incomplete")
                 if ("table", "queue_state") in queue_objects and not (
                     required_queue_objects <= queue_objects
+                    or not (
+                        ("index", "parent_children_dependency") in queue_objects
+                        or ("index", "parent_children_pending_dependency") in queue_objects
+                    )
                 ):
                     raise JobStorageError("job queue authority schema is incomplete")
                 connection.executescript(
@@ -145,8 +148,8 @@ class JobProjectionIndexStore:
                         state TEXT NOT NULL,
                         UNIQUE (parent_id, sequence)
                     ) WITHOUT ROWID;
-                    CREATE INDEX IF NOT EXISTS parent_children_dependency
-                        ON parent_children(parent_id, sequence, state);
+                    CREATE INDEX IF NOT EXISTS parent_children_pending_dependency
+                        ON parent_children(parent_id, sequence) WHERE state != 'succeeded';
                     """
                 )
                 connection.execute("BEGIN IMMEDIATE")
@@ -189,6 +192,7 @@ class JobProjectionIndexStore:
                         ),
                     )
                 connection.commit()
+                connection.execute("DROP INDEX IF EXISTS parent_children_dependency")
                 self._check_integrity(connection)
             self.path.chmod(0o600)
             self._initialized = True
@@ -390,7 +394,21 @@ class JobProjectionIndexStore:
                 new_group = None
                 if self._queue_group_eligible(new_job):
                     if old_group is not None:
-                        new_group = old_group
+                        if (
+                            old_job is not None
+                            and old_job.type == "automated_pipeline"
+                            and old_job.state == "waiting"
+                            and new_job.state == "queued"
+                        ):
+                            last = connection.execute(
+                                "SELECT position FROM queue_groups ORDER BY position DESC LIMIT 1"
+                            ).fetchone()
+                            new_group = {
+                                "group_id": job_id,
+                                "position": 0 if last is None else last[0] + 1,
+                            }
+                        else:
+                            new_group = old_group
                     else:
                         last = connection.execute(
                             "SELECT position FROM queue_groups ORDER BY position DESC LIMIT 1"
