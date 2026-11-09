@@ -15,6 +15,12 @@ missing revision means the writer stopped before source commit, so recovery drop
 entry. If HEAD advanced before publication authority was written, recovery restores that authority
 from the exact outbox record before it publishes history.
 
+Correction 1/2 hardens two failure paths. Reconciliation drops an intent only when the node
+directory or named revision is absent, or when the revision lacks publication authority and is not
+the node HEAD. An existing unreadable node now fails closed and keeps the outbox for repair. An
+ordinary save rejects an occupied revision or publication path before it writes a new outbox intent,
+so a failed duplicate-ID save cannot poison later reconciliation.
+
 ## Source and meaning
 
 The authoritative source for this collection is the durable, published pipeline node revision. A
@@ -32,7 +38,7 @@ meaning or populate the candidates collection. M5 discovery remains incomplete.
 ## Verification
 
 - `uv run --project backend pytest -q backend/tests/test_pipeline_node_uses.py backend/tests/test_pipeline_node_transactions.py backend/tests/test_recording_history_api.py backend/tests/test_recording_history_store.py` — passed.
-- Tests cover idempotent replay after history commit, recovery after node HEAD commit but before history publication, a coordinated two-node transaction, concurrent writers, and real history API recovery. The API regression rejects revision-content reads during reconciliation.
+- Tests cover idempotent replay after history commit, recovery after node HEAD commit but before history publication, a coordinated two-node transaction, concurrent writers, and real history API recovery. The API regression rejects revision-content reads during reconciliation. Correction regressions verify corrupt-node outbox retention and duplicate-ID rejection before intent creation.
 - `uv run --project backend ruff check backend/src/dokodetector_backend/pipeline_node_store.py backend/src/dokodetector_backend/pipeline_node_transactions.py backend/src/dokodetector_backend/recording_state_api.py backend/tests/test_pipeline_node_uses.py backend/tests/test_pipeline_node_transactions.py backend/tests/test_recording_history_api.py` — passed.
 - `uv run --project backend ruff format --check backend/src/dokodetector_backend/pipeline_node_store.py backend/src/dokodetector_backend/pipeline_node_transactions.py backend/src/dokodetector_backend/recording_state_api.py backend/tests/test_pipeline_node_uses.py backend/tests/test_pipeline_node_transactions.py backend/tests/test_recording_history_api.py` — passed.
 - `git diff --check` — passed.

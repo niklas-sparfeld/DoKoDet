@@ -1,3 +1,4 @@
+import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -153,6 +154,36 @@ def test_recording_revision_history_recovers_source_commit_gap_after_restart(
     assert authority.sequence == 2
     assert len(page) == 2
     assert restarted.read_authorized_revision("n", page[-1].resource.revision_id)
+
+
+def test_corrupt_node_keeps_pending_revision_history_intent(tmp_path: Path) -> None:
+    store = PipelineNodeStore(tmp_path / "pipeline-nodes")
+    first = store.create("n", "Events", "events", SOURCE, content(200), {})
+    store._queue_revision_history(store._node_path("n"), first)
+    manifest = store._node_path("n") / "manifest.json"
+    manifest.write_text("{broken", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        PipelineNodeStore(tmp_path / "pipeline-nodes").reconcile_revision_history_outbox()
+
+    pending = json.loads(store._history_outbox_path.read_text(encoding="utf-8"))
+    assert len(pending["entries"]) == 1
+    assert pending["entries"][0]["revision_id"] == first.revision_id
+
+
+def test_duplicate_revision_id_fails_before_history_outbox_write(tmp_path: Path) -> None:
+    store = PipelineNodeStore(tmp_path / "pipeline-nodes")
+    first = store.create("n", "Events", "events", SOURCE, content(200), {})
+    current = store.save("n", first.revision_id, content(300), {}, revision_id="fixed-rev")
+    outbox = store._history_outbox_path
+    assert not outbox.exists() or json.loads(outbox.read_text(encoding="utf-8"))["entries"] == []
+
+    with pytest.raises(NodeConflict, match="revision ID already exists"):
+        store.save("n", current.revision_id, content(400), {}, revision_id="fixed-rev")
+
+    assert not outbox.exists() or json.loads(outbox.read_text(encoding="utf-8"))["entries"] == []
+    _, items, _ = RecordingHistoryStore(tmp_path).ordered_page("recording-01", "revisions")
+    assert {item.resource.revision_id for item in items} == {first.revision_id, "fixed-rev"}
 
 
 def test_edit_and_accept_serialize(tmp_path: Path) -> None:

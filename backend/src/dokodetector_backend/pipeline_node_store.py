@@ -260,12 +260,14 @@ class PipelineNodeStore:
                 "schema_version",
             }:
                 raise ValueError("invalid pipeline revision history outbox entry")
-            try:
-                node = self._get_unrecovered(entry["node_id"])
-            except (OSError, KeyError, ValueError):
-                # The outbox is written before its source revision. A missing revision means
-                # the writer stopped before commit, so this intent has no source to publish.
+            node_path = self._node_path(entry["node_id"])
+            if not node_path.exists():
+                # The intent is written before a new node's staged directory is committed.
+                # Absence is the only state that proves this create did not commit.
                 continue
+            # An existing but unreadable node is corruption. Let it fail closed and retain the
+            # outbox entry for repair; do not turn source corruption into a permanent omission.
+            node = self._get_unrecovered(entry["node_id"])
             revision_path = self.revision_path(node.node_id, entry["revision_id"])
             if not revision_path.is_dir():
                 continue
@@ -476,6 +478,12 @@ class PipelineNodeStore:
                 _canonical_timestamp(None),
                 revision_id,
             )
+            revision_path = self.revision_path(node_id, revision.revision_id)
+            publication_path = self.publication_path(node_id, revision.revision_id)
+            if any(
+                path.exists() or path.is_symlink() for path in (revision_path, publication_path)
+            ):
+                raise NodeConflict("revision ID already exists")
             self._queue_revision_history(self._node_path(node_id), revision)
             self._publish_revision(self._node_path(node_id), revision)
             self._after_durable_boundary("revision")
