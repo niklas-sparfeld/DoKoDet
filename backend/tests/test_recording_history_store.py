@@ -24,13 +24,14 @@ from dokodetector_backend.recording_state_contract import (
 _DIGEST = hashlib.sha256(b"history item").hexdigest()
 
 
-def _snapshot(key: str, byte: str = "a") -> SnapshotHistoryItem:
+def _snapshot(key: str, byte: str = "a", predecessor: str | None = None) -> SnapshotHistoryItem:
     snapshot_id = "rs_" + byte * 64
     return SnapshotHistoryItem(
         item_key=key,
         snapshot_id=snapshot_id,
         sha256=_DIGEST,
         publication_sequence=1,
+        predecessor_snapshot_id=predecessor,
     )
 
 
@@ -130,6 +131,72 @@ def test_history_publication_assigns_sequence_and_retries_idempotently(tmp_path:
     assert store.get_authority("recording-1").sequence == 1
     with pytest.raises(RecordingHistoryConflict):
         store.publish("recording-1", _snapshot("snapshot-1", "c"))
+
+
+def test_history_pages_freeze_sequence_boundary_and_expire_after_rebuild(tmp_path: Path):
+    store = RecordingHistoryStore(tmp_path)
+    for index in range(5):
+        predecessor = None if index == 0 else "rs_" + format(index, "x") * 64
+        store.publish(
+            "recording-1",
+            _snapshot(f"snapshot-{index}", format(index + 1, "x"), predecessor),
+        )
+    authority, first, has_more = store.page("recording-1", "snapshots", limit=2)
+    assert [item.publication_sequence for item in first] == [1, 2]
+    assert first[1].predecessor_snapshot_id == first[0].snapshot_id
+    assert has_more
+
+    store.publish("recording-1", _snapshot("snapshot-new", "f"))
+    _, second, has_more = store.page(
+        "recording-1",
+        "snapshots",
+        upper_bound_sequence=authority.sequence,
+        history_generation=authority.generation,
+        after_sequence=first[-1].publication_sequence,
+        limit=2,
+    )
+    assert [item.publication_sequence for item in second] == [3, 4]
+    assert has_more
+    _, final, has_more = store.page(
+        "recording-1",
+        "snapshots",
+        upper_bound_sequence=authority.sequence,
+        history_generation=authority.generation,
+        after_sequence=second[-1].publication_sequence,
+        limit=2,
+    )
+    assert [item.publication_sequence for item in final] == [5]
+    assert not has_more
+
+    store.rebuild("recording-1", [_snapshot("snapshot-rebuilt")])
+    with pytest.raises(RecordingHistoryCursorExpired):
+        store.page(
+            "recording-1",
+            "snapshots",
+            upper_bound_sequence=authority.sequence,
+            history_generation=authority.generation,
+            after_sequence=2,
+            limit=2,
+        )
+
+
+def test_history_page_rejects_corrupt_requested_metadata(tmp_path: Path):
+    store = RecordingHistoryStore(tmp_path)
+    store.publish("recording-1", _snapshot("snapshot-1"))
+    authority = store.get_authority("recording-1")
+    item_hash = hashlib.sha256(b"snapshot-1").hexdigest()
+    item_path = (
+        store.root
+        / "recording-1"
+        / "generations"
+        / authority.generation
+        / "items"
+        / "snapshots"
+        / f"{item_hash}.json"
+    )
+    item_path.write_text("{}")
+    with pytest.raises(RecordingHistoryCorrupt):
+        store.page("recording-1", "snapshots", limit=1)
 
 
 @pytest.mark.parametrize("boundary", ["journal", "item", "authority", "journal_cleared"])

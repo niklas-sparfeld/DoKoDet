@@ -331,7 +331,7 @@ class HistoryPageCursor(ContractModel):
         "jobs",
     ]
     filter_sha256: Sha256
-    upper_bound_sequence: int = Field(ge=1)
+    upper_bound_sequence: int = Field(ge=0)
     history_generation: Identifier | None = None
     # Composite history keys can contain the longest valid lineage endpoints.
     last_key: str | None = Field(default=None, max_length=4096)
@@ -463,7 +463,7 @@ class RecordingHistoryPage(ContractModel):
     schema_version: Literal["recording-history-page/v1"] = RECORDING_HISTORY_PAGE_SCHEMA
     recording_id: Identifier
     collection: Literal["snapshots", "revisions", "candidates", "lineage_edges"]
-    upper_bound_sequence: int = Field(ge=1)
+    upper_bound_sequence: int = Field(ge=0)
     items: list[HistoryItem] = Field(max_length=100)
     next_cursor: str | None = Field(default=None, max_length=8192)
     has_more: bool

@@ -265,6 +265,54 @@ class RecordingHistoryStore:
                 raise RecordingHistoryCorrupt("history item sequence exceeds its authority")
             return item
 
+    def page(
+        self,
+        recording_id: str,
+        collection: str,
+        *,
+        upper_bound_sequence: int | None = None,
+        history_generation: str | None = None,
+        after_sequence: int = 0,
+        limit: int = 50,
+    ) -> tuple[RecordingHistoryAuthority, list[HistoryItem], bool]:
+        """Read one stable metadata page without opening referenced resource payloads."""
+        if collection not in {"snapshots", "revisions", "candidates", "lineage_edges"}:
+            raise ValueError("unknown recording history collection")
+        if not 1 <= limit <= 100 or after_sequence < 0:
+            raise ValueError("history page bounds are invalid")
+        with self._lock(recording_id):
+            self._recover_locked(recording_id)
+            self._recover_generation_locked(recording_id)
+            generation = self._active_generation(recording_id)
+            if generation is None:
+                if self._has_generation_data(recording_id):
+                    raise RecordingHistoryCorrupt(
+                        "history generations exist without an active pointer"
+                    )
+                generation = self._ensure_generation(recording_id)
+            generation_id, generation_root = generation
+            if history_generation is not None and history_generation != generation_id:
+                raise RecordingHistoryCursorExpired("history cursor belongs to an old generation")
+            authority = self._authority(recording_id, generation_id, generation_root)
+            boundary = authority.sequence if upper_bound_sequence is None else upper_bound_sequence
+            if boundary < 0 or boundary > authority.sequence:
+                raise RecordingHistoryCorrupt("history cursor boundary exceeds its authority")
+            collection_root = contained_path(generation_root, Path("items") / collection)
+            items: list[HistoryItem] = []
+            if collection_root.exists():
+                for path in collection_root.iterdir():
+                    if path.is_symlink() or not path.is_file() or path.suffix != ".json":
+                        raise RecordingHistoryCorrupt("history collection has an invalid item")
+                    item = self._read_item_file(path, collection)
+                    if _item_path(generation_root, item) != path:
+                        raise RecordingHistoryCorrupt("history item filename does not match key")
+                    if not 1 <= item.publication_sequence <= authority.sequence:
+                        raise RecordingHistoryCorrupt("history item sequence exceeds its authority")
+                    if after_sequence < item.publication_sequence <= boundary:
+                        items.append(item)
+            items.sort(key=lambda item: item.publication_sequence)
+            return authority, items[:limit], len(items) > limit
+
     def validate_generation(self, recording_id: str, generation: str) -> None:
         """Reject a cursor after an offline rebuild changes history membership."""
         authority = self.get_authority(recording_id)

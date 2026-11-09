@@ -15,7 +15,9 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.poc_analyzer import create_local_poc_analyzer
 from dokodetector_backend.recording_state_contract import (
+    ExactResourceRef,
     RecordingStateSnapshot,
+    ResourceHistoryItem,
     SnapshotFrozenProcessorInputs,
 )
 
@@ -453,3 +455,68 @@ def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatc
         == edited_content
     )
     assert restarted_journal_reads == []
+
+
+def test_recording_history_api_pages_are_stable_across_new_publications(tmp_path, monkeypatch):
+    app = create_app(_settings(tmp_path), analyzer=create_local_poc_analyzer())
+    client = TestClient(app)
+    history = app.state.recording_history_store
+
+    def forbidden_payload_read(*_args, **_kwargs):
+        raise AssertionError("history page read a revision payload")
+
+    monkeypatch.setattr(
+        app.state.pipeline_node_edits.store,
+        "read_authorized_revision",
+        forbidden_payload_read,
+    )
+    digest = hashlib.sha256(b"metadata only").hexdigest()
+    for index in range(3):
+        history.publish(
+            RECORDING,
+            ResourceHistoryItem(
+                collection="revisions",
+                item_key=f"revision-{index}",
+                resource=ExactResourceRef(
+                    kind="pipeline-node-revision",
+                    resource_id=f"revision-{index}",
+                    schema_version="pipeline-node-revision/v1",
+                    sha256=digest,
+                    node_id="events-node",
+                    revision_id=f"revision-{index}",
+                ),
+                publication_sequence=1,
+            ),
+        )
+
+    path = f"/api/recordings/{RECORDING}/state/history/revisions"
+    first_response = client.get(path, params={"page_size": 2})
+    assert first_response.status_code == 200, first_response.text
+    first = first_response.json()
+    assert [item["publication_sequence"] for item in first["items"]] == [1, 2]
+    assert first["has_more"] is True
+
+    history.publish(
+        RECORDING,
+        ResourceHistoryItem(
+            collection="revisions",
+            item_key="revision-later",
+            resource=ExactResourceRef(
+                kind="pipeline-node-revision",
+                resource_id="revision-later",
+                schema_version="pipeline-node-revision/v1",
+                sha256=digest,
+                node_id="events-node",
+                revision_id="revision-later",
+            ),
+            publication_sequence=1,
+        ),
+    )
+    second_response = client.get(path, params={"page_size": 2, "cursor": first["next_cursor"]})
+    assert second_response.status_code == 200, second_response.text
+    second = second_response.json()
+    assert [item["item_key"] for item in second["items"]] == ["revision-2"]
+    assert second["has_more"] is False
+    assert second["upper_bound_sequence"] == first["upper_bound_sequence"]
+    invalid_page = client.get(path, params={"page_size": 1, "cursor": first["next_cursor"]})
+    assert invalid_page.status_code == 422

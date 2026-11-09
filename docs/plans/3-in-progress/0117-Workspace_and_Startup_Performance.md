@@ -180,7 +180,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M4b | Bounded coordinated transaction recovery and pending-journal authority | Complete; [report](../../reports/0117-M4b_Bounded_Transaction_Recovery.md) |
 | M4c | One real API workflow with old discovery disabled and no parent traversal | Complete; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5a | Durable shared history authority and rebuild contract | Complete; [report](../../reports/0117-M5a_History_Authority.md) |
-| M5b | Bounded history API pages over the durable metadata index | Not started; full source coverage waits for M5c |
+| M5b | Bounded history API pages over the durable metadata index | Complete; [report](../../reports/0117-M5b_Bounded_History_API_Pages.md); full source coverage waits for M5c |
 | M5c | Source publisher adapters and durable-to-index gap reconciliation | Not started; candidate source must be identified |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
@@ -229,9 +229,9 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 1; remaining: 13. The cap covers
+- Requested run: 14 milestones, starting at M5a; completed: 2; remaining: 12. The cap covers
   M5a, M5b, M5c, and M6–M16.
-- Next milestone: M5b. M5a replan count: 2/5; this run replan count: 0/10. Previous-run
+- Next milestone: M5c. M5b replan count: 0/5; this run replan count: 0/10. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
@@ -298,6 +298,17 @@ while history and unrelated recordings grow 10x.
 - M5a current-run correction 2/2 also preserves the retry journal after a caught exception during
   initial nonempty staging. Restart still requires the source metadata; tests verify this path and
   the existing publication, rebuild, and pointer-recovery boundaries.
+- M5b result: metadata pages now expose snapshots, revisions, candidates, and lineage edges from
+  the M5a generation. Cursors pin collection, page size, authority generation, and the initial
+  sequence boundary. New publications do not enter an existing traversal; rebuild expires its
+  cursors. Pages contain metadata only and retain exact resource references and snapshot ancestry.
+  Direct historical revision reads remain available. Full source coverage is not claimed; M5c owns
+  publishers and durable-to-index gap reconciliation.
+- M5b checks: 43 focused history-store, state-contract, and real-API workflow tests passed. They
+  cover stable pages while new revisions publish, exact snapshot ancestry, cursor mismatch and
+  rebuild expiry, bounded page results, and metadata-only resource references. Ruff check/format,
+  OpenAPI generation/verification, and `git diff --check` passed. See the
+  [M5b report](../../reports/0117-M5b_Bounded_History_API_Pages.md).
 - Replan 1 split M5 into the durable authority store (M5a) and discovery APIs (M5b). Replan 2
   added generation pinning because sequence-only cursors cannot expire safely after rebuild.
 - Replan 3 assigns source publication and crash-gap reconciliation to M5c. The current owners are
