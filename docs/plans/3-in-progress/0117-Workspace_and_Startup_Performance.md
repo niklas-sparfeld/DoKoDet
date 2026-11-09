@@ -229,7 +229,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M6a | Durable Job Manager authority and journaled job-record transitions | Complete; [report](../../reports/0117-M6a_Job_Projection_Authority.md) |
 | M6b | Bounded active-job projections over the M6a authority | Incomplete; split by replan 10 |
 | M6b1 | Bounded incremental per-recording job-index publication and recovery | Complete for index publication; no end-to-end transition bound claimed; correction 1/2; [report](../../reports/0117-M6b1_Job_Index_Publication.md) |
-| M6b1a | Durable ordered queue authority, per-job transition deltas, and explicit startup repair | Complete; correction 2/2; [report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) |
+| M6b1a | Durable ordered queue authority, per-job transition deltas, and explicit startup repair | Incomplete after correction 2/2; [report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) |
 | M6b1b | Bounded acceptance key, sequence, and parent-step authority with recovery | Not started; depends on M6b1a; acceptance remains unbounded until this milestone |
 | M6b2 | Bounded job pages, explicit rebuild, growth/corruption checks, and active API inventory | Not started; depends on M6b1a and M6b1b |
 | M6c | Bounded analysis and package metadata pages | Not started |
@@ -280,10 +280,10 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 10; remaining: 4. The revised cap
+- Requested run: 14 milestones, starting at M5a; completed: 9; remaining: 5. The revised cap
   covers M5a, M5b1, M5b2, M5c1–M5c4, M6a, M6b1, M6b1a, M6b1b, M6b2, and M6c–M6d. M7–M16 are
   outside this run.
-- Next: M6b1b. M6b replan count: 3/5; M6b1a correction count: 2/2; M6b1 correction count: 1/2. M6a replan count: 0/5; M6a
+- Next: M6b1a. M6b replan count: 3/5; M6b1a correction count: 2/2; M6b1 correction count: 1/2. M6a replan count: 0/5; M6a
   correction count: 2/2; M5c replan count: 2/5; this run
   replan count: 7/10. M5c4 correction count:
   0/2. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
@@ -309,17 +309,18 @@ while history and unrelated recordings grow 10x.
   intents for idempotency, sequence, and parent-step uniqueness; M6b1b owns that boundary. Scheduler
   candidate discovery and startup recovery still enumerate their queue or intent sets. Correction
   1/2 journals the parent waiting-to-queued tail reorder with the parent transition and preserves it
-  when restart completes a parent transition after a child terminal commit. Crash tests cover both
-  windows. Growth checks cover 20 and 200 siblings, unrelated jobs, and intents across 1 and 10 recordings;
-  transitions read only the target intent twice and use the partial dependency index. Legacy rebuild,
-  cancellation, parent reorder, scheduler, concurrent queue readers/writers, and backend job/API tests
-  pass. Correction 2/2 aligns startup repair with normal child transitions after a terminal child
-  commit. A cancelled child cancels its waiting parent. Succeeded, failed, and interrupted children
-  queue it even if the next child is still queued. If recovery sees several terminal children, it
-  uses the latest durable update time and the acceptance sequence as a tie-breaker. See the
-  [M6b1a report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) and the
-  [M6b1 report](../../reports/0117-M6b1_Job_Index_Publication.md). M6b1b is next; four run
-  milestones remain through M6d. M7–M16 are outside this run.
+  when restart completes a parent transition after a child terminal commit. Correction 2/2 aligns
+  startup repair with normal child transitions after a terminal child commit. These changes and
+  tests are integrated in commits `323a021c` and `1a6fc590`, but M6b1a is not accepted. Its two
+  corrections reached the limit. The retained tests cover child terminal states, the two reorder crash
+  windows, growth, and concurrent readers/writers. They do not resolve these defects:
+  1. A crash after the parent enters `waiting` but before the first child is accepted leaves the parent
+     waiting permanently.
+  2. A restart during a later wait can requeue the parent based on an old terminal child while the
+     current child remains queued.
+  Recovery needs durable evidence that identifies the current wait and its child transition. The next
+  milestone is M6b1a; the fixed 14-slot cap now has 9 accepted milestones and 5 remaining. M7–M16
+  remain outside this run.
 - M5b2 result: complete after the resumed authority-loss fix. The four history routes use M5b1's stable collection order and frozen
   sequence roots. HMAC cursors bind recording, collection, empty-filter digest, generation,
   sequence, full stable key, and page size. The private cursor key and local digest record use

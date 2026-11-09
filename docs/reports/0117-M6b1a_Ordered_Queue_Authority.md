@@ -4,7 +4,7 @@ Date: 2026-11-09
 
 ## Result
 
-Complete after correction 2/2. The active-job SQLite store now owns ordered queue groups, queued
+Incomplete after correction 2/2 review. The active-job SQLite store owns ordered queue groups, queued
 child membership, parent-child sequence and state, and the queue revision. A
 `job-record-transition/v3` journal binds the queue delta to the existing M6a job update. One SQLite
 transaction publishes the active-job index and queue state before job authority advances. Recovery
@@ -23,6 +23,16 @@ matches the normal child transition: a cancelled child cancels its waiting paren
 or interrupted children queue it. Recovery checks terminal children even when another child remains
 queued. If several are terminal, it uses the latest durable `updated_at`, with acceptance sequence as
 the tie-breaker.
+
+Commits `323a021c` and `1a6fc590` are integrated. Review did not accept M6b1a. Two defects remain:
+
+- A crash after the parent enters `waiting` but before the first child is accepted leaves the parent
+  waiting permanently.
+- A restart during a later wait can requeue the parent based on an old terminal child while the
+  current child remains queued.
+
+Recovery needs durable evidence that identifies the current wait and its child transition. M6b1a stays
+incomplete until that contract and its recovery checks are implemented.
 
 Startup recovery calls `JobRecovery.rebuild_queue()` and rebuilds the parent-child state from durable
 jobs and intents. Until repair completes, queue reads fail closed. The old `queue.json` is imported
