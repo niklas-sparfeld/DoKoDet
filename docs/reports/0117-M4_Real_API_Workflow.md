@@ -1,5 +1,7 @@
 # Epic 0117 M4: real API workflow
 
+**Review status:** M4 remains incomplete. `read_published_revision` walks parent links from node HEAD; normal frozen-input and selected-edit reads therefore traverse history. The final sanity review requires bounded durable publication authority and a no-parent-traversal growth check before completion.
+
 Date: 2026-11-09
 
 ## Result

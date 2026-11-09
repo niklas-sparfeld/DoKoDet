@@ -159,7 +159,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
 | M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Complete; [report](../../reports/0117-M3_Atomic_HEAD_Publication.md) |
-| M4 | One real API workflow with replaced selection discovery disabled | Complete; [report](../../reports/0117-M4_Real_API_Workflow.md) |
+| M4 | One real API workflow with replaced selection discovery disabled | In progress; [report](../../reports/0117-M4_Real_API_Workflow.md) |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
@@ -208,7 +208,7 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M3; completed: 2; remaining: 12.
+- Requested run: 14 milestones, starting at M3; completed: 1; remaining: 13. The run stopped after two M4 correction turns.
 - M4 changes: added state initialization, current-state, explicit selection, and exact snapshot-read
   routes, including a selected-working-content editor that publishes its saved output into the
   generated selection. The route rejects a body recording ID that differs from its path. The proof
@@ -230,8 +230,12 @@ while history and unrelated recordings grow 10x.
   writers remain unchanged. The proof uses disposable storage; retained-state conversion and
   activation remain later milestones. M3 journal recovery, immutable snapshots, and orphan behavior
   remain as reported in the [M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md).
-- Next: M5 — add bounded historical metadata discovery with stable pagination. Run limit: 14
-  planned milestones (M3–M16); completed: 2; remaining: 12.
+- Outstanding review finding: `read_published_revision` walks parent links from node HEAD to
+  the requested revision. Frozen-input resolution and selected editing therefore perform implicit
+  history traversal. Define and prove direct durable publication authority that rejects orphans,
+  covers crash and concurrent readers, and does not traverse parents as history grows. The two
+  M4 correction turns in this run are exhausted; M5 must wait.
+- Next: replan and complete M4 in a new authorized run. Run count: 1 complete, 13 remaining.
 
 ## M1 — Define current-state operation contracts
 
