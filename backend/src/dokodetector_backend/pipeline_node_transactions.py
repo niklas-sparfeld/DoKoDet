@@ -124,6 +124,7 @@ class PipelineNodeTransactions:
             if record.get("request_digest") != request_digest:
                 raise ValueError("pending locator does not match coordinated transaction")
             self._recover_one(journal)
+        self.node_store._reconcile_revision_history_outbox_locked()
         # A committed journal is retained for direct idempotency lookup. A missing journal means
         # the process stopped after publishing the locator but before preparing the journal.
         atomic_replace_json(
@@ -289,6 +290,9 @@ class PipelineNodeTransactions:
                     content_sha256=update["content_sha256"],
                     metadata=update["metadata"],
                     created_at=update["created_at"],
+                )
+                self.node_store._queue_revision_history(
+                    self.node_store._node_path(node.node_id), revision
                 )
                 if self.node_store.has_revision(node.node_id, update["revision_id"]):
                     existing = self.node_store._read_revision(node, update["revision_id"])

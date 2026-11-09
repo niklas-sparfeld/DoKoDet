@@ -35,7 +35,13 @@
   cursors, and bounded page reads. Replan 6 splits M5b into M5b1, an ordered cursor-addressable
   index with atomic publication and rebuild, and M5b2, the M1-compliant API. The committed M5b API
   is unaccepted and disabled until M5b2. Persisted corruption must return HTTP 500. M5c remains
-  independent. The current 14-slot run ends at M15; M16 is outside this run.
+  independent. The current 14-slot run ends at M15; M16 is outside this run. On 2026-11-09, M5c
+  source inspection found no persisted candidate source or candidate-specific selection rule. It
+  also found three independent source transaction boundaries. Replan 7 splits M5c into M5c1 node
+  revision publication, M5c2 snapshot publication, and M5c3 lineage publication. This keeps the
+  14-slot cap: M14 and M15 move outside this run. The candidate collection remains unresolved; do
+  not alias it to revisions or embedded card proposals. M5 discovery and M6 remain incomplete
+  until its meaning is decided.
 
 ## Evidence and scope
 
@@ -188,7 +194,10 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M5b | Bounded history API pages over the durable metadata index | Incomplete; split by replan 6 |
 | M5b1 | Ordered cursor-addressable history index with atomic publication and rebuild | Complete; correction 1/2; [report](../../reports/0117-M5b1_Ordered_History_Index.md) |
 | M5b2 | M1-compliant pages, signed cursors, lineage continuation, corruption mapping | Complete; [report](../../reports/0117-M5b2_M1_Compliant_History_Pages.md) |
-| M5c | Source publisher adapters and durable-to-index gap reconciliation | Not started; candidate source must be identified |
+| M5c | Source publisher adapters, gap reconciliation, and candidate-source decision | Incomplete; split by replan 7 |
+| M5c1 | Pipeline node revision publisher with bounded crash-gap recovery | Complete; [report](../../reports/0117-M5c1_Node_Revision_History_Publisher.md) |
+| M5c2 | Recording snapshot publisher with bounded crash-gap recovery | Not started |
+| M5c3 | Pipeline lineage run and edge publisher with bounded crash-gap recovery | Not started; candidate meaning remains unresolved |
 | M6 | Compact recording catalog without revision/history reconstruction | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
 | M8 | Web current-state, history, and explicit HEAD-switch flow | Not started |
@@ -236,9 +245,9 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 3; remaining: 11. The cap covers
-  M5a, M5b1, M5b2, M5c, and M6–M15; M16 is outside this run.
-- Next milestone: M5c. M5b replan count: 1/5; this run replan count: 1/10. M5b1 correction
+- Requested run: 14 milestones, starting at M5a; completed: 4; remaining: 10. The cap covers
+  M5a, M5b1, M5b2, M5c1–M5c3, and M6–M13. M14–M16 are outside this run.
+- Next milestone: M5c2. M5c replan count: 1/5; this run replan count: 2/10. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
   Current-run M5a correction count: 2/2.
@@ -259,9 +268,28 @@ while history and unrelated recordings grow 10x.
   regression proves that loss of the key, marker, and authority after a non-empty generation was
   retained returns HTTP 500 and requires explicit cursor invalidation. Initial empty-generation
   rebuilds remain supported. Focused API/store/index/contract/workflow tests, Ruff check and format,
-  and OpenAPI verification passed. Browser checks were not applicable because no web consumer or
-  API contract changed. M5c starts with correction count 0/2. No replan was required; existing run
-  replan counts are unchanged.
+  and OpenAPI verification passed. Browser checks were not applicable because no web consumer or API
+  contract changed. M5c1 starts with correction count 0/2. Replan 7 raised the current run replan
+  count to 2/10 and split source adapters by their durable transaction owners.
+- M5c1 result: complete for recording-owned `PipelineNodeStore` revisions. A pending outbox intent
+  is durable before revision commit. Node creation commits its initial revision, publication
+  authority, HEAD, and source manifest together; ordinary saves publish the node HEAD and revision
+  authority before dispatch; coordinated transactions append exact revision intents and dispatch
+  after journal recovery. Replay reads only the pending outbox, node manifest/HEAD, and publication
+  authority. It does not parse revision content. Missing uncommitted source revisions are removed;
+  committed revisions publish idempotently through M5a before the outbox clears. History page reads
+  recover the named pending coordinated transaction, then reconcile the pending revision outbox.
+  Crash/restart checks cover source HEAD commit and history commit gaps. A coordinated two-node
+  transaction publishes all four exact revisions. The history API recovery test rejects revision
+  payload reads. Focused pytest, Ruff check and format, diff check, and local link checks passed;
+  OpenAPI and browser checks were not applicable. See the
+  [M5c1 report](../../reports/0117-M5c1_Node_Revision_History_Publisher.md).
+- M5c evidence: no web consumer calls the candidates endpoint. Existing UI candidates are embedded
+  card/identity proposals or comparison values, not exact persisted resources. Competing meanings
+  remain: all pipeline revisions (duplicates `/revisions`), outputs from successful/partial lineage
+  runs, or embedded proposals (not independent exact resources). No meaning is selected. Do not
+  alias candidate pages to revisions. M5c2 snapshot publication and M5c3 lineage publication are
+  still open; discovery remains incomplete.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
   selection reads do the same; selection writes take the root lock before their selection lock.
@@ -348,10 +376,11 @@ while history and unrelated recordings grow 10x.
   [M5b1 report](../../reports/0117-M5b1_Ordered_History_Index.md).
 - Replan 1 split M5 into the durable authority store (M5a) and discovery APIs (M5b). Replan 2
   added generation pinning because sequence-only cursors cannot expire safely after rebuild.
-- Replan 3 assigns source publication and crash-gap reconciliation to M5c. The current owners are
-  `RecordingStateStore`/`RecordingStateSnapshotStore`, `PipelineNodeStore`/`PipelineNodeTransactions`,
-  and `PipelineLineage`; M0/M1 do not name the source for the `candidates` collection. M5c must
-  identify that source before implementation. M5b cannot claim complete source discovery until M5c.
+- Replan 3 assigns source publication and crash-gap reconciliation to M5c. Replan 7 splits its
+  owners: M5c1 is `PipelineNodeStore`/`PipelineNodeTransactions`; M5c2 is
+  `RecordingStateSnapshotStore`; M5c3 is `PipelineLineage`. M0/M1 do not name the source or meaning
+  of the `candidates` collection. M5 discovery stays incomplete until all source families and
+  candidate semantics are resolved.
 - Retained data stays unchanged. M12 must rehearse authority and pending-journal migration, preserve
   exact review/use dependencies, report unprovable records, and include recovery evidence. M13 can
   switch existing readers only after that rehearsal passes.

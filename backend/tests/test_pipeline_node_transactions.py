@@ -12,6 +12,7 @@ from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
 from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
+from dokodetector_backend.recording_history_store import RecordingHistoryStore
 
 SOURCE = {
     "schema_version": "recording-video/v1",
@@ -328,6 +329,15 @@ def test_coordinated_transaction_publishes_both_nodes_and_exact_selections(
     )
 
     assert result["status"] == "committed"
+    _, revisions, _ = RecordingHistoryStore(tmp_path).ordered_page(
+        "recording-01", "revisions", limit=10
+    )
+    assert {item.resource.revision_id for item in revisions} == {
+        visible.revision_id,
+        scenes.revision_id,
+        visible_new,
+        scenes_new,
+    }
     assert nodes.get("visible-node").head_revision_id == visible_new
     assert nodes.get("scene-node").head_revision_id == scenes_new
     assert selections.get_exact("recording-01", "visible_cards").selected_generated == {

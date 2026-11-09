@@ -78,6 +78,14 @@ def _history_page(
     if request.app.state.recording_bundle_store.get_metadata(recording_id) is None:
         raise ContractError("recording_not_found", "The recording was not found.", status_code=404)
     store = request.app.state.recording_history_store
+    node_edits = getattr(request.app.state, "pipeline_node_edits", None)
+    if node_edits is not None:
+        try:
+            node_edits.store.reconcile_revision_history_outbox()
+        except (OSError, ValueError) as error:
+            raise ContractError(
+                "recording_history_corrupt", "The recording history is corrupt.", status_code=500
+            ) from error
     try:
         key = store.cursor_integrity_key()
     except (RecordingHistoryCorrupt, OSError) as error:

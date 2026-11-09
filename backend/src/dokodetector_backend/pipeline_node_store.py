@@ -6,6 +6,7 @@ copy-on-edit are added in M3; callers must not use this store for production pro
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from contextlib import contextmanager
@@ -199,6 +200,129 @@ class PipelineNodeStore:
             Path("publications") / _safe_id(revision_id, "revision_id"),
         )
 
+    @property
+    def _history_outbox_path(self) -> Path:
+        return contained_path(self.root, ".recording-history-revision-outbox.json")
+
+    def _queue_revision_history(self, node_path: Path, revision: NodeRevision) -> None:
+        """Record a recoverable history intent before a recording revision is committed."""
+        manifest_path = node_path / "manifest.json"
+        manifest = _read_json(manifest_path)
+        recording_id = manifest.get("source", {}).get("recording_id")
+        if not isinstance(recording_id, str) or not recording_id:
+            return
+        path = self._history_outbox_path
+        entries: list[dict[str, str]] = []
+        if path.exists():
+            current = _read_json(path)
+            if (
+                set(current) != {"schema_version", "entries"}
+                or current["schema_version"] != "pipeline-revision-history-outbox/v1"
+                or not isinstance(current["entries"], list)
+            ):
+                raise ValueError("invalid pipeline revision history outbox")
+            entries = current["entries"]
+        entry = {
+            "recording_id": recording_id,
+            "node_id": revision.node_id,
+            "revision_id": revision.revision_id,
+            "content_sha256": revision.content_sha256,
+            "schema_version": revision.content.get("schema_version"),
+        }
+        if not isinstance(entry["schema_version"], str) or not entry["schema_version"]:
+            raise ValueError("pipeline revision has no content schema version")
+        if entry not in entries:
+            entries.append(entry)
+        atomic_replace_json(
+            path, {"schema_version": "pipeline-revision-history-outbox/v1", "entries": entries}
+        )
+        self._after_durable_boundary("history_outbox")
+
+    def _reconcile_revision_history_outbox_locked(self) -> None:
+        """Replay named durable revision intents while the node transaction lock is held."""
+        path = self._history_outbox_path
+        if not path.exists():
+            return
+        current = _read_json(path)
+        if (
+            set(current) != {"schema_version", "entries"}
+            or current["schema_version"] != "pipeline-revision-history-outbox/v1"
+            or not isinstance(current["entries"], list)
+        ):
+            raise ValueError("invalid pipeline revision history outbox")
+        remaining: list[dict[str, str]] = []
+        for entry in current["entries"]:
+            if not isinstance(entry, dict) or set(entry) != {
+                "recording_id",
+                "node_id",
+                "revision_id",
+                "content_sha256",
+                "schema_version",
+            }:
+                raise ValueError("invalid pipeline revision history outbox entry")
+            try:
+                node = self._get_unrecovered(entry["node_id"])
+            except (OSError, KeyError, ValueError):
+                # The outbox is written before its source revision. A missing revision means
+                # the writer stopped before commit, so this intent has no source to publish.
+                continue
+            revision_path = self.revision_path(node.node_id, entry["revision_id"])
+            if not revision_path.is_dir():
+                continue
+            publication = self.publication_path(node.node_id, entry["revision_id"])
+            if publication.exists():
+                authority = self._read_publication(node.node_id, entry["revision_id"])
+                if authority["content_sha256"] != entry["content_sha256"]:
+                    raise ValueError("pipeline revision history outbox digest mismatch")
+            elif node.head_revision_id != entry["revision_id"]:
+                # An uncommitted revision is not part of durable node history.
+                continue
+            else:
+                self._publish_publication_metadata(
+                    self._node_path(node.node_id),
+                    node.node_id,
+                    entry["revision_id"],
+                    entry["content_sha256"],
+                )
+            from dokodetector_backend.recording_history_store import RecordingHistoryStore
+            from dokodetector_backend.recording_state_contract import (
+                ExactResourceRef,
+                ResourceHistoryItem,
+            )
+
+            schema_version = entry["schema_version"]
+            if not isinstance(schema_version, str) or not schema_version:
+                raise ValueError("pipeline revision has no content schema version")
+            item = ResourceHistoryItem(
+                collection="revisions",
+                item_key="r_"
+                + hashlib.sha256(
+                    f"{node.node_id}:{entry['revision_id']}".encode("utf-8")
+                ).hexdigest(),
+                resource=ExactResourceRef(
+                    kind="pipeline-node-revision",
+                    resource_id=entry["revision_id"],
+                    schema_version=schema_version,
+                    sha256=entry["content_sha256"],
+                    node_id=node.node_id,
+                    revision_id=entry["revision_id"],
+                ),
+                publication_sequence=1,
+            )
+            RecordingHistoryStore(self.root.parent).publish(entry["recording_id"], item)
+            self._after_durable_boundary("history_published")
+        atomic_replace_json(
+            path,
+            {"schema_version": "pipeline-revision-history-outbox/v1", "entries": remaining},
+        )
+        self._after_durable_boundary("history_outbox_cleared")
+
+    def reconcile_revision_history_outbox(self) -> None:
+        """Recover node transactions, then replay the bounded pending revision outbox."""
+        self.recover_transactions()
+        with self.transaction_lock():
+            self._reconcile_revision_history_outbox_locked()
+
     def _lock_path(self, node_id: str) -> Path:
         return contained_path(self.root, f".{_safe_id(node_id, 'node_id')}.lock")
 
@@ -229,19 +353,23 @@ class PipelineNodeStore:
             "source": source_data,
             "created_at": now,
         }
-        with _process_lock(self._lock_path(node_id), self._lock):
+        self.reconcile_revision_history_outbox()
+        with self.transaction_lock(), _process_lock(self._lock_path(node_id), self._lock):
             if node_path.exists():
                 raise NodeConflict("node already exists")
             with staging_directory(self.root) as staging:
                 (staging / "manifest.json").write_bytes(canonical_json_bytes(manifest))
                 (staging / "revisions").mkdir()
                 (staging / "publications").mkdir()
+                self._queue_revision_history(staging, revision)
                 self._publish_revision(staging, revision)
                 self._publish_publication(staging, revision)
                 (staging / "head.json").write_bytes(
                     canonical_json_bytes({"revision_id": revision.revision_id})
                 )
                 commit_staged_directory(staging, node_path)
+                self._after_durable_boundary("node_created")
+                self._reconcile_revision_history_outbox_locked()
         return revision
 
     def get(self, node_id: str) -> Node:
@@ -348,6 +476,7 @@ class PipelineNodeStore:
                 _canonical_timestamp(None),
                 revision_id,
             )
+            self._queue_revision_history(self._node_path(node_id), revision)
             self._publish_revision(self._node_path(node_id), revision)
             self._after_durable_boundary("revision")
             self._publish_publication(self._node_path(node_id), current)
@@ -358,6 +487,7 @@ class PipelineNodeStore:
             self._after_durable_boundary("head")
             self._publish_publication(self._node_path(node_id), revision)
             self._after_durable_boundary("publication")
+            self._reconcile_revision_history_outbox_locked()
             return revision
 
     def history(self, node_id: str) -> tuple[NodeRevision, ...]:
@@ -473,10 +603,23 @@ class PipelineNodeStore:
 
     @classmethod
     def _publish_publication(cls, node_path: Path, revision: NodeRevision) -> None:
+        cls._publish_publication_metadata(
+            node_path, revision.node_id, revision.revision_id, revision.content_sha256
+        )
+
+    @classmethod
+    def _publish_publication_metadata(
+        cls, node_path: Path, node_id: str, revision_id: str, content_sha256: str
+    ) -> None:
         root = node_path / "publications"
         root.mkdir(parents=True, exist_ok=True)
-        destination = root / revision.revision_id
-        expected = cls._publication_record(revision)
+        destination = root / revision_id
+        expected = {
+            "schema_version": "pipeline-node-publication/v1",
+            "node_id": node_id,
+            "revision_id": revision_id,
+            "content_sha256": content_sha256,
+        }
         if destination.exists():
             actual = _read_json(destination / "authority.json")
             if actual != expected:

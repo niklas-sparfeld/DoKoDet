@@ -542,3 +542,58 @@ def test_corrupt_requested_metadata_returns_internal_error(tmp_path: Path):
     response = TestClient(app).get(f"/api/recordings/{RECORDING}/state/history")
     assert response.status_code == 500
     assert response.json()["error"]["code"] == "recording_history_corrupt"
+
+
+def test_history_page_recovers_pending_node_revision_after_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    app = _create_app(tmp_path)
+    nodes = app.state.pipeline_node_edits.store
+    source = {
+        "schema_version": "recording-video/v1",
+        "recording_id": RECORDING,
+        "relative_path": "data/intake/recordings/recording-both/video.mov",
+        "video_sha256": "a" * 64,
+        "byte_length": 100,
+        "duration_us": 10_000_000,
+    }
+
+    def content(end_us: int) -> dict:
+        return {
+            "schema_version": "event-data/v1",
+            "events": [
+                {
+                    "event_id": "e",
+                    "event_type": "card_state_changed",
+                    "start_us": 100,
+                    "end_us": end_us,
+                }
+            ],
+        }
+
+    first = nodes.create("history-node", "Events", "events", source, content(200), {})
+
+    def die(boundary: str) -> None:
+        if boundary == "head":
+            raise RuntimeError("simulated process death after source commit")
+
+    nodes._after_durable_boundary = die
+    with pytest.raises(RuntimeError, match="simulated process death"):
+        nodes.save("history-node", first.revision_id, content(300), {})
+
+    def reject_payload_read(*args, **kwargs):
+        raise AssertionError("history reconciliation must not read revision content")
+
+    monkeypatch.setattr(nodes, "_read_revision", reject_payload_read)
+
+    response = TestClient(app).get(f"/api/recordings/{RECORDING}/state/revisions")
+    assert response.status_code == 200
+    revisions = response.json()["items"]
+    assert {item["resource"]["revision_id"] for item in revisions} == {
+        first.revision_id,
+        nodes.get("history-node").head_revision_id,
+    }
+    assert (
+        not nodes._history_outbox_path.exists()
+        or json.loads(nodes._history_outbox_path.read_text())["entries"] == []
+    )
