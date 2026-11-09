@@ -24,7 +24,7 @@ from dokodetector_backend.pipeline_node_store import (
     _object,
     _read_json,
 )
-from dokodetector_backend.pipeline_storage import _canonical_timestamp, _process_lock, _safe_id
+from dokodetector_backend.pipeline_storage import _canonical_timestamp, _safe_id
 
 _NAMESPACE = UUID("2fc4e4a7-0d82-55a9-912a-c17d9b2f2f6a")
 
@@ -146,7 +146,7 @@ class PipelineNodeEdits:
         output_node_id = f"copy-{token}"
         output_revision_id = str(uuid5(_NAMESPACE, f"revision:{key}"))
         journal = contained_path(self.store.root / ".edit-journal", f"{token}.json")
-        with _process_lock(self.store.root / ".transactions.lock", self.store._lock):
+        with self.store.transaction_lock():
             previous = _read_json(journal) if journal.exists() else None
             if previous is not None and (previous["key"] != key or previous["digest"] != digest):
                 raise NodeConflict("idempotency key is already bound to a different request")

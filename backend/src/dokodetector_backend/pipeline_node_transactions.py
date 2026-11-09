@@ -53,7 +53,7 @@ class PipelineNodeTransactions:
             )
         ).hexdigest()
         journal = contained_path(self.root, f"{transaction_id}.json")
-        with _process_lock(self.node_store.root / ".transactions.lock", self.node_store._lock):
+        with self.node_store.transaction_lock():
             self.node_store.recover_transactions()
             if journal.exists():
                 previous = _read_json(journal)
@@ -81,15 +81,14 @@ class PipelineNodeTransactions:
             }
 
     def recover(self) -> None:
+        with self.node_store.transaction_lock():
+            self.node_store.recover_transactions()
+
+    def _recover_under_lock(self) -> None:
         if not self.root.is_dir() or self.root.is_symlink():
             return
-        previous = self.node_store._recovering_transactions
-        self.node_store._recovering_transactions = True
-        try:
-            for journal in sorted(self.root.glob("*.json")):
-                self._recover_one(journal)
-        finally:
-            self.node_store._recovering_transactions = previous
+        for journal in sorted(self.root.glob("*.json")):
+            self._recover_one(journal)
 
     def _prepare_plan(
         self,

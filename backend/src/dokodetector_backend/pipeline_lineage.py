@@ -13,7 +13,7 @@ from dokodetector_backend.pipeline_node_store import (
     _object,
     _read_json,
 )
-from dokodetector_backend.pipeline_storage import _canonical_timestamp, _process_lock, _safe_id
+from dokodetector_backend.pipeline_storage import _canonical_timestamp, _safe_id
 
 
 def _reference(raw: Mapping[str, Any]) -> dict[str, str]:
@@ -121,7 +121,7 @@ class PipelineLineage:
             "context": context_data,
         }
         path = contained_path(self.requests, f"{run_id}.json")
-        with _process_lock(self.store.root / ".transactions.lock", self.store._lock):
+        with self.store.transaction_lock():
             if path.exists():
                 previous = _read_json(path)
                 if {k: v for k, v in previous.items() if k != "started_at"} != fields:
@@ -220,7 +220,7 @@ class PipelineLineage:
             "failure": failure_data,
         }
         path = contained_path(self.root, f"{run_id}.json")
-        with _process_lock(self.store.root / ".transactions.lock", self.store._lock):
+        with self.store.transaction_lock():
             if path.exists():
                 previous = _read_json(path)
                 if {k: v for k, v in previous.items() if k != "finished_at"} != fields:
@@ -260,7 +260,7 @@ class PipelineLineage:
 
     def snapshot(self, recording_id: str | None = None) -> dict[str, Any]:
         """Return exact lineage, optionally limited to one recording."""
-        with _process_lock(self.store.root / ".transactions.lock", self.store._lock):
+        with self.store.transaction_lock():
             result = self._snapshot(recording_id=recording_id)
         return result if recording_id is None else self._recording_snapshot(result, recording_id)
 

@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from dokodetector_backend.filesystem import atomic_write_json, contained_path
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore, _read_json
-from dokodetector_backend.pipeline_storage import _canonical_timestamp, _process_lock, _safe_id
+from dokodetector_backend.pipeline_storage import _canonical_timestamp, _safe_id
 
 
 class PipelineNodeUses:
@@ -44,7 +44,7 @@ class PipelineNodeUses:
             raise ValueError("duplicate accepted input")
         root = self.store.root / ".accepted-uses"
         path = contained_path(root, f"{run_id}.json")
-        with _process_lock(self.store.root / ".transactions.lock", self.store._lock):
+        with self.store.transaction_lock():
             if path.exists():
                 previous = _read_json(path)
                 if previous["inputs"] != refs:

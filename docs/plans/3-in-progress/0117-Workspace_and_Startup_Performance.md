@@ -237,6 +237,10 @@ while history and unrelated recordings grow 10x.
   transaction lock, recovery or transaction preparation, then per-node lock. One existing
   Starlette `httpx` deprecation warning remains. API generation/browser checks do not apply; the
   backend has no configured type check.
+- M4a correction 2/2: all 50 `test_pipeline_node_*.py` tests pass. Recovery uses the same reentrant
+  root lock as writers. A same-instance thread test and a separate-process test pause recovery after
+  the first node HEAD update; a reader of the second node waits and returns only after recovery
+  completes. Ruff and `git diff --check` pass. M4b remains responsible for bounding journal scans.
 - M4b boundary: add one durable pending-transaction locator so normal authority reads inspect at
   most the active prepared transaction, not all committed journal history. Preserve transaction
   idempotency and recovery evidence. Define its writer, atomicity, lock order, freshness, and crash
@@ -353,7 +357,10 @@ records the `pipeline-node-publication/v1` receipt, its identity and digest chec
 and reader inventory. Store creation publishes its first authority atomically with the node.
 Revision save and coordinated recovery publish authority around the HEAD commit under per-node
 process locks. A deterministic multi-process interleaving proves that save, transaction preparation,
-and recovery serialize under the documented lock order. Direct authority lookup checks one receipt
+and recovery serialize under the documented lock order. Recovery takes the reentrant root
+transaction lock; reentrancy is thread-local, so another thread cannot skip a partially applied
+journal. Same-instance thread and separate-process tests pause recovery between node HEAD updates
+and prove readers wait for the full transaction. Direct authority lookup checks one receipt
 and one revision, or the exact current HEAD and one revision after a crash. It does not read parent
 revisions. The overall read remains unbounded by the all-journal recovery scan assigned to M4b.
 

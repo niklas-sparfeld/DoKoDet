@@ -14,7 +14,7 @@ from dokodetector_backend.pipeline_node_store import (
     _object,
     _read_json,
 )
-from dokodetector_backend.pipeline_storage import _canonical_timestamp, _process_lock, _safe_id
+from dokodetector_backend.pipeline_storage import _canonical_timestamp, _safe_id
 
 
 class PipelineNodeReviews:
@@ -155,7 +155,7 @@ class PipelineNodeReviews:
             **details,
         }
         path = contained_path(self.root, f"{review_id}.json")
-        with _process_lock(self.store.root / ".transactions.lock", self.store._lock):
+        with self.store.transaction_lock():
             if path.exists():
                 old = _read_json(path)
                 if {k: v for k, v in old.items() if k != "reviewed_at"} != fields:

@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from threading import RLock
+from threading import RLock, local
 from typing import Any
 from uuid import uuid4
 
@@ -44,6 +45,33 @@ class NodeConflict(ValueError):
 
 class NodeUsed(NodeConflict):
     """An accepted run protects this node from direct content edits."""
+
+
+_transaction_locks_guard = RLock()
+_transaction_locks: dict[Path, RLock] = {}
+_transaction_lock_state = local()
+_transaction_recovery_state = local()
+
+
+@contextmanager
+def _transaction_lock(store: "PipelineNodeStore"):
+    """Take the root transaction lock once per thread, including nested store calls."""
+    path = store.root / ".transactions.lock"
+    with _transaction_locks_guard:
+        thread_lock = _transaction_locks.setdefault(path, RLock())
+    with thread_lock:
+        held = getattr(_transaction_lock_state, "held", None)
+        if held is None:
+            held = _transaction_lock_state.held = set()
+        if path in held:
+            yield
+            return
+        held.add(path)
+        try:
+            with _process_lock(path, store._lock):
+                yield
+        finally:
+            held.remove(path)
 
 
 @dataclass(frozen=True)
@@ -134,19 +162,26 @@ class PipelineNodeStore:
     def __init__(self, root: Path | str) -> None:
         self.root = Path(root).expanduser().resolve()
         self._lock = RLock()
-        self._recovering_transactions = False
+
+    def transaction_lock(self):
+        """Serialize all node and selection publication for this storage root."""
+        return _transaction_lock(self)
 
     def recover_transactions(self) -> None:
         """Complete any prepared coordinated node/selection transaction before reads."""
-        if self._recovering_transactions:
-            return
-        self._recovering_transactions = True
-        try:
-            from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
+        with self.transaction_lock():
+            active = getattr(_transaction_recovery_state, "roots", None)
+            if active is None:
+                active = _transaction_recovery_state.roots = set()
+            if self.root in active:
+                return
+            active.add(self.root)
+            try:
+                from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
 
-            PipelineNodeTransactions(self).recover()
-        finally:
-            self._recovering_transactions = False
+                PipelineNodeTransactions(self)._recover_under_lock()
+            finally:
+                active.remove(self.root)
 
     def _node_path(self, node_id: str) -> Path:
         return contained_path(self.root, _safe_id(node_id, "node_id"))
@@ -275,7 +310,7 @@ class PipelineNodeStore:
     ) -> NodeRevision:
         _safe_id(expected_revision_id, "expected_revision_id")
         # Serialize recovery, transaction preparation, and ordinary saves before taking a node lock.
-        with _process_lock(self.root / ".transactions.lock", self._lock):
+        with self.transaction_lock():
             self.recover_transactions()
             return self._save_under_transaction(
                 node_id, expected_revision_id, content, metadata, revision_id

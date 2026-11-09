@@ -16,14 +16,15 @@ Added durable publication records for pipeline node revisions. Each record uses 
 `PipelineNodeStore.create` publishes the initial revision, HEAD, and authority record in one
 staged node directory. `save` writes the immutable revision, confirms authority for the previous
 HEAD, atomically replaces HEAD, and then publishes authority for the new revision. The per-node
-process lock serializes writers and direct authority reads. The HEAD replacement is the commit
+process lock serializes node publication. The root transaction lock serializes saves, coordinated
+transactions, recovery, and other store writers across threads and processes. The HEAD replacement is the commit
 point. If a process stops before that replacement, the new revision is an orphan and direct
 authority reads reject it. If a process stops after that replacement but before the new authority
 record, the exact current HEAD and validated revision remain sufficient authority. The next writer
 records authority for that HEAD before it advances the pointer.
 
 Coordinated node transactions apply the same publication order during journal recovery. Readers
-recover prepared transactions before the direct read. Recovery rolls a prepared transaction forward
+recover prepared transactions under the root transaction lock before the direct read. Recovery rolls a prepared transaction forward
 and publishes the authority records before it marks the journal committed. A direct authority read
 validates one receipt and one revision, or validates the exact current HEAD and one revision when a
 receipt is absent after a process stop. It does not read parent revisions.
@@ -62,7 +63,19 @@ M13 can switch existing readers only after that rehearsal passes.
   store transaction lock and remains blocked. After release, the transaction commits, the save
   rejects its stale expected HEAD, and subsequent reads succeed. The lock order is store transaction
   lock, recovery or transaction preparation, then per-node lock.
+- Recovery takes the same reentrant root transaction lock. The lock uses a per-root thread lock and
+  one cross-process file lock per outer entry. Nested operations reuse the held lock. Recovery
+  reentrancy is thread-local, so another thread cannot skip recovery while a prepared transaction
+  is only partly applied.
+- A same-instance thread test pauses recovery after the first node HEAD update and proves a second
+  thread cannot read the second node until recovery completes. A separate-process test proves the
+  same behavior across processes. Both readers return the second node's committed revision.
 - The interleaving test ran three additional times; both pause points passed on every run.
+- Correction 2/2: `uv run --project backend pytest backend/tests/test_pipeline_node_*.py -q` — 50 passed.
+  This includes a same-instance thread test and a separate-process test that pause prepared-journal
+  recovery after the first node HEAD update. In both cases, a reader of the second node waits and
+  returns only after the complete transaction recovers. Ruff check, Ruff format check, and
+  `git diff --check` passed for all changed backend paths.
 - Local Markdown links and anchors for changed documentation — passed. `git diff --check` — passed.
 
 One existing Starlette `httpx` deprecation warning appears in the API test. M4a changes no API schema, web consumer, or UI; API generation and browser checks do not apply. No type-check command is configured in the backend toolchain.
