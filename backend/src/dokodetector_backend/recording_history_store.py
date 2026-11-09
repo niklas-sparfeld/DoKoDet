@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 import shutil
 from pathlib import Path
 from threading import RLock
@@ -103,6 +104,22 @@ class RecordingHistoryStore:
     def __init__(self, operations_root: Path | str) -> None:
         self.root = Path(operations_root).expanduser().resolve() / "recording-history"
         self._thread_lock = RLock()
+
+    def cursor_integrity_key(self) -> bytes:
+        """Return the durable key used to authenticate history continuation cursors."""
+        self.root.mkdir(parents=True, exist_ok=True)
+        path = contained_path(self.root, "cursor-integrity-key")
+        with _process_lock(self.root / ".cursor-integrity.lock", self._thread_lock):
+            if not path.exists():
+                path.write_bytes(secrets.token_bytes(32))
+                path.chmod(0o600)
+            try:
+                key = path.read_bytes()
+            except OSError as error:
+                raise RecordingHistoryCorrupt("history cursor key is unavailable") from error
+            if len(key) != 32:
+                raise RecordingHistoryCorrupt("history cursor key is invalid")
+            return key
 
     def _recording_root(self, recording_id: str) -> Path:
         recording_id = _IDENTIFIER_ADAPTER.validate_python(recording_id)

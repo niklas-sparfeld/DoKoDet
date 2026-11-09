@@ -923,6 +923,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/state/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recording Candidates History */
+        get: operations["recording_candidates_history_api_recordings__recording_id__state_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/state/events/working-content": {
         parameters: {
             query?: never;
@@ -936,6 +953,57 @@ export interface paths {
          * @description Edit selected event work and publish its replacement as the current snapshot.
          */
         put: operations["edit_selected_event_content_api_recordings__recording_id__state_events_working_content_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/state/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recording Snapshots History */
+        get: operations["recording_snapshots_history_api_recordings__recording_id__state_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/state/lineage-edges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recording Lineage Edges History */
+        get: operations["recording_lineage_edges_history_api_recordings__recording_id__state_lineage_edges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/state/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recording Revisions History */
+        get: operations["recording_revisions_history_api_recordings__recording_id__state_revisions_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1898,6 +1966,51 @@ export interface components {
             next_after: number;
             /** Truncated Before */
             truncated_before: number;
+        };
+        /**
+         * LineageEdgeHistoryItem
+         * @description One stable relationship edge in the explicit lineage graph.
+         */
+        LineageEdgeHistoryItem: {
+            /**
+             * Edge Kind
+             * @enum {string}
+             */
+            edge_kind: "revised" | "copied" | "restored" | "used" | "produced";
+            /** Item Key */
+            item_key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            item_kind: "lineage_edge";
+            /** Publication Sequence */
+            publication_sequence: number;
+            /** Role */
+            role?: string | null;
+            source: components["schemas"]["LineageEndpoint"];
+            target: components["schemas"]["LineageEndpoint"];
+        };
+        /**
+         * LineageEndpoint
+         * @description One exact endpoint from the existing lineage graph key contract.
+         */
+        LineageEndpoint: {
+            /** Artifact Id */
+            artifact_id?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "revision" | "run" | "artifact";
+            /** Node Id */
+            node_id?: string | null;
+            /** Revision Id */
+            revision_id?: string | null;
+            /** Run Id */
+            run_id?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
         };
         /**
          * ObservationSession
@@ -3269,6 +3382,33 @@ export interface components {
             snapshot_id: string;
         };
         /**
+         * RecordingHistoryPage
+         * @description One bounded, stable page of typed snapshot, resource, or lineage metadata.
+         */
+        RecordingHistoryPage: {
+            /**
+             * Collection
+             * @enum {string}
+             */
+            collection: "snapshots" | "revisions" | "candidates" | "lineage_edges";
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: (components["schemas"]["SnapshotHistoryItem"] | components["schemas"]["LineageEdgeHistoryItem"] | components["schemas"]["ResourceHistoryItem"])[];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Recording Id */
+            recording_id: string;
+            /**
+             * Schema Version
+             * @default recording-history-page/v1
+             * @constant
+             */
+            schema_version: "recording-history-page/v1";
+            /** Upper Bound Sequence */
+            upper_bound_sequence: number;
+        };
+        /**
          * RecordingListResponse
          * @description Recording catalog response.
          */
@@ -3523,6 +3663,27 @@ export interface components {
             recording_id: string;
             /** State */
             state: string;
+        };
+        /**
+         * ResourceHistoryItem
+         * @description One exact revision or candidate resource in stable history.
+         */
+        ResourceHistoryItem: {
+            /**
+             * Collection
+             * @enum {string}
+             */
+            collection: "revisions" | "candidates";
+            /** Item Key */
+            item_key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            item_kind: "resource";
+            /** Publication Sequence */
+            publication_sequence: number;
+            resource: components["schemas"]["ExactResourceRef"];
         };
         /**
          * RoundAnalysisCreateRequest
@@ -3790,6 +3951,27 @@ export interface components {
              * @enum {string}
              */
             state: "empty" | "selected" | "stale";
+        };
+        /**
+         * SnapshotHistoryItem
+         * @description One immutable snapshot address in recording history.
+         */
+        SnapshotHistoryItem: {
+            /** Item Key */
+            item_key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            item_kind: "snapshot";
+            /** Predecessor Snapshot Id */
+            predecessor_snapshot_id?: string | null;
+            /** Publication Sequence */
+            publication_sequence: number;
+            /** Sha256 */
+            sha256: string;
+            /** Snapshot Id */
+            snapshot_id: string;
         };
         /**
          * StageSelection
@@ -6249,6 +6431,40 @@ export interface operations {
             };
         };
     };
+    recording_candidates_history_api_recordings__recording_id__state_candidates_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingHistoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     edit_selected_event_content_api_recordings__recording_id__state_events_working_content_put: {
         parameters: {
             query?: never;
@@ -6273,6 +6489,108 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recording_snapshots_history_api_recordings__recording_id__state_history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingHistoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recording_lineage_edges_history_api_recordings__recording_id__state_lineage_edges_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingHistoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recording_revisions_history_api_recordings__recording_id__state_revisions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingHistoryPage"];
                 };
             };
             /** @description Validation Error */

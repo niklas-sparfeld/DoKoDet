@@ -310,6 +310,7 @@ class RecordingStateError(ContractModel):
         "recording_cursor_invalid",
         "recording_cursor_expired",
         "recording_page_size_invalid",
+        "recording_history_corrupt",
     ]
     message: str = Field(min_length=1, max_length=240)
     retryable: bool = False
