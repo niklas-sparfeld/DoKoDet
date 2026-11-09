@@ -105,7 +105,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0117 — Recording HEAD and bounded pipeline reads](2-ready/0117-Workspace_and_Startup_Performance.md) | 0114 complete; 0115 M15 closed | M0 and M1 complete. M1 contracts define a unique total order for lineage edges and support every valid composite cursor key. M2–M16 remain. Implement the immutable snapshot store, atomic HEAD publication, bounded catalog/workspace reads, explicit history, frozen processor inputs, retained-state conversion/recovery, and performance qualification. Epic 0118 is not a prerequisite unless a direct storage-contract conflict is found. See the [M0 report](../reports/0117-M0_Post_Cleanup_Baseline.md) and [M1 report](../reports/0117-M1_Recording_State_Contracts.md). |
+| [0117 — Recording HEAD and bounded pipeline reads](2-ready/0117-Workspace_and_Startup_Performance.md) | 0114 complete; 0115 M15 closed | M0–M2 complete. M1 contracts define a unique total order for lineage edges and support every valid composite cursor key. M3–M16 remain. The immutable snapshot store verifies exact references and reads snapshots directly without history traversal. Implement atomic HEAD publication, bounded catalog/workspace reads, explicit history, frozen processor inputs, retained-state conversion/recovery, and performance qualification. Epic 0118 is not a prerequisite unless a direct storage-contract conflict is found. See the [M0 report](../reports/0117-M0_Post_Cleanup_Baseline.md), [M1 report](../reports/0117-M1_Recording_State_Contracts.md), and [M2 report](../reports/0117-M2_Immutable_Snapshot_Store.md). |
 
 
 ### In Progress

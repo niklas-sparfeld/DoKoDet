@@ -156,7 +156,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | --- | --- | --- |
 | M0 | Post-cleanup baseline, exact boundary inventory, growth fixtures, frozen targets | Complete |
 | M1 | Snapshot, HEAD, summary, and API contracts with validation tests | Complete; [report](../../reports/0117-M1_Recording_State_Contracts.md) |
-| M2 | Immutable snapshot store and bounded exact reads | Not started |
+| M2 | Immutable snapshot store and bounded exact reads | Complete; [report](../../reports/0117-M2_Immutable_Snapshot_Store.md) |
 | M3 | Atomic HEAD/summary publication and concurrency/recovery proof | Not started |
 | M4 | One real API workflow with replaced selection discovery disabled | Not started |
 | M5 | Historical metadata and candidate discovery APIs with stable pagination | Not started |
@@ -207,39 +207,19 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 16 milestones; completed: 1; remaining: 15.
-- M1 changes: added versioned snapshot, exact-resource, HEAD, summary, error, history-page, explicit
-  HEAD-update, and frozen processor-input models with canonical snapshot IDs and validation tests.
-  Added the M1 report with selection/stale/history semantics, operation dependency checks, API
-  shapes, summary authority/repair rules, bounded typed snapshot/resource/lineage-edge history,
-  separate generated/reference summary states, compact metadata pages, and consumer replacements.
-- Review correction 1: added typed snapshot and lineage-edge page entries, preserved generated and
-  completed-reference status in the summary, bounded catalog metadata pages and active-job previews,
-  and defined the durable Job Manager projection epoch/sequence contract with cross-process,
-  mismatch-rebuild, and restart validation.
-- Review correction 2: accepted namespaced lineage artifact IDs and replaced the hash-ID page bound
-  with a monotonic per-recording publication sequence. Page contracts and tests exclude later
-  inserts even when their snapshot digest sorts before existing IDs. M5 must atomically publish the
-  sequence with each immutable item or split the index contract into its own milestone.
-- Checks: `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_state_contract.py`
-  passed 18 tests. Ruff check and format checks passed for the module and test; `git diff --check`
-  passed. No API generation or browser check applies because this milestone adds no route or web code.
-- Decisions: calibration and reconstruction are separate exact resource kinds; generated output,
-  completed references, and independent review work stay separate. HEAD is the only current-state
-  authority. Summary timestamps are not freshness proof. Job freshness comes from a durable Job
-  Manager epoch/sequence marker, not HEAD or time. History and metadata cursors pin an immutable
-  upper bound and use stable keys with a maximum page size of 100; active job previews cap at 20.
-- Limits: M1 adds contracts only. Storage, routes, client changes, migration, cross-process
-  publication, crash recovery, API growth behavior, and browser behavior remain unimplemented and
-  unverified by design.
-- M1 pagination refinement: lineage edge pages sort by exact endpoints, edge kind, role, and stable
-  unique `item_key`. The cursor stores the canonical JSON composite key and supports every valid
-  endpoint and role. The test traverses the exact membership with page size one and round-trips each
-  actual composite key through a representative opaque cursor encoding. It covers shared endpoints
-  with differing kinds and roles, maximum-length endpoints/role/tie-breaker values, and exclusion of
-  a later insert. API generation and browser checks do not apply.
-- Next: implement M2. This run has completed 1 of 16 milestones; 15 remain. Details:
-  [M1 report](../../reports/0117-M1_Recording_State_Contracts.md).
+- Requested run: 16 milestones; completed: 2; remaining: 14.
+- M2 changes: added immutable snapshots and compact generated/reference stage metadata under the
+  resolved operations root, with direct exact reads and typed missing/corrupt errors. Identical
+  duplicate puts are idempotent. The store does not change selection or access HEAD.
+- Checks: snapshot and contract tests passed (23); Ruff check and format passed; `git diff --check`
+  passed. Direct read test observed two file reads with 11 snapshots present. No API generation or
+  browser check applies because M2 adds no route or web code. Details:
+  [M2 report](../../reports/0117-M2_Immutable_Snapshot_Store.md).
+- Decisions and limits: M1 snapshot identity is verified on every read. Exact references remain in
+  the snapshot; compact metadata is checked against that verified snapshot. M2 proves direct reads
+  and immutable storage only, not HEAD publication, crash recovery, concurrency, or API behavior.
+- Next: implement M3 atomic HEAD and summary publication. This run has completed 2 of 16
+  milestones; 14 remain.
 
 ## M1 — Define current-state operation contracts
 
