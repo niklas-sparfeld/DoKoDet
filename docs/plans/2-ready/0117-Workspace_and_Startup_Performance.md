@@ -211,17 +211,20 @@ while history and unrelated recordings grow 10x.
 - M3 changes: added first-state initialization and one compare-and-swap publication operation for
   an already durable snapshot, versioned HEAD, and compact summary. Readers recover an interrupted
   publication under the same cross-process lock and return one complete HEAD/snapshot/summary set.
-  The [M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md) records concurrency and crash
+  Review correction verifies the current selected snapshot before advancing, validates the full
+  journal summary against its immutable snapshot, checks journal version transitions, and fails
+  closed when HEAD is missing after prior publication. The
+  [M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md) records concurrency and process-crash
   evidence.
-- Checks: publication, immutable-store, and contract tests passed (33); Ruff check and format passed;
+- Checks: publication, immutable-store, and contract tests passed; Ruff check and format passed;
   `git diff --check` passed. No API generation or browser check applies because M3 adds no route or
   web code.
 - Decisions and limits: an orphan immutable snapshot stays addressable but does not establish HEAD
   and is not deleted. A prepared journal is a durable commit decision and recovery rolls it forward;
-  a missing/corrupt HEAD or snapshot remains a typed failure. Summary mismatch or corruption is
-  rebuilt only from the verified HEAD snapshot. The existing node transaction journal is not used:
-  it owns node revisions and legacy selections, while this transaction coordinates separate
-  recording-state files.
+  a missing/corrupt HEAD or snapshot remains a typed failure. A prior committed journal prevents
+  reinitialization when HEAD is missing. Summary mismatch or corruption is rebuilt only from the
+  verified HEAD snapshot. The existing node transaction journal is not used: it owns node revisions
+  and legacy selections, while this transaction coordinates separate recording-state files.
 - Next: prove one real API/service workflow in M4. This run has completed 3 of 16 milestones;
   13 remain.
 
@@ -276,15 +279,19 @@ version rejection; crash injection at each durable boundary; restart and summary
 Commit: publication operation, concurrency/recovery tests, and evidence.
 
 **M3 result — 2026-11-09:** Complete. The publication API validates the already stored immutable
-snapshot before it writes a prepared journal. It then atomically replaces HEAD, atomically replaces
-the matching compact summary, and marks the journal committed. HEAD and summary writes use the
-existing atomic JSON replacement primitive. One per-recording local process lock serializes readers,
-publishers, and recovery across threads and processes. A prepared journal always rolls forward;
-an orphan snapshot stays retained but has no selection authority. Neither recovery nor summary
-repair scans predecessor history. The [M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md)
-records two-process compare-and-swap, concurrent reader, stale-version, all durable-boundary crash,
-restart, and summary-freshness results. This proves the file store only; API and retained-data
-activation remain later milestones.
+snapshot before it writes a prepared journal. It verifies the current selected snapshot before an
+advance. It then atomically replaces HEAD, atomically replaces the matching compact summary, and
+marks the journal committed. HEAD and summary writes use the existing atomic JSON replacement
+primitive. One per-recording local process lock serializes readers, publishers, and recovery across
+threads and processes. A prepared journal always rolls forward. Recovery validates the exact derived
+summary and expected-to-new version transition. Committed publication evidence prevents
+reinitialization if HEAD is missing. An orphan snapshot stays retained but has no selection authority.
+Neither recovery nor summary repair scans predecessor history. The
+[M3 report](../../reports/0117-M3_Atomic_HEAD_Publication.md) records two-process compare-and-swap,
+concurrent reader, stale-version, process death immediately after each durable replacement, restart,
+and summary-freshness results. The injected process death does not simulate termination during the
+atomic JSON replacement itself. This proves the file store only; API and retained-data activation
+remain later milestones.
 
 ## M4 — Prove one complete replacement workflow
 

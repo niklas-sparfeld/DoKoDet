@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import multiprocessing
+import os
+import shutil
 import time
 from pathlib import Path
 
@@ -11,6 +14,7 @@ from dokodetector_backend.recording_state_contract import RecordingHeadUpdate
 from dokodetector_backend.recording_state_store import (
     RecordingHeadConflict,
     RecordingHeadNotFound,
+    RecordingSnapshotCorrupt,
     RecordingStateSnapshotStore,
 )
 
@@ -47,6 +51,24 @@ def _reader_worker(root: str, stop, failures) -> None:
         except Exception as error:  # pragma: no cover - reports child-process failures
             failures.put(repr(error))
             return
+
+
+def _crash_worker(root: str, snapshot_id: str, boundary: str) -> None:
+    store = RecordingStateSnapshotStore(root)
+
+    def terminate_after(target: str) -> None:
+        if target == boundary:
+            os._exit(72)
+
+    store._after_durable_boundary = terminate_after
+    store.publish(
+        RecordingHeadUpdate(
+            recording_id="recording-1",
+            expected_head_version=1,
+            snapshot_id=snapshot_id,
+            action="select_snapshot",
+        )
+    )
 
 
 def _prepare(root: Path):
@@ -143,28 +165,18 @@ def test_concurrent_reader_observes_only_complete_old_or_new_state(tmp_path: Pat
 
 
 @pytest.mark.parametrize("boundary", ["journal_prepared", "head", "summary", "journal_committed"])
-def test_interrupted_publication_recovers_and_summary_is_fresh(
+def test_process_crash_at_durable_boundary_recovers_and_summary_is_fresh(
     tmp_path: Path, boundary: str
 ) -> None:
     store, _, second, _ = _prepare(tmp_path)
-
-    class SimulatedCrash(BaseException):
-        pass
-
-    def crash_after(target: str) -> None:
-        if target == boundary:
-            raise SimulatedCrash
-
-    store._after_durable_boundary = crash_after
-    with pytest.raises(SimulatedCrash):
-        store.publish(
-            RecordingHeadUpdate(
-                recording_id="recording-1",
-                expected_head_version=1,
-                snapshot_id=second.snapshot_id,
-                action="select_snapshot",
-            )
-        )
+    context = multiprocessing.get_context("spawn")
+    process = context.Process(
+        target=_crash_worker,
+        args=(str(tmp_path), second.snapshot_id, boundary),
+    )
+    process.start()
+    process.join(20)
+    assert process.exitcode == 72
 
     restarted = RecordingStateSnapshotStore(tmp_path)
     current = restarted.get_current("recording-1")
@@ -173,6 +185,75 @@ def test_interrupted_publication_recovers_and_summary_is_fresh(
     assert current.summary.head_version == 2
     assert current.summary.snapshot_id == second.snapshot_id
     assert restarted._read_summary("recording-1") == current.summary
+
+
+@pytest.mark.parametrize("damage", ["missing", "corrupt"])
+def test_publication_cannot_replace_a_missing_or_corrupt_current_snapshot(
+    tmp_path: Path, damage: str
+) -> None:
+    store, _, second, _ = _prepare(tmp_path)
+    current = store.get_current("recording-1")
+    current_path = store.snapshot_path("recording-1", current.head.snapshot_id)
+    if damage == "missing":
+        shutil.rmtree(current_path)
+    else:
+        (current_path / "snapshot.json").write_bytes(b"{}")
+
+    with pytest.raises(RecordingSnapshotCorrupt):
+        store.publish(
+            RecordingHeadUpdate(
+                recording_id="recording-1",
+                expected_head_version=1,
+                snapshot_id=second.snapshot_id,
+                action="select_snapshot",
+            )
+        )
+    assert store._read_head("recording-1").version == 1
+
+
+@pytest.mark.parametrize("operation", ["initialize", "publish"])
+def test_missing_head_after_publication_cannot_be_reinitialized(
+    tmp_path: Path, operation: str
+) -> None:
+    store, _, second, _ = _prepare(tmp_path)
+    store.head_path("recording-1").unlink()
+
+    with pytest.raises(RecordingSnapshotCorrupt):
+        if operation == "initialize":
+            store.initialize("recording-1", second.snapshot_id)
+        else:
+            store.publish(
+                RecordingHeadUpdate(
+                    recording_id="recording-1",
+                    expected_head_version=1,
+                    snapshot_id=second.snapshot_id,
+                    action="select_snapshot",
+                )
+            )
+
+
+def test_recovery_rejects_prepared_journal_with_wrong_derived_summary(
+    tmp_path: Path,
+) -> None:
+    _, _, second, _ = _prepare(tmp_path)
+    context = multiprocessing.get_context("spawn")
+    process = context.Process(
+        target=_crash_worker,
+        args=(str(tmp_path), second.snapshot_id, "journal_prepared"),
+    )
+    process.start()
+    process.join(20)
+    assert process.exitcode == 72
+
+    restarted = RecordingStateSnapshotStore(tmp_path)
+    journal_path = restarted.transaction_path("recording-1")
+    journal = json.loads(journal_path.read_bytes())
+    journal["summary"]["slots"]["events"]["generated"] = "empty"
+    journal_path.write_text(json.dumps(journal))
+
+    with pytest.raises(RecordingSnapshotCorrupt, match="summary does not match"):
+        restarted.get_current("recording-1")
+    assert restarted._read_head("recording-1").version == 1
 
 
 def test_orphan_snapshot_does_not_reconstruct_recording_authority(tmp_path: Path) -> None:

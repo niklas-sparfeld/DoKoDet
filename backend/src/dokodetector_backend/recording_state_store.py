@@ -135,6 +135,10 @@ class RecordingStateSnapshotStore:
             if expected_head_version is None:
                 if current is not None:
                     raise RecordingHeadConflict("recording HEAD is already initialized")
+                if self.transaction_path(recording_id).exists():
+                    raise RecordingHeadNotFound(
+                        f"recording HEAD is missing after prior publication: {recording_id}"
+                    )
                 next_version = 1
             else:
                 if current is None or current.version != expected_head_version:
@@ -142,6 +146,8 @@ class RecordingStateSnapshotStore:
                     raise RecordingHeadConflict(
                         f"expected recording HEAD {expected_head_version}, found {actual}"
                     )
+                # Do not replace a missing or corrupt selected state with another snapshot.
+                self.get(recording_id, current.snapshot_id)
                 next_version = current.version + 1
 
             stored = self.get(recording_id, snapshot_id)
@@ -153,6 +159,7 @@ class RecordingStateSnapshotStore:
                 "schema_version": "recording-state-publication/v1",
                 "recording_id": recording_id,
                 "expected_head_version": expected_head_version,
+                "expected_head": None if current is None else current.model_dump(mode="json"),
                 "head": head.model_dump(mode="json"),
                 "summary": summary.model_dump(mode="json"),
                 "status": "prepared",
@@ -174,8 +181,30 @@ class RecordingStateSnapshotStore:
     def _finish_journal(self, recording_id: str, journal: dict[str, Any]) -> None:
         head = RecordingHead.model_validate(journal["head"])
         summary = RecordingStateSummary.model_validate(journal["summary"])
+        expected = journal["expected_head"]
+        current = self._read_head_optional(recording_id)
+        if current == head:
+            pass  # Recovery after the HEAD replacement is idempotent.
+        elif expected is None:
+            if current is not None:
+                raise RecordingSnapshotCorrupt(
+                    f"recording HEAD changed during initialization: {recording_id}"
+                )
+        elif current != RecordingHead.model_validate(expected):
+            raise RecordingSnapshotCorrupt(
+                f"recording HEAD changed during publication: {recording_id}"
+            )
         # The immutable snapshot is already durable and verified before the journal is written.
-        self.get(recording_id, head.snapshot_id)
+        try:
+            stored = self.get(recording_id, head.snapshot_id)
+        except (RecordingSnapshotNotFound, RecordingSnapshotCorrupt) as error:
+            raise RecordingSnapshotCorrupt(
+                f"publication snapshot is missing or corrupt: {recording_id}"
+            ) from error
+        if summary != self._fresh_summary(head, stored):
+            raise RecordingSnapshotCorrupt(
+                f"publication summary does not match its snapshot: {recording_id}"
+            )
         self._durable_write(self.head_path(recording_id), head.model_dump(mode="json"), "head")
         self._durable_write(
             self.summary_path(recording_id), summary.model_dump(mode="json"), "summary"
@@ -196,6 +225,7 @@ class RecordingStateSnapshotStore:
                     "schema_version",
                     "recording_id",
                     "expected_head_version",
+                    "expected_head",
                     "head",
                     "summary",
                     "status",
@@ -207,16 +237,60 @@ class RecordingStateSnapshotStore:
                 raise ValueError("invalid recording-state publication journal")
             head = RecordingHead.model_validate(journal["head"])
             summary = RecordingStateSummary.model_validate(journal["summary"])
+            expected_version = journal["expected_head_version"]
+            expected_head = journal["expected_head"]
             if head.recording_id != recording_id or summary.recording_id != recording_id:
                 raise ValueError("publication journal recording identity mismatch")
-            if summary.head_version != head.version or summary.snapshot_id != head.snapshot_id:
+            if expected_version is None:
+                if expected_head is not None or head.version != 1:
+                    raise ValueError("publication journal initialization version is invalid")
+            else:
+                if (
+                    isinstance(expected_version, bool)
+                    or not isinstance(expected_version, int)
+                    or expected_version < 1
+                    or expected_head is None
+                    or head.version != expected_version + 1
+                ):
+                    raise ValueError("publication journal version transition is invalid")
+                previous = RecordingHead.model_validate(expected_head)
+                if previous.recording_id != recording_id or previous.version != expected_version:
+                    raise ValueError("publication journal expected HEAD is invalid")
+            if (
+                summary.head_version != head.version
+                or summary.snapshot_id != head.snapshot_id
+                or summary.recording_id != head.recording_id
+            ):
                 raise ValueError("publication journal HEAD and summary disagree")
         except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
             raise RecordingSnapshotCorrupt(
                 f"recording state publication journal is corrupt: {recording_id}"
             ) from error
+        current = self._read_head_optional(recording_id)
+        target = RecordingHead.model_validate(journal["head"])
         if journal["status"] == "prepared":
             self._finish_journal(recording_id, journal)
+        elif current != target:
+            raise RecordingSnapshotCorrupt(
+                f"committed publication does not match recording HEAD: {recording_id}"
+            )
+        else:
+            # A committed journal remains evidence that this recording was initialized.
+            self._finish_validate_only(recording_id, journal)
+
+    def _finish_validate_only(self, recording_id: str, journal: dict[str, Any]) -> None:
+        head = RecordingHead.model_validate(journal["head"])
+        summary = RecordingStateSummary.model_validate(journal["summary"])
+        try:
+            stored = self.get(recording_id, head.snapshot_id)
+        except (RecordingSnapshotNotFound, RecordingSnapshotCorrupt) as error:
+            raise RecordingSnapshotCorrupt(
+                f"committed publication snapshot is missing or corrupt: {recording_id}"
+            ) from error
+        if summary != self._fresh_summary(head, stored):
+            raise RecordingSnapshotCorrupt(
+                f"committed publication summary does not match its snapshot: {recording_id}"
+            )
 
     def _read_head_optional(self, recording_id: str) -> RecordingHead | None:
         path = self.head_path(recording_id)
