@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import secrets
 import shutil
+import stat
+import tempfile
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -106,20 +109,83 @@ class RecordingHistoryStore:
         self._thread_lock = RLock()
 
     def cursor_integrity_key(self) -> bytes:
-        """Return the durable key used to authenticate history continuation cursors."""
+        """Return the established cursor key, refusing silent key replacement after loss."""
         self.root.mkdir(parents=True, exist_ok=True)
         path = contained_path(self.root, "cursor-integrity-key")
+        state_path = contained_path(self.root, "cursor-integrity-key-state.json")
         with _process_lock(self.root / ".cursor-integrity.lock", self._thread_lock):
+            for abandoned in self.root.glob(".cursor-integrity-key.*"):
+                abandoned.unlink(missing_ok=True)
+            for abandoned in self.root.glob(".cursor-integrity-key-state.json.*"):
+                abandoned.unlink(missing_ok=True)
+            if path.is_symlink() or state_path.is_symlink():
+                raise RecordingHistoryCorrupt("history cursor key files cannot be symlinks")
+            if not path.exists() and state_path.exists():
+                raise RecordingHistoryCorrupt("established history cursor key is missing")
             if not path.exists():
-                path.write_bytes(secrets.token_bytes(32))
-                path.chmod(0o600)
+                key = secrets.token_bytes(32)
+                self._write_private_file(path, key)
+                self._after_cursor_key_boundary("key_published")
             try:
                 key = path.read_bytes()
+                mode = stat.S_IMODE(path.stat().st_mode)
             except OSError as error:
                 raise RecordingHistoryCorrupt("history cursor key is unavailable") from error
             if len(key) != 32:
                 raise RecordingHistoryCorrupt("history cursor key is invalid")
+            if mode != 0o600:
+                try:
+                    path.chmod(0o600)
+                except OSError as error:
+                    raise RecordingHistoryCorrupt("history cursor key is not private") from error
+                if stat.S_IMODE(path.stat().st_mode) != 0o600:
+                    raise RecordingHistoryCorrupt("history cursor key is not private")
+            state = {
+                "schema_version": "recording-history-cursor-key-state/v1",
+                "sha256": hashlib.sha256(key).hexdigest(),
+            }
+            if state_path.exists():
+                try:
+                    raw_state = state_path.read_bytes()
+                    stored_state = json.loads(raw_state)
+                except (OSError, TypeError, UnicodeError, json.JSONDecodeError) as error:
+                    raise RecordingHistoryCorrupt("history cursor key state is invalid") from error
+                if (
+                    not isinstance(stored_state, dict)
+                    or _canonical_json(stored_state) != raw_state
+                    or stored_state != state
+                ):
+                    raise RecordingHistoryCorrupt("history cursor key state does not match")
+                if stat.S_IMODE(state_path.stat().st_mode) != 0o600:
+                    raise RecordingHistoryCorrupt("history cursor key state is not private")
+            else:
+                self._write_private_file(state_path, _canonical_json(state))
+                self._after_cursor_key_boundary("state_published")
             return key
+
+    @staticmethod
+    def _write_private_file(path: Path, contents: bytes) -> None:
+        """Publish a private file atomically and sync both file and parent directory."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+        temporary = Path(temporary_name)
+        try:
+            os.fchmod(descriptor, 0o600)
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(contents)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, path)
+            directory_fd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    def _after_cursor_key_boundary(self, boundary: str) -> None:
+        """Expose durable key creation boundaries for crash-recovery tests."""
 
     def _recording_root(self, recording_id: str) -> Path:
         recording_id = _IDENTIFIER_ADAPTER.validate_python(recording_id)
@@ -233,6 +299,9 @@ class RecordingHistoryStore:
         item = _ITEM_ADAPTER.validate_python(item)
         if not isinstance(item, (SnapshotHistoryItem, ResourceHistoryItem, LineageEdgeHistoryItem)):
             raise ValueError("unsupported recording history item")
+        # Establish cursor authority before new history can become durable. Existing histories
+        # without a key-state marker are legacy data and receive their first key on access.
+        self.cursor_integrity_key()
         with self._lock(recording_id):
             self._recover_locked(recording_id)
             self._recover_generation_locked(recording_id)
@@ -372,6 +441,7 @@ class RecordingHistoryStore:
         Callers supply the exact metadata they can prove from durable source stores. Rebuild
         assigns sequences in deterministic collection/key order; it never reads result payloads.
         """
+        self.cursor_integrity_key()
         with self._lock(recording_id):
             self._recover_locked(recording_id)
             self._recover_generation_locked(recording_id, retry_initial_incomplete=True)

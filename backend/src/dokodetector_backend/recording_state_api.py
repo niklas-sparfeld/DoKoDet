@@ -75,6 +75,8 @@ def _history_page(
         recording_id = _IDENTIFIER_ADAPTER.validate_python(recording_id)
     except ValidationError as error:
         raise ContractError("invalid_request", "The request failed validation.") from error
+    if request.app.state.recording_bundle_store.get_metadata(recording_id) is None:
+        raise ContractError("recording_not_found", "The recording was not found.", status_code=404)
     store = request.app.state.recording_history_store
     try:
         key = store.cursor_integrity_key()
