@@ -2,7 +2,7 @@
 
 ## Plan status
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** [Epic 0115 closure](../5-closed/0115-Data_Cleanup.md), its [M14 storage map](../../reports/0115-M14_Maintained_Storage_Map.md), and the
   [M15 closure report](../../reports/0115-M15_Qualification_and_Closure.md) complete.
 - **Outcome:** Define safe, evidence-based retention and growth controls for selected operational
@@ -27,10 +27,11 @@ Relocation is not reclaimed space. Record physical allocation only when directly
 
 | Milestone | Observable result / commit boundary | State |
 | --- | --- | --- |
-| M0 | Inventory exact log, recovery-copy, and campaign-intermediate writers; identify retention roots, recovery evidence, and a small candidate scope | Not started |
-| M1 | Specify one selected operational-log family's retention and recovery contract, or record why no safe bounded policy is justified | Not started |
-| M2 | Specify one selected recovery-copy or campaign-intermediate family's retention and restore contract, or split independent families before implementation | Not started |
-| M3 | Implement and verify only the selected contracts, with preserved recovery and human-work evidence | Not started |
+| M0 | Inventory exact log, recovery-copy, and campaign-intermediate writers; identify retention roots, recovery evidence, and a small candidate scope | Complete; [report](../../reports/0118-M0_Lifecycle_Family_Inventory.md) |
+| M1 | Specify the managed-job operational-log family's retention and recovery contract, or record why no safe bounded policy is justified | Not started |
+| M2 | Specify one exact recovery-copy family's retention and restore contract, or record why no safe bounded policy is justified | Not started |
+| M3 | Specify one exact campaign-intermediate family's retention and restore contract; keep it separate from recovery copies | Not started |
+| M4 | Implement and verify only the selected contracts, with preserved recovery and human-work evidence | Not started |
 
 ## M0 — Select exact lifecycle families
 
@@ -42,6 +43,24 @@ into separate implementation milestones before assignment. Do not remove or expi
 
 Checks: every selected path maps to a writer, reader, retention authority, and recovery source.
 Report unknown ownership, physical-allocation limits, and unresolved dependencies explicitly.
+
+## Execution handoff
+
+- Run: requested 4 milestones; completed 1; 3 remain in this run. M0–M4 are planned; this run
+  stops at four completed milestones even if work remains.
+- Completed: M0 inventory and family selection. See
+  [0118 M0 report](../../reports/0118-M0_Lifecycle_Family_Inventory.md).
+- Changes: selected the exact accepted-loss migration stage for M2, subject to current-root
+  revalidation. Managed-job `logs.json` remains an M1 audit target because no independent restore
+  source or expiry authority is established. Campaign intermediates remain a separate M3 family.
+- Checks: source cross-reference, focused root-size and existence inspection, and local Markdown
+  link validation are recorded in the M0 report. No data was changed or deleted.
+- Decisions and limits: current ignored job and recovery roots are absent from this checkout, so
+  current sizes, active pins, and a tested live recovery source cannot be confirmed here. The M0
+  report records dated 0115 evidence separately. Physical APFS allocation and off-volume recovery
+  remain unknown.
+- Next: M1 must confirm the active operations root, exact log readers, retention authority, and
+  recovery source before proposing any policy. Keep all unverified logs.
 
 ## M1 — Specify operational-log retention
 

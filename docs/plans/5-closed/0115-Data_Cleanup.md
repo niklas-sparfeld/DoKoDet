@@ -544,7 +544,7 @@ boundaries and 0114 fixtures; resolve ownership before changing their contracts.
   attempt handshake and sustained lock interval. Combined checks cover cache budgets, expiry, pins,
   regeneration, stale identities, restart, interrupted pruning, and 0114 media behavior.
 - **Scope decision:** The independent operational-log, recovery-copy, and campaign-intermediate
-  lifecycle work is deferred to [Epic 0118](../2-ready/0118-Operational_and_Recovery_Lifecycle.md).
+  lifecycle work is deferred to [Epic 0118](../3-in-progress/0118-Operational_and_Recovery_Lifecycle.md).
   Preserve active-job logs, recovery evidence, pinned cache entries, human data, and model assets.
   Retention and growth risks remain open until 0118 selects exact families and proves their
   dependencies and recovery paths.

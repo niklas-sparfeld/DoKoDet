@@ -238,7 +238,7 @@ recovery copies, or campaign intermediates. Epic 0118 owns the deferred lifecycl
 ## Deferred lifecycle work
 
 Operational logs, recovery copies, and campaign intermediates are deferred to
-[Epic 0118](../plans/2-ready/0118-Operational_and_Recovery_Lifecycle.md). They are not M13
+[Epic 0118](../plans/3-in-progress/0118-Operational_and_Recovery_Lifecycle.md). They are not M13
 packages. Preserve active-job logs, recovery evidence, pinned provider responses, original media,
 human work, and model assets until an exact-family retention decision and recovery proof exist.
 
