@@ -63,8 +63,9 @@ The M2 disposable rehearsal made an APFS clone at `/tmp/0118-m2-recovery-stage` 
 package verifier against the clone. It passed with the same snapshot, 2,086 resources, 34,414
 manifest file records, and `activation_ready=true`. The separate current-root recovery verifier
 confirmed the active node store and retained review bytes. The M1 API restart evidence above
-covers reads after restoration for the same exact snapshots. No full package copy or full-corpus
-service restore was attempted. The temporary clone is disposable and is removed after this report.
+covers reads after restoration for the same exact snapshots. M2 did not define or run a complete
+restore procedure. No full package copy or full-corpus service restore was attempted. The temporary
+clone was removed after verification.
 
 ## Retention decision and limits
 
@@ -76,8 +77,8 @@ the preserved histories and recorded losses. No independent off-volume copy is c
 No expiry condition is justified. Keep the package until a separately verified recovery source
 covers its exact dependencies and human work, all unresolved history has an explicit disposition,
 and the owner declares a recovery window. This is a prerequisite description, not an expiry date
-or removal authorization. Do not apply cache expiry rules. The 0115 M14 storage map and M15 closure
-report remain historical records and were not changed.
+or removal authorization. No deletion is authorized. Do not apply cache expiry rules. The 0115 M14
+storage map and M15 closure report remain historical records and were not changed.
 
 ## Checks
 

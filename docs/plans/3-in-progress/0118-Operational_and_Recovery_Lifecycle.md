@@ -92,14 +92,6 @@ retention code was changed.
 
 ## M2 — Specify recovery-copy retention
 
-Outcome: Complete. The [M2 report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md) records
-current source ownership, the exact snapshot, preserved dependencies and human work, a disposable
-package restore check, and matching prior API restart evidence. The package is on the active
-store's volume, its physical APFS allocation and off-volume recovery are unknown, and uncertainty
-records remain. No expiry condition is justified. No data was removed and no retention code changed.
-
-## M2 — Specify recovery-copy retention
-
 Use the accepted-loss migration stage selected in M0 only after confirming that its current snapshot,
 owner, references, and root match the recorded evidence. Record its creator, dependency and pin
 roots, reconstructability, expiry condition, and restore procedure. Keep the copy until its
@@ -109,6 +101,12 @@ Checks: rehearse the selected restore in disposable storage. Verify exact retain
 dependencies, and restart reads. Record logical bytes, path allocation, and physical allocation
 separately when available. If the current root or recovery source cannot be confirmed, document the
 limit and do not specify expiry.
+
+Outcome: Complete. The [M2 report](../../reports/0118-M2_Accepted_Loss_Recovery_Copy.md) records
+current source ownership, the exact snapshot, preserved dependencies and human work, a disposable
+package restore check, and matching prior API restart evidence. The package is on the active
+store's volume, its physical APFS allocation and off-volume recovery are unknown, and uncertainty
+records remain. No expiry condition is justified. No data was removed and no retention code changed.
 
 ## M3 — Specify campaign-intermediate retention
 
