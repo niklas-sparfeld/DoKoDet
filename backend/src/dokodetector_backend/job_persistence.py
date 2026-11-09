@@ -100,7 +100,7 @@ class JobPersistence:
     def get(self, job_id: str) -> Job:
         job_id = _uuid(job_id)
         with self._lock:
-            self.projection_authority.recover_transition()
+            self.projection_authority.authority()
             try:
                 job = Job.model_validate_json((self.root / job_id / "job.json").read_bytes())
                 if job.id != job_id:

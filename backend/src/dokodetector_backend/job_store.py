@@ -6,7 +6,7 @@ import fcntl
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from threading import RLock
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import uuid4
 
 from dokodetector_backend.job_models import (
@@ -32,9 +32,6 @@ from dokodetector_backend.job_models import (
 )
 from dokodetector_backend.job_persistence import JobPersistence
 from dokodetector_backend.job_recovery import JobRecovery
-
-if TYPE_CHECKING:
-    from dokodetector_backend.recording_state_contract import RecordingJobProjection
 
 
 class JobManager:
@@ -116,21 +113,6 @@ class JobManager:
         """Return the durable generation used to validate compact job projections."""
         self._owned()
         return self.persistence.read_projection_authority()
-
-    def recording_job_projection(
-        self, recording_id: str, cursor: str | None = None
-    ) -> RecordingJobProjection:
-        """Read one authority-current compact page while job writes are excluded."""
-        from dokodetector_backend.recording_job_projection_store import (
-            RecordingJobProjectionStore,
-        )
-
-        with self._lock:
-            self._owned()
-            authority = self.persistence.read_projection_authority()
-            return RecordingJobProjectionStore(self.root).page(
-                recording_id, authority, self.persistence.list_jobs, cursor
-            )
 
     def has_active_children(self, parent_id: str) -> bool:
         self._owned()

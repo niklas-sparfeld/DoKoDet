@@ -2,9 +2,21 @@
 
 Date: 2026-11-09
 
-## Result
+## Submission status
 
-Complete. `GET /api/recordings/{recording_id}/state/jobs` returns an M1
+Unaccepted and incomplete after replan 10. The first submission checked the global M6a sequence
+against one JSON file per recording. Any job transition, including one for an unrelated recording,
+made every index stale and called `list_jobs()`. A fresh page also parsed and validated the whole
+active-job array before slicing it. The test set did not include growth counters or persisted index
+corruption.
+
+The API route and JSON projection store were removed in the M6b1 commit. The route stays disabled
+until M6b2 reads from the ordered transactional index and proves bounded work. The closed 0114
+inventory remains unchanged; M6b2 owns an active supplement and passing checker.
+
+## Initial submission record
+
+The initial implementation added `GET /api/recordings/{recording_id}/state/jobs` with an M1
 `recording-job-projection/v1` response with at most 20 active job summaries. The response is scoped
 to one recording. Terminal jobs are excluded. The page count is the number of active jobs remaining
 from that cursor boundary, which matches the M1 projection validator.

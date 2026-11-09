@@ -960,26 +960,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/recordings/{recording_id}/state/jobs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Recording Jobs
-         * @description Return one bounded page of active jobs for this recording.
-         */
-        get: operations["get_recording_jobs_api_recordings__recording_id__state_jobs_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/recordings/{recording_id}/state/lineage-edges": {
         parameters: {
             query?: never;
@@ -1606,31 +1586,6 @@ export interface components {
             cancel: components["schemas"]["JobCapabilities"];
             reorder: components["schemas"]["JobCapabilities"];
             retry: components["schemas"]["JobCapabilities"];
-        };
-        /** CompactJobMetadata */
-        CompactJobMetadata: {
-            /**
-             * Item Kind
-             * @default job
-             * @constant
-             */
-            item_kind: "job";
-            /** Job Id */
-            job_id: string;
-            /** Request Id */
-            request_id?: string | null;
-            /**
-             * Schema Version
-             * @constant
-             */
-            schema_version: "backend-job/v1";
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "queued" | "running" | "cancelling" | "succeeded" | "failed" | "cancelled";
-            /** Updated At */
-            updated_at: string;
         };
         /**
          * CounterfactualArtifact
@@ -3435,32 +3390,6 @@ export interface components {
             schema_version: "recording-history-page/v1";
             /** Upper Bound Sequence */
             upper_bound_sequence: number;
-        };
-        /**
-         * RecordingJobProjection
-         * @description Bounded active-job view tied to the Job Manager's durable cross-process authority.
-         */
-        RecordingJobProjection: {
-            /** Active Job Count */
-            active_job_count: number;
-            /** Authority Epoch */
-            authority_epoch: string;
-            /** Authority Sequence */
-            authority_sequence: number;
-            /** Has More */
-            has_more: boolean;
-            /** Jobs */
-            jobs: components["schemas"]["CompactJobMetadata"][];
-            /** Next Cursor */
-            next_cursor?: string | null;
-            /** Recording Id */
-            recording_id: string;
-            /**
-             * Schema Version
-             * @default recording-job-projection/v1
-             * @constant
-             */
-            schema_version: "recording-job-projection/v1";
         };
         /**
          * RecordingListResponse
@@ -6543,39 +6472,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordingHistoryPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_recording_jobs_api_recordings__recording_id__state_jobs_get: {
-        parameters: {
-            query?: {
-                cursor?: string | null;
-            };
-            header?: never;
-            path: {
-                recording_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordingJobProjection"];
                 };
             };
             /** @description Validation Error */

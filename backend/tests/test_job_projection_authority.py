@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Event
@@ -23,6 +24,7 @@ def _request() -> dict:
     [
         "job_transition_prepared",
         "job_transition_record",
+        "job_transition_index",
         "job_transition_authority",
         "job_transition_committed",
     ],
@@ -48,6 +50,16 @@ def test_job_authority_transition_recovers_after_each_boundary(tmp_path: Path, p
         authority = manager.projection_authority()
         assert recovered.state == "interrupted"
         assert authority.sequence == initial_sequence + 2
+        index_state = manager.persistence.projection_authority.index.state(authority, "r1")
+        assert index_state["global_sequence"] == authority.sequence
+        assert index_state["recording_sequence"] == 3
+        assert index_state["active_count"] == 0
+        with sqlite3.connect(
+            tmp_path / "jobs" / "recording-projections" / "active-jobs.sqlite3"
+        ) as connection:
+            assert connection.execute(
+                "SELECT COUNT(*) FROM active_jobs WHERE recording_id = 'r1'"
+            ).fetchone() == (0,)
         assert not (tmp_path / "jobs" / "recording-projections" / "job-transition.json").exists()
 
 
@@ -73,7 +85,28 @@ def test_job_transition_reader_waits_for_authority_commit(tmp_path: Path) -> Non
             release.set()
             assert writing.result(timeout=5).state == "running"
             assert reading.result(timeout=5).state == "running"
-        assert manager.projection_authority().sequence == 3
+        authority = manager.projection_authority()
+        assert authority.sequence == 3
+        index_state = manager.persistence.projection_authority.index.state(authority, "r1")
+        assert index_state == {
+            "ready": True,
+            "global_sequence": 3,
+            "recording_sequence": 2,
+            "active_count": 1,
+        }
+        with sqlite3.connect(
+            tmp_path / "jobs" / "recording-projections" / "active-jobs.sqlite3"
+        ) as connection:
+            query_plan = connection.execute(
+                "EXPLAIN QUERY PLAN SELECT job_id FROM active_jobs WHERE recording_id = ? "
+                "ORDER BY updated_at DESC, job_id DESC LIMIT 20",
+                ("r1",),
+            ).fetchall()
+            assert any("active_jobs_page_order" in str(row) for row in query_plan)
+            assert connection.execute(
+                "SELECT status FROM active_jobs WHERE recording_id = 'r1' AND job_id = ?",
+                (job.id,),
+            ).fetchone() == ("running",)
 
 
 def test_job_authority_persists_across_restart_and_manager_lock(tmp_path: Path) -> None:
@@ -163,3 +196,103 @@ def test_identical_job_write_recovers_after_authority_publication(tmp_path: Path
         assert manager.get(job.id) == job
         assert manager.projection_authority().sequence == sequence_before + 1
         assert not (tmp_path / "jobs" / "recording-projections" / "job-transition.json").exists()
+
+
+def test_ordinary_job_transitions_do_not_scan_committed_jobs(tmp_path: Path, monkeypatch) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        first = manager.accept(str(uuid4()), _request())
+        first_authority = manager.projection_authority()
+        first_index = manager.persistence.projection_authority.index.state(first_authority, "r1")
+
+        def fail_scan():
+            raise AssertionError("ordinary job transition scanned committed jobs")
+
+        monkeypatch.setattr(manager.persistence, "list_jobs", fail_scan)
+        manager.transition(first.id, "running")
+        second = manager.accept(
+            str(uuid4()),
+            {"type": "fake", "context": {"recording_id": "r2"}, "request": {"input": "b"}},
+        )
+        authority = manager.projection_authority()
+        r1 = manager.persistence.projection_authority.index.state(authority, "r1")
+        r2 = manager.persistence.projection_authority.index.state(authority, "r2")
+        assert r1["recording_sequence"] == first_index["recording_sequence"] + 1
+        assert r2["recording_sequence"] == 1
+        assert r1["active_count"] == 1
+        assert r2["active_count"] == 1
+        assert manager.get(second.id).state == "queued"
+
+
+def test_corrupt_active_index_row_blocks_write_before_job_mutation(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        job = manager.accept(str(uuid4()), _request())
+        job_path = tmp_path / "jobs" / job.id / "job.json"
+        before = job_path.read_bytes()
+        index_path = tmp_path / "jobs" / "recording-projections" / "active-jobs.sqlite3"
+
+    with sqlite3.connect(index_path) as connection:
+        connection.execute(
+            "UPDATE active_jobs SET status = 'running' WHERE recording_id = 'r1' AND job_id = ?",
+            (job.id,),
+        )
+
+    with (
+        JobManager(tmp_path, participant) as manager,
+        pytest.raises(JobStorageError, match="active job index row conflicts"),
+    ):
+        manager.transition(job.id, "running")
+    assert job_path.read_bytes() == before
+    assert not (index_path.parent / "job-transition.json").exists()
+
+
+def test_corrupt_active_index_database_fails_closed(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        manager.accept(str(uuid4()), _request())
+    index_path = tmp_path / "jobs" / "recording-projections" / "active-jobs.sqlite3"
+    index_path.write_bytes(b"not sqlite")
+    with pytest.raises(JobStorageError, match="job recording index"):
+        JobManager(tmp_path, participant).__enter__()
+
+
+def test_missing_active_index_order_does_not_reinitialize_as_valid(tmp_path: Path) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    with JobManager(tmp_path, participant) as manager:
+        manager.accept(str(uuid4()), _request())
+    index_path = tmp_path / "jobs" / "recording-projections" / "active-jobs.sqlite3"
+    with sqlite3.connect(index_path) as connection:
+        connection.execute("DROP INDEX active_jobs_page_order")
+    with pytest.raises(JobStorageError, match="schema is incomplete"):
+        JobManager(tmp_path, participant).__enter__()
+
+
+def test_legacy_job_root_stays_not_ready_without_scanning_on_write(
+    tmp_path: Path, monkeypatch
+) -> None:
+    participant = FakeParticipant(tmp_path / "domain")
+    intents = tmp_path / "jobs" / "intents"
+    intents.mkdir(parents=True)
+    with JobManager(tmp_path, participant) as manager:
+        initial = manager.projection_authority()
+        index = manager.persistence.projection_authority.index
+        assert index.state(initial)["ready"] is False
+
+        def fail_scan():
+            raise AssertionError("legacy job write scanned history")
+
+        monkeypatch.setattr(manager.persistence, "list_jobs", fail_scan)
+        job = manager.accept(str(uuid4()), _request())
+        authority = manager.projection_authority()
+        state = index.state(authority, "r1")
+        assert state["ready"] is False
+        assert state["recording_sequence"] == 1
+        assert state["active_count"] is None
+        with sqlite3.connect(
+            tmp_path / "jobs" / "recording-projections" / "active-jobs.sqlite3"
+        ) as connection:
+            assert connection.execute(
+                "SELECT status FROM active_jobs WHERE recording_id = 'r1' AND job_id = ?",
+                (job.id,),
+            ).fetchone() == ("queued",)
