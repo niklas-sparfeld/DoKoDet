@@ -25,7 +25,9 @@ from dokodetector_backend.job_models import (
     _now,
     _uuid,
 )
+from dokodetector_backend.job_projection_authority import JobProjectionAuthorityStore
 from dokodetector_backend.job_recovery import JobRecoveryOperations
+from dokodetector_backend.recording_state_contract import JobProjectionAuthority
 
 
 class JobPersistence:
@@ -48,6 +50,7 @@ class JobPersistence:
         self.diagnostics = diagnostics
         self._lock = lock
         self.ensure_owned = ensure_owned
+        self.projection_authority = JobProjectionAuthorityStore(root, after_write)
 
     def _intents(self) -> list[Intent]:
         path = self.root / "intents"
@@ -83,31 +86,43 @@ class JobPersistence:
         atomic_replace_json(self.root / "intents" / f"{intent.job.id}.json", intent.model_dump())
 
     def _write_job(self, job: Job) -> None:
-        atomic_replace_json(self.root / job.id / "job.json", job.model_dump())
+        with self._lock:
+            self.projection_authority.publish(job)
+
+    def initialize_projection_authority(self) -> None:
+        with self._lock:
+            self.projection_authority.initialize()
+
+    def read_projection_authority(self) -> JobProjectionAuthority:
+        with self._lock:
+            return self.projection_authority.authority()
 
     def get(self, job_id: str) -> Job:
         job_id = _uuid(job_id)
-        try:
-            job = Job.model_validate_json((self.root / job_id / "job.json").read_bytes())
-            if job.id != job_id:
-                raise ValueError("job ID mismatch")
-            return job
-        except FileNotFoundError as error:
-            raise JobNotFound(f"job {job_id} was not found") from error
-        except (OSError, ValueError) as error:
-            raise JobStorageError(f"invalid job {job_id}") from error
+        with self._lock:
+            self.projection_authority.recover_transition()
+            try:
+                job = Job.model_validate_json((self.root / job_id / "job.json").read_bytes())
+                if job.id != job_id:
+                    raise ValueError("job ID mismatch")
+                return job
+            except FileNotFoundError as error:
+                raise JobNotFound(f"job {job_id} was not found") from error
+            except (OSError, ValueError) as error:
+                raise JobStorageError(f"invalid job {job_id}") from error
 
     def list_jobs(self) -> list[Job]:
         """Return readable jobs in durable acceptance order."""
-        jobs = []
-        for intent in self._intents():
-            if not intent.committed:
-                continue
-            try:
-                jobs.append(self.get(intent.job.id))
-            except JobStorageError as error:
-                self.diagnostics.append(str(error))
-        return jobs
+        with self._lock:
+            jobs = []
+            for intent in self._intents():
+                if not intent.committed:
+                    continue
+                try:
+                    jobs.append(self.get(intent.job.id))
+                except JobStorageError as error:
+                    self.diagnostics.append(str(error))
+            return jobs
 
     def has_active_children(self, parent_id: str) -> bool:
         """Return whether an automated parent still owns non-terminal child work."""
@@ -142,8 +157,11 @@ class JobPersistence:
 
     def logs(self, job_id: str, *, after: int = 0, limit: int = 100) -> dict[str, Any]:
         """Read a bounded sequence page and report whether older entries were trimmed."""
-        self.get(job_id)
-        path = self.root / _uuid(job_id) / "logs.json"
+        normalized_id = _uuid(job_id)
+        job_path = self.root / normalized_id / "job.json"
+        if not job_path.exists():
+            raise JobNotFound(f"job {normalized_id} was not found")
+        path = self.root / normalized_id / "logs.json"
         if not path.exists():
             return {"entries": [], "next_after": after, "truncated_before": 0}
         try:

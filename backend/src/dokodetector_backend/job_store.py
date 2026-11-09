@@ -109,6 +109,11 @@ class JobManager:
         self._owned()
         return self.persistence.list_jobs()
 
+    def projection_authority(self):
+        """Return the durable generation used to validate compact job projections."""
+        self._owned()
+        return self.persistence.read_projection_authority()
+
     def has_active_children(self, parent_id: str) -> bool:
         self._owned()
         return self.persistence.has_active_children(parent_id)
@@ -191,6 +196,7 @@ class JobManager:
 
     def _recover(self) -> None:
         self._owned()
+        self.persistence.initialize_projection_authority()
         JobRecovery(self.persistence.recovery_operations()).recover()
 
     def _reconcile(self, intents: list[Intent]) -> None:

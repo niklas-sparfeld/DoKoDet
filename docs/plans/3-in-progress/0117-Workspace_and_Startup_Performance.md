@@ -45,7 +45,13 @@
   revision. M5c4 removes the unsupported generic collection, route, index entry, and contract types
   while preserving those existing discovery flows. This supersedes the earlier plan to identify or
   publish a generic candidate source. M5 discovery is complete. The 14-slot cap stays unchanged and
-  M13 remains outside this run.
+  M13 remains outside this run. On 2026-11-09, M6 inspection found no runtime implementation for
+  M1's compact catalog metadata or Job Manager authority/projection contracts. Job records are
+  read in full, and durable `job.json` writes occur across acceptance, scheduler, API, publication,
+  and recovery paths. Replan 9 splits M6 into M6a (durable authority and journaled job transitions),
+  M6b (bounded active-job projection), M6c (bounded analysis/package metadata), and M6d (catalog
+  conversion). M11 retains output publication ownership. The 14-milestone run now covers M6a–M6d
+  and M7–M9; M10–M16 are outside this run.
 
 ## Evidence and scope
 
@@ -205,7 +211,11 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M5c2 | Recording snapshot publisher with bounded crash-gap recovery | Complete; [report](../../reports/0117-M5c2_Recording_Snapshot_History_Publisher.md) |
 | M5c3 | Pipeline lineage run and edge publisher with bounded crash-gap recovery | Complete; [report](../../reports/0117-M5c3_Lineage_History_Publisher.md) |
 | M5c4 | Remove unsupported generic candidate history while preserving exact proposal discovery | Complete; [report](../../reports/0117-M5c4_Candidate_History_Removal.md) |
-| M6 | Compact recording catalog without revision/history reconstruction | Not started |
+| M6 | Compact recording catalog without revision/history reconstruction | Incomplete; split by replan 9 |
+| M6a | Durable Job Manager authority and journaled job-record transitions | Complete; [report](../../reports/0117-M6a_Job_Projection_Authority.md) |
+| M6b | Bounded active-job projections over the M6a authority | Not started |
+| M6c | Bounded analysis and package metadata pages | Not started |
+| M6d | Recording catalog from verified HEAD and compact metadata | Not started |
 | M7 | Current workspace API with exact stage loading | Not started |
 | M8 | Web current-state, history, and explicit HEAD-switch flow | Not started |
 | M9 | Selection and review/edit writers publish the selected working state | Not started |
@@ -252,13 +262,18 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 14 milestones, starting at M5a; completed: 7; remaining: 7. The cap covers
-  M5a, M5b1, M5b2, M5c1–M5c4, and M6–M12. M13–M16 are outside this run.
-- Next: M6. M5c replan count: 2/5; this run replan count: 3/10. M5c4 correction count:
+- Requested run: 14 milestones, starting at M5a; completed: 8; remaining: 6. The revised cap
+  covers M5a, M5b1, M5b2, M5c1–M5c4, M6a–M6d, and M7–M9. M10–M16 are outside this run.
+- Next: M6b. M6a replan count: 0/5; M6a correction count: 0/2; M5c replan count: 2/5; this run
+  replan count: 4/10. M5c4 correction count:
   0/2. M5c3 correction count: 1/2. M5b replan count: 1/5; M5b1 correction
   count: 1/2; M5b2 correction count: 2/2. Previous-run
   correction history is preserved in the milestone report and does not count against this run.
-  Current-run M5a correction count: 2/2.
+  Current-run M5a correction count: 2/2. M6a completed with authority advances for each durable
+  `job.json` write, journal recovery after restart, digest conflict rejection, and serialized readers
+  and writers. Checks and the full writer inventory are in the [M6a report](../../reports/0117-M6a_Job_Projection_Authority.md).
+  The M6a commit does not implement job projections, analysis/package metadata pages, or catalog
+  conversion. Those remain M6b–M6d. M6b is next; 6 run milestones remain.
 - M5b2 result: complete after the resumed authority-loss fix. The four history routes use M5b1's stable collection order and frozen
   sequence roots. HMAC cursors bind recording, collection, empty-filter digest, generation,
   sequence, full stable key, and page size. The private cursor key and local digest record use
@@ -656,12 +671,45 @@ reconciliation after restart; complete page traversal against durable sources; n
 metadata pages; remove the candidate route and collection from code, contract, index, and OpenAPI;
 preserve actual proposal discovery. See the M5c1–M5c4 reports. M5 discovery is complete.
 
-## M6 — Convert the recording catalog
+## M6a — Publish durable Job Manager authority
 
-Replace pipeline status reconstruction with compact HEAD summaries and the compact job/analysis
-metadata contract. Remove full analysis-history fields from the list if needed; fetch them through
-explicit detail/history APIs and update list consumers together. Cover blocker computation without
-loading selected observation payloads. Do not move the old scan into a helper or first-use cache.
+Implement the M1 `JobProjectionAuthority` with a stable manager identity, durable epoch, and
+monotonic sequence. Route every durable `job.json` replacement through one journaled transaction
+that binds the prior and next job revisions/digests and authority values. Recover a prepared
+transaction idempotently after restart. The existing manager owner lock and thread lock serialize
+writers. Cover acceptance, dispatch, scheduler/API mutation, publication metadata, cancellation,
+and recovery. Do not create per-recording projections or change output selection.
+
+Checks: inventory every writer path; crash recovery at each journal boundary; digest conflict
+handling; restart; concurrent reader/writer and second-manager ownership behavior. Commit: authority
+and journaled job transition boundary with tests and report.
+
+## M6b — Build bounded active-job projections
+
+Use the M6a authority to build compact active-job projections. Validate freshness across processes
+and rebuild stale or missing projections from authoritative Job Manager records. Keep terminal job
+history out of the active projection and preserve M11 output publication ownership.
+
+Checks: active job pages, status transitions, frozen cursor authority, process restart, stale
+projection detection/rebuild, concurrent reader/writer freshness, and recording isolation. Commit:
+bounded job projection read contract and tests.
+
+## M6c — Add bounded analysis and package metadata
+
+Add metadata-only reads and bounded per-recording pages for analyses and evidence packages using
+the M1 contracts. Do not parse analysis results, package content, lineage history, or unbounded
+collections to build a page.
+
+Checks: empty, mixed, corrupt, isolated, restart, and 10x growth cases over persisted metadata.
+Commit: bounded analysis/package metadata APIs and tests.
+
+## M6d — Convert the recording catalog
+
+Replace pipeline status reconstruction with verified compact HEAD summaries and bounded compact
+job, analysis, and package metadata. Remove full analysis-history fields from the list; use explicit
+detail or metadata pages and update consumers together. Cover blocker computation from exact
+selected table-observation metadata without loading selected observation payloads. Do not move the
+old scan into a helper or first-use cache.
 
 Checks: real HTTP catalog, empty/mixed/corrupt recordings, active/failed/completed jobs, recording
 isolation, restart, and M0 growth counters. Commit: catalog boundary and affected consumers/tests.
