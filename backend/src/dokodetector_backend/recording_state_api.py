@@ -92,6 +92,14 @@ def _history_page(
             raise ContractError(
                 "recording_history_corrupt", "The recording history is corrupt.", status_code=500
             ) from error
+    lineage = getattr(request.app.state, "pipeline_lineage_service", None)
+    if lineage is not None:
+        try:
+            lineage.reconcile_history_outbox(recording_id)
+        except (OSError, ValueError) as error:
+            raise ContractError(
+                "recording_history_corrupt", "The recording history is corrupt.", status_code=500
+            ) from error
     try:
         key = store.cursor_integrity_key()
     except (RecordingHistoryCorrupt, OSError) as error:

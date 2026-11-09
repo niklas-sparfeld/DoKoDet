@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import stat
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from dokodetector_backend.filesystem import atomic_write_json, contained_path
+from dokodetector_backend.filesystem import _sync_directory, atomic_write_json, contained_path
 from dokodetector_backend.pipeline_node_store import (
     NodeConflict,
     PipelineNodeStore,
@@ -77,6 +80,146 @@ class PipelineLineage:
         self.store = store
         self.root = store.root / ".lineage-runs"
         self.requests = store.root / ".lineage-requests"
+        self.history_outbox = store.root / ".lineage-history-outbox"
+
+    @staticmethod
+    def _history_edge_items(record: Mapping[str, Any]) -> list[Any]:
+        """Build exact metadata history items for the run's persisted graph edges."""
+        from dokodetector_backend.recording_state_contract import (
+            LineageEdgeHistoryItem,
+            LineageEndpoint,
+        )
+
+        items = []
+        for direction in ("inputs", "outputs"):
+            for ref in record[direction]:
+                if ref["kind"] == "revision":
+                    endpoint = LineageEndpoint(
+                        kind="revision", node_id=ref["node_id"], revision_id=ref["revision_id"]
+                    )
+                else:
+                    endpoint = LineageEndpoint(
+                        kind="artifact", artifact_id=ref["artifact_id"], sha256=ref["sha256"]
+                    )
+                run_endpoint = LineageEndpoint(kind="run", run_id=record["run_id"])
+                source, target = (
+                    (endpoint, run_endpoint) if direction == "inputs" else (run_endpoint, endpoint)
+                )
+                edge_kind = "used" if direction == "inputs" else "produced"
+                identity = [
+                    edge_kind,
+                    source.model_dump(mode="json"),
+                    target.model_dump(mode="json"),
+                    ref["role"],
+                ]
+                key = (
+                    "le_"
+                    + hashlib.sha256(
+                        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+                    ).hexdigest()
+                )
+                items.append(
+                    LineageEdgeHistoryItem(
+                        item_key=key,
+                        edge_kind=edge_kind,
+                        source=source,
+                        target=target,
+                        role=ref["role"],
+                        publication_sequence=1,
+                    )
+                )
+        return items
+
+    def _write_lineage_history_outbox(self, recording_id: str, record: Mapping[str, Any]) -> None:
+        items = self._history_edge_items(record)
+        payload = {
+            "schema_version": "pipeline-lineage-history-outbox/v1",
+            "recording_id": recording_id,
+            "run_id": record["run_id"],
+            "record_sha256": hashlib.sha256(
+                json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
+            "items": [item.model_dump(mode="json") for item in items],
+        }
+        payload["sha256"] = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        path = contained_path(self.history_outbox, f"{recording_id}.json")
+        if path.is_symlink():
+            raise ValueError("lineage history outbox cannot be a symlink")
+        current = _read_json(path) if path.exists() else None
+        if current is not None and current != payload:
+            # A single pending intent is sufficient: finish replays it before accepting another.
+            raise NodeConflict("pending lineage history publication must be recovered first")
+        atomic_write_json(path, payload)
+
+    def reconcile_history_outbox(self, recording_id: str) -> None:
+        """Replay only the named recording's pending terminal-lineage publication."""
+        _safe_id(recording_id, "recording_id")
+        from dokodetector_backend.recording_history_store import RecordingHistoryStore
+        from dokodetector_backend.recording_state_contract import LineageEdgeHistoryItem
+
+        with self.store.transaction_lock():
+            path = contained_path(self.history_outbox, f"{recording_id}.json")
+            if path.is_symlink():
+                raise ValueError("lineage history outbox cannot be a symlink")
+            if not path.exists():
+                return
+            if not stat.S_ISREG(path.lstat().st_mode):
+                raise ValueError("lineage history outbox must be a regular file")
+            value = _read_json(path)
+            if (
+                set(value)
+                != {"schema_version", "recording_id", "run_id", "record_sha256", "items", "sha256"}
+                or value["schema_version"] != "pipeline-lineage-history-outbox/v1"
+                or value["recording_id"] != recording_id
+                or not isinstance(value["items"], list)
+            ):
+                raise ValueError("invalid lineage history outbox")
+            unsigned = {key: part for key, part in value.items() if key != "sha256"}
+            if (
+                value["sha256"]
+                != hashlib.sha256(
+                    json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
+                ).hexdigest()
+            ):
+                raise ValueError("lineage history outbox digest mismatch")
+            run_path = contained_path(self.root, f"{value['run_id']}.json")
+            if run_path.is_symlink():
+                raise ValueError("lineage run source cannot be a symlink")
+            if not run_path.exists():
+                for raw in value["items"]:
+                    item = LineageEdgeHistoryItem.model_validate(raw)
+                    try:
+                        published = RecordingHistoryStore(self.store.root.parent).read_item(
+                            recording_id, "lineage_edges", item.item_key
+                        )
+                    except FileNotFoundError:
+                        continue
+                    if published.model_copy(update={"publication_sequence": 1}) != item:
+                        raise ValueError("missing lineage source conflicts with published history")
+                    raise ValueError("published lineage source is missing")
+                path.unlink()
+                _sync_directory(path.parent)
+                return
+            record = _read_json(run_path)
+            digest = hashlib.sha256(
+                json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            if (
+                digest != value["record_sha256"]
+                or record.get("run_id") != value["run_id"]
+                or record.get("context", {}).get("recording_id") != recording_id
+                or [i.model_dump(mode="json") for i in self._history_edge_items(record)]
+                != value["items"]
+            ):
+                raise ValueError("lineage source does not match its history intent")
+            history = RecordingHistoryStore(self.store.root.parent)
+            for raw in value["items"]:
+                item = LineageEdgeHistoryItem.model_validate(raw)
+                history.publish(recording_id, item)
+            path.unlink()
+            _sync_directory(path.parent)
 
     def start(
         self,
@@ -255,7 +398,13 @@ class PipelineLineage:
                     self.store.read_revision(ref["node_id"], ref["revision_id"])
             record = {**fields, "finished_at": _canonical_timestamp(None)}
             self._snapshot(extra=record)
+            recording_id = context_data.get("recording_id")
+            if isinstance(recording_id, str):
+                self.reconcile_history_outbox(recording_id)
+                self._write_lineage_history_outbox(recording_id, record)
             atomic_write_json(path, record)
+            if isinstance(recording_id, str):
+                self.reconcile_history_outbox(recording_id)
             return record
 
     def snapshot(self, recording_id: str | None = None) -> dict[str, Any]:

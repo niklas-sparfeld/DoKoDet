@@ -1,3 +1,5 @@
+import json
+import multiprocessing
 from pathlib import Path
 
 import pytest
@@ -68,6 +70,31 @@ def finish(service, run, inputs, outputs, **kwargs):
         processor=PROCESSOR,
         context=kwargs.get("context", {}),
         failure=kwargs.get("failure"),
+    )
+
+
+def _publish_lineage_run_process(root: str, run_id: str) -> None:
+    store = PipelineNodeStore(Path(root))
+    lineage = PipelineLineage(store)
+    inputs = [artifact("recording-video/recording-01", "a", "recording_video")]
+    PipelineNodeUses(store).accept(run_id, [])
+    lineage.start(
+        run_id,
+        inputs=inputs,
+        run_kind="processor",
+        processor=PROCESSOR,
+        context={"recording_id": "recording-01"},
+    )
+    lineage.finish(
+        run_id,
+        inputs=inputs,
+        outputs=[],
+        status="failed",
+        run_kind="processor",
+        result=None,
+        processor=PROCESSOR,
+        context={"recording_id": "recording-01"},
+        failure={"message": "fixture"},
     )
 
 
@@ -355,3 +382,69 @@ def test_snapshot_resolves_parent_metadata_from_one_history_read(tmp_path: Path,
 
     assert len(snapshot["revisions"]) == 5
     assert len([edge for edge in snapshot["edges"] if edge["kind"] == "revised"]) == 4
+
+
+def test_terminal_lineage_history_recovers_source_to_index_gap(tmp_path: Path, monkeypatch):
+    from dokodetector_backend.recording_history_store import RecordingHistoryStore
+
+    store = PipelineNodeStore(tmp_path / "operations" / "pipeline-nodes")
+    lineage = PipelineLineage(store)
+    PipelineNodeUses(store).accept("lineage-run", [])
+    inputs = [artifact("recording-video/recording-01", "a", "recording_video")]
+    lineage.start(
+        "lineage-run",
+        inputs=inputs,
+        run_kind="processor",
+        processor=PROCESSOR,
+        context={"recording_id": "recording-01"},
+    )
+    original_publish = RecordingHistoryStore.publish
+
+    def fail_publication(self, recording_id, item):
+        raise OSError("simulated stop after source commit")
+
+    monkeypatch.setattr(RecordingHistoryStore, "publish", fail_publication)
+    with pytest.raises(OSError, match="simulated stop"):
+        lineage.finish(
+            "lineage-run",
+            inputs=inputs,
+            outputs=[],
+            status="failed",
+            run_kind="processor",
+            result=None,
+            processor=PROCESSOR,
+            context={"recording_id": "recording-01"},
+            failure={"message": "fixture"},
+        )
+    monkeypatch.setattr(RecordingHistoryStore, "publish", original_publish)
+    outbox = store.root / ".lineage-history-outbox" / "recording-01.json"
+    assert outbox.is_file()
+    record = json.loads((store.root / ".lineage-runs" / "lineage-run.json").read_text())
+    item_key = lineage._history_edge_items(record)[0].item_key
+    lineage.reconcile_history_outbox("recording-01")
+    history = RecordingHistoryStore(store.root.parent)
+    item = history.read_item("recording-01", "lineage_edges", item_key)
+    assert item.item_kind == "lineage_edge"
+    assert not outbox.exists()
+    lineage.reconcile_history_outbox("recording-01")
+
+
+def test_two_process_lineage_publishers_keep_both_recording_edges(tmp_path: Path):
+    from dokodetector_backend.recording_history_store import RecordingHistoryStore
+
+    root = tmp_path / "operations" / "pipeline-nodes"
+    context = multiprocessing.get_context("spawn")
+    processes = [
+        context.Process(target=_publish_lineage_run_process, args=(str(root), run_id))
+        for run_id in ("lineage-a", "lineage-b")
+    ]
+    for process in processes:
+        process.start()
+    for process in processes:
+        process.join(20)
+        assert process.exitcode == 0
+
+    store = PipelineNodeStore(root)
+    history = RecordingHistoryStore(store.root.parent)
+    page = history.ordered_page("recording-01", "lineage_edges", limit=10)
+    assert len(page[1]) == 2
