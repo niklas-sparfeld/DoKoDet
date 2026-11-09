@@ -216,7 +216,7 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Requested run: 15 milestones, starting at M4a; completed: 0; remaining: 15. The cap covers M4a,
+- Requested run: 15 milestones, starting at M4a; completed: 1; remaining: 14. The cap covers M4a,
   M4b, M4c, and M5–M16.
 - Next milestone: M4b. M4a replan count: 0/5; this run replan count: 0/10. The two earlier M4a
   replans and two correction turns belong to the prior run and are preserved in the milestone report.
