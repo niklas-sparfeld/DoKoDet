@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import multiprocessing
+import os
 from pathlib import Path
 
 import pytest
@@ -62,6 +63,17 @@ def _process_publish(
         queue.put(None)
     except Exception as error:  # pragma: no cover - reported to the parent test
         queue.put(repr(error))
+
+
+def _process_stop_after_initial_generation_commit(root: str) -> None:
+    store = RecordingHistoryStore(root)
+
+    def stop_after(boundary: str) -> None:
+        if boundary == "rebuild_generation_committed":
+            os._exit(73)
+
+    store._after_durable_boundary = stop_after
+    store.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
 
 
 def test_history_publication_assigns_sequence_and_retries_idempotently(tmp_path: Path):
@@ -150,6 +162,23 @@ def test_rebuild_restart_observes_complete_active_generation(tmp_path: Path):
     store._after_durable_boundary = stop_after_switch
     with pytest.raises(RuntimeError, match="simulated process stop"):
         store.rebuild("recording-1", [_snapshot("snapshot-1"), _snapshot("snapshot-2", "b")])
+
+    restarted = RecordingHistoryStore(tmp_path)
+    authority = restarted.get_authority("recording-1")
+    assert authority.sequence == 2
+    assert restarted.read_item("recording-1", "snapshots", "snapshot-1").publication_sequence == 1
+    assert restarted.read_item("recording-1", "snapshots", "snapshot-2").publication_sequence == 2
+
+
+def test_initial_generation_commit_survives_process_death_before_active_pointer(tmp_path: Path):
+    context = multiprocessing.get_context("spawn")
+    worker = context.Process(
+        target=_process_stop_after_initial_generation_commit, args=(str(tmp_path),)
+    )
+    worker.start()
+    worker.join(timeout=20)
+    assert worker.exitcode == 73
+    assert not (tmp_path / "recording-history" / "recording-1" / "active.json").exists()
 
     restarted = RecordingHistoryStore(tmp_path)
     authority = restarted.get_authority("recording-1")

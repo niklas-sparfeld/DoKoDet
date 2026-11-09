@@ -231,7 +231,7 @@ while history and unrelated recordings grow 10x.
 - Requested run: 15 milestones, starting at M4a; completed: 4; remaining: 11. The cap now covers
   M4a, M4b, M4c, M5a, M5b, M5c, and M6–M14. M15 and M16 are outside this run.
 - Next milestone: M5b. M5a replan count: 2/5; this run replan count: 3/10. M5a correction count:
-  1/2. The two earlier M4a
+  2/2. The two earlier M4a
   replans and two correction turns belong to the prior run and are preserved in the milestone report.
 - M4a result: direct node revision authority remains as recorded below. The final review gaps are
   fixed: exact node reads hold the root transaction lock across recovery and content read; exact
@@ -276,12 +276,16 @@ while history and unrelated recordings grow 10x.
   missing active pointer with generation data is corruption; it cannot reset history silently.
   History cursors pin the generation. The store does not read payloads and is not connected to
   source writers or discovery APIs.
-- M5a checks: 31 history-store and contract tests passed. They cover idempotent and conflicting
+- M5a checks: 32 history-store and contract tests passed. They cover idempotent and conflicting
   publication, two-process writers, four publication crash boundaries with restart, deterministic
   rebuild, rebuild validation before pointer switch, cursor expiration, digest and sequence
   corruption, missing active pointer, corrupt-journal rejection, and page/cursor contracts. Ruff
   and format checks passed for changed backend files and tests; `git diff --check` passed. See the
   [M5a report](../../reports/0117-M5a_History_Authority.md).
+- M5a correction 2/2 adds a durable generation journal. A child process exits after committing the
+  initial generation directory but before publishing `active.json`; a fresh process validates that
+  generation and publishes the pointer. Missing pointers without a matching generation journal
+  remain corruption.
 - Replan 1 split M5 into the durable authority store (M5a) and discovery APIs (M5b). Replan 2
   added generation pinning because sequence-only cursors cannot expire safely after rebuild.
 - Replan 3 assigns source publication and crash-gap reconciliation to M5c. The current owners are

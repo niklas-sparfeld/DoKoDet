@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -179,9 +180,13 @@ class RecordingHistoryStore:
         generations_root = contained_path(self._recording_root(recording_id), "generations")
         return generations_root.exists() and any(generations_root.iterdir())
 
+    def _pending_generation_path(self, recording_id: str) -> Path:
+        return contained_path(self._recording_root(recording_id), "pending-generation.json")
+
     def get_authority(self, recording_id: str) -> RecordingHistoryAuthority:
         with self._lock(recording_id):
             self._recover_locked(recording_id)
+            self._recover_generation_locked(recording_id)
             generation = self._ensure_generation(recording_id)
             return self._authority(recording_id, *generation)
 
@@ -192,6 +197,7 @@ class RecordingHistoryStore:
             raise ValueError("unsupported recording history item")
         with self._lock(recording_id):
             self._recover_locked(recording_id)
+            self._recover_generation_locked(recording_id)
             item = item.model_copy(update={"publication_sequence": 1})
             generation, generation_root = self._ensure_generation(recording_id)
             authority = self._authority(recording_id, generation, generation_root)
@@ -221,6 +227,7 @@ class RecordingHistoryStore:
     def read_item(self, recording_id: str, collection: str, item_key: str) -> HistoryItem:
         with self._lock(recording_id):
             self._recover_locked(recording_id)
+            self._recover_generation_locked(recording_id)
             current = self._active_generation(recording_id)
             if current is None:
                 if self._has_generation_data(recording_id):
@@ -255,6 +262,7 @@ class RecordingHistoryStore:
         """
         with self._lock(recording_id):
             self._recover_locked(recording_id)
+            self._recover_generation_locked(recording_id)
             return self._rebuild_locked(recording_id, items)
 
     def _rebuild_locked(self, recording_id: str, items: Any) -> tuple[str, Path]:
@@ -266,31 +274,112 @@ class RecordingHistoryStore:
         root = self._recording_root(recording_id)
         generations_root = contained_path(root, "generations")
         generation = f"gen-{uuid4().hex}"
+        current = self._active_generation(recording_id)
+        expected_generation = None if current is None else current[0]
+        journal_payload = {
+            "schema_version": "recording-history-generation-publication/v1",
+            "recording_id": recording_id,
+            "generation": generation,
+            "expected_active_generation": expected_generation,
+            "item_count": len(ordered),
+        }
+        journal = {
+            **journal_payload,
+            "sha256": hashlib.sha256(_canonical_json(journal_payload)).hexdigest(),
+        }
+        atomic_replace_json(self._pending_generation_path(recording_id), journal)
+        self._after_boundary("rebuild_journal")
         generations_root.mkdir(parents=True, exist_ok=True)
-        with staging_directory(generations_root) as staging:
-            for sequence, item in enumerate(ordered, start=1):
-                stored = item.model_copy(update={"publication_sequence": sequence})
-                path = _item_path(staging, stored)
-                self._write_item_file(path, stored)
-            authority = RecordingHistoryAuthority(
-                recording_id=recording_id,
-                generation=generation,
-                sequence=len(ordered),
-            )
-            atomic_replace_json(staging / "authority.json", authority.model_dump(mode="json"))
-            generation_root = contained_path(generations_root, generation)
-            commit_staged_directory(staging, generation_root)
-        self._validate_generation(recording_id, generation, generation_root)
+        generation_root = contained_path(generations_root, generation)
+        try:
+            with staging_directory(generations_root) as staging:
+                for sequence, item in enumerate(ordered, start=1):
+                    stored = item.model_copy(update={"publication_sequence": sequence})
+                    path = _item_path(staging, stored)
+                    self._write_item_file(path, stored)
+                authority = RecordingHistoryAuthority(
+                    recording_id=recording_id,
+                    generation=generation,
+                    sequence=len(ordered),
+                )
+                atomic_replace_json(staging / "authority.json", authority.model_dump(mode="json"))
+                commit_staged_directory(staging, generation_root)
+            self._after_boundary("rebuild_generation_committed")
+            self._validate_generation(recording_id, generation, generation_root)
+        except Exception:
+            if generation_root.exists() and not generation_root.is_symlink():
+                shutil.rmtree(generation_root)
+            self._pending_generation_path(recording_id).unlink(missing_ok=True)
+            raise
+        self._write_active_generation(recording_id, generation)
+        self._after_boundary("rebuild_active")
+        self._pending_generation_path(recording_id).unlink(missing_ok=True)
+        self._after_boundary("rebuild_journal_cleared")
+        return generation, generation_root
+
+    def _write_active_generation(self, recording_id: str, generation: str) -> None:
         atomic_replace_json(
-            contained_path(root, "active.json"),
+            contained_path(self._recording_root(recording_id), "active.json"),
             {
                 "schema_version": "recording-history-active/v1",
                 "recording_id": recording_id,
                 "generation": generation,
             },
         )
-        self._after_boundary("rebuild_active")
-        return generation, generation_root
+
+    def _recover_generation_locked(self, recording_id: str) -> None:
+        pending_path = self._pending_generation_path(recording_id)
+        if not pending_path.exists():
+            return
+        pending = self._read_object(pending_path, "history generation journal")
+        if (
+            set(pending)
+            != {
+                "schema_version",
+                "recording_id",
+                "generation",
+                "expected_active_generation",
+                "item_count",
+                "sha256",
+            }
+            or pending["schema_version"] != "recording-history-generation-publication/v1"
+            or pending["recording_id"] != recording_id
+            or not isinstance(pending["generation"], str)
+            or not pending["generation"].startswith("gen-")
+            or (
+                pending["expected_active_generation"] is not None
+                and not isinstance(pending["expected_active_generation"], str)
+            )
+            or isinstance(pending["item_count"], bool)
+            or not isinstance(pending["item_count"], int)
+            or pending["item_count"] < 0
+        ):
+            raise RecordingHistoryCorrupt("invalid history generation journal")
+        journal_payload = {key: value for key, value in pending.items() if key != "sha256"}
+        if pending["sha256"] != hashlib.sha256(_canonical_json(journal_payload)).hexdigest():
+            raise RecordingHistoryCorrupt("history generation journal digest mismatch")
+        generation = pending["generation"]
+        current = self._active_generation(recording_id)
+        current_generation = None if current is None else current[0]
+        expected_generation = pending["expected_active_generation"]
+        if current_generation not in {expected_generation, generation}:
+            raise RecordingHistoryCorrupt("active history generation changed during rebuild")
+        generation_root = contained_path(
+            self._recording_root(recording_id), Path("generations") / generation
+        )
+        if not generation_root.exists():
+            if current_generation == generation:
+                raise RecordingHistoryCorrupt("active history generation is missing")
+            if expected_generation is None and pending["item_count"] > 0:
+                raise RecordingHistoryCorrupt(
+                    "initial history rebuild stopped before its generation was durable"
+                )
+            pending_path.unlink(missing_ok=True)
+            return
+        self._validate_generation(recording_id, generation, generation_root)
+        if current_generation != generation:
+            self._write_active_generation(recording_id, generation)
+        pending_path.unlink(missing_ok=True)
 
     def _validate_generation(self, recording_id: str, generation: str, root: Path) -> None:
         authority = self._authority(recording_id, generation, root)

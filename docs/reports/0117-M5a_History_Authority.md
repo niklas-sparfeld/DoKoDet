@@ -33,12 +33,15 @@ rebuild remains available when the caller can prove the source metadata.
 
 ## Verification
 
-- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_history_store.py backend/tests/test_recording_state_contract.py` — passed, 31 tests.
+- `mise exec -- uv run --project backend pytest -q backend/tests/test_recording_history_store.py backend/tests/test_recording_state_contract.py` — passed, 32 tests.
 - Store tests cover sequence assignment, duplicate retries, conflicting item-key reuse, all four
   publication crash boundaries, restart recovery, deterministic rebuild, generation-based cursor
   expiration, a rebuild restart boundary, pre-switch generation validation, metadata-digest and
   authority-sequence corruption, missing-active-pointer rejection, two-process publication, and
-  corrupt-journal rejection.
+  corrupt-journal rejection. Correction 2/2 adds a durable generation journal and a child-process
+  stop after the initial generation directory commit but before `active.json`; restart validates
+  the committed directory and publishes its active pointer. A missing pointer without this journal
+  still reports corruption.
 - Contract tests cover required history cursor generation and prohibit that field on catalog/job
   cursors. They also check that resource items match their page collection.
 - Ruff check and format check passed for the changed backend files and tests.
