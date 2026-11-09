@@ -331,6 +331,8 @@ class PipelineNodeStore:
     def read_revision_record(self, node_id: str, revision_id: str) -> NodeRevision:
         """Read one immutable revision record without traversing its full history."""
         _safe_id(revision_id, "revision_id")
+        if not self.has_revision(node_id, revision_id):
+            raise KeyError(revision_id)
         node = self.get(node_id)
         return self._read_revision(node, revision_id)
 

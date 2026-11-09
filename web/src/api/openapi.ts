@@ -6144,7 +6144,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                recording_id: string;
+            };
             cookie?: never;
         };
         requestBody: {

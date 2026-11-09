@@ -35,7 +35,7 @@ class PipelineNodeReviews:
         reviewer: Mapping[str, Any],
         evidence: Mapping[str, Any],
     ) -> dict[str, Any]:
-        revision = self.store.read_revision(node_id, revision_id)
+        revision = self.store.read_revision_record(node_id, revision_id)
         _safe_id(item_id, "item_id")
         items = self._revision_items(revision)
         if item_id not in items:
@@ -64,7 +64,7 @@ class PipelineNodeReviews:
 
         Each ID remains individually replay-safe if publication is interrupted.
         """
-        revision = self.store.read_revision(node_id, revision_id)
+        revision = self.store.read_revision_record(node_id, revision_id)
         items = self._revision_items(revision)
         prepared = []
         for decision in decisions:
@@ -99,7 +99,7 @@ class PipelineNodeReviews:
         reviewer: Mapping[str, Any],
         evidence: Mapping[str, Any],
     ) -> dict[str, Any]:
-        revision = self.store.read_revision(node_id, revision_id)
+        revision = self.store.read_revision_record(node_id, revision_id)
         scope = _object(coverage, "coverage")
         if not scope:
             raise ValueError("coverage must identify the inspected scope")
@@ -117,7 +117,7 @@ class PipelineNodeReviews:
         reviewer: Mapping[str, Any],
         evidence: Mapping[str, Any],
     ) -> dict[str, Any]:
-        revision = self.store.read_revision(node_id, revision_id)
+        revision = self.store.read_revision_record(node_id, revision_id)
         return self._record(
             review_id, "overall", revision, question, decision, reviewer, evidence, {}
         )
@@ -176,7 +176,7 @@ class PipelineNodeReviews:
         return record
 
     def list_for_revision(self, node_id: str, revision_id: str) -> tuple[dict[str, Any], ...]:
-        self.store.read_revision(node_id, revision_id)
+        self.store.read_revision_record(node_id, revision_id)
         records = self._records_for_revisions({(node_id, revision_id)})
         return tuple(
             sorted(

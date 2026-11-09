@@ -65,8 +65,15 @@ def get_recording_state(recording_id: str, request: Request) -> dict:
 
 
 @router.put("")
-def update_recording_state(update: RecordingHeadUpdate, request: Request) -> dict:
+def update_recording_state(
+    recording_id: str, update: RecordingHeadUpdate, request: Request
+) -> dict:
     """Select or restore an exact snapshot with HEAD compare-and-swap."""
+
+    if update.recording_id != recording_id:
+        raise ContractError(
+            "recording_state_conflict", "recording identity mismatch", status_code=409
+        )
 
     return _execute(
         lambda: _published_mapping(request.app.state.recording_state_store.publish(update))

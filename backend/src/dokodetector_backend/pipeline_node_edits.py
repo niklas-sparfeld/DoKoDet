@@ -158,13 +158,15 @@ class PipelineNodeEdits:
                 return recovered
             self._remove_uncommitted_revision(node_id, output_revision_id, digest)
             node = self.store.get(node_id)
-            current = self.store.read_revision(node_id, expected)
+            current = self.store.read_revision_record(node_id, expected)
             if kind != "copy" and node.head_revision_id != expected:
                 raise NodeConflict("working head changed")
             if kind == "restore":
                 if historical_revision_id is None:
                     raise ValueError("historical revision is required")
-                target_content = self.store.read_revision(node_id, historical_revision_id).content
+                target_content = self.store.read_revision_record(
+                    node_id, historical_revision_id
+                ).content
             elif kind == "copy":
                 target_content = current.content
             else:
@@ -265,13 +267,8 @@ class PipelineNodeEdits:
             return result
 
     def _copy_name(self, source_name: str) -> str:
-        names = {node.name for node in self.store.list_nodes()}
-        candidate = f"{source_name} copy"
-        suffix = 2
-        while candidate in names:
-            candidate = f"{source_name} copy {suffix}"
-            suffix += 1
-        return candidate
+        # Node IDs provide identity. Names are labels and do not require a full catalog scan.
+        return f"{source_name} copy"
 
     def _remove_uncommitted_revision(self, node_id: str, revision_id: str, digest: str) -> None:
         path = self.store._node_path(node_id) / "revisions" / revision_id
@@ -298,14 +295,31 @@ class PipelineNodeEdits:
         for candidate in (node_id, copy_id):
             if not self.store._node_path(candidate).exists():
                 continue
-            for revision in self.store.history(candidate):
-                if revision.revision_id != revision_id:
-                    continue
-                operation = revision.metadata.get("_edit_operation")
-                if not isinstance(operation, dict) or operation.get("digest") != digest:
-                    raise NodeConflict("operation revision conflicts with existing data")
+            if not self.store.has_revision(candidate, revision_id):
+                continue
+            node = self.store.get(candidate)
+            revision = self.store.read_revision_record(candidate, revision_id)
+            operation = revision.metadata.get("_edit_operation")
+            if not isinstance(operation, dict) or operation.get("digest") != digest:
+                raise NodeConflict("operation revision conflicts with existing data")
+            if self._is_revision_reachable(candidate, node.head_revision_id, revision_id):
                 return operation["result"]
         return None
+
+    def _is_revision_reachable(
+        self, node_id: str, head_revision_id: str, target_revision_id: str
+    ) -> bool:
+        """Check one exact revision's ancestry without materializing the full history."""
+        revision_id: str | None = head_revision_id
+        seen: set[str] = set()
+        while revision_id is not None:
+            if revision_id == target_revision_id:
+                return True
+            if revision_id in seen:
+                raise NodeConflict("revision ancestry contains a cycle")
+            seen.add(revision_id)
+            revision_id = self.store.read_revision_record(node_id, revision_id).parent_revision_id
+        return False
 
     @staticmethod
     def _journal(path: Path, key: str, digest: str, result: dict[str, Any] | None) -> None:

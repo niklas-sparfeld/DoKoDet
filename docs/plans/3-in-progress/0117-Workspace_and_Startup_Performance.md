@@ -210,14 +210,18 @@ while history and unrelated recordings grow 10x.
 
 - Requested run: 14 milestones, starting at M3; completed: 2; remaining: 12.
 - M4 changes: added state initialization, current-state, explicit selection, and exact snapshot-read
-  routes. The real-API proof creates and selects events, produces deterministic output from frozen
-  input references, saves two independent review decisions, edits accepted content through
-  copy-on-edit, selects the edited working reference, reads HEAD and an older snapshot, rejects a
-  stale update, and reopens the state and revision after restart. It does not use legacy selection
-  or history discovery. See the [M4 report](../../reports/0117-M4_Real_API_Workflow.md).
-- Checks: 40 recording-state workflow, contract, store, and publication tests passed. Ruff check,
-  Ruff format check, generated API and `git diff --check` passed. The test has one existing
-  Starlette `httpx` deprecation warning. No browser check applies because no web consumer changed.
+  routes. The route rejects a body recording ID that differs from its path. The proof changes current
+  selection after freezing inputs, then verifies that deterministic output derives from the frozen
+  exact revision. It rejects a source-reference mismatch and an exact-resource digest mismatch before
+  publishing output. Fail-fast guards block legacy selection, full history/catalog, global revision,
+  and old workspace/status discovery throughout the workflow and restart. The workflow also saves
+  two independent decisions, copies protected edits, reads older state, and verifies restart.
+  Exact revision readers and edit recovery do not materialize full history or scan the catalog.
+  See the [M4 report](../../reports/0117-M4_Real_API_Workflow.md).
+- Checks: 68 recording-state and node-store, edit, review, and use tests passed. Ruff check, Ruff
+  format check, generated API, API parity, Markdown links, and `git diff --check` passed. The test
+  has one existing Starlette `httpx` deprecation warning. No browser check applies because no web
+  consumer changed.
 - Decisions and limits: the deterministic producer is a test adapter that writes through the
   production immutable node store. Production processor launch, catalog, workspace, and review
   writers remain unchanged. The proof uses disposable storage; retained-state conversion and
