@@ -718,8 +718,10 @@ record the exact old/new active index item, generation, and active count. Apply 
 transaction between the `job.json` replacement and global authority publication. Recovery must
 replay an already-applied index update once, reject an unrelated index row or generation, and keep
 reads unavailable while a legacy index is incomplete. Ordinary job transitions update only the
-one affected job/index row; they must not scan the job or intent history. M6b2 will rebuild an
-incomplete index from authoritative jobs before serving bounded pages.
+affected index row and recording generation with point queries; index publication does not enumerate
+job or intent history. This does not bound the full Job Manager transition. M6b1a owns transition
+and acceptance scan removal and growth proof. M6b2 will rebuild an incomplete index from
+authoritative jobs before serving bounded pages.
 
 Checks: inject a crash after every journal boundary, including index publication; verify restart,
 idempotence, per-recording and global sequences, reader/writer serialization, point-query index
