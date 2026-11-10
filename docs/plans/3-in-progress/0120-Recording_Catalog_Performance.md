@@ -80,14 +80,13 @@ M0–M2 remain accepted historical results. M3 remains unaccepted after correcti
 its correction history and the stopped run's 1/10 re-planning count remain in the
 handoff. The new work is a materially different HEAD-based feasibility and delivery
 approach, with at most two corrections for its proof family. It does not reset M3's
-exhausted corrections or authorize another Luna loop. No implementation is
-started by this plan. This user-directed re-plan is outside the stopped run; it does
-not add to or reset that run's recorded count. The current plan has four unstarted
-milestones, M8–M11, with the first workflow in M8 and qualification in M11.
+exhausted corrections or authorize another Luna loop. This user-directed re-plan is
+outside the stopped run; it does not add to or reset that run's recorded count.
+M8 proved the first workflow. M9–M11 remain unstarted, with qualification in M11.
 
 | Milestone | Observable result and commit boundary | Status |
 | --- | --- | --- |
-| M8 | One real, persisted HEAD-backed recording list workflow with old node discovery disabled; measure and make a go/stop decision. Commit the narrow proof, checks and report together. | Not started |
+| M8 | One real, persisted HEAD-backed recording list workflow with old node discovery disabled; measure and make a go/stop decision. Commit the narrow proof, checks and report together. | Complete; limited proof, stop before M9 |
 | M9 | Complete a finite, explicitly specified current-status and blocker publication path for the remaining supported list workflow, only if M8 establishes a small set of owners and at most one new persistent contract. Commit that bounded work and evidence. | Not started; specify after M8 |
 | M10 | Rehearse initialization for retained recordings and activate the production list for the supported corpus; verify behavior and restart, or stop. Commit activation and evidence. | Not started; specify after M8 |
 | M11 | Qualify real browser/list latency, independent retained-history growth, correctness and recovery; remove only proved obsolete list code and close or record an unmet outcome. Commit qualification and report. | Not started; qualification |
@@ -103,6 +102,11 @@ analysis blocker. Restart the backend and repeat the list. Disable the legacy no
 history discovery for the tested list path and fail the test if it is called. Use
 processor stubs only if a processor is needed. A fixture-only state API request or
 mocked browser response alone is not this proof.
+
+**M8 result:** The opt-in workflow passed with explicit unavailable states. The
+[proof report](../../reports/0120-M8_HEAD_List_Proof.md) records the checks, growth
+and stop decision. The production outcome remains unmet. Do not assign M9 until its
+bounded publication and recovery boundary is established within the stated limits.
 
 M8 must not claim the whole production cutover. It must give an explicit, visible
 unavailable state for recordings whose HEAD is missing, invalid or cannot represent

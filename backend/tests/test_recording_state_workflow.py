@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -109,6 +111,73 @@ def _settings(tmp_path: Path) -> Settings:
     )
 
 
+def _import_fixture_recording(app, client, recording_id: str, tmp_path: Path) -> None:
+    import test_round_analysis_api as fixtures
+    from test_training_recordings import bundle_parts
+
+    previous = fixtures.RECORDING_ID
+    try:
+        fixtures.RECORDING_ID = recording_id
+        fixtures._write_recording_bundle(app)
+    finally:
+        fixtures.RECORDING_ID = previous
+    staging = tmp_path / f"upload-{recording_id}"
+    shutil.move(app.state.repository_bundle_storage.bundle_path(recording_id), staging)
+    proposal = next((staging / "predictions").glob("*.json"))
+    video = next((staging / "videos").glob("*.mov"))
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=64x64:r=2",
+            "-t",
+            "1",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-y",
+            str(video),
+        ],
+        check=True,
+    )
+    digest = hashlib.sha256(video.read_bytes()).hexdigest()
+    source_path = staging / "source-record.json"
+    source = json.loads(source_path.read_text())
+    source.update(sha256=digest, byte_length=video.stat().st_size)
+    source_path.write_text(json.dumps(source, separators=(",", ":")))
+    proposal_data = json.loads(proposal.read_text())
+    proposal_data["source_sha256"] = digest
+    proposal.write_text(json.dumps(proposal_data, separators=(",", ":")))
+    manifest_path = staging / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["source_sha256"] = digest
+    for descriptor, path in (
+        (manifest["files"]["video"], video),
+        (manifest["files"]["source_record"], source_path),
+        (manifest["files"]["proposal_generator_runs"][0], proposal),
+    ):
+        raw = path.read_bytes()
+        descriptor.update(byte_length=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+    manifest_path.write_text(json.dumps(manifest, separators=(",", ":")))
+    fixture = {
+        "manifest": (staging / "manifest.json").read_bytes(),
+        "source_record": (staging / "source-record.json").read_bytes(),
+        "task_enrollment": (staging / "initial-task-enrollment.json").read_bytes(),
+        "proposal": proposal.read_bytes(),
+        "proposal_name": proposal.name,
+        "video": video.read_bytes(),
+        "video_name": video.name,
+    }
+    response = client.put(f"/v1/repository-bundles/{recording_id}", files=bundle_parts(fixture))
+    assert response.status_code == 201, response.text
+
+
 def _produce_events_from_frozen_inputs(frozen, node_store, state_store, output_node_id):
     """Deterministic test adapter that resolves and validates the frozen exact input."""
 
@@ -181,6 +250,216 @@ def _disable_legacy_discovery(app, monkeypatch):
     for index in range(25):
         (transaction_root / f"committed-{index:03}.json").write_text("{}")
     return journal_reads
+
+
+def test_empty_head_does_not_prove_absence_of_unselected_events(tmp_path):
+    app = create_app(_settings(tmp_path), analyzer=create_local_poc_analyzer())
+    with TestClient(app) as client:
+        response = client.post(f"/api/recordings/{RECORDING}/state", json=_snapshot_payload())
+        assert response.status_code == 200, response.text
+        before = app.state.recording_state_store.get_current(RECORDING)
+        workspace = app.state.pipeline_workspace_service
+        assert (
+            workspace.get_statuses([RECORDING], analyses_by_recording={})[RECORDING]["stages"][0][
+                "state"
+            ]
+            == "video-only"
+        )
+
+        app.state.pipeline_node_edits.store.create(
+            "unselected-events",
+            "Unselected events",
+            "events",
+            SOURCE,
+            {"schema_version": "event-data/v1", "events": []},
+            {},
+        )
+
+        assert app.state.recording_state_store.get_current(RECORDING) == before
+        assert (
+            workspace.get_statuses([RECORDING], analyses_by_recording={})[RECORDING]["stages"][0][
+                "state"
+            ]
+            == "data-available"
+        )
+
+
+def test_head_proof_list_uses_persisted_state_without_node_discovery(tmp_path, monkeypatch):
+    settings = _settings(tmp_path).model_copy(update={"recording_list_head_proof": True})
+    app = create_app(settings, analyzer=create_local_poc_analyzer())
+    node_store = app.state.pipeline_node_edits.store
+    content = {
+        "schema_version": "event-data/v1",
+        "events": [
+            {
+                "event_id": "event-1",
+                "event_type": "card_state_changed",
+                "start_us": 100,
+                "end_us": 200,
+            }
+        ],
+    }
+    with TestClient(app) as client:
+        _import_fixture_recording(app, client, RECORDING, tmp_path)
+        _import_fixture_recording(app, client, "missing-head", tmp_path)
+        stored = app.state.recording_bundle_store.get_metadata(RECORDING)
+        source = dict(
+            SOURCE,
+            video_sha256=stored.source_sha256,
+            byte_length=stored.video_byte_length,
+            duration_us=1_000_000,
+        )
+        revision = node_store.create("events-proof", "Events", "events", source, content, {})
+        initial = client.post(
+            f"/api/recordings/{RECORDING}/state",
+            json=_snapshot_payload(generated=_reference(revision, "events-proof")),
+        )
+        assert initial.status_code == 200, initial.text
+        noop = client.put(
+            f"/api/recordings/{RECORDING}/state/events/working-content",
+            json={
+                "expected_head_version": 1,
+                "idempotency_key": "proof-noop",
+                "actor": ACTOR,
+                "content": content,
+            },
+        )
+        assert noop.status_code == 200, noop.text
+        assert noop.json()["edit"]["reason"] == "no_change"
+        assert noop.json()["head"]["version"] == 2
+        edited = dict(content, events=[dict(content["events"][0], end_us=250)])
+        response = client.put(
+            f"/api/recordings/{RECORDING}/state/events/working-content",
+            json={
+                "expected_head_version": 2,
+                "idempotency_key": "proof-edit",
+                "actor": ACTOR,
+                "content": edited,
+            },
+        )
+        assert response.status_code == 200, response.text
+        stale = client.put(
+            f"/api/recordings/{RECORDING}/state/events/working-content",
+            json={
+                "expected_head_version": 2,
+                "idempotency_key": "proof-stale",
+                "actor": ACTOR,
+                "content": edited,
+            },
+        )
+        assert stale.status_code == 409
+
+        stale_snapshot = response.json()["snapshot"]
+        stale_snapshot["predecessor_snapshot_id"] = stale_snapshot["snapshot_id"]
+        stale_snapshot["slots"]["events"]["generated"]["state"] = "stale"
+        stale_snapshot["slots"]["events"]["generated"]["stale_reason"] = "manual_invalidation"
+        canonical = json.dumps(
+            {key: value for key, value in stale_snapshot.items() if key != "snapshot_id"},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        stale_snapshot["snapshot_id"] = "rs_" + hashlib.sha256(canonical.encode()).hexdigest()
+        app.state.recording_state_store.put(RecordingStateSnapshot.model_validate(stale_snapshot))
+        update = client.put(
+            f"/api/recordings/{RECORDING}/state",
+            json={
+                "recording_id": RECORDING,
+                "expected_head_version": 3,
+                "snapshot_id": stale_snapshot["snapshot_id"],
+                "action": "select_snapshot",
+            },
+        )
+        assert update.status_code == 200, update.text
+
+        def forbidden(*_args, **_kwargs):
+            raise AssertionError("list called legacy node discovery")
+
+        monkeypatch.setattr(
+            app.state.pipeline_workspace_service, "_node_revisions_for_recordings", forbidden
+        )
+        response = client.get("/v1/recordings")
+        assert response.status_code == 200, response.text
+        rows = {row["recording_id"]: row for row in response.json()["recordings"]}
+        assert rows[RECORDING]["pipeline_status"]["stages"][0]["state"] == "data-available"
+        assert rows[RECORDING]["can_start_analysis"] is False
+        assert rows[RECORDING]["analysis_blocker"]
+        assert all(
+            stage["state"] == "unavailable"
+            for stage in rows["missing-head"]["pipeline_status"]["stages"]
+        )
+        empty_snapshot = _snapshot_payload()
+        empty_snapshot["recording_id"] = "missing-head"
+        canonical = json.dumps(
+            {key: value for key, value in empty_snapshot.items() if key != "snapshot_id"},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        empty_snapshot["snapshot_id"] = "rs_" + hashlib.sha256(canonical.encode()).hexdigest()
+        assert (
+            client.post("/api/recordings/missing-head/state", json=empty_snapshot).status_code
+            == 200
+        )
+        empty_row = next(
+            row
+            for row in client.get("/v1/recordings").json()["recordings"]
+            if row["recording_id"] == "missing-head"
+        )
+        assert [stage["state"] for stage in empty_row["pipeline_status"]["stages"]] == [
+            "unavailable",
+            "unavailable",
+            "unavailable",
+            "unavailable",
+            "empty",
+        ]
+        current = app.state.recording_state_store.get_current(RECORDING)
+        head_path = app.state.recording_state_store.head_path(RECORDING)
+        head_bytes = head_path.read_bytes()
+        snapshot_path = (
+            app.state.recording_state_store.snapshot_path(RECORDING, current.head.snapshot_id)
+            / "snapshot.json"
+        )
+        snapshot_bytes = snapshot_path.read_bytes()
+        for path in (head_path, snapshot_path):
+            path.write_text("invalid")
+            broken = client.get("/v1/recordings")
+            assert broken.status_code == 200
+            row = next(
+                row for row in broken.json()["recordings"] if row["recording_id"] == RECORDING
+            )
+            assert all(
+                stage["state"] == "unavailable" for stage in row["pipeline_status"]["stages"]
+            )
+            path.write_bytes(head_bytes if path == head_path else snapshot_bytes)
+        snapshot_path.unlink()
+        missing_snapshot = client.get("/v1/recordings")
+        assert missing_snapshot.status_code == 200
+        row = next(
+            row for row in missing_snapshot.json()["recordings"] if row["recording_id"] == RECORDING
+        )
+        assert row["pipeline_status"]["stages"][0]["state"] == "unavailable"
+        snapshot_path.write_bytes(snapshot_bytes)
+
+        # History and selected content are validated by the operation that opens them.
+        old_path = node_store.revision_path("events-proof", revision.revision_id) / "revision.json"
+        old_path.write_text("invalid")
+        selected = current.snapshot.slots["events"].generated.resource
+        selected_path = (
+            node_store.revision_path(selected.node_id, selected.revision_id) / "revision.json"
+        )
+        selected_path.write_text("invalid")
+        assert client.get("/v1/recordings").json()["recordings"]
+        with pytest.raises((ValueError, KeyError)):
+            node_store.read_authorized_revision(selected.node_id, selected.revision_id)
+
+    restarted = create_app(settings, analyzer=create_local_poc_analyzer())
+    with TestClient(restarted) as client:
+        rows = {
+            row["recording_id"]: row for row in client.get("/v1/recordings").json()["recordings"]
+        }
+        assert rows[RECORDING]["pipeline_status"]["stages"][0]["state"] == "data-available"
+        assert rows["missing-head"]["pipeline_status"]["stages"][0]["state"] == "unavailable"
 
 
 def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatch):

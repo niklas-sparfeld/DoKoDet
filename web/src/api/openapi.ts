@@ -3433,7 +3433,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "video-only" | "empty" | "active-run" | "partial" | "failed" | "data-available" | "complete";
+            state: "video-only" | "empty" | "active-run" | "partial" | "failed" | "data-available" | "complete" | "unavailable";
         };
         /**
          * RecordingPipelineStatusSummary

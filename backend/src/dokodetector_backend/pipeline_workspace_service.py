@@ -233,6 +233,44 @@ class RecordingPipelineWorkspaceService:
             }
         return statuses
 
+    def get_head_proof_statuses(self, recording_ids, states, analyses_by_recording):
+        """Experimental list proof: selected references do not assert empty history."""
+        runs_by_recording = {}
+        for run in self._list_statuses_for_recordings(recording_ids):
+            runs_by_recording.setdefault(run.recording_id, []).append(
+                (run.processor_type, run.status)
+            )
+        result = {}
+        for recording_id in recording_ids:
+            summary = states[recording_id]
+            stages = []
+            for definition in _WORKSPACE_STAGES:
+                if summary is None:
+                    state = "unavailable"
+                else:
+                    slot = summary.slots.get(definition.key)
+                    has_revision = slot is not None and (
+                        slot.generated != "empty" or slot.completed_reference != "empty"
+                    )
+                    state = self._compact_stage_state(
+                        definition,
+                        has_revision=has_revision,
+                        runs=runs_by_recording.get(recording_id, ()),
+                        analyses=analyses_by_recording.get(recording_id, ()),
+                    )
+                    if (
+                        definition.key != "round_analyses"
+                        and not has_revision
+                        and state in {"empty", "video-only", "partial", "failed"}
+                    ):
+                        state = "unavailable"
+                stages.append({"key": definition.key, "state": state})
+            result[recording_id] = {
+                "schema_version": "recording-pipeline-status/v1",
+                "stages": stages,
+            }
+        return result
+
     def _node_revisions_for_recordings(
         self, recording_ids: Collection[str], *, include_content: bool = False
     ) -> tuple[Any, ...]:

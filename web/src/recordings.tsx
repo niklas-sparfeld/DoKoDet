@@ -179,6 +179,7 @@ function pipelineProgressState(
 ): PipelineProgressState {
   if (state === "complete") return "complete";
   if (state === "failed") return "failed";
+  if (state === "unavailable") return "pending";
   if (state === "active-run" || state === "partial") {
     return "active";
   }

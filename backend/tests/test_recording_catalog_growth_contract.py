@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
@@ -96,13 +99,28 @@ def test_recordings_list_payload_stays_bounded_when_history_grows_tenfold() -> N
     assert len(large.model_dump_json()) <= len(small.model_dump_json()) * 2
 
 
-def _measure_real_catalog(root: Path, *, retained_items: int) -> dict[str, object]:
+def _measure_real_catalog(
+    root: Path, *, retained_items: int, head_proof: bool = False
+) -> dict[str, object]:
     from dokodetector_backend import pipeline_workspace_service
 
     root.mkdir()
     client, app = _backend(root, synchronous=False)
+    app.state.settings.recording_list_head_proof = head_proof
     target_packages = []
     with client:
+        if head_proof:
+            from test_recording_state_workflow import _snapshot_payload
+
+            snapshot = _snapshot_payload()
+            snapshot["recording_id"] = SERVICE_RECORDING_ID
+            content = {key: value for key, value in snapshot.items() if key != "snapshot_id"}
+            canonical = json.dumps(
+                content, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            )
+            snapshot["snapshot_id"] = "rs_" + hashlib.sha256(canonical.encode()).hexdigest()
+            response = client.post(f"/api/recordings/{SERVICE_RECORDING_ID}/state", json=snapshot)
+            assert response.status_code == 200, response.text
         for index in range(retained_items):
             package_id = f"550e8400-e29b-41d4-a716-{index + 1:012d}"
             target_packages.append(
@@ -234,12 +252,14 @@ def _measure_real_catalog(root: Path, *, retained_items: int) -> dict[str, objec
 
         counts: dict[str, int] = {
             "node_listed": 0,
+            "node_manifest_reads": 0,
             "node_history_records": 0,
             "package_metadata_rows": 0,
             "analysis_rows_read": 0,
             "processor_run_directories": 0,
         }
         original_list_nodes = node_store.list_nodes
+        original_get_node = node_store._get_unrecovered
         original_history = node_store.history
         original_package_list = app.state.evidence_package_store.list_metadata
         original_analysis_list = analysis_store.list
@@ -254,6 +274,10 @@ def _measure_real_catalog(root: Path, *, retained_items: int) -> dict[str, objec
             revisions = original_history(*args, **kwargs)
             counts["node_history_records"] += len(revisions)
             return revisions
+
+        def count_node_manifest(*args, **kwargs):
+            counts["node_manifest_reads"] += 1
+            return original_get_node(*args, **kwargs)
 
         def count_packages(*args, **kwargs):
             packages = original_package_list(*args, **kwargs)
@@ -272,14 +296,18 @@ def _measure_real_catalog(root: Path, *, retained_items: int) -> dict[str, objec
             return result
 
         node_store.list_nodes = count_nodes
+        node_store._get_unrecovered = count_node_manifest
         node_store.history = count_history
         app.state.evidence_package_store.list_metadata = count_packages
         analysis_store.list = count_analyses
         pipeline_workspace_service.enumerate_resource_directories = count_directories
         try:
+            started = time.perf_counter()
             response = client.get("/v1/recordings")
+            elapsed_ms = (time.perf_counter() - started) * 1000
         finally:
             node_store.list_nodes = original_list_nodes
+            node_store._get_unrecovered = original_get_node
             node_store.history = original_history
             app.state.evidence_package_store.list_metadata = original_package_list
             analysis_store.list = original_analysis_list
@@ -292,6 +320,7 @@ def _measure_real_catalog(root: Path, *, retained_items: int) -> dict[str, objec
         **counts,
         "recording_count": len(body["recordings"]),
         "response_bytes": len(response.content),
+        "elapsed_ms": round(elapsed_ms, 3),
         "stage_states": [stage["state"] for stage in target["pipeline_status"]["stages"]],
         "latest_analysis_state": target["latest_analysis"]["state"],
         "active_runs": sum(
@@ -302,6 +331,17 @@ def _measure_real_catalog(root: Path, *, retained_items: int) -> dict[str, objec
         "returned_package_ids": target["evidence_package_count"],
         "returned_analysis_rows": target["analysis_count"],
     }
+
+
+def test_head_proof_measures_each_history_source(tmp_path: Path) -> None:
+    small = _measure_real_catalog(tmp_path / "small", retained_items=1, head_proof=True)
+    large = _measure_real_catalog(tmp_path / "large", retained_items=10, head_proof=True)
+    print(f"HEAD proof growth: 1x={small}, 10x={large}")
+    assert small["node_listed"] == large["node_listed"] == 0
+    assert small["node_manifest_reads"] == large["node_manifest_reads"] == 0
+    assert small["node_history_records"] == large["node_history_records"] == 0
+    for counter in ("package_metadata_rows", "analysis_rows_read", "processor_run_directories"):
+        assert large[counter] > small[counter]
 
 
 @pytest.fixture(scope="module")

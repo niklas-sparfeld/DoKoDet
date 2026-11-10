@@ -20,6 +20,11 @@ from dokodetector_backend.intake_contract import (
     parse_source_record,
     parse_task_enrollment,
 )
+from dokodetector_backend.recording_state_store import (
+    RecordingHeadNotFound,
+    RecordingSnapshotCorrupt,
+    RecordingSnapshotNotFound,
+)
 from dokodetector_backend.round_analysis_api import _queue_round_analysis
 from dokodetector_backend.round_analysis_contract import RoundAnalysisStatus
 from dokodetector_backend.round_analysis_service import (
@@ -58,6 +63,7 @@ PipelineStageState = Literal[
     "failed",
     "data-available",
     "complete",
+    "unavailable",
 ]
 
 
@@ -212,10 +218,26 @@ def list_recordings(request: Request) -> RecordingListResponse:
 
     service: RoundAnalysisService = request.app.state.round_analysis_service
     entries = service.recording_catalog()
-    pipeline_statuses = request.app.state.pipeline_workspace_service.get_statuses(
-        [entry.recording.recording_id for entry in entries],
-        analyses_by_recording={entry.recording.recording_id: entry.analyses for entry in entries},
-    )
+    workspace = request.app.state.pipeline_workspace_service
+    ids = [entry.recording.recording_id for entry in entries]
+    analyses = {entry.recording.recording_id: entry.analyses for entry in entries}
+    if request.app.state.settings.recording_list_head_proof:
+        states = {}
+        for recording_id in ids:
+            try:
+                states[recording_id] = request.app.state.recording_state_store.get_current(
+                    recording_id
+                ).summary
+            except (
+                RecordingHeadNotFound,
+                RecordingSnapshotNotFound,
+                RecordingSnapshotCorrupt,
+                OSError,
+            ):
+                states[recording_id] = None
+        pipeline_statuses = workspace.get_head_proof_statuses(ids, states, analyses)
+    else:
+        pipeline_statuses = workspace.get_statuses(ids, analyses_by_recording=analyses)
     return RecordingListResponse(
         recordings=[
             RecordingSummary(
