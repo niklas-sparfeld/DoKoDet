@@ -18,10 +18,26 @@ Checks:
 - Ruff check and format check passed for the changed backend module and tests.
 - `git diff --check` — passed.
 
-The fixture restart uses the persistent run-store fixture and a reopened job manager. No API or
-browser contract changed. The existing Starlette/httpx deprecation warning remains. M6b1a is complete;
-the new five-milestone run has 1 complete and 4 remaining, with 0/10 run re-plannings and 0/5 for
-M6b1a. Next is M6b1b. M6b1b still owns bounded acceptance-key, sequence, and parent-step authority.
+The child-completion regression uses the local run-store fixture. The initial cancellation regression
+only reused its in-memory run document and did not cover a crash before the observer; correction 1/2
+below adds persisted restart evidence. No API or browser contract changed. The existing
+Starlette/httpx deprecation warning remains. M6b1a remains complete after this correction; the new
+five-milestone run has 1 complete and 4 remaining, with 0/10 run re-plannings and 0/5 for M6b1a.
+Next is M6b1b. M6b1b still owns bounded acceptance-key, sequence, and parent-step authority.
+
+## Correction 1/2 — recover cancellation after child write
+
+Date: 2026-11-10
+
+Review found that a crash after the terminal child job write but before the transition observer left
+the run document without cancelled stage status or input lineage. Startup reconciliation now finds
+the cancelled child for the parent's current phase, resolves the stage's frozen input revisions, and
+stores the cancelled stage before it finishes the run as cancelled. The regression uses
+`AutomatedPipelineRunStore` on disk, crashes before the observer, reopens the job manager and run
+store, then verifies cancelled parent and run state, child identity, stage status, and input lineage.
+
+Checks: `cd backend && uv run pytest -q tests/test_automated_pipeline_jobs.py -k cancelled_child_stage` — passed.
+The initial full suite count above is 81 (not the stale 79 in the prior handoff).
 
 Date: 2026-11-09
 

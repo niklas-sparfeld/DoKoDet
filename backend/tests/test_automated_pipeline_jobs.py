@@ -7,7 +7,9 @@ from uuid import uuid4
 
 import pytest
 
+from dokodetector_backend.automated_pipeline_contracts import StageDefinition
 from dokodetector_backend.automated_pipeline_jobs import AutomatedPipelineJobParticipant
+from dokodetector_backend.automated_pipeline_run import AutomatedPipelineRunStore
 from dokodetector_backend.job_models import Job
 from dokodetector_backend.job_scheduler import Claims, JobScheduler
 from dokodetector_backend.job_store import JobManager
@@ -443,8 +445,25 @@ def test_succeeded_child_without_complete_result_does_not_complete_stage(tmp_pat
 
 def test_cancelled_child_stage_keeps_lineage_after_restart(tmp_path: Path) -> None:
     run_id = str(uuid4())
-    document, _service, participant = _participant(run_id)
-    participant._resolve_inputs = lambda *_args: ("input-revision",)
+    run_store = AutomatedPipelineRunStore(tmp_path / "pipeline-runs")
+    run_store.create(_document(run_id))
+
+    class _PersistedService:
+        store = run_store
+
+        def read(self, requested_run_id: str) -> dict:
+            return self.store.get(requested_run_id)
+
+    service = _PersistedService()
+    participant = AutomatedPipelineJobParticipant(service, object())
+    participant._child_request = lambda _parent, definition, _inputs: {
+        "type": "fake",
+        "context": {"recording_id": "recording-1"},
+        "request": {"input": f"stage:{definition.name}"},
+    }
+    participant._stage_plan = lambda _document: (
+        StageDefinition("event_proposals", {}, ("input-revision",)),
+    )
     with _manager(tmp_path, participant) as manager:
         parent = manager.accept(
             str(uuid4()),
@@ -462,20 +481,35 @@ def test_cancelled_child_stage_keeps_lineage_after_restart(tmp_path: Path) -> No
             manager,
         )
         child = next(job for job in manager.list_jobs() if job.parent_id == parent.id)
-        participant._set_stage(
-            run_id, child.parent_step_id, "running", child.id, ("input-revision",)
+        run_store.update(
+            run_id,
+            lambda current: current["stages"][0].update(
+                {
+                    "status": "running",
+                    "child_job_id": child.id,
+                    "input_revision_ids": ["input-revision"],
+                }
+            ),
         )
         manager.transition(child.id, "running")
         manager.cancel(parent.id)
-        manager.transition(child.id, "cancelled")
-        assert document["stages"][0]["status"] == "cancelled"
-        assert document["stages"][0]["input_revision_ids"] == ["input-revision"]
+        original_observer = participant.job_transitioned
+
+        def crash_before_observer(_job: Job, _manager: JobManager) -> None:
+            raise RuntimeError("crash after cancelled child persistence")
+
+        participant.job_transitioned = crash_before_observer
+        with pytest.raises(RuntimeError, match="crash after cancelled child persistence"):
+            manager.transition(child.id, "cancelled")
+        participant.job_transitioned = original_observer
 
     with _manager(tmp_path, participant) as manager:
         manager.participant.reconcile(manager)
-        assert document["status"] == "cancelled"
-        assert document["stages"][0]["status"] == "cancelled"
-        assert document["stages"][0]["input_revision_ids"] == ["input-revision"]
+        recovered = run_store.get(run_id)
+        assert manager.get(parent.id).state == "cancelled"
+        assert recovered["status"] == "cancelled"
+        assert recovered["stages"][0]["status"] == "cancelled"
+        assert recovered["stages"][0]["input_revision_ids"] == ["input-revision"]
 
 
 def test_parent_retry_reuses_verified_completed_stage_and_keeps_failed_history(

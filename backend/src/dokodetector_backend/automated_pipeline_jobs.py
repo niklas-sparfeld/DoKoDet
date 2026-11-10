@@ -68,6 +68,7 @@ class AutomatedPipelineJobParticipant:
         for document in self.service.store.resumable():
             job = by_run.get(str(document["run_id"]))
             if job is not None and job.state == "cancelled":
+                self._reconcile_cancelled_stage(document, job, by_id)
                 self.service.store.finish(str(document["run_id"]), status="cancelled")
                 continue
             if job is not None and job.state in {"failed", "cancelled", "interrupted"}:
@@ -99,6 +100,32 @@ class AutomatedPipelineJobParticipant:
                 continue
             inputs = self._resolve_inputs_from_jobs(job, definition, by_id)
             self._set_stage(str(document["run_id"]), definition.name, child.state, child.id, inputs)
+
+    def _reconcile_cancelled_stage(
+        self, document: dict[str, Any], parent: Job, jobs_by_id: dict[str, Job]
+    ) -> None:
+        if parent.phase is None:
+            return
+        definition = next(
+            (item for item in self._stage_plan(document) if item.name == parent.phase), None
+        )
+        if definition is None:
+            return
+        step = next((item for item in parent.steps if item.id == parent.phase), None)
+        child = jobs_by_id.get(step.child_job_id) if step and step.child_job_id else None
+        if child is None:
+            matches = [
+                item
+                for item in jobs_by_id.values()
+                if item.parent_id == parent.id
+                and item.parent_step_id == parent.phase
+                and item.state == "cancelled"
+            ]
+            child = matches[0] if len(matches) == 1 else None
+        if child is None or child.state != "cancelled":
+            return
+        inputs = self._resolve_inputs_from_jobs(parent, definition, jobs_by_id)
+        self._cancel_stage(str(parent.request["run_id"]), definition.name, child.id, inputs)
 
     def job_transitioned(self, child: Job, manager: JobManager) -> None:
         if child.parent_id is None or child.parent_step_id is None:
