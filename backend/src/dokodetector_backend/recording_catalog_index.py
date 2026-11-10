@@ -264,15 +264,16 @@ class RecordingCatalogIndex:
 
     def pending_processor_runs(self) -> tuple[dict[str, Any], ...]:
         """Return only explicit processor-run intents awaiting reconciliation."""
-        if not self.outbox.exists():
-            return ()
-        records = []
-        for path in sorted(self.outbox.glob("*.json")):
-            record = self._read_required(path)
-            if record.get("schema_version") == "recording-catalog-run-intent/v1":
-                self._validate_run_intent(record)
-                records.append(record)
-        return tuple(records)
+        with _process_lock(self.root / "publication.lock", self._thread_lock):
+            if not self.outbox.exists():
+                return ()
+            records = []
+            for path in sorted(self.outbox.glob("*.json")):
+                record = self._read_required(path)
+                if record.get("schema_version") == "recording-catalog-run-intent/v1":
+                    self._validate_run_intent(record)
+                    records.append(record)
+            return tuple(records)
 
     def pending_processor_run(self, source_key: str) -> dict[str, Any] | None:
         """Read one exact processor-run intent without scanning the pending directory."""
@@ -283,18 +284,19 @@ class RecordingCatalogIndex:
 
     def pending_processor_publication(self, source_key: str) -> dict[str, Any] | None:
         """Read one exact run intent or publication record without scanning the outbox."""
-        record = self._read_optional(self._outbox_path(source_key))
-        if record is None:
-            return None
-        if record.get("schema_version") == "recording-catalog-run-intent/v1":
-            self._validate_run_intent(record)
-        elif record.get("schema_version") == "recording-catalog-outbox/v1":
-            self._validate_outbox(record)
-        else:
-            raise RecordingCatalogError("pending processor-run publication is corrupt")
-        if record.get("source_key") != source_key:
-            raise RecordingCatalogError("pending processor-run source identity is corrupt")
-        return record
+        with _process_lock(self.root / "publication.lock", self._thread_lock):
+            record = self._read_optional(self._outbox_path(source_key))
+            if record is None:
+                return None
+            if record.get("schema_version") == "recording-catalog-run-intent/v1":
+                self._validate_run_intent(record)
+            elif record.get("schema_version") == "recording-catalog-outbox/v1":
+                self._validate_outbox(record)
+            else:
+                raise RecordingCatalogError("pending processor-run publication is corrupt")
+            if record.get("source_key") != source_key:
+                raise RecordingCatalogError("pending processor-run source identity is corrupt")
+            return record
 
     def finalize_processor_run(self, source_key: str, *, observed_state_digest: str) -> None:
         """Apply an intent after its exact authoritative run state has committed."""

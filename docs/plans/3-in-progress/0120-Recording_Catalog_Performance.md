@@ -255,10 +255,13 @@ its old reader until M5/M6. Initial status was reported complete with 4/8 accept
 sanity review found a recovery race and a same-process receipt-replay gap, so M3 acceptance is
 pending correction. Current goal progress is 3/8 accepted and 5 remain. Run re-plannings are 1/10;
 the M3 scope-review re-planning is 1/5. M0 corrections remain 1/2, M1 corrections 2/2, M2
-corrections 1/2, and M3 corrections are now 1/2. The correction must serialize exact-run recovery
-with writers and recover a converted ordinary outbox record on same-process retry. Correction 1/2
-implements both fixes and keeps the separate restart receipt-gap regression. The expanded targeted
-tests, lint, format and diff checks pass; see the M3 report for details. Sanity review acceptance
-is pending. Goal progress remains 3/8 accepted and 5 remain. No new contract or authority was
-added. Do not start M4 until acceptance. Stop if recovery needs another contract or cannot be made
-safe within the remaining correction turn.
+corrections 1/2, and M3 corrections are now 2/2. Correction 1/2 serialized exact-run recovery
+with writers and added same-process replay of a converted ordinary outbox record. Correction 2/2
+protects the pending-intent snapshot with the catalog publication lock, releases that lock before
+per-run recovery, and keeps the exact reread under the run lock. Tests also cover intent removal and
+replacement during enumeration and cancellation of a create intent when its staged directory never
+commits. Prior overlap, concurrent recovery, same-process retry and restart receipt-gap tests remain.
+The targeted tests, lint, format and diff checks pass; see the M3 report. Sanity review acceptance
+is pending and the M3 correction allowance is exhausted. Goal progress remains 3/8 accepted and 5
+remain. No new contract or authority was added. Do not start M4 until acceptance. If re-review does
+not accept, perform scope review before further M3 work.

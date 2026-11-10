@@ -64,3 +64,23 @@ targeted test set, Ruff checks, format checks and `git diff --check` pass after 
 Sanity review acceptance is pending. Current goal progress remains 3/8 accepted and 5 remain; run
 re-plannings are 1/10; M3 scope-review re-plannings are 1/5; M3 corrections are 1/2. Production
 cutover and retained-data conversion remain scheduled for M5/M6. No later milestone was added.
+
+## Correction 2/2
+
+Review found that `pending_processor_runs()` read the outbox without its publication lock. It now
+copies and validates pending intents while holding that lock, then returns before recovery acquires
+any run locks. Recovery still takes the exact run lock and rereads the pending record under the
+publication lock. This keeps lock order consistent: snapshot uses only publication; reconciliation
+uses run then publication.
+
+New concurrency checks hold an enumeration while another operation removes an intent and while a
+writer finalizes and replaces an intent. The snapshot returns a valid record, and each mutation
+finishes after the snapshot releases the publication lock. A separate create crash test stops before
+the staged run directory commits; restart sees the exact run absent and cancels the intent without
+adding a catalog row. Tests from both earlier corrections remain, including overlapping live writer
+recovery, concurrent recovery, same-process retry, and restart receipt-gap replay.
+
+The targeted backend tests, Ruff, format, Markdown link and diff checks pass. Sanity review acceptance
+is pending, and the M3 correction allowance is exhausted at 2/2. Goal progress remains 3/8 accepted
+and 5 remain. Run re-plannings are 1/10; the M3 scope-review count is 1/5. Do not start M4 before
+acceptance. If re-review does not accept, perform scope review before further M3 work.

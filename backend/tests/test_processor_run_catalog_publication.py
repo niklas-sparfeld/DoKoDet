@@ -17,8 +17,9 @@ from doko_operations.pipeline_data import (
 from test_pipeline_store import request
 from test_round_analysis_api import RECORDING_ID, _backend
 
+from dokodetector_backend import processor_run_store as run_store_module
 from dokodetector_backend import recording_catalog_index as catalog_module
-from dokodetector_backend.pipeline_storage import PipelineRuntimeStorage
+from dokodetector_backend.pipeline_storage import PipelineRuntimeStorage, PipelineStoreError
 from dokodetector_backend.processor_run_store import ProcessorRunStore
 from dokodetector_backend.recording_catalog_index import (
     RecordingCatalogError,
@@ -104,6 +105,25 @@ def test_pending_run_intent_cancels_when_source_state_did_not_commit(tmp_path: P
     assert restarted_catalog.read("recording-01")["counters"] == {
         "processor_run:event-detection:queued": 1
     }
+    assert restarted_catalog.pending_processor_runs() == ()
+
+
+def test_create_intent_cancels_when_staged_run_never_commits(tmp_path: Path, monkeypatch) -> None:
+    store, catalog = _stores(tmp_path)
+
+    def stop_before_directory_commit(*_args, **_kwargs):
+        raise OSError("simulated stop before run directory commit")
+
+    monkeypatch.setattr(run_store_module, "commit_staged_directory", stop_before_directory_commit)
+    with pytest.raises(PipelineStoreError, match="could not be created"):
+        store.create(_request())
+    monkeypatch.undo()
+
+    assert not store.run_path("catalog-run").exists()
+    assert len(catalog.pending_processor_runs()) == 1
+    restarted, restarted_catalog = _stores(tmp_path)
+    assert restarted.recover_catalog_publications() == 1
+    assert restarted_catalog.read("recording-01") is None
     assert restarted_catalog.pending_processor_runs() == ()
 
 
@@ -203,6 +223,112 @@ def test_concurrent_recovery_rechecks_exact_intent_under_run_lock(tmp_path: Path
     assert catalog.pending_processor_runs() == ()
     assert store.require(run.run_id).state.status == "queued"
     assert catalog.read("recording-01")["counters"] == {"processor_run:event-detection:queued": 1}
+
+
+def test_pending_intent_snapshot_serializes_with_removal(tmp_path: Path, monkeypatch) -> None:
+    store, catalog = _stores(tmp_path)
+    run, _ = store.create(_request(), created_at="2026-09-05T10:00:00Z")
+    old_digest = hashlib.sha256(store.state_path(run.run_id).read_bytes()).hexdigest()
+    target = replace(run.state, status="running", started_at="2026-09-05T10:01:00Z")
+    store._prepare_run_catalog_intent(
+        run.request,
+        target,
+        old_state_digest=old_digest,
+        target_state_bytes=canonical_processor_run_state_bytes(target),
+    )
+    _, remover_catalog = _stores(tmp_path)
+    snapshot_reading = Event()
+    release_snapshot = Event()
+    removal_done = Event()
+    read_required = catalog._read_required
+
+    def pause_snapshot(path):
+        if Path(path).parent == catalog.outbox:
+            snapshot_reading.set()
+            if not release_snapshot.wait(timeout=5):
+                raise TimeoutError("snapshot test was not released")
+        return read_required(path)
+
+    monkeypatch.setattr(catalog, "_read_required", pause_snapshot)
+
+    def snapshot():
+        return catalog.pending_processor_runs()
+
+    def remove_intent():
+        try:
+            remover_catalog.cancel_processor_run(
+                "processor-run:catalog-run", observed_state_digest=old_digest
+            )
+        finally:
+            removal_done.set()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        snapshot_future = executor.submit(snapshot)
+        assert snapshot_reading.wait(timeout=5)
+        removal_future = executor.submit(remove_intent)
+        assert removal_done.wait(timeout=0.1) is False
+        release_snapshot.set()
+        snapshot_result = snapshot_future.result()
+        removal_future.result()
+
+    assert len(snapshot_result) == 1
+    assert snapshot_result[0]["run_id"] == "catalog-run"
+    assert remover_catalog.pending_processor_runs() == ()
+    assert store.require("catalog-run").state.status == "queued"
+
+
+def test_pending_intent_snapshot_serializes_with_finalize(tmp_path: Path, monkeypatch) -> None:
+    writer, catalog = _stores(tmp_path)
+    writer.create(_request(), created_at="2026-09-05T10:00:00Z")
+    intent_written = Event()
+    release_writer = Event()
+    finalize_started = Event()
+    snapshot_reading = Event()
+    release_snapshot = Event()
+    prepare = writer._prepare_run_catalog_intent
+    finalize = writer._finalize_run_catalog_intent
+    read_required = catalog._read_required
+
+    def pause_after_intent(*args, **kwargs):
+        result = prepare(*args, **kwargs)
+        intent_written.set()
+        if not release_writer.wait(timeout=5):
+            raise TimeoutError("writer test was not released")
+        return result
+
+    def mark_finalize_started(run_id, state_bytes):
+        finalize_started.set()
+        return finalize(run_id, state_bytes)
+
+    def pause_snapshot(path):
+        if Path(path).parent == catalog.outbox:
+            snapshot_reading.set()
+            if not release_snapshot.wait(timeout=5):
+                raise TimeoutError("snapshot test was not released")
+        return read_required(path)
+
+    monkeypatch.setattr(writer, "_prepare_run_catalog_intent", pause_after_intent)
+    monkeypatch.setattr(writer, "_finalize_run_catalog_intent", mark_finalize_started)
+    monkeypatch.setattr(catalog, "_read_required", pause_snapshot)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        writer_future = executor.submit(
+            writer.start, "catalog-run", started_at="2026-09-05T10:01:00Z"
+        )
+        if not intent_written.wait(timeout=5):
+            raise writer_future.exception() or AssertionError("writer did not prepare an intent")
+        snapshot_future = executor.submit(catalog.pending_processor_runs)
+        assert snapshot_reading.wait(timeout=5)
+        release_writer.set()
+        assert finalize_started.wait(timeout=5)
+        release_snapshot.set()
+        snapshot = snapshot_future.result()
+        assert writer_future.result().state.status == "running"
+
+    assert len(snapshot) == 1
+    assert snapshot[0]["run_id"] == "catalog-run"
+    assert catalog.pending_processor_runs() == ()
+    assert catalog.read("recording-01")["counters"] == {"processor_run:event-detection:running": 1}
 
 
 def test_create_source_commit_before_index_is_recovered_by_exact_intent(
