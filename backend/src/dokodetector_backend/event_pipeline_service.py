@@ -61,6 +61,7 @@ from dokodetector_backend.recording_bundle_store import (
     RecordingBundleStore,
     StoredRecordingBundle,
 )
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.video_probe import VideoProbeError, probe_video_path_metadata
 
@@ -304,9 +305,11 @@ class EventPipelineService:
         event_provider: EventProcessorProvider | None = None,
         run_store: ProcessorRunStore,
         selection_store: PipelineNodeSelectionStore,
+        recording_folder_store: RecordingFolderStore | None = None,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
+        self.recording_folder_store = recording_folder_store
         self.repository_storage = repository_storage
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.run_store = run_store
@@ -326,17 +329,30 @@ class EventPipelineService:
     def get_recording_source(self, recording_id: str) -> RecordingVideoSource:
         """Return the accepted source identity for a read-only workspace snapshot."""
 
-        bundle = self.recording_store.get_metadata(recording_id)
-        if bundle is None:
-            raise PipelineNotFound(f"The recording was not found: {recording_id}")
-        video_path = self.repository_storage.bundle_path(recording_id) / self._video_relative_path(
-            recording_id
+        recording = (
+            self.recording_folder_store.get(recording_id)
+            if self.recording_folder_store is not None
+            else None
         )
+        bundle = None if recording is not None else self.recording_store.get_metadata(recording_id)
+        if recording is None and bundle is None:
+            raise PipelineNotFound(f"The recording was not found: {recording_id}")
+        if recording is not None:
+            video_path = (
+                self.recording_folder_store.recording_path(recording_id)
+                / recording.media["relative_path"]
+            )
+            source_sha256 = recording.media["sha256"]
+        else:
+            video_path = self.repository_storage.bundle_path(
+                recording_id
+            ) / self._video_relative_path(recording_id)
+            source_sha256 = bundle.source_sha256
         try:
             video_stat = video_path.stat()
         except OSError as error:
             raise PipelineInputError("The accepted recording video is unavailable.") from error
-        cache_key = (video_stat.st_mtime_ns, video_stat.st_size, bundle.source_sha256)
+        cache_key = (video_stat.st_mtime_ns, video_stat.st_size, source_sha256)
         with self._lock:
             cached = self._workspace_sources.get(recording_id)
             if cached is not None and cached[0] == cache_key:
@@ -346,18 +362,22 @@ class EventPipelineService:
             probe = probe_video_path_metadata(video_path)
         except VideoProbeError as error:
             raise PipelineInputError("The accepted recording video could not be probed.") from error
+        storage_root = getattr(self.settings, "storage_root", None)
+        path_root = storage_root or self.settings.repository_root
         try:
+            relative_path = video_path.resolve().relative_to(path_root.resolve()).as_posix()
+        except ValueError:
+            if recording is None:
+                raise PipelineInputError(
+                    "The accepted recording video is outside the repository root."
+                ) from None
             relative_path = (
-                video_path.resolve().relative_to(self.settings.repository_root).as_posix()
-            )
-        except ValueError as error:
-            raise PipelineInputError(
-                "The accepted recording video is outside the repository root."
-            ) from error
+                Path("data/recordings") / recording_id / recording.media["relative_path"]
+            ).as_posix()
         source = RecordingVideoSource(
             recording_id=recording_id,
             relative_path=relative_path,
-            video_sha256=bundle.source_sha256,
+            video_sha256=source_sha256,
             byte_length=video_stat.st_size,
             duration_us=probe.duration_ms * 1000,
         )

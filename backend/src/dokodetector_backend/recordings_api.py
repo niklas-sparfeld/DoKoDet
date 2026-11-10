@@ -28,11 +28,6 @@ from dokodetector_backend.round_analysis_service import (
     RoundAnalysisValidationError,
 )
 from dokodetector_backend.stored_models import StoredRoundAnalysis
-from dokodetector_backend.video_probe import (
-    VideoProbeError,
-    VideoProbeUnavailable,
-    probe_video_path_metadata,
-)
 
 router = APIRouter()
 RECORDING_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
@@ -213,7 +208,7 @@ class RecordingDetailResponse(BaseModel):
     state: str
     source_sha256: str
     received_at: datetime
-    round_id: str
+    round_id: str | None
     source: RecordingSourceResponse
     video: RecordingVideoResponse
     evidence_package_ids: list[UUID]
@@ -386,27 +381,21 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
     if RECORDING_ID_PATTERN.fullmatch(recording_id) is None:
         raise ContractError("invalid_recording_id", "The recording ID is invalid.")
 
-    service: RoundAnalysisService = request.app.state.round_analysis_service
-    entry = next(
-        (
-            candidate
-            for candidate in service.recording_catalog()
-            if candidate.recording.recording_id == recording_id
-        ),
-        None,
-    )
-    if entry is None:
+    stored = request.app.state.recording_folder_store.get(recording_id)
+    if stored is None:
         raise ContractError(
             "recording_not_found",
             "The recording was not found.",
             status_code=404,
         )
-
-    bundle_path = request.app.state.repository_bundle_storage.bundle_path(recording_id)
     try:
-        source = parse_source_record((bundle_path / "source-record.json").read_bytes())
+        source = parse_source_record(
+            json.dumps(stored.source, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        )
         enrollments = parse_task_enrollment(
-            (bundle_path / "initial-task-enrollment.json").read_bytes()
+            json.dumps(stored.task_enrollment, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
         )
     except (OSError, TypeError, ValueError) as error:
         raise ContractError(
@@ -415,14 +404,13 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
             status_code=500,
         ) from error
 
-    recording = entry.recording
     if (
-        source.source_asset_id != recording.source_asset_id
-        or source.sha256 != recording.source_sha256
-        or source.recording_id != recording.recording_id
-        or source.video_id != recording.video_id
-        or source.session_id != recording.session_id
-        or enrollments.source_asset_id != recording.source_asset_id
+        source.source_asset_id != stored.source_asset_id
+        or source.sha256 != stored.media["sha256"]
+        or source.recording_id != stored.recording_id
+        or source.video_id != stored.video_id
+        or source.session_id != stored.session_id
+        or enrollments.source_asset_id != stored.source_asset_id
     ):
         raise ContractError(
             "recording_metadata_invalid",
@@ -430,15 +418,31 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
             status_code=500,
         )
 
+    analyses = request.app.state.round_analysis_store.list_by_recording(recording_id)
+    round_analysis_service: RoundAnalysisService = request.app.state.round_analysis_service
+    packages = []
+    for package in round_analysis_service.package_store.list_metadata():
+        if package.state != "stored":
+            continue
+        try:
+            lineage = round_analysis_service._read_lineage(package)
+        except RoundAnalysisValidationError:
+            continue
+        if lineage.parent_recording_id == recording_id and lineage.session_id == stored.session_id:
+            packages.append(package)
+    evidence_package_ids = [package.package_id for package in packages]
+    can_start_analysis = bool(
+        packages
+    ) or round_analysis_service._has_selected_table_observation_ref(recording_id)
     return RecordingDetailResponse(
-        recording_id=recording.recording_id,
-        source_asset_id=recording.source_asset_id,
-        video_id=recording.video_id,
-        session_id=recording.session_id,
-        state=recording.state,
-        source_sha256=recording.source_sha256,
-        received_at=recording.received_at,
-        round_id=entry.round_id,
+        recording_id=stored.recording_id,
+        source_asset_id=stored.source_asset_id,
+        video_id=stored.video_id,
+        session_id=stored.session_id,
+        state="complete",
+        source_sha256=stored.media["sha256"],
+        received_at=stored.received_at,
+        round_id=source.round_id or (analyses[0].round_id if analyses else None),
         source=RecordingSourceResponse(
             original_filename=source.original_filename,
             acquisition_method=source.acquisition_method,
@@ -456,14 +460,22 @@ def get_recording(recording_id: str, request: Request) -> RecordingDetailRespons
         ),
         video=RecordingVideoResponse(
             url=f"/v1/repository-bundles/{recording_id}/video",
-            content_type="video/quicktime",
-            media_facts=_probe_recording_video(bundle_path),
+            content_type=stored.media["media_type"],
+            media_facts=(
+                RecordingMediaFactsResponse.model_validate(stored.media_facts)
+                if stored.media_facts is not None
+                else None
+            ),
         ),
-        evidence_package_ids=list(entry.evidence_package_ids),
+        evidence_package_ids=evidence_package_ids,
         task_enrollments=[_task_enrollment_response(item) for item in enrollments.enrollments],
-        analyses=[_analysis_summary(analysis) for analysis in entry.analyses],
-        can_start_analysis=entry.can_start_analysis,
-        analysis_blocker=entry.analysis_blocker,
+        analyses=[_analysis_summary(analysis) for analysis in analyses],
+        can_start_analysis=can_start_analysis,
+        analysis_blocker=(
+            None
+            if can_start_analysis
+            else "No selected table observations or linked evidence packages are available."
+        ),
     )
 
 
@@ -514,26 +526,4 @@ def _task_enrollment_response(item: TaskEnrollment) -> RecordingTaskEnrollmentRe
         operator=item.operator,
         created_at_utc=item.created_at_utc,
         reason=item.reason,
-    )
-
-
-def _probe_recording_video(bundle_path: Path) -> RecordingMediaFactsResponse | None:
-    """Read optional media facts without making the recording route depend on ffprobe."""
-
-    try:
-        video_directory = bundle_path / "videos"
-        video_paths = tuple(sorted(video_directory.glob("*.mov")))
-        if len(video_paths) != 1:
-            return None
-        probe = probe_video_path_metadata(video_paths[0])
-    except (OSError, TypeError, VideoProbeError, VideoProbeUnavailable):
-        return None
-    return RecordingMediaFactsResponse(
-        container=probe.container,
-        video_codec=probe.video_codec,
-        width=probe.width,
-        height=probe.height,
-        nominal_frame_rate=probe.nominal_frame_rate,
-        duration_ms=probe.duration_ms,
-        frame_count=probe.frame_count,
     )

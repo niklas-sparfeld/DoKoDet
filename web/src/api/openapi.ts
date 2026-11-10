@@ -3331,7 +3331,7 @@ export interface components {
             /** Recording Id */
             recording_id: string;
             /** Round Id */
-            round_id: string;
+            round_id: string | null;
             /** Session Id */
             session_id: string;
             source: components["schemas"]["RecordingSourceResponse"];

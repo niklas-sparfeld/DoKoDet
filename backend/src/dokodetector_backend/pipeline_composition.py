@@ -25,6 +25,7 @@ from dokodetector_backend.proposed_card_scene_pipeline_service import (
     ProposedCardScenePipelineService,
 )
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 from dokodetector_backend.visible_card_pipeline_service import VisibleCardPipelineService
@@ -73,6 +74,7 @@ def build_pipeline_composition(
     event_provider: EventProcessorProvider | None,
     visible_card_providers: Any | None = None,
     visible_card_identity_classifiers: Any | None = None,
+    recording_folder_store: RecordingFolderStore | None = None,
 ) -> PipelineComposition:
     """Create shared pipeline stores and services with explicit dependencies."""
 
@@ -93,6 +95,7 @@ def build_pipeline_composition(
         event_provider=event_provider,
         run_store=run_store,
         selection_store=selection_store,
+        recording_folder_store=recording_folder_store,
     )
     comparison_service = PipelineComparisonService(
         selection_store=selection_store,

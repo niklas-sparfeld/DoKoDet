@@ -61,6 +61,7 @@ def _backend(
             evidence_root=tmp_path / "runtime",
             evidence_package_intake_root=tmp_path / "intake" / "evidence-packages",
             repository_intake_root=tmp_path / "intake" / "recordings",
+            recordings_root=tmp_path / "data" / "recordings",
             gemini_max_concurrent_requests=max_concurrent_requests,
         ),
         run_round_analysis_synchronously=synchronous,
@@ -152,6 +153,7 @@ def _write_recording_bundle(app: object) -> None:
         byte_length=len(proposal_bytes), sha256=hashlib.sha256(proposal_bytes).hexdigest()
     )
     (bundle_path / "manifest.json").write_text(json.dumps(manifest, separators=(",", ":")))
+    app.state.recording_folder_store.publish_bundle(bundle_path, recording_id=RECORDING_ID)
 
 
 def test_recording_detail_projects_source_video_and_workflow(
@@ -340,12 +342,14 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
         },
         {
             "schema_version": "event-data/v1",
-            "events": [{
-                "event_id": "event-1",
-                "event_type": "card_state_changed",
-                "start_us": 10,
-                "end_us": 20,
-            }],
+            "events": [
+                {
+                    "event_id": "event-1",
+                    "event_type": "card_state_changed",
+                    "start_us": 10,
+                    "end_us": 20,
+                }
+            ],
         },
         {},
     )
@@ -386,28 +390,34 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
     ):
         selection_path = node_store.root / ".pipeline-node-selections" / RECORDING_ID
         selection_path.mkdir(parents=True, exist_ok=True)
-        (selection_path / f"{content_type}.json").write_text(json.dumps({
-            "schema_version": "pipeline-node-selection/v1",
-            "recording_id": RECORDING_ID,
-            "content_type": content_type,
-            "revision": revision_number,
-            "selected_generated": (
-                {"node_id": node_id, "revision_id": "missing-revision"}
-                if content_type == "virtual_scenes"
-                else None
-            ),
-            "selected_completed_reference": (
-                {"node_id": node_id, "revision_id": "missing-reference"}
-                if content_type == "card_scene_proposals"
-                else None
-            ),
-            "updated_at": "2026-11-10T00:00:00Z",
-        }, separators=(",", ":"), sort_keys=True))
+        (selection_path / f"{content_type}.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "pipeline-node-selection/v1",
+                    "recording_id": RECORDING_ID,
+                    "content_type": content_type,
+                    "revision": revision_number,
+                    "selected_generated": (
+                        {"node_id": node_id, "revision_id": "missing-revision"}
+                        if content_type == "virtual_scenes"
+                        else None
+                    ),
+                    "selected_completed_reference": (
+                        {"node_id": node_id, "revision_id": "missing-reference"}
+                        if content_type == "card_scene_proposals"
+                        else None
+                    ),
+                    "updated_at": "2026-11-10T00:00:00Z",
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
 
     # A damaged root remains visible as an unavailable row.
-    corrupt = app.state.repository_bundle_storage.root / "corrupt-recording"
+    corrupt = app.state.recording_folder_store.root / "corrupt-recording"
     corrupt.mkdir()
-    (corrupt / "manifest.json").write_text("{")
+    (corrupt / "recording.json").write_text("{")
 
     before = client.get("/v1/recordings")
     assert before.status_code == 200
@@ -421,12 +431,12 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
     assert by_type["table_observations"]["state"] == "unavailable"
     assert by_type["visual_identities"]["state"] == "unavailable"
     assert by_type["virtual_scenes"]["selected_generated"]["revision_id"] == "missing-revision"
-    assert by_type["card_scene_proposals"]["selected_completed_reference"][
-        "revision_id"
-    ] == "missing-reference"
+    assert (
+        by_type["card_scene_proposals"]["selected_completed_reference"]["revision_id"]
+        == "missing-reference"
+    )
     corrupt_row = next(
-        item for item in before.json()["recordings"]
-        if item["recording_id"] == "corrupt-recording"
+        item for item in before.json()["recordings"] if item["recording_id"] == "corrupt-recording"
     )
     assert corrupt_row["metadata_state"] == "unavailable"
 
@@ -436,20 +446,29 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
     invalid_selection_row = next(
         item for item in invalid_selection_rows if item["recording_id"] == RECORDING_ID
     )
-    assert next(
-        item
-        for item in invalid_selection_row["selections"]
-        if item["content_type"] == "visual_identities"
-    )["state"] == "unavailable"
+    assert (
+        next(
+            item
+            for item in invalid_selection_row["selections"]
+            if item["content_type"] == "visual_identities"
+        )["state"]
+        == "unavailable"
+    )
     with_pending_locator = (
         node_store.root / ".coordinated-transactions" / ".locator" / "pending.json"
     )
     with_pending_locator.parent.mkdir(parents=True, exist_ok=True)
-    with_pending_locator.write_text(json.dumps({
-        "schema_version": "pipeline-node-pending-transaction/v1",
-        "transaction_id": "pending-transaction",
-        "request_digest": "f" * 64,
-    }, separators=(",", ":"), sort_keys=True))
+    with_pending_locator.write_text(
+        json.dumps(
+            {
+                "schema_version": "pipeline-node-pending-transaction/v1",
+                "transaction_id": "pending-transaction",
+                "request_digest": "f" * 64,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )
     pending = client.get("/v1/recordings").json()["recordings"]
     pending_row = next(item for item in pending if item["recording_id"] == RECORDING_ID)
     assert {item["state"] for item in pending_row["selections"]} == {"unavailable"}
@@ -460,9 +479,7 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
     after_row = next(
         item for item in after.json()["recordings"] if item["recording_id"] == RECORDING_ID
     )
-    after_selections = {
-        item["content_type"]: item for item in after_row["selections"]
-    }
+    after_selections = {item["content_type"]: item for item in after_row["selections"]}
     assert after_selections["events"] == by_type["events"]
     assert after_selections["visual_identities"]["state"] == "unavailable"
 

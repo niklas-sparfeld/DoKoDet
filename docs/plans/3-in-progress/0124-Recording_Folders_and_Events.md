@@ -110,9 +110,11 @@ M0 evidence: `test_recording_folder_store.py` covers root publication, source/in
 replacement, stale-version conflict, persisted list/media API reads after app restart, and exact
 source bytes. `test_operator_corpus_import.py` verifies import without changing the operator source.
 `test_recording_catalog_growth_contract.py` retains the 0123 history-growth and concurrent-read
-regressions. The recording-folder Playwright proof checks list navigation and media access in a real
-browser. Checks passed with Python focused tests and Ruff, web build, and the recording-folder
-Playwright test. A broader `test_app.py` run also reproduced the known unrelated
+regressions. A backend test forbids the old recording metadata readers while it opens detail and
+workspace APIs. The recording-folder Playwright proof opens the recording from the list, verifies
+loaded workspace and accepted-video content after reload, then opens playable media in the browser.
+It uses a disposable generated video. Checks passed with Python focused tests and Ruff, web build,
+and the recording-folder Playwright test. A broader `test_app.py` run also reproduced the known unrelated
 `test_factory_converts_interrupted_round_analysis_to_failed` failure. The round-analysis lifecycle
 owns that follow-up; it does not block M0.
 
@@ -124,9 +126,10 @@ cross-store transactions. Final closure check remains the disposable retained-da
 event-only old-path cutover in M3.
 
 Baseline: 4 milestones; 3 remain. M0 proves the recording-folder import/list/media-open/restart
-workflow. Event browser proof remains scheduled for M1; qualification remains in M3. The run limit
-is 4 milestones; 1 is complete and 3 remain available. M0 used 0 replans and 0 corrections; the
-run used 0 replans. No new source owners or persistent contracts were added beyond the planned
+workflow, including root-backed detail and workspace reads. Event editing browser proof remains
+scheduled for M1; qualification remains in M3. The run limit is 4 milestones; 1 is complete and 3
+remain available. M0 used 0 replans and 1 correction of 2; the run used 0 replans. No new source
+owners or persistent contracts were added beyond the planned
 recording root. Next: specify the event-set contract and exact event editor/read/write call sites
 for M1 before assignment. Last scope decision: keep the four planned milestones; M0 removed no
 event or qualification work. Stop if the event workflow needs a second persistent contract,

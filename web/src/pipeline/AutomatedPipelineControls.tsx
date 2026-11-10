@@ -127,7 +127,7 @@ export function AutomatedPipelineControls({
         setRecording(value);
         setFacts((current) => ({
           ...current,
-          roundId: current.roundId || value.round_id,
+          roundId: current.roundId || value.round_id || "",
         }));
       })
       .catch((reason: unknown) => {

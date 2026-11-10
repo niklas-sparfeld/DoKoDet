@@ -25,6 +25,7 @@ from dokodetector_backend.pipeline_run_api import router as run_router
 from dokodetector_backend.pipeline_stage_api import router as stage_router
 from dokodetector_backend.pipeline_workspace_api import router as workspace_router
 from dokodetector_backend.pipeline_workspace_service import RecordingPipelineWorkspaceService
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 RECORDING_ID = "recording-both"
@@ -179,6 +180,7 @@ def _settings(tmp_path: Path) -> Settings:
         repository_root=tmp_path,
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "recordings",
+        recordings_root=tmp_path / "data" / "recordings",
         evidence_package_intake_root=tmp_path / "evidence-packages",
         pending_video_root=tmp_path / "pending-videos",
     )
@@ -216,7 +218,6 @@ def _install_recording(tmp_path: Path) -> None:
     manifest["source_sha256"] = digest
     manifest["files"]["video"].update(byte_length=byte_length, sha256=digest)
     manifest_path.write_text(json.dumps(manifest, separators=(",", ":")))
-
     source_path = bundle / "source-record.json"
     source = json.loads(source_path.read_text())
     source.update(byte_length=byte_length, sha256=digest)
@@ -238,6 +239,9 @@ def _install_recording(tmp_path: Path) -> None:
         raw = path.read_bytes()
         descriptor.update(byte_length=len(raw), sha256=hashlib.sha256(raw).hexdigest())
     manifest_path.write_text(json.dumps(manifest, separators=(",", ":")))
+    RecordingFolderStore(tmp_path / "data" / "recordings").publish_bundle(
+        bundle, recording_id=RECORDING_ID
+    )
 
 
 def _request(run_id: str) -> dict[str, Any]:
@@ -607,8 +611,7 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         catalog = client.get("/v1/recordings")
         assert catalog.status_code == 200
         catalog_selections = {
-            item["content_type"]: item
-            for item in catalog.json()["recordings"][0]["selections"]
+            item["content_type"]: item for item in catalog.json()["recordings"][0]["selections"]
         }
         assert catalog_selections["events"]["state"] == "selected"
         assert catalog_selections["events"]["selected_generated"] == selected

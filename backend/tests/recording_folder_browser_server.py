@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import shutil
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -17,8 +21,11 @@ def main() -> None:
     repository = Path(__file__).parents[2]
     fixture = repository / "fixtures/repository-bundle/v1/both"
     with TemporaryDirectory(prefix="recording-folder-browser-") as directory:
+        transport = Path(directory) / "transport" / "recording-both"
+        shutil.copytree(fixture, transport)
+        _make_playable_transport(transport)
         data_root = Path(directory) / "data" / "recordings"
-        RecordingFolderStore(data_root).publish_bundle(fixture, recording_id="recording-both")
+        RecordingFolderStore(data_root).publish_bundle(transport, recording_id="recording-both")
         settings = Settings(
             _env_file=None,
             repository_root=repository,
@@ -36,7 +43,61 @@ def main() -> None:
             raise AssertionError("the retired recording catalog was called")
 
         app.state.recording_bundle_store.list_metadata = forbidden
+        app.state.recording_bundle_store.get_metadata = forbidden
+        app.state.round_analysis_service.recording_catalog = forbidden
         uvicorn.run(app, host="127.0.0.1", port=8767, log_level="warning")
+
+
+def _make_playable_transport(bundle: Path) -> None:
+    video_path = bundle / "videos" / "video-both.mov"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=96x64:r=5",
+            "-t",
+            "2",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-y",
+            str(video_path),
+        ],
+        check=True,
+    )
+    video_bytes = video_path.read_bytes()
+    video_digest = hashlib.sha256(video_bytes).hexdigest()
+    source_path = bundle / "source-record.json"
+    source = json.loads(source_path.read_text(encoding="utf-8"))
+    source.update(sha256=video_digest, byte_length=len(video_bytes))
+    source_bytes = _write_json(source_path, source)
+    proposal_path = bundle / "predictions" / "proposal-both.json"
+    proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+    proposal["source_sha256"] = video_digest
+    proposal_bytes = _write_json(proposal_path, proposal)
+    manifest_path = bundle / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["source_sha256"] = video_digest
+    manifest["files"]["video"].update(byte_length=len(video_bytes), sha256=video_digest)
+    manifest["files"]["source_record"].update(
+        byte_length=len(source_bytes), sha256=hashlib.sha256(source_bytes).hexdigest()
+    )
+    manifest["files"]["proposal_generator_runs"][0].update(
+        byte_length=len(proposal_bytes), sha256=hashlib.sha256(proposal_bytes).hexdigest()
+    )
+    _write_json(manifest_path, manifest)
+
+
+def _write_json(path: Path, value: dict) -> bytes:
+    raw = (json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n").encode()
+    path.write_bytes(raw)
+    return raw
 
 
 if __name__ == "__main__":

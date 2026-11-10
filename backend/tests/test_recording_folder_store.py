@@ -1,6 +1,7 @@
 import json
 import shutil
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from app_factory import create_test_app
@@ -78,3 +79,44 @@ def test_import_list_and_media_open_survive_backend_restart(tmp_path: Path) -> N
             assert (
                 video.content == (corpus_root / "recording-both/videos/video-both.mov").read_bytes()
             )
+
+
+def test_recording_detail_and_workspace_read_folder_without_legacy_catalog(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository_root = Path(__file__).parents[2]
+    corpus_root = tmp_path / "corpus"
+    shutil.copytree(FIXTURE, corpus_root / "recording-both")
+    recordings_root = tmp_path / "data" / "recordings"
+    import_recordings(corpus_root, recordings_root, ("recording-both",))
+    settings = Settings(
+        _env_file=None,
+        repository_root=repository_root,
+        recordings_root=recordings_root,
+        evidence_root=tmp_path / "runtime",
+        operations_root=tmp_path / "operations",
+        frontend_dist=tmp_path / "frontend",
+    )
+    app = create_test_app(settings)
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("recording-folder reads must not use the old recording catalog")
+
+    monkeypatch.setattr(
+        "dokodetector_backend.event_pipeline_service.probe_video_path_metadata",
+        lambda _path: SimpleNamespace(duration_ms=2_000),
+    )
+    app.state.recording_bundle_store.get_metadata = forbidden
+    app.state.recording_bundle_store.list_metadata = forbidden
+    app.state.round_analysis_service.recording_catalog = forbidden
+
+    with TestClient(app) as client:
+        detail = client.get("/v1/recordings/recording-both")
+        workspace = client.get("/api/recordings/recording-both/pipeline")
+
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["source_asset_id"] == "source-both"
+    assert detail.json()["video"]["url"] == "/v1/repository-bundles/recording-both/video"
+    assert workspace.status_code == 200
+    assert workspace.json()["recording_id"] == "recording-both"
+    assert workspace.json()["video"]["duration_us"] == 2_000_000
