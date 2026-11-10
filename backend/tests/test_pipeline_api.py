@@ -624,6 +624,39 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         reloaded = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert reloaded.json() == body
 
+        event_sets = client.get(f"/api/recordings/{RECORDING_ID}/event-sets").json()
+        event_set = event_sets["event_sets"][0]
+        selected_response = client.put(
+            f"/api/recordings/{RECORDING_ID}/event-sets/selection",
+            json={
+                "choice": "generated",
+                "reference": {
+                    "set_id": event_set["set_id"],
+                    "version": event_set["version"],
+                },
+                "expected_recording_version": event_sets["recording_version"],
+            },
+        )
+        assert selected_response.status_code == 200, selected_response.text
+        selected_workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline").json()
+        assert selected_workspace["stages"][0]["state"] == "data-available"
+
+        run_store = app.state.pipeline_run_store
+        original_list = run_store.list_for_recording
+
+        def active_event_run(recording_id: str, **kwargs):
+            runs = original_list(recording_id, **kwargs)
+            return tuple(
+                replace(run, state=replace(run.state, status="running"))
+                if run.run_id == created.json()["id"]
+                else run
+                for run in runs
+            )
+
+        run_store.list_for_recording = active_event_run
+        active_workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline").json()
+        assert active_workspace["stages"][0]["state"] == "active-run"
+
 
 def test_recording_pipeline_workspace_reads_each_selection_once(
     tmp_path: Path, monkeypatch

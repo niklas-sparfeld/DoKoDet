@@ -223,6 +223,15 @@ card and identity revision IDs before round analysis starts. The legacy node-sel
 tests and 0123 list-growth regression still pass. This correction stays within the M2 workspace
 owner and adds no contract or prerequisite.
 
+### M2 correction 2: keep active runs visible
+
+The first correction retained event-set data state after removing event nodes from workspace
+history. Its state override could replace `active-run` with `data-available` when a selected event
+set already existed. Keep active and running states ahead of the saved-data state. Regression
+coverage selects an existing event set, changes its processor-run projection to running,
+and verifies that workspace reports `active-run`; the same test verifies `data-available` after the
+run completes.
+
 ## M0 recording-root contract
 
 `Settings.recordings_root` resolves to `data/recordings/`. With `DOKO_STORAGE_ROOT`, it resolves
@@ -278,7 +287,7 @@ transferred only the event producer and event selection adapters from M2 to M1. 
 transaction contract was added. M2 introduced one event-review storage contract and evolved the
 existing request, lineage, and observation source contracts. M3 owns retained-data rehearsal and
 qualification. Stop if M3 needs another resource conversion, a cross-store transaction, or a second
-event-selection authority. M2 used 1 correction of 2 and 0 replans; the run replan count remains 1.
+event-selection authority. M2 used 2 corrections of 2 and 0 replans; the run replan count remains 1.
 
 M2 contract detail: store `event-review/v1` under
 `event-sets/<set-id>/reviews/<review-id>.json`. Each immutable record identifies `set_id`,

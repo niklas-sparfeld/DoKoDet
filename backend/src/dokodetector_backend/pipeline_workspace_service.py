@@ -594,6 +594,7 @@ class RecordingPipelineWorkspaceService:
                 or selection.selected_event_set_reference is not None
                 or comparable_run_ids
             )
+            and state != "active-run"
         ):
             state = "data-available"
         run_summaries = [
