@@ -229,7 +229,7 @@ origin evidence; they do not waive acceptance criteria. No speedup is claimed un
 | M6a | Durable Job Manager authority and journaled job-record transitions | Complete; [report](../../reports/0117-M6a_Job_Projection_Authority.md) |
 | M6b | Bounded active-job projections over the M6a authority | Incomplete; split by replan 10 |
 | M6b1 | Bounded incremental per-recording job-index publication and recovery | Complete for index publication; no end-to-end transition bound claimed; correction 1/2; [report](../../reports/0117-M6b1_Job_Index_Publication.md) |
-| M6b1a | Durable ordered queue authority, per-job transition deltas, and explicit startup repair | Complete; [report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) |
+| M6b1a | Durable ordered queue authority, per-job transition deltas, and explicit startup repair | Incomplete after correction 2/2 review; [report](../../reports/0117-M6b1a_Ordered_Queue_Authority.md) |
 | M6b1b | Bounded acceptance key, sequence, and parent-step authority with recovery | Not started; depends on M6b1a; acceptance remains unbounded until this milestone |
 | M6b2 | Bounded job pages, explicit rebuild, growth/corruption checks, and active API inventory | Not started; depends on M6b1a and M6b1b |
 | M6c | Bounded analysis and package metadata pages | Not started |
@@ -280,8 +280,13 @@ while history and unrelated recordings grow 10x.
 
 ## Execution handoff
 
-- Current run: requested 5 milestones; completed 1; remaining 4. M7–M16 remain outside this run.
-- Next: M6b1b. Current-run re-planning: 0/10 total and 0/5 for M6b1a; correction count: 2/2.
+- Current run stopped: requested 5 milestones; accepted 0; remaining 5. M7–M16 remain outside this run.
+- Next: M6b1a. Current-run re-planning: 0/10 total and 0/5 for M6b1a; correction count: 2/2.
+  Final review found that an unlinked child interrupted during cancellation is omitted from stage
+  reconciliation, leaving status and lineage stale. Recovery changes the child and parent states
+  before waiting-parent link repair. Add a persisted restart regression for that boundary and restore
+  the separate cancelled-child observer-crash regression, which the latest correction replaced.
+  The correction limit stops this run; integrated changes are not accepted as complete.
   The transition observer verifies child completion before marking a stage complete. Startup recovery
   records the actual interrupted child outcome and input lineage when a cancelled parent and child
   recover after restart. A persisted run-store regression covers the cancelling state. See the M6b1a

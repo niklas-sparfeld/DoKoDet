@@ -1,6 +1,13 @@
 # Epic 0117 M6b1a: ordered queue authority
 
-## Final correction — child completion and cancellation
+## Current review result
+
+M6b1a remains incomplete. Final review found that startup reconciliation ignores an unlinked
+interrupted child after cancellation, so stage status and lineage can remain stale. Add a persisted
+restart regression for this boundary. Restore the separate cancelled-child observer-crash regression;
+the latest correction replaced it. The two-correction limit stopped the run.
+
+## Earlier correction — child completion and cancellation
 
 Date: 2026-11-10
 
@@ -8,8 +15,8 @@ The job transition observer now calls `_child_is_complete` before it records a s
 stage as complete. If the child job succeeded but its underlying analysis or pipeline result is not
 complete, the stage and run fail with the existing failure path. This prevents a crash before the
 parent resumes from leaving a false complete stage. The observer now handles cancelled children,
-stores cancelled stage and run status, and retains the resolved input revision IDs. The restart
-regression confirms that status and lineage remain durable.
+stores cancelled stage and run status, and retains the resolved input revision IDs. The then-current restart regression covered a cancelled child. A later correction replaced that
+regression; the current review requires restoring it.
 
 Checks:
 
