@@ -2,7 +2,7 @@
 
 Date: 2026-11-10. M1 implementation checkout before this evidence: `1a1fb617`.
 
-## Result
+## First M1 attempt result
 
 The M1 service proof is implemented as an additive test in
 `backend/tests/test_automated_pipeline_jobs.py`. It uses a real `JobManager`,
@@ -20,7 +20,7 @@ The required backend job/API/pipeline suite does not pass. Two node-publication 
 they expect an unpublished revision directory after failed saves. Both fail at `next(...)` with
 `StopIteration`. The same two tests fail on the unmodified pre-M1 main revision `28642242`, so these
 failures are baseline evidence and are outside the 0119 source boundary. Epic
-[0122](../plans/2-ready/0122-Node_Publication_Test_Discrepancy.md) owns their investigation.
+[0122](../plans/5-closed/0122-Node_Publication_Test_Discrepancy.md) owns their investigation.
 M1 remains incomplete and blocked. No 0120 work is authorized by this result.
 
 ## Finite recovery matrix
@@ -50,12 +50,25 @@ evidence of a job journal or queue authority design defect.
 - Broad suite with those two tests deselected — passed: `mise exec -- uv run --project backend pytest backend/tests/test_job*.py backend/tests/test_jobs_api.py backend/tests/test_pipeline*.py backend/tests/test_automated_pipeline*.py -q --deselect=tests/test_pipeline_node_edits.py::test_retry_does_not_delete_orphan_with_dependent_records --deselect=tests/test_pipeline_node_store.py::test_interrupted_head_update_does_not_publish_revision`. This does not satisfy M1's full-suite acceptance check.
 - Ruff check, Ruff format check, and `git diff --check` for the changed test — passed.
 
+## Resumed verification and closure
+
+After 0122 M0, the following checks were rerun from checkout revision `9d695999`:
+
+- `mise exec -- uv run --project backend pytest backend/tests/test_job*.py backend/tests/test_jobs_api.py backend/tests/test_pipeline*.py backend/tests/test_automated_pipeline*.py -q` — passed, including both corrected node-publication tests. Pytest reported one existing Starlette/httpx deprecation warning.
+- `mise exec -- uv run --project backend pytest backend/tests/test_job_projection_authority.py backend/tests/test_job_store.py backend/tests/test_job_recovery.py backend/tests/test_job_scheduler.py backend/tests/test_job_publication.py -q` — passed.
+- `mise exec -- uv run --project backend ruff check backend/tests/test_automated_pipeline_jobs.py backend/tests/test_job_recovery.py` — passed.
+- `mise exec -- uv run --project backend ruff format --check backend/tests/test_automated_pipeline_jobs.py backend/tests/test_job_recovery.py` — passed.
+- `git diff --check` — passed.
+
+The M1 workflow proof and finite recovery matrix above remain the same. Together with these
+checks, all M1 acceptance criteria pass. No authority or queue defect was found. No new owner,
+storage, transaction, processor or authority contract was added. This run requested 1 milestone,
+completed 1, and has 0 remaining; run re-plannings are 0/10 and M1 re-plannings remain 0/5.
+Correction history is unchanged: M0 1/2 and M1 1/2. The earlier run requested 2 milestones,
+completed 1 and had 1 remaining.
+
 ## Status and next step
 
-M1 adds the promised real-service proof and finite matrix evidence, but it is not complete because
-the full required suite fails on the pre-M1 baseline. Current run: 2 requested, 1 completed, 1
-remaining. M1 re-plannings: 0/5; run re-plannings: 0/10; M1 correction turn 1/2 addressed a review
-finding: the real workflow now passes exact revision IDs in child requests and checks queue
-publication and dispatch order directly. The existing M0 correction count remains 1/2. Resolve
-the two baseline failures under 0122 M0, then resume M1
-and rerun the full required suite before closing 0119 or moving 0120 to Ready.
+M1 is complete. The broad backend job/API/pipeline suite and authority/queue suite pass, and the
+persisted multi-stage completion plus cancellation/restart workflow verifies exact inputs, durable
+results and queue order. Epic 0119 is Closed; 0120 is Ready and was not started in this run.

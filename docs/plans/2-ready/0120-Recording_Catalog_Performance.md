@@ -1,7 +1,7 @@
 # Recording catalog performance
 
-- **Status:** Blocked
-- **Depends on:** [0119](0119-Pipeline_Recovery_Defects.md) M1 complete before execution.
+- **Status:** Ready
+- **Depends on:** [0119](../5-closed/0119-Pipeline_Recovery_Defects.md) M1 complete.
   0114/0115 are closed; 0117 retained measurements and source inventories are available.
 - **Outcome:** Open `/recordings` through compact metadata reads whose cost does not increase
   with retained pipeline, processor-run, or analysis history.
@@ -148,5 +148,5 @@ redesign to this epic. Commit: qualification, board and closure move.
 
 ## Execution handoff
 
-Planning only. Blocked on 0119 M1. Next when unblocked: M0. No inherited loop or correction count.
+Planning only. Ready after 0119 M1 completion. Next: M0. No inherited loop or correction count.
 The [exit decision](../../reports/0117-Supersession_and_Exit.md#execution-control) governs scope stops.

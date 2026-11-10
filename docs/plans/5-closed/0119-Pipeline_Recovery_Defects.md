@@ -1,10 +1,11 @@
 # Pipeline recovery defects
 
-- **Status:** Blocked
-- **Depends on:** Integrated job and pipeline implementation at `99b79d59`; 0117 is closed; [0122 node-publication test discrepancy](../2-ready/0122-Node_Publication_Test_Discrepancy.md) M0 must resolve the two existing node-publication test failures before M1 can pass its required backend suite.
+- **Status:** Closed
+- **Depends on:** Integrated job and pipeline implementation at `99b79d59`; 0117 is closed; 0122 M0 resolved the node-publication test discrepancy.
 - **Outcome:** Recover the current pipeline stage, child identity, and exact input lineage after
   cancellation and interrupted child acceptance. Retain all distinct crash regressions.
 - **Origin:** [0117 exit decision](../../reports/0117-Supersession_and_Exit.md).
+- **Closure reason:** Complete.
 
 ## Scope and defect evidence
 
@@ -25,7 +26,7 @@ reproducer proves a local repair cannot satisfy them.
 | Milestone | Result | Status |
 | --- | --- | --- |
 | M0 | Exact current-child cancellation recovery and additive persisted regressions | Complete |
-| M1 | Finite recovery matrix and real service closeout | Blocked |
+| M1 | Finite recovery matrix and real service closeout | Complete |
 
 ## M0 — Repair the current-child lookup
 
@@ -62,7 +63,12 @@ the selective rollback requirements in the exit decision; do not create an endle
 
 ### M1 execution result
 
-The persisted service proof and recovery matrix are recorded in the [M1 evidence report](../../reports/0119-M1_Recovery_Matrix.md). M1 remains incomplete because two required pipeline tests fail on the pre-M1 baseline. They assume a failed pipeline-node save leaves an unpublished revision directory; the current staged write leaves no revision directory. The baseline reproduces both failures at `28642242`. Epic [0122](../2-ready/0122-Node_Publication_Test_Discrepancy.md) owns the bounded investigation and repair. Do not close 0119 or unblock 0120 until the full required suite passes.
+The persisted service proof, finite recovery matrix, and resumed full-suite checks are recorded in
+the [M1 evidence report](../../reports/0119-M1_Recovery_Matrix.md). The broad backend job/API/
+pipeline suite now passes after [0122](0122-Node_Publication_Test_Discrepancy.md) corrected the
+failure injection in the two baseline tests. The authority and queue suite, Ruff checks, format
+check, and diff check also pass. The M1 acceptance criteria are complete. No recovery authority
+defect or additional scope was found.
 
 ## Execution handoff
 
@@ -75,7 +81,7 @@ The persisted service proof and recovery matrix are recorded in the [M1 evidence
   regressions.
 - First complete workflow: persisted cancellation and restart. M0 proves the local recovery path;
   M1 is scheduled to prove the full Job Manager and run-store workflow.
-- Initial plan: 2 milestones. Current: 1 of 2 complete, 1 remains. No new owners or contracts.
+- Initial plan: 2 milestones. Current: 2 of 2 complete, 0 remain. No new owners or contracts.
 
 ### M0 result
 
@@ -94,15 +100,18 @@ The persisted service proof and recovery matrix are recorded in the [M1 evidence
 
 ### Run and scope history
 
-- Current run: requested 2 milestones, completed 1, remaining 1.
+- Earlier run: requested 2 milestones, completed 1, remaining 1. Resumed run: requested 1,
+  completed 1, remaining 0.
 - Re-planning: M0 0/5; run 0/10. Correction turns used: 1/2. Review found that filtering out
   queued and other non-cancelled outcomes before counting could hide a conflicting same-phase
   child. The lookup now counts every child for the exact parent phase before selecting one.
   No inherited 0117 correction budget.
-- M1 accounting: 0/5 re-plannings; correction turn 1/2 now checks exact input revisions in each child request, saved result and run-stage record, and checks queue publication plus dispatch order. The real service proof and matrix evidence are committed, but the required full suite has two baseline failures. The run remains at 1/2 milestones completed.
+- M1 accounting: 0/5 re-plannings; correction turn 1/2 checked exact input revisions in each
+  child request, saved result and run-stage record, and queue publication plus dispatch order.
+  The real service proof and finite matrix pass. Run re-plannings are 0/10; M0 correction turns
+  remain 1/2 and M1 correction turns remain 1/2.
 - Scope decision: keep the bounded local fix in existing authority. No new storage, transaction,
-  processor contract, or stronger guarantee was added. Record the independent node-publication
-  discrepancy in 0122; it is a dependency only because the specified M1 suite includes those tests.
-- Next: after 0122 M0 resolves the two baseline failures, resume M1, rerun the required backend
-  suite, and close only if it passes. No 0120 work starts before 0119 closes. Stop if the recovery
-  matrix exposes an authority-design defect; use the rollback assessment in the 0117 exit decision.
+  processor contract, or stronger guarantee was added. 0122 resolved the independent test
+  discrepancy without production changes.
+- Next: 0119 is closed. Epic 0120 is Ready; do not start it in this run. Stop if future work finds
+  a broken authority design; use the rollback assessment in the 0117 exit decision.
