@@ -145,6 +145,14 @@ change replaces this pointer with a concurrency check. Recording HEAD is separat
 data node's latest saved revision and from the lineage selection currently inspected by one
 operator. Historical snapshots and data revisions remain addressable when HEAD changes.
 
+### Recording catalog projection
+
+A rebuildable compact summary of recording metadata used by list reads. Source stores remain
+authoritative. A source receipt records the source identity, version, digest, and applied
+projection. A pending catalog publication is a committed source update whose projection still
+needs to reach the catalog. The projection does not select pipeline results or replace source
+publication authority.
+
 ### Node revision publication authority
 
 Durable evidence that a pipeline data node revision was committed by a supported writer. A
