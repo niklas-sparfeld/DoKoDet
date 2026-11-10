@@ -10,6 +10,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import uvicorn
+from doko_operations.pipeline_data import canonical_event_data_bytes
 from table_evidence_analyzer.visible_cards import ProviderResult
 
 from dokodetector_backend.app import create_app
@@ -17,6 +18,13 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.poc_analyzer import create_local_poc_analyzer
 from dokodetector_backend.recording_folder_store import RecordingFolderStore
+
+M5_RECORDING_ID = "cardeventnet-IMG_0662"
+M5_OUTPUT_NODE_ID = "8bfa825d-94af-5ac6-877d-a1381e662d65"
+M5_OUTPUT_REVISION_ID = "d9c461ee-c7f9-5a2c-be60-36da3ea9a169"
+M5_PARENT_SET_ID = "1dca5a93-4a87-59f6-ab83-d5c72154916b"
+M5_PARENT_VERSION = "d41f92f9-7fd1-52db-a065-7c94f963713a"
+M5_LEGACY_EVENT_REVISION_ID = "reference-events-fd5c08dc4f7540053b3ed1c04606b909"
 
 
 class RestartableBrowserApp:
@@ -33,6 +41,7 @@ class RestartableBrowserApp:
             analyzer=create_local_poc_analyzer(),
             visible_card_provider=BrowserDetector(),
         )
+        _seed_pre_m3_visible_output(app)
 
         def forbid_recording_catalog(*_args, **_kwargs):
             raise AssertionError("the retired recording catalog was called")
@@ -80,6 +89,21 @@ class RestartableBrowserApp:
             self._lifespan = self.app.router.lifespan_context(self.app)
             await self._lifespan.__aenter__()
             body = b'{"restarted":true}'
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [(b"content-type", b"application/json")],
+                }
+            )
+            await send({"type": "http.response.body", "body": body})
+            return
+        if scope["type"] == "http" and scope["path"] == "/__test/saved-output-sha256":
+            node_store = self.app.state.pipeline_selection_store.node_store
+            payload = (
+                node_store.revision_path(M5_OUTPUT_NODE_ID, M5_OUTPUT_REVISION_ID) / "revision.json"
+            )
+            body = json.dumps({"sha256": hashlib.sha256(payload.read_bytes()).hexdigest()}).encode()
             await send(
                 {
                     "type": "http.response.start",
@@ -160,6 +184,70 @@ def main() -> None:
             origin="processor",
             provenance={"source": "recording-folder-browser-proof"},
         )
+        retained_transport = Path(directory) / "transport" / M5_RECORDING_ID
+        shutil.copytree(fixture, retained_transport)
+        _make_playable_transport(retained_transport, recording_id=M5_RECORDING_ID)
+        m5_recording_store = RecordingFolderStore(data_root)
+        m5_recording_store.publish_bundle(retained_transport, recording_id=M5_RECORDING_ID)
+        m5_event_sets = EventSetStore(m5_recording_store)
+        parent_content = {
+            "schema_version": "event-data/v1",
+            "events": [
+                {
+                    "event_id": "cardeventnet-event-img_0662-000",
+                    "event_type": "card_state_changed",
+                    "start_us": 2_001_934,
+                    "end_us": 2_002_934,
+                }
+            ],
+        }
+        parent_digest = hashlib.sha256(canonical_event_data_bytes(parent_content)).hexdigest()
+        m5_event_sets.save(
+            M5_RECORDING_ID,
+            set_id=M5_PARENT_SET_ID,
+            version=M5_PARENT_VERSION,
+            content=parent_content,
+            origin="corrected",
+            provenance={
+                "source": "retained-corpus-browser-proof",
+                "source_metadata": {"legacy_revision_id": M5_LEGACY_EVENT_REVISION_ID},
+                "source_content_sha256": parent_digest,
+            },
+        )
+        m5_generated = m5_event_sets.save(
+            M5_RECORDING_ID,
+            set_id="retained-generated-alternative",
+            version="1",
+            content={
+                "schema_version": "event-data/v1",
+                "events": [
+                    {
+                        "event_id": "cardeventnet-event-img_0662-000",
+                        "event_type": "card_state_changed",
+                        "start_us": 1_000_000,
+                        "end_us": 1_001_000,
+                    }
+                ],
+            },
+            origin="processor",
+            provenance={"source": "retained-corpus-browser-proof"},
+        )
+        m5_root = m5_recording_store.get(M5_RECORDING_ID)
+        assert m5_root is not None
+        m5_event_sets.select(
+            M5_RECORDING_ID,
+            choice="generated",
+            reference={"set_id": m5_generated["set_id"], "version": "1"},
+            expected_version=m5_root.version,
+        )
+        m5_root = m5_recording_store.get(M5_RECORDING_ID)
+        assert m5_root is not None
+        m5_event_sets.select(
+            M5_RECORDING_ID,
+            choice="reference",
+            reference={"set_id": M5_PARENT_SET_ID, "version": M5_PARENT_VERSION},
+            expected_version=m5_root.version,
+        )
         root = recording_store.get("recording-both")
         assert root is not None
         event_sets.select(
@@ -191,7 +279,7 @@ def main() -> None:
         uvicorn.run(app, host="127.0.0.1", port=8767, log_level="warning")
 
 
-def _make_playable_transport(bundle: Path) -> None:
+def _make_playable_transport(bundle: Path, *, recording_id: str | None = None) -> None:
     video_path = bundle / "videos" / "video-both.mov"
     subprocess.run(
         [
@@ -219,14 +307,21 @@ def _make_playable_transport(bundle: Path) -> None:
     source_path = bundle / "source-record.json"
     source = json.loads(source_path.read_text(encoding="utf-8"))
     source.update(sha256=video_digest, byte_length=len(video_bytes))
+    if recording_id is not None:
+        source["recording_id"] = recording_id
+        source["original_filename"] = "pre-m3-recording.mov"
     source_bytes = _write_json(source_path, source)
     proposal_path = bundle / "predictions" / "proposal-both.json"
     proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
     proposal["source_sha256"] = video_digest
+    if recording_id is not None:
+        proposal["recording_id"] = recording_id
     proposal_bytes = _write_json(proposal_path, proposal)
     manifest_path = bundle / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["source_sha256"] = video_digest
+    if recording_id is not None:
+        manifest["recording_id"] = recording_id
     manifest["files"]["video"].update(byte_length=len(video_bytes), sha256=video_digest)
     manifest["files"]["source_record"].update(
         byte_length=len(source_bytes), sha256=hashlib.sha256(source_bytes).hexdigest()
@@ -241,6 +336,41 @@ def _write_json(path: Path, value: dict) -> bytes:
     raw = (json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n").encode()
     path.write_bytes(raw)
     return raw
+
+
+def _seed_pre_m3_visible_output(app) -> None:
+    node_store = app.state.pipeline_selection_store.node_store
+    try:
+        node_store.get(M5_OUTPUT_NODE_ID)
+        return
+    except (FileNotFoundError, KeyError):
+        pass
+    source = app.state.event_pipeline_service.get_recording_source(M5_RECORDING_ID).to_mapping()
+    node_store.create(
+        M5_OUTPUT_NODE_ID,
+        "Retained pre-M3 visible-card output",
+        "visible_cards",
+        source,
+        {"schema_version": "visible-card-data/v2", "outcomes": []},
+        {
+            "origin": "processor",
+            "coverage": {
+                "kind": "requested-event-frames",
+                "event_revision_id": M5_LEGACY_EVENT_REVISION_ID,
+            },
+        },
+        revision_id=M5_OUTPUT_REVISION_ID,
+    )
+    app.state.pipeline_selection_store.update_exact(
+        M5_RECORDING_ID,
+        "visible_cards",
+        expected_revision=0,
+        selected_generated=None,
+        selected_completed_reference={
+            "node_id": M5_OUTPUT_NODE_ID,
+            "revision_id": M5_OUTPUT_REVISION_ID,
+        },
+    )
 
 
 if __name__ == "__main__":

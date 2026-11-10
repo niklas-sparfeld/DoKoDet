@@ -14,6 +14,18 @@ type EventSetRow = {
 
 type EventSetList = { event_sets: EventSetRow[] };
 type EventSetDetail = { content_sha256: string };
+type ParentLinkResult = { href: string; label: string } | { error: string };
+
+function selectedOutput(stage: PipelineWorkspaceStage) {
+  const selected =
+    stage.selected_completed_reference ?? stage.selected_generated;
+  const output = stage.input_options.find(
+    (option) =>
+      option.node_id === selected?.node_id &&
+      option.node_revision_id === selected?.revision_id,
+  );
+  return { selected, output };
+}
 
 export function LegacyEventParentLink({
   recordingId,
@@ -22,24 +34,31 @@ export function LegacyEventParentLink({
   recordingId: string;
   stage: PipelineWorkspaceStage;
 }) {
-  const [result, setResult] = useState<
-    { href: string; label: string } | { error: string } | null
-  >(null);
+  const [result, setResult] = useState<{
+    key: string;
+    value: ParentLinkResult;
+  } | null>(null);
+  const { selected, output } = selectedOutput(stage);
+  const lookupKey = JSON.stringify([
+    recordingId,
+    selected?.node_id ?? null,
+    selected?.revision_id ?? null,
+    output?.coverage.event_set_ref ?? null,
+    output?.coverage.event_revision_id ?? null,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
+    const setCurrentResult = (value: ParentLinkResult) => {
+      if (!cancelled) setResult({ key: lookupKey, value });
+    };
     const load = async () => {
-      const selected =
-        stage.selected_completed_reference ?? stage.selected_generated;
-      const output = stage.input_options.find(
-        (option) =>
-          option.node_id === selected?.node_id &&
-          option.node_revision_id === selected?.revision_id,
-      );
       const eventSetRef = output?.coverage.event_set_ref;
       if (eventSetRef !== undefined && eventSetRef !== null) {
         if (!isEventSetRef(eventSetRef)) {
-          setResult({ error: "Exact event parent reference is invalid." });
+          setCurrentResult({
+            error: "Exact event parent reference is invalid.",
+          });
           return;
         }
         const detailResponse = await fetch(
@@ -49,11 +68,12 @@ export function LegacyEventParentLink({
           throw new Error("Exact event parent could not be opened.");
         const detail = (await detailResponse.json()) as EventSetDetail;
         if (detail.content_sha256 !== eventSetRef.content_sha256) {
-          if (!cancelled)
-            setResult({ error: "Exact event parent digest does not match." });
+          setCurrentResult({
+            error: "Exact event parent digest does not match.",
+          });
           return;
         }
-        if (!cancelled) setResult(makeEventSetLink(recordingId, eventSetRef));
+        setCurrentResult(makeEventSetLink(recordingId, eventSetRef));
         return;
       }
       const legacyId = output?.coverage.event_revision_id;
@@ -62,7 +82,9 @@ export function LegacyEventParentLink({
         return;
       }
       if (typeof legacyId !== "string" || legacyId.length === 0) {
-        setResult({ error: "Exact event parent provenance is missing." });
+        setCurrentResult({
+          error: "Exact event parent provenance is missing.",
+        });
         return;
       }
       const listResponse = await fetch(
@@ -75,19 +97,17 @@ export function LegacyEventParentLink({
           item.provenance?.source_metadata?.legacy_revision_id === legacyId,
       );
       if (candidates.length === 0) {
-        if (!cancelled) setResult({ error: "Exact event parent is missing." });
+        setCurrentResult({ error: "Exact event parent is missing." });
         return;
       }
       if (candidates.length !== 1) {
-        if (!cancelled)
-          setResult({ error: "Exact event parent is ambiguous." });
+        setCurrentResult({ error: "Exact event parent is ambiguous." });
         return;
       }
       const [parent] = candidates;
       const sourceDigest = parent.provenance?.source_content_sha256;
       if (typeof sourceDigest !== "string" || sourceDigest.length === 0) {
-        if (!cancelled)
-          setResult({ error: "Exact event parent has no source digest." });
+        setCurrentResult({ error: "Exact event parent has no source digest." });
         return;
       }
       const detailResponse = await fetch(
@@ -97,26 +117,24 @@ export function LegacyEventParentLink({
         throw new Error("Exact event parent could not be opened.");
       const detail = (await detailResponse.json()) as EventSetDetail;
       if (detail.content_sha256 !== sourceDigest) {
-        if (!cancelled)
-          setResult({ error: "Exact event parent digest does not match." });
+        setCurrentResult({
+          error: "Exact event parent digest does not match.",
+        });
         return;
       }
-      if (!cancelled) {
-        setResult(makeEventSetLink(recordingId, parent));
-      }
+      setCurrentResult(makeEventSetLink(recordingId, parent));
     };
     void load().catch(() => {
-      if (!cancelled)
-        setResult({ error: "Exact event parent could not be checked." });
+      setCurrentResult({ error: "Exact event parent could not be checked." });
     });
     return () => {
       cancelled = true;
     };
-  }, [recordingId, stage]);
+  }, [lookupKey, output, recordingId, selected]);
 
-  if (result === null) return null;
-  if ("error" in result) return <p role="status">{result.error}</p>;
-  return <a href={result.href}>{result.label}</a>;
+  if (result === null || result.key !== lookupKey) return null;
+  if ("error" in result.value) return <p role="status">{result.value.error}</p>;
+  return <a href={result.value.href}>{result.value.label}</a>;
 }
 
 function isEventSetRef(

@@ -536,7 +536,7 @@ owns that follow-up; it does not block M0.
 ## Execution handoff
 
 Current run: requested 1 milestone, completed 1, remaining 0. M5 is complete. M5 family re-plans
-2/5, run re-plans 2/10, corrections 0/2. The current baseline is seven: M0–M5 complete and M6
+2/5, run re-plans 2/10, corrections 1/2. The current baseline is seven: M0–M5 complete and M6
 remains. The browser opened the pre-M3 output's exact converted parent after selection change and
 backend restart with processor-run and lineage reads blocked. The saved M3 provider result also
 opened after restart without a detector run. The 58-root corpus snapshot and full disposable
@@ -547,6 +547,23 @@ saved parent facts and remain unavailable. The required persisted M2 observation
 passed after the bounded visual-identity adapter began reading the existing recording-root
 authority. No new persistent contract or authority was added. See the M5 report for exact evidence
 and limits. M6 owns replaced runtime path removal and final closure; 0129 remains independent.
+
+### M5 correction 1 — keep exact-parent links current and automate the retained workflow
+
+Independent review found that the inspector kept the previous exact-parent result visible while a
+new recording or output lookup was pending. The lookup now keys its displayed result to the current
+recording, selected output node/revision, and saved parent facts. It hides a result immediately when
+that identity changes, including the first render before the next lookup finishes. Deferred-response
+regressions switch recordings and outputs, resolve the old response late, and confirm that it cannot
+replace the current result.
+
+The checked-in recording-folder browser workflow now seeds a disposable persisted pre-M3 visible-card
+output using the retained node and revision IDs plus its saved legacy event identity. It follows the
+normal inspector link to the exact converted parent, changes recording event selection, restarts the
+backend, reloads the output, and opens the same parent again. It compares the persisted output
+revision-file digest before and after. The browser aborts and counts processor-run and lineage routes;
+the workflow makes neither request. The existing manual corpus qualification remains separate and
+uses the activated retained corpus. This correction adds no persistent contract or authority.
 
 See [M5 rollout and qualification report](../../reports/0124-M5_Rollout_Qualification.md) for
 implemented changes, checks, and evidence limits. The following handoff is the historical M4
@@ -574,7 +591,7 @@ including bounded activation and the configured real detector smoke. M4 rehearse
 reviewed alternatives and exact parents for three recordings without activation. M5 rolls out and
 qualifies; M6 removes replaced paths and completes closure.
 
-Correction history: M0 1/2; M1 2/2 and one replan; M2 2/2 and zero replans. Those exhausted
+Correction history: M0 1/2; M1 2/2 and one replan; M2 2/2 and zero replans; M5 1/2. Those exhausted
 allowances remain exhausted. Original M3 family: zero implementation attempts, replan 2/5. Previous
 run history: replan 3/10 including the provenance and usability scope revisions. New assignments do not renew
 M1/M2 correction turns. Last scope decision: restore the normal app workflow first; deliver simplification through that

@@ -19,10 +19,12 @@ On disposable persisted data, the normal browser opened pre-M3 output
 `8bfa825d-94af-5ac6-877d-a1381e662d65@d9c461ee-c7f9-5a2c-be60-36da3ea9a169`, followed its exact
 parent, changed the event selection, restarted the backend, and reopened the same output and parent.
 The parent stayed `1dca5a93-4a87-59f6-ab83-d5c72154916b@d41f92f9-7fd1-52db-a065-7c94f963713a`;
-its event start was `2001934` and digest was `00ce1f56…`. The output revision file SHA-256 remained
+its event start was `2001934` and digest was
+`00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5`. The output revision file SHA-256 remained
 `23d6a61ffa5c362d2e7bbf1f24c708c93a1800d684573a1fe4078961119da45c`. The browser harness blocked
 processor-run and lineage routes; neither route was requested. Unit tests cover missing and
-duplicate provenance, direct references, and digest matching.
+duplicate provenance, direct references, digest matching, output switches while lookups are
+pending, and late responses after recording/output switches.
 
 The normal browser also opened the saved M3 provider result without a detector run. After restart,
 the selected saved result still opened exact parent
@@ -73,12 +75,26 @@ persistent contract or authority was introduced.
 - Backend regression suite: passed (12 focused test files, including rollout, event sets, reviews,
   pipeline APIs, persisted M2 observation, round analysis, and 0123 list growth).
 - Ruff check and format check: passed for all changed backend modules and tests.
-- `web/npm run check`: passed; 47 test files, 249 tests, type, lint, format, and generated API
+- `web/npm run check`: passed; 47 test files, 251 tests, type, lint, format, and generated API
   checks.
-- Recording-folder Playwright suite: passed, 4 browser tests. It uses a disposable persisted
-  backend, including browser restart coverage.
+- Recording-folder Playwright suite: passed, 5 browser tests. It uses a disposable persisted
+  backend, including browser restart coverage. The automated pre-M3 proof seeds the named output
+  and revision identity plus saved parent provenance into that persisted backend. It opens the
+  exact parent through the normal inspector, changes event selection, restarts, reopens the output
+  and parent, checks the output revision file SHA-256, and blocks run/lineage routes. The manual
+  corpus evidence above separately covers the unchanged activated retained output bytes.
 - `web/npm run build`: passed. Vite reported the existing bundle-size warning for a 525 kB chunk.
 - Frozen source integrity and activation/recovery checks: passed as recorded above.
+
+## Correction 1/2
+
+Review found a stale-link window: after the recording or selected output changed, the inspector
+could keep the prior parent link visible until the new lookup finished. The component now keys its
+result to the current recording, exact selected node/revision, and saved parent identity. It renders
+no prior link on the first render for a new key. Deferred responses cannot publish into a later
+recording/output view. Both the switch and late-response regressions pass, as does the checked-in
+real-backend browser proof. The correction adds no storage contract, authority, or owner outside
+the existing M5 browser/UI and test harness.
 
 ## Limits and next step
 

@@ -172,6 +172,90 @@ test("event-set workspace opens an exact parent from a saved link after restart"
   );
 });
 
+test("pre-M3 visible-card output reopens its exact event parent after selection and restart", async ({
+  page,
+}) => {
+  const recordingId = "cardeventnet-IMG_0662";
+  const parentSetId = "1dca5a93-4a87-59f6-ab83-d5c72154916b";
+  const parentVersion = "d41f92f9-7fd1-52db-a065-7c94f963713a";
+  const forbiddenRuntimeReads: string[] = [];
+  await page.route(
+    new RegExp(
+      `/api/recordings/${recordingId}/pipeline/(?:runs|lineage)(?:/|$)`,
+    ),
+    async (route) => {
+      forbiddenRuntimeReads.push(route.request().url());
+      await route.abort();
+    },
+  );
+  const savedOutputDigest = async () => {
+    const response = await page.request.get(
+      "http://127.0.0.1:8767/__test/saved-output-sha256",
+    );
+    expect(response.ok()).toBeTruthy();
+    return (await response.json()).sha256 as string;
+  };
+  const outputDigestBefore = await savedOutputDigest();
+  const initialSelectionResponse = await page.request.get(
+    `http://127.0.0.1:8767/api/recordings/${recordingId}/event-sets`,
+  );
+  expect(initialSelectionResponse.ok()).toBeTruthy();
+  const initialSelection = await initialSelectionResponse.json();
+  expect(initialSelection.head.generated.set_id).toBe(
+    "retained-generated-alternative",
+  );
+
+  await page.goto(`/recordings/${recordingId}`);
+  await page.getByRole("link", { name: "Visible cards" }).click();
+  const exactParentLink = page.getByRole("link", {
+    name: `Open exact event parent ${parentSetId}@${parentVersion}`,
+  });
+  await expect(exactParentLink).toBeVisible();
+  await exactParentLink.click();
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/recordings/${recordingId}/event-sets\\?set=${parentSetId}&version=${parentVersion}`,
+    ),
+  );
+  await expect(page.getByLabel("Start (µs)")).toHaveValue("2001934");
+
+  await page.getByRole("button", { name: "Select generated" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Selected this event set as the generated choice.",
+  );
+  const changedSelectionResponse = await page.request.get(
+    `http://127.0.0.1:8767/api/recordings/${recordingId}/event-sets`,
+  );
+  const changedSelection = await changedSelectionResponse.json();
+  expect(changedSelection.head.generated).toEqual({
+    set_id: parentSetId,
+    version: parentVersion,
+  });
+
+  await page.getByRole("link", { name: "Open recording workspace" }).click();
+  await page.getByRole("link", { name: "Visible cards" }).click();
+  await expect(exactParentLink).toBeVisible();
+  const restarted = await page.request.post(
+    "http://127.0.0.1:8767/__test/restart",
+  );
+  expect(restarted.status()).toBe(200);
+  await page.reload();
+  await expect(exactParentLink).toBeVisible();
+  await exactParentLink.click();
+  await expect(page.getByLabel("Start (µs)")).toHaveValue("2001934");
+
+  const persistedSelectionResponse = await page.request.get(
+    `http://127.0.0.1:8767/api/recordings/${recordingId}/event-sets`,
+  );
+  const persistedSelection = await persistedSelectionResponse.json();
+  expect(persistedSelection.head.generated).toEqual({
+    set_id: parentSetId,
+    version: parentVersion,
+  });
+  expect(await savedOutputDigest()).toBe(outputDigestBefore);
+  expect(forbiddenRuntimeReads).toEqual([]);
+});
+
 test("normal recording workflow edits an event, runs detection and reopens its exact input", async ({
   page,
 }) => {
