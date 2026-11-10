@@ -151,12 +151,14 @@ direct tests. Existing selection files and transaction locator remain the author
 history-growth fixture was replaced because it asserted the list contract that M0 removed; the
 independent history growth and latency qualification remain scheduled for M1.
 
-Run 1 of 3 authorized milestones: M0 complete; 2 run slots remain; 0 re-plannings; 1 correction of
-2 allowed. The reviewer found that zero and negative selection revisions were accepted. The narrow
-fix now marks them unavailable, matching `PipelineNodeSelectionStore`'s positive-revision rule.
-Focused backend tests and Ruff pass after this correction. No scope change. No performance or broad
-history-growth claim is made. Next: M1's independent history-growth, invalid-metadata,
-concurrent-selection, and local latency checks. Stop
+Run 1 of 3 authorized milestones: M0 complete; 2 run slots remain; 0 re-plannings; 2 corrections of
+2 allowed. Correction 1 rejects zero and negative selection revisions, matching
+`PipelineNodeSelectionStore`'s positive-revision rule. Correction 2 restores the valid revision-1
+saved-but-unselected case, and tests revision zero and a negative revision on separate content
+types. It retains the corrupt selection-file check. Focused backend tests and Ruff pass after this
+correction. No scope change. No performance or broad history-growth claim is made. The M0
+correction allowance is exhausted; apply scope review before any further M0 correction. Next: M1's
+independent history-growth, invalid-metadata, concurrent-selection, and local latency checks. Stop
 if those checks require a new authority, writer protocol, cache, or move of the qualification target.
 
 The 0120 ledger approach is superseded, not accepted. Its M3 correction history remains exhausted
