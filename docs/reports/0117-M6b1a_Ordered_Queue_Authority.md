@@ -39,6 +39,20 @@ store, then verifies cancelled parent and run state, child identity, stage statu
 Checks: `cd backend && uv run pytest -q tests/test_automated_pipeline_jobs.py -k cancelled_child_stage` — passed.
 The initial full suite count above is 81 (not the stale 79 in the prior handoff).
 
+## Correction 2/2 — reconcile interrupted child after cancellation restart
+
+Date: 2026-11-10
+
+Review found a second cancellation boundary: startup converts a persisted cancelling child to
+`interrupted` and its cancelling pipeline parent to `cancelled`. Reconciliation now accepts that
+interrupted child for the parent's current phase, records the actual `interrupted` stage status,
+preserves the child ID and resolved input revision IDs, then finishes the overall run as cancelled.
+The persisted restart regression leaves both jobs cancelling, reopens the manager and run store,
+checks startup's child and parent outcomes, and verifies the run and stage documents. Correction
+count is 2/2; no further M6b1a correction turns remain in this run.
+
+Check: `cd backend && uv run pytest -q tests/test_automated_pipeline_jobs.py -k interrupted_child_stage_of_cancelled_parent` — passed.
+
 Date: 2026-11-09
 
 ## Current result

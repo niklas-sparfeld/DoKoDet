@@ -281,11 +281,11 @@ while history and unrelated recordings grow 10x.
 ## Execution handoff
 
 - Current run: requested 5 milestones; completed 1; remaining 4. M7–M16 remain outside this run.
-- Next: M6b1b. Current-run re-planning: 0/10 total and 0/5 for M6b1a; correction count: 1/2.
+- Next: M6b1b. Current-run re-planning: 0/10 total and 0/5 for M6b1a; correction count: 2/2.
   The transition observer verifies child completion before marking a stage complete. Startup recovery
-  now reconstructs cancelled stage status and input lineage when a crash occurs after the child job
-  write but before the observer. A persisted run-store regression verifies this recovery. See the
-  M6b1a report for checks.
+  records the actual interrupted child outcome and input lineage when a cancelled parent and child
+  recover after restart. A persisted run-store regression covers the cancelling state. See the M6b1a
+  report for checks.
   The previous run's correction limit does not apply to this run. M6b1a now writes the automated
   pipeline's current `phase` and pending step before entering `waiting`. Startup recovery resolves
   only the child intent for that phase. If no child intent exists, it requeues the parent; if the
@@ -300,7 +300,7 @@ while history and unrelated recordings grow 10x.
   writes the stage's child ID, exact inputs, and queued status from the durable child and completed
   parent steps. Job transition notifications maintain running/terminal stage status and input lineage.
   The later-stage regression checks restart lineage, status while the child runs, and reuse of the
-  completed child. M6b1a has no remaining correction turns.
+  completed child. Current-run correction turns: 2/2.
 - M6b1a checks in this run: backend job/API/pipeline suite (81 passed), projection authority suite
   (23 passed), Ruff check and format check passed. The suite reports an existing Starlette/httpx
   deprecation warning. The earlier M6b1a report records the queue growth, journal-boundary,

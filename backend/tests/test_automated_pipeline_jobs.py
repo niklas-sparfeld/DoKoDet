@@ -443,7 +443,9 @@ def test_succeeded_child_without_complete_result_does_not_complete_stage(tmp_pat
         assert document["stages"][0]["child_job_id"] == child.id
 
 
-def test_cancelled_child_stage_keeps_lineage_after_restart(tmp_path: Path) -> None:
+def test_interrupted_child_stage_of_cancelled_parent_recovers_status_and_lineage(
+    tmp_path: Path,
+) -> None:
     run_id = str(uuid4())
     run_store = AutomatedPipelineRunStore(tmp_path / "pipeline-runs")
     run_store.create(_document(run_id))
@@ -493,22 +495,18 @@ def test_cancelled_child_stage_keeps_lineage_after_restart(tmp_path: Path) -> No
         )
         manager.transition(child.id, "running")
         manager.cancel(parent.id)
-        original_observer = participant.job_transitioned
-
-        def crash_before_observer(_job: Job, _manager: JobManager) -> None:
-            raise RuntimeError("crash after cancelled child persistence")
-
-        participant.job_transitioned = crash_before_observer
-        with pytest.raises(RuntimeError, match="crash after cancelled child persistence"):
-            manager.transition(child.id, "cancelled")
-        participant.job_transitioned = original_observer
+        assert manager.get(parent.id).state == "cancelling"
+        assert manager.get(child.id).state == "cancelling"
 
     with _manager(tmp_path, participant) as manager:
+        child = manager.get(child.id)
+        assert child.state == "interrupted"
         manager.participant.reconcile(manager)
         recovered = run_store.get(run_id)
         assert manager.get(parent.id).state == "cancelled"
         assert recovered["status"] == "cancelled"
-        assert recovered["stages"][0]["status"] == "cancelled"
+        assert recovered["stages"][0]["status"] == "interrupted"
+        assert recovered["stages"][0]["child_job_id"] == child.id
         assert recovered["stages"][0]["input_revision_ids"] == ["input-revision"]
 
 

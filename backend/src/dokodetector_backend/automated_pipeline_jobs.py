@@ -122,10 +122,16 @@ class AutomatedPipelineJobParticipant:
                 and item.state == "cancelled"
             ]
             child = matches[0] if len(matches) == 1 else None
-        if child is None or child.state != "cancelled":
+        if child is None or child.state not in {"cancelled", "interrupted"}:
             return
         inputs = self._resolve_inputs_from_jobs(parent, definition, jobs_by_id)
-        self._cancel_stage(str(parent.request["run_id"]), definition.name, child.id, inputs)
+        self._cancel_stage(
+            str(parent.request["run_id"]),
+            definition.name,
+            child.id,
+            inputs,
+            stage_status=child.state,
+        )
 
     def job_transitioned(self, child: Job, manager: JobManager) -> None:
         if child.parent_id is None or child.parent_step_id is None:
@@ -442,14 +448,20 @@ class AutomatedPipelineJobParticipant:
         self.service.store.update(run_id, update)
 
     def _cancel_stage(
-        self, run_id: str, stage: str, child_id: str, inputs: tuple[str, ...]
+        self,
+        run_id: str,
+        stage: str,
+        child_id: str,
+        inputs: tuple[str, ...],
+        *,
+        stage_status: str = "cancelled",
     ) -> None:
         def update(current: dict[str, Any]) -> None:
             current["status"] = "cancelled"
             row = next(item for item in current["stages"] if item["name"] == stage)
             row.update(
                 {
-                    "status": "cancelled",
+                    "status": stage_status,
                     "run_id": child_id,
                     "child_job_id": child_id,
                     "input_revision_ids": list(inputs),
