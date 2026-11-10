@@ -86,8 +86,8 @@ M8 proved the first workflow. M9–M11 remain unstarted, with qualification in M
 
 | Milestone | Observable result and commit boundary | Status |
 | --- | --- | --- |
-| M8 | One real, persisted HEAD-backed recording list workflow with old node discovery disabled; measure and make a go/stop decision. Commit the narrow proof, checks and report together. | Complete; limited proof, stop before M9 |
-| M9 | Complete a finite, explicitly specified current-status and blocker publication path for the remaining supported list workflow, only if M8 establishes a small set of owners and at most one new persistent contract. Commit that bounded work and evidence. | Not started; specify after M8 |
+| M8 | One real, persisted HEAD-backed recording list workflow with old node discovery disabled; measure and make a go/stop decision. Commit the narrow proof, checks and report together. | Complete; limited proof |
+| M9 | Complete a finite, explicitly specified current-status and blocker publication path for the remaining supported list workflow, only if M8 establishes a small set of owners and at most one new persistent contract. Commit that bounded work and evidence. | Not started; specified below |
 | M10 | Rehearse initialization for retained recordings and activate the production list for the supported corpus; verify behavior and restart, or stop. Commit activation and evidence. | Not started; specify after M8 |
 | M11 | Qualify real browser/list latency, independent retained-history growth, correctness and recovery; remove only proved obsolete list code and close or record an unmet outcome. Commit qualification and report. | Not started; qualification |
 
@@ -107,6 +107,87 @@ mocked browser response alone is not this proof.
 [proof report](../../reports/0120-M8_HEAD_List_Proof.md) records the checks, growth
 and stop decision. The production outcome remains unmet. Do not assign M9 until its
 bounded publication and recovery boundary is established within the stated limits.
+
+### M9 review and assignment — bounded list publication
+
+**Decision:** A single list-specific publication contract is feasible for M9. M8 did not
+prove this contract impossible. It proved that HEAD alone cannot represent all existing
+list states. Keep the source stores and exact selection as authorities. Do not migrate
+selection authority to HEAD. This is a design decision, not evidence that the new
+contract already works. M9 must prove it before M10 activation.
+
+The smallest existing-authority candidate retains `recording_catalog` and
+`get_statuses`, using exact selection and existing node transactions for their own
+writes. It preserves the current result after ordinary restart, and atomic source writes
+and existing node recovery protect their own resources. Concurrent readers can still
+see different source instants. It must enumerate node revisions, run directories,
+analyses and package metadata on each list, as M8's separate 1x/10x counts show.
+HEAD only describes selected slots and misses unselected revisions. Neither it nor
+existing source journals supplies the required aggregates or a durable indication of
+all source-to-summary gaps. Thus this candidate cannot meet bounded reads by itself.
+
+The bounded candidate adds **one persistent contract**, a recording-list publication
+ledger with a compact projection and durable pending intents. It is specific to this
+list, not a general multi-store transaction. Source records remain authoritative; the
+projection is rebuildable metadata. Under a cross-process publication lock, an adapter
+records an intent *before* the source commit, containing the exact source identity,
+recording, prior and intended source version or digest, and the affected compact
+projection. After the source commit it atomically applies an idempotent receipt and
+projection and clears the intent. A coordinated node transaction is one intent tied to
+its existing transaction journal and all affected recording projections. Define and test
+one lock order with the existing source locks; do not hold a publication lock while
+waiting for a source lock in the opposite order. The projection stores bounded stage
+availability and per-status run and analysis counts, latest analysis summary, valid
+linked package count, and exact selection/blocker inputs. It never stores resource
+content or changes what a selected reference means.
+
+A reader obtains a consistent committed projection snapshot. While a relevant intent is
+pending, it must wait for reconciliation or show an explicit unavailable/error state;
+it must never return an old projection as current. After interruption, reconciliation
+uses only the named source and, for coordinated node writes, the existing transaction
+journal. It distinguishes absent source from invalid existing source, compares exact
+versions/digests, applies or cancels only a proved outcome, and leaves ambiguity visible.
+Replay cannot double count. Recovery and ordinary reads must not enumerate retained
+history. Concurrent source writers, recovery and list readers must observe this same
+protocol, including within one process and across processes. External corruption or
+out-of-band source changes are not silently represented as a valid empty result; define
+visible invalid/not-ready behavior. Explicit resource operations still validate content.
+
+| List input and reader | Finite source writers and M9 adapter |
+| --- | --- |
+| Any valid historical stage revision; `PipelineWorkspaceService.get_statuses` | `PipelineNodeStore.create/save` and `PipelineNodeTransactions` commit/recovery, including edit, copy, restore, lineage, processor, calibration and import callers. Publish availability from the actual source publication, including unselected output; selected/stale HEAD alone is insufficient. |
+| Processor-run precedence; workspace status reader | `ProcessorRunStore.create`, `update_state`, `update_progress`, `complete`, `fail` and `fail_non_terminal`, including lifecycle/restart callers. Track queued/running, partial and failed per processor type; progress-only updates cannot change counts. |
+| Analysis precedence, count and latest; `RoundAnalysisService.recording_catalog` and workspace | `RoundAnalysisStore.insert/create`, `update_progress`, `mark_complete`, `mark_failed` and `fail_non_terminal`, including job/restart callers. Latest uses `(created_at, analysis_id)`; preserve active, complete and failed precedence. |
+| Linked package count and blocker; `recording_catalog` | `EvidencePackageStore.publish`, including API and operator import, with idempotent replay. Count only stored, valid metadata and lineage with matching recording and session. Invalid package or lineage does not unblock. |
+| Exact table-observation blocker; `recording_catalog` | `PipelineNodeSelectionStore.update_exact` and coordinated transaction/recovery, including processor lineage and import paths. Preserve the current exact-reference test and validation-error blocker; do not validate referenced content on the list. `RecordingBundleStore` remains identity/session authority and its publish/intake/import path supplies recording identity for matching. |
+
+**Observable result:** In disposable persisted storage, the real recordings API and browser
+show the existing five stage states, compact analysis/package fields and exact blocker for
+ordinary writes from all five families, with legacy history discovery disabled. Include
+unselected and stale outputs, empty and mixed recordings, invalid source metadata, linked
+and unlinked packages, and selected-reference changes. The production default remains
+unchanged until M10. The finite owners are the stores and adapters in the table,
+`recordings_api`, `RoundAnalysisService`, `PipelineWorkspaceService`, and the web list.
+Keep explicit detail/history readers on their existing paths. Inspect all direct and
+recovery writers of these owners before connecting them; if another independent owner or
+contract is required, stop and report the concrete boundary rather than expanding M9.
+
+**Required checks:** Exercise each source commit boundary before intent, after intent,
+after source commit, after projection receipt and before intent cleanup; restart and
+reconcile each exact source. Cover absent versus invalid paths, duplicate replay,
+coordinated node recovery and existing restart regressions. Separately test overlapping
+readers, writers and recovery across processes, including pending visibility and lock
+order. Verify all status precedence and blocker cases against the existing reader on the
+same valid fixtures, including package lineage/session mismatch and selection errors.
+Use the real API/browser with persisted data and restart, then independently measure
+node manifests/history, run directories, analysis rows and package rows under fixed
+recordings/active work and 1x/10x retained history. Assert bounded reads and bounded
+response; do not claim M11 latency qualification. Run targeted backend and browser tests,
+type/lint/format and API checks. Record revision, fixture and results. One commit contains
+the contract, finite adapters, tests, report and plan/board update. No retained-data
+activation, general transaction framework, scheduler change or M11 movement is authorized.
+If these checks reveal that the single protocol cannot preserve the behavior or recover
+unambiguously, stop with the failed boundary and smallest alternatives.
 
 M8 must not claim the whole production cutover. It must give an explicit, visible
 unavailable state for recordings whose HEAD is missing, invalid or cannot represent
