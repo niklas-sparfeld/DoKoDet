@@ -154,8 +154,8 @@ redesign, startup optimization, and global write optimization. Closure requires 
 latency gates, source-writer correctness after restart, and retained-data qualification.
 
 First complete workflow: M1 proves one source write, catalog metadata read, and restart; M2 proves a
-real `/v1/recordings` route with old discovery disabled and restart. The checkpoint remains M2 and
-has not been reached. M0 confirms existing exact node publication authority and selection cannot
+real `/v1/recordings` route with old discovery disabled and restart. M2 passed after one correction.
+M0 confirms existing exact node publication authority and selection cannot
 supply catalog summaries; the common publication protocol remains a single contract prerequisite.
 No production source owners were added. M1 implements the one planned catalog index and shared
 publication contract. The initial plan has eight milestones.
@@ -198,16 +198,27 @@ old discovery disabled, verifies the blocker and restarts. Stop if M2 misses its
 acceptance. Run the scope review before any additional implementation; do not add a contract or
 source authority. M1 checks and known limits are in its report.
 
-M2 result: [node and selection publication through the real recordings route](../../reports/0120-M2_Node_Selection_Publication.md).
-The real route reads stage availability and the exact table-observation blocker from catalog rows.
-Node create/save publications use the existing revision-history outbox for restart recovery.
-Exact generated and completed-reference selections publish through the M1 protocol. The route test
-disables node enumeration and the old workspace status reader, writes persisted node and selection
-state, verifies the blocker clears, and restarts the app. Run statuses remain sourced from the
-existing processor-run store until M3. Recording identity and analysis/package summaries remain on
-their existing readers until later milestones.
+M2 first submission: [node and selection publication through the real recordings route](../../reports/0120-M2_Node_Selection_Publication.md).
+The route test proved fresh node/selection publication, disabled node discovery, blocker update,
+concurrency, and restart. Sanity review did not accept the workflow: standalone selection writes
+persist the pointer before the catalog outbox, coordinated recovery can skip an already-written
+selection without publishing it, and the production route reads an unpopulated index before the
+planned retained-data rehearsal and activation. See the report for exact evidence.
 
-M2 family corrections: 0/2; no re-planning or scope change. The first complete workflow passed.
-Current run progress is 3/8 complete and 5 remain. No source owner or persistent contract was added.
-Next: M3 connects processor-run state writers. Keep status precedence and exact-target validation;
-do not expand into recording, package, or analysis writers.
+Scope review after the missed first-workflow checkpoint: keep the bounded M2 approach and use local
+corrections. The route switch is premature; preserve production list behavior until the planned
+M5/M6 activation. Use the existing M1 publication outbox and existing coordinated transaction
+journal to make standalone and coordinated selection publication recoverable. This adds no source
+authority, persistent contract, or prerequisite. The exact proof is a disposable real API workflow
+with explicit catalog activation, node discovery disabled, separate crash/restart regressions for
+standalone and coordinated selection writes, retry/concurrency/target/count/blocker checks, and a
+production-default route regression. Stop and report the evidence if this cannot pass within M2's
+correction allowance. M2 correction 1/2 passed: selection writes now use the existing coordinated
+transaction journal, and its recovery republishes an already-written selection. The indexed route
+is gated to explicit test activation; the production default retains the existing reader until
+M5/M6 activation. Separate crash/restart tests cover standalone and coordinated selection updates.
+The real API workflow still disables node and selection discovery after publication. No source
+owner, authority, persistent contract, or prerequisite was added. Run progress is 3/8 complete and
+5 remain; re-plannings 0/10. Next: M3 connects processor-run state writers. Preserve stage
+precedence and validate the exact selected target. Stop if M3 adds an unplanned source family or
+cannot meet its bounded acceptance.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Request
@@ -211,6 +211,39 @@ def list_recordings(request: Request) -> RecordingListResponse:
 
     service: RoundAnalysisService = request.app.state.round_analysis_service
     entries = service.recording_catalog()
+    if not request.app.state.recording_catalog_test_activation:
+        pipeline_statuses = request.app.state.pipeline_workspace_service.get_statuses(
+            [entry.recording.recording_id for entry in entries],
+            analyses_by_recording={
+                entry.recording.recording_id: entry.analyses for entry in entries
+            },
+        )
+    else:
+        pipeline_statuses = _recording_catalog_statuses(request, entries)
+    return RecordingListResponse(
+        recordings=[
+            RecordingSummary(
+                recording_id=entry.recording.recording_id,
+                source_asset_id=entry.recording.source_asset_id,
+                video_id=entry.recording.video_id,
+                session_id=entry.recording.session_id,
+                state=entry.recording.state,
+                source_sha256=entry.recording.source_sha256,
+                received_at=entry.recording.received_at,
+                round_id=entry.round_id,
+                evidence_package_ids=list(entry.evidence_package_ids),
+                analyses=[_analysis_summary(analysis) for analysis in entry.analyses],
+                pipeline_status=pipeline_statuses[entry.recording.recording_id],
+                can_start_analysis=entry.can_start_analysis,
+                analysis_blocker=entry.analysis_blocker,
+            )
+            for entry in entries
+        ]
+    )
+
+
+def _recording_catalog_statuses(request: Request, entries: list[Any]) -> dict[str, Any]:
+    """Read pipeline availability from the catalog in explicit disposable test runs."""
     catalog_index = request.app.state.recording_catalog_index
     pipeline_statuses = {}
     node_stage_names = {
@@ -268,26 +301,7 @@ def list_recordings(request: Request) -> RecordingListResponse:
             "schema_version": "recording-pipeline-status/v1",
             "stages": stages,
         }
-    return RecordingListResponse(
-        recordings=[
-            RecordingSummary(
-                recording_id=entry.recording.recording_id,
-                source_asset_id=entry.recording.source_asset_id,
-                video_id=entry.recording.video_id,
-                session_id=entry.recording.session_id,
-                state=entry.recording.state,
-                source_sha256=entry.recording.source_sha256,
-                received_at=entry.recording.received_at,
-                round_id=entry.round_id,
-                evidence_package_ids=list(entry.evidence_package_ids),
-                analyses=[_analysis_summary(analysis) for analysis in entry.analyses],
-                pipeline_status=pipeline_statuses[entry.recording.recording_id],
-                can_start_analysis=entry.can_start_analysis,
-                analysis_blocker=entry.analysis_blocker,
-            )
-            for entry in entries
-        ]
-    )
+    return pipeline_statuses
 
 
 @router.get(

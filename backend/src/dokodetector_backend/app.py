@@ -124,6 +124,7 @@ def create_app(
 
     app = FastAPI(title="DokoDetector Backend", version="0.1.0", lifespan=lifespan)
     app.state.settings = app_settings
+    app.state.recording_catalog_test_activation = False
     app.state.job_type_registry = JobTypeRegistry(app_settings.operations_root)
     app.state.job_manager_service = JobManagerService(
         app_settings.operations_root,

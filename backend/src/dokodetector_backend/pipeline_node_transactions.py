@@ -141,8 +141,8 @@ class PipelineNodeTransactions:
         node_updates: Sequence[Mapping[str, Any]],
         selection_updates: Sequence[Mapping[str, Any]],
     ) -> dict[str, Any]:
-        if not node_updates:
-            raise ValueError("a coordinated transaction needs at least one node update")
+        if not node_updates and not selection_updates:
+            raise ValueError("a coordinated transaction needs at least one update")
         prepared_nodes = []
         seen_nodes: set[str] = set()
         for item in node_updates:
@@ -339,10 +339,11 @@ class PipelineNodeTransactions:
                     != update["selected_completed_reference"]
                 ):
                     raise PipelineSelectionConflict("selection changed during coordinated recovery")
+                selections._publish_catalog_selection(current)
                 continue
             if actual != update["expected_revision"]:
                 raise PipelineSelectionConflict("selection changed during coordinated recovery")
-            selections.update_exact(
+            selections._update_exact_under_transaction(
                 update["recording_id"],
                 update["content_type"],
                 expected_revision=actual,

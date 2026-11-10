@@ -159,6 +159,7 @@ class RoundAnalysisService:
         self.pipeline_selection_store = pipeline_selection_store
         self.pipeline_lineage_writer = pipeline_lineage_writer
         self.catalog_index = catalog_index
+        self.catalog_enabled = False
         self.analyzer_runner = AnalyzerRunner(
             package_store,
             analyzer,
@@ -269,9 +270,9 @@ class RoundAnalysisService:
             try:
                 _, _, round_id = self._analysis_identifiers(recording)
                 catalog_row = (
-                    None
-                    if self.catalog_index is None
-                    else self.catalog_index.read(recording.recording_id)
+                    self.catalog_index.read(recording.recording_id)
+                    if self.catalog_enabled and self.catalog_index is not None
+                    else None
                 )
                 selected = (
                     None
@@ -280,7 +281,7 @@ class RoundAnalysisService:
                 )
                 has_pipeline_revision = (
                     self._has_selected_table_observation_ref(recording.recording_id)
-                    if self.catalog_index is None
+                    if not self.catalog_enabled or self.catalog_index is None
                     else bool(
                         selected
                         and (

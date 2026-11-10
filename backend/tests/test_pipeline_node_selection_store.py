@@ -105,9 +105,13 @@ def test_exact_selection_checks_node_identity_and_revision(tmp_path: Path) -> No
 def test_exact_selection_compare_and_swap_serializes_writers(tmp_path: Path) -> None:
     nodes, selections = _store(tmp_path)
     revision = nodes.create("event-node", "Events", "events", SOURCE, EVENTS, {})
-    pointer = {"node_id": "event-node", "revision_id": revision.revision_id}
+    other_revision = nodes.create("event-node-2", "Events 2", "events", SOURCE, EVENTS, {})
+    pointers = [
+        {"node_id": "event-node", "revision_id": revision.revision_id},
+        {"node_id": "event-node-2", "revision_id": other_revision.revision_id},
+    ]
 
-    def write() -> bool:
+    def write(pointer: dict[str, str]) -> bool:
         try:
             PipelineNodeSelectionStore(
                 PipelineNodeStore(tmp_path / "nodes"),
@@ -123,7 +127,42 @@ def test_exact_selection_compare_and_swap_serializes_writers(tmp_path: Path) -> 
             return False
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        outcomes = list(pool.map(lambda _: write(), range(2)))
+        outcomes = list(pool.map(write, pointers))
 
     assert sorted(outcomes) == [False, True]
     assert selections.get_exact("recording-01", "events").revision == 1
+
+
+def test_exact_selection_identical_retry_is_idempotent(tmp_path: Path) -> None:
+    nodes, selections = _store(tmp_path)
+    revision = nodes.create("event-node", "Events", "events", SOURCE, EVENTS, {})
+    pointer = {"node_id": "event-node", "revision_id": revision.revision_id}
+
+    def write() -> int:
+        return (
+            PipelineNodeSelectionStore(PipelineNodeStore(tmp_path / "nodes"))
+            .update_exact(
+                "recording-01",
+                "events",
+                expected_revision=0,
+                selected_generated=pointer,
+                selected_completed_reference=None,
+            )
+            .revision
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        revisions = list(pool.map(lambda _: write(), range(2)))
+
+    assert revisions == [1, 1]
+    assert selections.get_exact("recording-01", "events").revision == 1
+    other = nodes.create("event-node-2", "Events 2", "events", SOURCE, EVENTS, {})
+    selections.update_exact(
+        "recording-01",
+        "events",
+        expected_revision=1,
+        selected_generated={"node_id": "event-node-2", "revision_id": other.revision_id},
+        selected_completed_reference=None,
+    )
+    with pytest.raises(PipelineSelectionConflict):
+        write()

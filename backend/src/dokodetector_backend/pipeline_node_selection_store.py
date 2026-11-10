@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -102,13 +102,43 @@ class PipelineNodeSelectionStore:
         expected_revision: int,
         selected_generated: Mapping[str, str] | None,
         selected_completed_reference: Mapping[str, str] | None,
-        updated_at: datetime | str | None = None,
     ) -> ExactNodeSelection:
-        """Update exact graph pointers with compare-and-swap and node validation.
+        """Update exact graph pointers through the durable coordinated transaction journal."""
+        update = {
+            "recording_id": recording_id,
+            "content_type": content_type,
+            "expected_revision": expected_revision,
+            "selected_generated": selected_generated,
+            "selected_completed_reference": selected_completed_reference,
+        }
+        request = {"node_updates": [], "selection_updates": [update]}
+        transaction_id = "selection-" + hashlib.sha256(canonical_json_bytes(request)).hexdigest()
+        from dokodetector_backend.pipeline_node_transactions import PipelineNodeTransactions
 
-        This API is an additive foundation. Existing pipeline callers still use ``update``
-        until a coordinated multi-node transaction can publish all related state together.
-        """
+        PipelineNodeTransactions(self.node_store).commit(
+            transaction_id, node_updates=[], selection_updates=[update]
+        )
+        stored = self.get_exact(recording_id, content_type)
+        if stored is None:
+            raise PipelineStoreError("The updated exact node selection failed validation.")
+        if (
+            stored.revision != expected_revision + 1
+            or stored.selected_generated != selected_generated
+            or stored.selected_completed_reference != selected_completed_reference
+        ):
+            raise PipelineSelectionConflict("selection changed after the requested transaction")
+        return stored
+
+    def _update_exact_under_transaction(
+        self,
+        recording_id: str,
+        content_type: str,
+        *,
+        expected_revision: int,
+        selected_generated: Mapping[str, str] | None,
+        selected_completed_reference: Mapping[str, str] | None,
+    ) -> ExactNodeSelection:
+        """Apply one selection from its durable coordinated-transaction journal."""
         if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
             raise ValueError("expected_revision must be an integer")
         if expected_revision < 0:
@@ -139,37 +169,41 @@ class PipelineNodeSelectionStore:
                     "revision": actual + 1,
                     "selected_generated": generated,
                     "selected_completed_reference": completed,
-                    "updated_at": _canonical_timestamp(updated_at),
+                    "updated_at": _canonical_timestamp(None),
                 }
                 atomic_replace_json(path, canonical_json_bytes(raw))
                 stored = self.get_exact(recording_id, content_type)
                 if stored is None:
                     raise PipelineStoreError("The updated exact node selection failed validation.")
-                if self.catalog_index is not None:
-                    selected = stored.selected_completed_reference or stored.selected_generated
-                    self.catalog_index.publish_latest(
-                        source_key=f"pipeline-selection:{recording_id}:{content_type}",
-                        recording_id=recording_id,
-                        source_value={
-                            "recording_id": recording_id,
-                            "content_type": content_type,
-                            "revision": stored.revision,
-                            "selected_generated": stored.selected_generated,
-                            "selected_completed_reference": stored.selected_completed_reference,
-                        },
-                        metadata_delta={
-                            f"selection:{content_type}": {
-                                "selected_generated": stored.selected_generated,
-                                "selected_completed_reference": stored.selected_completed_reference,
-                            }
-                        },
-                        counter_delta=(
-                            {"selected_table_observation": 1 if selected is not None else 0}
-                            if content_type == "table_observations"
-                            else {}
-                        ),
-                    )
+                self._publish_catalog_selection(stored)
                 return stored
+
+    def _publish_catalog_selection(self, selection: ExactNodeSelection) -> None:
+        if self.catalog_index is None:
+            return
+        selected = selection.selected_completed_reference or selection.selected_generated
+        self.catalog_index.publish_latest(
+            source_key=(f"pipeline-selection:{selection.recording_id}:{selection.content_type}"),
+            recording_id=selection.recording_id,
+            source_value={
+                "recording_id": selection.recording_id,
+                "content_type": selection.content_type,
+                "revision": selection.revision,
+                "selected_generated": selection.selected_generated,
+                "selected_completed_reference": selection.selected_completed_reference,
+            },
+            metadata_delta={
+                f"selection:{selection.content_type}": {
+                    "selected_generated": selection.selected_generated,
+                    "selected_completed_reference": selection.selected_completed_reference,
+                }
+            },
+            counter_delta=(
+                {"selected_table_observation": 1 if selected is not None else 0}
+                if selection.content_type == "table_observations"
+                else {}
+            ),
+        )
 
     def _validate_exact_pointer(
         self,
