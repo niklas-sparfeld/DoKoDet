@@ -31,9 +31,13 @@ Current progress and proposed next work:
    1x/10x and hard-corpus checks show that source reads still grow and the measured hard
    request still takes about 18 seconds. See the [progress report](../../reports/0120-Source_List_Progress.md).
    The node-history shortcut was not safe on the available evidence.
-2. Identify each remaining history-dependent read and prove one small source-owned summary
-   through real persistence, concurrent writes, interruption, restart and retained-data
-   initialization. Name its owner and transaction boundary before implementation.
+2. **Stopped at feasibility review.** A disposable counterexample shows that unchanged
+   node head and current revision do not reveal a corrupt older revision, although the
+   current history read fails. No summary or transaction boundary is proved. See the
+   [node availability review](../../reports/0120-Node_Availability_Feasibility.md).
+   Resolve the required integrity and error boundary before authorizing a proof; do not
+   silently weaken it. A proof must cover persistence, concurrency, interruption,
+   restart and retained-data initialization.
 3. Only after that proof, specify the finite remaining source owners, rehearse retained-data
    initialization, cut over and qualify independent growth counters, status and blocker
    parity, restart, concurrency and comparable latency sessions.
@@ -41,7 +45,8 @@ Current progress and proposed next work:
 Stop if a small summary cannot cover the remaining owners without a broad multi-store
 transaction system. Report the measured improvement and request a decision; do not claim
 history-independent reads or move qualification to accommodate new prerequisites. The
-first production workflow is step 1, which remains incomplete. No later step is authorized yet.
+first production workflow is step 1, which remains incomplete. No implementation of a
+summary is authorized by this review.
 
 ## Historical original plan (superseded)
 
