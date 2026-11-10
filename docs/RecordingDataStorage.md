@@ -164,8 +164,8 @@ a qualification gate, not a claim based on this planning inspection.
 
 ## Delivery and non-goals
 
-[0123](plans/3-in-progress/0123-Simple_Recording_List.md) delivers the list in three milestones without
-new persistent state. [0124](plans/4-blocked/0124-Recording_Folders_and_Events.md) proves recording
+[0123](plans/5-closed/0123-Simple_Recording_List.md) delivers the list in three milestones without
+new persistent state. [0124](plans/2-ready/0124-Recording_Folders_and_Events.md) proves recording
 folders and event editing. [0125](plans/4-blocked/0125-Recording_Visual_Detections.md),
 [0126](plans/4-blocked/0126-Recording_Virtual_Scenes.md),
 [0127](plans/4-blocked/0127-Recording_Classifications.md), and

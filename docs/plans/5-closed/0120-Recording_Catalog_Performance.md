@@ -12,7 +12,7 @@
 
 The user selected simple domain resources, conventions instead of a resource framework, and a
 recording list that reads root/current metadata. The [storage decision](../../RecordingDataStorage.md)
-and [0123](../3-in-progress/0123-Simple_Recording_List.md) replace this delivery plan. M9's proposed
+and [0123](0123-Simple_Recording_List.md) replace this delivery plan. M9's proposed
 publication ledger and adapters are cancelled. Do not resume the old loop or reset its counters.
 M0–M2 and M8 remain historical evidence; M3 was unaccepted with corrections exhausted at 2/2.
 The production latency outcome was not achieved. Closing as Superseded claims no speedup and

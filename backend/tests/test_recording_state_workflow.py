@@ -284,8 +284,8 @@ def test_empty_head_does_not_prove_absence_of_unselected_events(tmp_path):
         )
 
 
-def test_metadata_list_ignores_experimental_head_and_node_discovery(tmp_path, monkeypatch):
-    settings = _settings(tmp_path).model_copy(update={"recording_list_head_proof": True})
+def test_metadata_list_ignores_recording_state_and_node_discovery(tmp_path, monkeypatch):
+    settings = _settings(tmp_path)
     app = create_app(settings, analyzer=create_local_poc_analyzer())
     node_store = app.state.pipeline_node_edits.store
     content = {

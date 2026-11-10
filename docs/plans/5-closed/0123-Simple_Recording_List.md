@@ -1,6 +1,7 @@
 # Simple recording list
 
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
 - **Depends on:** None. Existing recording and exact-selection metadata is sufficient.
 - **Outcome:** Open `/recordings` from recording metadata and explicit selected-data indicators
   without reading content, process history, or validating referenced resources.
@@ -151,16 +152,37 @@ and its [raw browser samples](../../reports/0123-M1_Local_Corpus_Browser.json).
 
 ### M2 — Remove replaced list code and close
 
-Inventory callers of list-proof helpers and the experimental list flag. Remove only unused
-list-specific code and tests. Keep aggregate recording-state APIs and shared workspace/history
-stores for their current consumers until their owning resource cutover. Reuse M1 evidence when
-code is unaffected; rerun affected checks after cleanup. Run web type/lint/API checks and relevant
-backend/browser regressions. Close Complete only if M0/M1 and the closure matrix pass. Commit:
-scoped removal and closure evidence. Update this decision's active links when moving the epic.
+**State: Complete.** The caller inventory found no callers of
+`PipelineWorkspaceService.get_head_proof_statuses()` and no runtime readers of
+`Settings.recording_list_head_proof`. Removed that list-proof helper and flag. Kept the regression
+that proves the list ignores aggregate recording-state and node discovery; it no longer enables the
+obsolete flag. Kept `get_statuses()`, `_list_statuses_for_recordings()`, and their shared stores for
+the workspace and pipeline consumers. The old 0120 proof report remains historical.
+
+The M0 persisted API/browser/restart workflow, M1 six-family growth and concurrent-selection tests,
+frozen 58-recording corpus digest and three-session timing evidence remain valid. M2 did not change
+the list route, selection parser, web contract, or profiling path. The affected backend regressions,
+Ruff, web checks, and a fresh one-session production list profile passed after removal. The full web
+end-to-end suite had 11 passes and two failures in unrelated workspace UI tests. Both failures also
+reproduce on the clean pre-M2 `main` revision `adfca187`: `pipeline-lineage-workspace.spec.ts:675`
+cannot find `Start (µs)`; the test at `:1665` cannot find `Left terminal run`. Follow-up owner:
+workspace UI and browser-test owners, in `web/tests/e2e/pipeline-lineage-workspace.spec.ts`. These
+failures do not use the recording-list route. No active reader lost a required API, no new source
+owner or contract was added, and all list closure criteria pass.
+
+Closure reason: Complete. The direct metadata list and truthful exact-selection indicators pass the
+persisted workflow, corruption and history-growth checks, concurrency check, and frozen latency
+qualification. No list request performs history reads, content validation, resource enumeration, or
+writes. The only removed code was the unused list-specific HEAD proof and its obsolete flag. The
+explicit aggregate workspace status API remains available to active consumers. A fresh list browser
+qualification passed on the frozen 58-recording corpus: one list request, zero detail requests,
+358.149 ms visible-row time, and digest `834c532...762ed8`. The full web suite failures are a
+separate workspace UI/browser-test follow-up; the exact reproducer and clean baseline evidence are
+recorded above.
 
 ## Execution handoff
 
-M0 and M1 complete. Baseline: 3 milestones, 1 remains; 2 complete. First complete API/browser
+M0, M1, and M2 complete. Baseline: 3 milestones, 0 remain; 3 complete. First complete API/browser
 workflow: proved in M0 with persisted selection, browser navigation, and backend restart. M1
 proved independent history growth, invalid metadata, concurrent selection reads, and sub-second
 fresh-process, warm, and browser list medians on the frozen 58-recording local corpus. New
@@ -169,7 +191,7 @@ contract tests, local-corpus profile runner, browser visibility test, and existi
 performance runner. Existing selection files and transaction locator remain the authority. M0's
 removed history-growth contract remains replaced by the independent six-family read-boundary check.
 
-Run 2 of 3 authorized milestones: M0 and M1 complete; 1 run slot remains; 0 re-plannings; M0's
+Run 3 of 3 authorized milestones: M0, M1, and M2 complete; 0 run slots remain; 0 re-plannings; M0's
 correction family remains exhausted at 2/2; M1 corrections 2/2. Correction 1 rejects zero and
 negative selection revisions, matching
 `PipelineNodeSelectionStore`'s positive-revision rule. Correction 2 restores the valid revision-1
@@ -191,8 +213,15 @@ matching the initial M1 digest for the same 310 files and 214,150 bytes. The pro
 freezes one metadata and selection snapshot before measurement and verifies the same digest before,
 between, and after sessions. All three session records contain that digest. Both corrections reused
 capture set 2; capture set 1 was the generated fixture. No scope change or re-planning. M1
-corrections 2/2. Next: M2 removes only unused list code, reruns affected checks, and closes. Stop if
-cleanup changes an active reader or any closure check fails.
+corrections 2/2. M2 then removed only unused list code and closed after the affected checks and list
+closure matrix passed. The full web E2E baseline exceptions are recorded with their clean-baseline
+reproducer above.
+
+Scope review after M1 correction exhaustion: the first workflow and the planned qualification now
+pass. The corrections repaired browser timing and corpus evidence, not the reader architecture.
+Keep the direct-read approach. No prerequisite or additional contract is needed. At that point, the
+only remaining assignment was M2's scoped caller inventory, removal, and closure checks. Stop if an
+active reader needs the code or a closure criterion fails; do not add a replacement authority.
 
 Scope review after M0 correction exhaustion: the real list, navigation, and restart workflow now
 works. The failed requirement was local selection metadata validation and preservation of its

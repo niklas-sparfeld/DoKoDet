@@ -75,7 +75,6 @@ class Settings(BaseSettings):
     repository_intake_root: Path = Path("data/intake/recordings")
     evidence_package_intake_root: Path = Path("data/intake/evidence-packages")
     pending_video_root: Path = Path("data/incoming/videos")
-    recording_list_head_proof: bool = False
     card_event_checkpoint_path: Path | None = Field(
         default=None,
         validation_alias=AliasChoices(
