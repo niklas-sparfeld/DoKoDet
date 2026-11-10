@@ -1,6 +1,6 @@
 # 0124 M3 pilot workflow
 
-Status: In progress
+Status: Complete
 
 ## Outcome
 
@@ -86,7 +86,15 @@ on selection. The browser regression checks the PUT returns 200 and the UI confi
 The recording-folder E2E passed (3 tests), `npm run check` passed (244 tests plus type, lint,
 format, and generated API checks), and `npm run build` passed after this change.
 
-The local provider run and normal-app result inspection passed, but M3 remains incomplete until the
-selection fix is integrated into the active app, direct selection of the unedited alternative
-passes there, and the backend restarts with the exact input and unselected alternative reopened.
-This smoke is not production qualification.
+After the editor fix reached `main`, the normal app selected unedited `retained-generated@1` as the
+generated set with HTTP 200. The backend had zero active jobs, so I restarted it with the same
+command and configuration. After restart, the app reopened the detector revision in the lineage
+view and displayed event outcomes. It also reopened the exact unselected input
+`manual-efadbf34-2c3c-4fa6-888f-2b9b46128ffe@1`; the event-set API returned its original digest
+`a3c284533668d7b316f65142718262424f62769e85bd19d0f67e177fb6b84c78` and 50 events. Recording HEAD
+remained on `retained-generated@1` and `retained-reference@1` after restart. The result and exact
+input therefore stayed available after selection changed.
+
+M3's normal-app pilot workflow passed. The provider smoke is limited to this retained local recording
+and this configured MPS provider. Publication took about eight minutes; the saved result was durable
+and inspectable after restart. This is not production qualification.

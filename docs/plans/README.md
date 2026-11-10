@@ -40,7 +40,7 @@ workspace UI browser failures reproduce on baseline `adfca187`; the follow-up is
 epic. No new ledger, index, outbox, or producer protocol.
 
 Then select each resource epic separately: **0124 recording folders/events → 0125 detections →
-0126 virtual scenes → 0127 classifications → 0128 table observations**. 0124 now has six milestones after the user-selected usability replan: M0–M2 complete, M3–M5 remain.
+0126 virtual scenes → 0127 classifications → 0128 table observations**. 0124 now has six milestones after the user-selected usability replan: M0–M3 complete, M4–M5 remain.
 0125–0128 each retain four milestones and their own cutover/qualification in M3. Later assignments
 are specified after the preceding workflow proves the approach. Original planning baseline: 23
 milestones across six epics; revised baseline: 25. These are independently selected epics, not one

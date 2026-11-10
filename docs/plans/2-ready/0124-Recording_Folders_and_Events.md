@@ -64,7 +64,7 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | M0 | Concrete recording-root contract; import/list/media-open/restart from one new recording folder | Complete |
 | M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives under one event-selection authority | Complete |
 | M2 | Review and the named exact-input consumers use event resources | Complete |
-| M3 | Normal app workflow works on one retained recording: open media, edit/select events, run detection, reopen result | In progress |
+| M3 | Normal app workflow works on one retained recording: open media, edit/select events, run detection, reopen result | Complete |
 | M4 | Extend the proved workflow to the retained recording/event corpus through rehearsed conversion | Not started |
 | M5 | Remove obsolete event runtime paths and qualify the usable app on activated data | Not started |
 
@@ -459,7 +459,7 @@ flow needs it. Universal history independence and job consolidation are deferred
 a prerequisite. The preceding provenance-first M3 assignment is superseded, not complete.
 Stop before expanding to another resource conversion, scheduler replacement, or generic resolver.
 
-M3 current run: requested 1 milestone, completed 0, remaining 1. M3 implementation attempts: 2;
+M3 current run: requested 1 milestone, completed 1, remaining 0. M3 implementation attempts: 2;
 M3 family re-plans remain 2/5; current-run re-plans are 0/10 and cumulative run history remains
 3/10. No new source owners, storage contracts, or transaction contracts were added. The first
 implementation attempt found one local defect in the
@@ -492,17 +492,26 @@ app opened this exact output and showed 50 outcomes. Publication took about eigh
 launch, including 7 minutes 18 seconds after the processor state was complete. The job then reached
 `succeeded` and the backend answered again; see the pilot report for the read-only sample.
 
-A direct selection of unedited `retained-generated@1` returned HTTP 422 because the editor sent the
-full set list entry instead of the exact `{set_id, version}` reference. The editor now normalizes
-the opened reference and sends only those two fields. The persisted browser test asserts that this
-selection returns HTTP 200 and the new choice appears. E2E passed (3 tests), `npm run check` passed
-(244 tests, type, lint, format, generated API), and `npm run build` passed. The active normal app
-still needs this commit before direct selection can be rechecked there.
+A direct selection of unedited `retained-generated@1` first returned HTTP 422 because the editor
+sent the full set list entry instead of the exact `{set_id, version}` reference. The editor now
+normalizes the reference on open and on selection. Its persisted-browser regression asserts HTTP
+200 and the updated choice. The normal app also selected this unedited set with HTTP 200.
 
-M3 remains incomplete until the fixed app selects the unedited alternative, the backend restarts,
-and the normal app reopens the detector result, its exact event parent, and the unselected set.
-No transaction, authority, or resolver was added. M4 follows only after M3's workflow is complete;
-M5 still owns removal and qualification.
+After the provider job succeeded, the normal app opened the saved result and displayed its 50 event
+outcomes. With no active jobs, I restarted the backend using its existing command and configuration.
+After restart, the normal app reopened that exact result and the exact unselected parent
+`manual-efadbf34-2c3c-4fa6-888f-2b9b46128ffe@1`. The parent still has digest
+`a3c284533668d7b316f65142718262424f62769e85bd19d0f67e177fb6b84c78`; the new generated selection
+remained `retained-generated@1`. M3's normal-app pilot workflow passed. The configured local provider
+smoke is limited to this retained recording and MPS provider. Publication took about eight minutes,
+then the saved result was durable and inspectable after restart. This does not claim production
+qualification. No transaction, authority, or resolver was added. M4 rolls out the proved flow; M5
+still owns removal and qualification.
+
+Final checks: focused backend event-set, recording-folder, visible-card and list-growth tests passed
+(57 tests); Ruff check and format passed; recording-folder E2E passed (3 tests); `npm run check`
+passed (244 tests, type, lint, format and generated API); and `npm run build` passed. The build keeps
+the existing 500 kB chunk-size warning.
 
 See [the M3 pilot report](../../reports/0124-M3_Pilot_Workflow.md) for the provider setup, exact
 job data, sample location, and acceptance gap.
