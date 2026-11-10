@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from pathlib import Path
+from threading import Event
 
 import pytest
 
+import dokodetector_backend.recording_catalog_index as catalog_module
 from dokodetector_backend.recording_catalog_index import (
     RecordingCatalogError,
     RecordingCatalogIndex,
@@ -19,7 +23,7 @@ def _publish(
     version: int = 1,
     recording_id: str = "recording-1",
     value: str = "source-value",
-    received_at: str = "2026-11-10T10:00:00Z",
+    received_at: str | None = "2026-11-10T10:00:00Z",
     counter_delta: dict[str, int] | None = None,
 ) -> None:
     index.publish(
@@ -67,6 +71,32 @@ def test_new_source_version_replaces_its_counter_contribution(tmp_path: Path) ->
     _publish(index, version=2, value="updated", counter_delta={"source_items": 3})
     assert index.read("recording-1")["counters"] == {"source_items": 3}
     assert index.read("recording-1")["metadata"]["fixture_label"] == "updated"
+
+
+def test_rebuild_accepts_current_source_versions_above_one(tmp_path: Path) -> None:
+    index = RecordingCatalogIndex(tmp_path)
+    _publish(index)
+    _publish(index, version=2, value="current", counter_delta={"source_items": 4})
+    index.rebuild(
+        [
+            {
+                "source_key": "fixture-source",
+                "source_version": 2,
+                "recording_id": "recording-1",
+                "source_value": {"value": "current"},
+                "metadata": {
+                    "received_at": "2026-11-10T10:00:00Z",
+                    "fixture_label": "current",
+                },
+                "counters": {"source_items": 4},
+            }
+        ]
+    )
+    assert index.read("recording-1")["counters"] == {"source_items": 4}
+    with sqlite3.connect(index.path) as connection:
+        assert connection.execute(
+            "SELECT source_version FROM source_receipts WHERE source_key = 'fixture-source'"
+        ).fetchone() == (2,)
 
 
 def test_recovery_replays_pending_delta_after_index_commit_crash(
@@ -169,6 +199,20 @@ def test_page_query_is_bounded_under_tenfold_source_growth(tmp_path: Path) -> No
     assert next_page[0]["recording_id"] == "recording-06"
 
 
+def test_keyset_pages_include_null_received_at_rows(tmp_path: Path) -> None:
+    index = RecordingCatalogIndex(tmp_path)
+    _publish(index, source_key="new", recording_id="new", received_at="2026-11-10T10:00:00Z")
+    _publish(index, source_key="old", recording_id="old", received_at="2026-11-09T10:00:00Z")
+    _publish(index, source_key="null-b", recording_id="null-b", received_at=None)
+    _publish(index, source_key="null-a", recording_id="null-a", received_at=None)
+
+    first = index.page(limit=2)
+    second = index.page(limit=2, after=(first[-1]["received_at"], first[-1]["recording_id"]))
+    assert [row["recording_id"] for row in first] == ["new", "old"]
+    assert [row["recording_id"] for row in second] == ["null-a", "null-b"]
+    assert index.page(limit=2, after=(second[-1]["received_at"], second[-1]["recording_id"])) == ()
+
+
 def test_rebuild_uses_explicit_source_snapshot_and_switches_index(tmp_path: Path) -> None:
     index = RecordingCatalogIndex(tmp_path)
     _publish(index)
@@ -195,6 +239,104 @@ def test_rebuild_uses_explicit_source_snapshot_and_switches_index(tmp_path: Path
         ]
         == "recording-1"
     )
+
+
+def test_generation_switch_keeps_an_open_reader_on_its_snapshot(tmp_path: Path) -> None:
+    index = RecordingCatalogIndex(tmp_path)
+    _publish(index, value="before")
+    reader_open = Event()
+    continue_read = Event()
+
+    def read_old_generation() -> str:
+        with closing(sqlite3.connect(index.path, isolation_level=None)) as reader:
+            reader.execute("BEGIN")
+            before = reader.execute(
+                "SELECT metadata_json FROM recording_rows WHERE recording_id = 'recording-1'"
+            ).fetchone()[0]
+            reader_open.set()
+            assert continue_read.wait(5)
+            after = reader.execute(
+                "SELECT metadata_json FROM recording_rows WHERE recording_id = 'recording-1'"
+            ).fetchone()[0]
+            assert "before" in before
+            return after
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        reader_task = pool.submit(read_old_generation)
+        assert reader_open.wait(5)
+        index.rebuild(
+            [
+                {
+                    "source_key": "fixture-source",
+                    "source_version": 2,
+                    "recording_id": "recording-1",
+                    "source_value": {"value": "after"},
+                    "metadata": {
+                        "received_at": "2026-11-10T10:00:00Z",
+                        "fixture_label": "after",
+                    },
+                    "counters": {"source_items": 1},
+                }
+            ]
+        )
+        continue_read.set()
+        assert "before" in reader_task.result(timeout=5)
+    assert index.read("recording-1")["metadata"]["fixture_label"] == "after"
+
+
+def test_interrupted_generation_switch_preserves_committed_catalog(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    index = RecordingCatalogIndex(tmp_path)
+    _publish(index, value="committed")
+    original_atomic_replace = catalog_module.atomic_replace_json
+
+    def fail_pointer_write(path: Path, value):
+        if path.name == "active-catalog.json":
+            raise OSError("simulated interruption before pointer switch")
+        return original_atomic_replace(path, value)
+
+    monkeypatch.setattr(catalog_module, "atomic_replace_json", fail_pointer_write)
+    with pytest.raises(OSError, match="pointer switch"):
+        index.rebuild(
+            [
+                {
+                    "source_key": "fixture-source",
+                    "source_version": 2,
+                    "recording_id": "recording-1",
+                    "source_value": {"value": "uncommitted"},
+                    "metadata": {
+                        "received_at": "2026-11-10T10:00:00Z",
+                        "fixture_label": "uncommitted",
+                    },
+                    "counters": {"source_items": 5},
+                }
+            ]
+        )
+    monkeypatch.setattr(catalog_module, "atomic_replace_json", original_atomic_replace)
+    assert index.read("recording-1")["metadata"]["fixture_label"] == "committed"
+    assert index.read("recording-1")["counters"] == {"source_items": 1}
+    index.rebuild(
+        [
+            {
+                "source_key": "fixture-source",
+                "source_version": 2,
+                "recording_id": "recording-1",
+                "source_value": {"value": "retry"},
+                "metadata": {
+                    "received_at": "2026-11-10T10:00:00Z",
+                    "fixture_label": "retry",
+                },
+                "counters": {"source_items": 2},
+            }
+        ]
+    )
+    pointer = json.loads((index.root / "active-catalog.json").read_bytes())
+    with sqlite3.connect(index.path) as connection:
+        assert connection.execute(
+            "SELECT generation FROM catalog_state WHERE singleton = 1"
+        ).fetchone() == (pointer["generation"],)
+    assert index.read("recording-1")["metadata"]["fixture_label"] == "retry"
 
 
 def test_missing_catalog_with_source_state_is_visible(tmp_path: Path) -> None:
@@ -241,3 +383,11 @@ def test_corrupt_index_is_visible_without_source_reconstruction(tmp_path: Path) 
         ]
     )
     assert index.read("recording-1")["counters"] == {"source_items": 1}
+
+
+def test_missing_active_generation_is_visible(tmp_path: Path) -> None:
+    index = RecordingCatalogIndex(tmp_path)
+    _publish(index)
+    index.path.unlink()
+    with pytest.raises(RecordingCatalogError, match="generation is absent"):
+        index.initialize()

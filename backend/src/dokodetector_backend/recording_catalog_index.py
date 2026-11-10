@@ -19,6 +19,7 @@ from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.pipeline_storage import _process_lock
 
 _SCHEMA = "recording-catalog-index/v1"
+_ACTIVE_POINTER_SCHEMA = "recording-catalog-active/v1"
 
 
 class RecordingCatalogError(RuntimeError):
@@ -36,18 +37,56 @@ def _digest(value: Any) -> str:
 class RecordingCatalogIndex:
     """Apply source-owned deltas to one versioned SQLite metadata index."""
 
-    def __init__(self, root: Path | str) -> None:
+    def __init__(self, root: Path | str, *, _database_override: Path | None = None) -> None:
         self.root = Path(root) / "recording-catalog"
-        self.path = self.root / "catalog.sqlite3"
         self.sources = self.root / "sources"
         self.outbox = self.root / "outbox"
         self._thread_lock = RLock()
+        self._database_override = _database_override
+
+    @property
+    def path(self) -> Path:
+        """Return the active generation path (or its initial path before first activation)."""
+        return self._database_path(allow_initial=True)
+
+    def _database_path(self, *, allow_initial: bool = False) -> Path:
+        if self._database_override is not None:
+            return self._database_override
+        pointer_path = self.root / "active-catalog.json"
+        if not pointer_path.exists():
+            if allow_initial:
+                return self.root / "generations" / "catalog-generation-00000001.sqlite3"
+            raise RecordingCatalogError("catalog index is absent")
+        value = self._read_required(pointer_path)
+        generation = value.get("generation")
+        filename = value.get("filename")
+        if (
+            set(value) != {"schema_version", "generation", "filename"}
+            or value.get("schema_version") != _ACTIVE_POINTER_SCHEMA
+            or not isinstance(generation, int)
+            or isinstance(generation, bool)
+            or generation < 1
+            or filename != f"catalog-generation-{generation:08d}.sqlite3"
+        ):
+            raise RecordingCatalogError("catalog active-generation pointer is corrupt")
+        return self.root / "generations" / filename
 
     def initialize(self) -> None:
-        if not self.path.exists() and (self.sources.exists() or self.outbox.exists()):
+        is_staged = self._database_override is not None
+        pointer_path = self.root / "active-catalog.json"
+        if (
+            not is_staged
+            and not pointer_path.exists()
+            and (self.sources.exists() or self.outbox.exists())
+        ):
             raise RecordingCatalogError("catalog index is absent while source publications exist")
         self.root.mkdir(parents=True, exist_ok=True)
-        existed = self.path.exists()
+        database_path = self._database_path(allow_initial=True)
+        existed = database_path.exists()
+        if not is_staged and pointer_path.exists() and not existed:
+            raise RecordingCatalogError("active catalog generation is absent")
+        if not is_staged and not pointer_path.exists() and existed:
+            raise RecordingCatalogError("catalog generation exists without an active pointer")
         try:
             with closing(self._connect(create=True)) as connection:
                 objects = {
@@ -106,7 +145,16 @@ class RecordingCatalogIndex:
                         "catalog index is not ready or has an unknown schema"
                     )
                 connection.commit()
-            self.path.chmod(0o600)
+            database_path.chmod(0o600)
+            if not is_staged and not pointer_path.exists():
+                atomic_replace_json(
+                    pointer_path,
+                    {
+                        "schema_version": _ACTIVE_POINTER_SCHEMA,
+                        "generation": 1,
+                        "filename": database_path.name,
+                    },
+                )
         except RecordingCatalogError:
             raise
         except (OSError, sqlite3.DatabaseError, ValueError) as error:
@@ -246,12 +294,16 @@ class RecordingCatalogIndex:
         self,
         *,
         limit: int,
-        after: tuple[str, str] | None = None,
+        after: tuple[str | None, str] | None = None,
     ) -> tuple[dict[str, Any], ...]:
         """Read a bounded page in stable order."""
         if not 1 <= limit <= 100 or (
             after is not None
-            and (len(after) != 2 or not all(isinstance(value, str) for value in after))
+            and (
+                len(after) != 2
+                or (after[0] is not None and not isinstance(after[0], str))
+                or not isinstance(after[1], str)
+            )
         ):
             raise RecordingCatalogError("catalog page bounds are invalid")
         try:
@@ -269,13 +321,22 @@ class RecordingCatalogIndex:
                         (limit,),
                     ).fetchall()
                 else:
-                    rows = connection.execute(
-                        "SELECT recording_id, received_at, metadata_json, counters_json "
-                        "FROM recording_rows WHERE received_at < ? "
-                        "OR (received_at = ? AND recording_id > ?) "
-                        "ORDER BY received_at DESC, recording_id ASC LIMIT ?",
-                        (after[0], after[0], after[1], limit),
-                    ).fetchall()
+                    if after[0] is None:
+                        rows = connection.execute(
+                            "SELECT recording_id, received_at, metadata_json, counters_json "
+                            "FROM recording_rows WHERE received_at IS NULL AND recording_id > ? "
+                            "ORDER BY received_at DESC, recording_id ASC LIMIT ?",
+                            (after[1], limit),
+                        ).fetchall()
+                    else:
+                        rows = connection.execute(
+                            "SELECT recording_id, received_at, metadata_json, counters_json "
+                            "FROM recording_rows WHERE received_at < ? "
+                            "OR (received_at = ? AND recording_id > ?) "
+                            "OR received_at IS NULL "
+                            "ORDER BY received_at DESC, recording_id ASC LIMIT ?",
+                            (after[0], after[0], after[1], limit),
+                        ).fetchall()
             return tuple(
                 {
                     "recording_id": row[0],
@@ -297,31 +358,38 @@ class RecordingCatalogIndex:
 
     def _rebuild_locked(self, source_records: list[dict[str, Any]]) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
-        staged = self.root / "catalog.staged.sqlite3"
+        generations = self.root / "generations"
+        generations.mkdir(parents=True, exist_ok=True)
+        staged = generations / "catalog.staged.sqlite3"
         staged.unlink(missing_ok=True)
         Path(f"{staged}-wal").unlink(missing_ok=True)
         Path(f"{staged}-shm").unlink(missing_ok=True)
-        rebuilt = RecordingCatalogIndex.__new__(RecordingCatalogIndex)
-        rebuilt.root = self.root
-        rebuilt.path = staged
-        rebuilt.sources = self.root / "catalog-rebuild-sources"
-        rebuilt.outbox = self.root / "catalog-rebuild-outbox"
+        rebuilt = RecordingCatalogIndex(
+            self.root.parent,
+            _database_override=staged,
+        )
         rebuilt.initialize()
         current_generation = 0
-        if self.path.exists():
-            try:
-                with closing(self._connect()) as connection:
-                    row = connection.execute(
-                        "SELECT schema_version, generation FROM catalog_state WHERE singleton = 1"
-                    ).fetchone()
-                    if row is not None and row[0] == _SCHEMA:
-                        current_generation = row[1]
-            except (OSError, sqlite3.DatabaseError, RecordingCatalogError):
-                current_generation = 0
+        try:
+            self._database_path()
+            with closing(self._connect()) as connection:
+                row = connection.execute(
+                    "SELECT schema_version, generation FROM catalog_state WHERE singleton = 1"
+                ).fetchone()
+                if row is not None and row[0] == _SCHEMA:
+                    current_generation = row[1]
+        except (OSError, sqlite3.DatabaseError, RecordingCatalogError):
+            current_generation = 0
+        existing_generations = [
+            int(path.stem.removeprefix("catalog-generation-"))
+            for path in generations.glob("catalog-generation-*.sqlite3")
+            if path.stem.removeprefix("catalog-generation-").isdigit()
+        ]
+        next_generation = max([current_generation, *existing_generations], default=0) + 1
         with closing(rebuilt._connect()) as connection:
             connection.execute(
                 "UPDATE catalog_state SET generation = ? WHERE singleton = 1",
-                (current_generation + 1,),
+                (next_generation,),
             )
         for source in source_records:
             source_value = {
@@ -342,16 +410,30 @@ class RecordingCatalogIndex:
                     "projection": {"metadata": source["metadata"], "counters": source["counters"]},
                 },
                 remove_pending=False,
+                allow_initial_source_version=True,
             )
         with closing(rebuilt._connect()) as connection:
             rebuilt._check_integrity(connection)
             connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             connection.execute("PRAGMA journal_mode = DELETE")
-        Path(f"{self.path}-wal").unlink(missing_ok=True)
-        Path(f"{self.path}-shm").unlink(missing_ok=True)
-        staged.replace(self.path)
+        final_path = generations / f"catalog-generation-{next_generation:08d}.sqlite3"
+        staged.replace(final_path)
+        atomic_replace_json(
+            self.root / "active-catalog.json",
+            {
+                "schema_version": _ACTIVE_POINTER_SCHEMA,
+                "generation": next_generation,
+                "filename": final_path.name,
+            },
+        )
 
-    def _apply(self, record: dict[str, Any], *, remove_pending: bool = True) -> None:
+    def _apply(
+        self,
+        record: dict[str, Any],
+        *,
+        remove_pending: bool = True,
+        allow_initial_source_version: bool = False,
+    ) -> None:
         self._validate_outbox(record)
         source_key = record["source_key"]
         recording_id = record["recording_id"]
@@ -378,7 +460,11 @@ class RecordingCatalogIndex:
                 else:
                     if current is not None and current[0] != recording_id:
                         raise RecordingCatalogError("source recording identity cannot change")
-                    expected = 1 if current is None else current[1] + 1
+                    expected = (
+                        (version if allow_initial_source_version else 1)
+                        if current is None
+                        else current[1] + 1
+                    )
                     if version != expected:
                         raise RecordingCatalogError("source version conflicts with catalog receipt")
                     old_projection = {} if current is None else json.loads(current[3])
@@ -445,9 +531,12 @@ class RecordingCatalogIndex:
             raise RecordingCatalogError("catalog publication failed") from error
 
     def _connect(self, *, create: bool = False) -> sqlite3.Connection:
-        if not create and not self.path.is_file():
+        database_path = self._database_path(allow_initial=create)
+        if create:
+            database_path.parent.mkdir(parents=True, exist_ok=True)
+        if not create and not database_path.is_file():
             raise RecordingCatalogError("catalog index is absent")
-        connection = sqlite3.connect(self.path, timeout=10, isolation_level=None)
+        connection = sqlite3.connect(database_path, timeout=10, isolation_level=None)
         connection.row_factory = None
         connection.execute("PRAGMA busy_timeout = 10000")
         connection.execute("PRAGMA journal_mode = WAL")

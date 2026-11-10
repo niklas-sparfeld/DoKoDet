@@ -45,7 +45,7 @@ uses an exact recording-key read and an ordered SQL `LIMIT` page with a keyset c
 does not affect the page result size or cursor traversal.
 
 - `mise exec -- uv run --project backend pytest backend/tests/test_recording_catalog_index.py -q`
-  — passed, 11 tests.
+  — passed, 16 tests after correction 1.
 - `mise exec -- uv run --project backend ruff check backend/src/dokodetector_backend/recording_catalog_index.py backend/tests/test_recording_catalog_index.py`
   — passed.
 - `mise exec -- uv run --project backend ruff format --check backend/src/dokodetector_backend/recording_catalog_index.py backend/tests/test_recording_catalog_index.py`
@@ -56,8 +56,23 @@ does not affect the page result size or cursor traversal.
 
 ## Progress and next proof
 
-The run remains bounded at eight milestones: two complete and six remaining. Re-plannings remain
-0/10. M0 has one correction. The M1 family has zero corrections. The scope decision is to keep the
-bounded index approach. M2 must connect node and selection writers and prove the real
-`/v1/recordings` workflow with old discovery disabled and restart. That workflow is not proved by
-this report.
+The initial M1 submission was recorded as run progress 2/8. A sanity review found defects in rebuild
+from current source versions, switching while readers held a database open, interruption during
+the switch, and keyset pagination through `NULL` timestamps. Correction 1/2 changes rebuild to use
+the frozen current source version and stages immutable SQLite generations. One atomic active
+pointer switch selects the new generation. Old generations remain on disk so open readers can finish;
+automatic generation removal is outside M1. Pagination now includes null-timestamp rows after
+timestamped rows and continues correctly within the null group.
+
+Correction 1 adds separate regressions for source version 2 rebuild, a reader held open in another
+thread during rebuild, failure before the active pointer switch with the prior committed catalog
+still readable, and multiple pages containing null timestamps. It also verifies a missing active
+generation fails visibly. Existing crash, replay, missing and corrupt source, corrupt index, and
+concurrent publication/read tests remain.
+
+Correction 1/2 is implemented and awaits sanity review. Until review accepts M1, current accepted
+progress is 1/8 complete and 7 remaining. Re-plannings remain 0/10; M0 has one correction and M1
+has one correction. No source owner, persistent contract, or scope changed. The scope decision is
+to keep the bounded index approach. After acceptance, M2 must connect node and selection writers and
+prove the real `/v1/recordings` workflow with old discovery disabled and restart. That workflow is
+not proved by this report.

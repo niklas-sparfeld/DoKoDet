@@ -50,7 +50,7 @@ or index-only API stub as a complete workflow. No queue, acceptance-key or sched
 | Milestone | Observable result and commit boundary | Status |
 | --- | --- | --- |
 | M0 | Frozen list contract, consumer/writer matrix and failing growth assertions | Complete |
-| M1 | Catalog metadata index, common publication outbox and explicit rebuild contract | Complete |
+| M1 | Catalog metadata index, common publication outbox and explicit rebuild contract | In Progress |
 | M2 | Node and selection publication through one real catalog workflow | Not started |
 | M3 | Processor-run status publication | Not started |
 | M4 | Recording, analysis and package metadata adapters | Not started |
@@ -158,9 +158,11 @@ real `/v1/recordings` route with old discovery disabled and restart. The checkpo
 has not been reached. M0 confirms existing exact node publication authority and selection cannot
 supply catalog summaries; the common publication protocol remains a single contract prerequisite.
 No production source owners were added. M1 implements the one planned catalog index and shared
-publication contract. The initial plan has eight milestones; six remain.
+publication contract. The initial plan has eight milestones.
 
-Current run requested 8 milestones, completed 2, and has 6 remaining. Run re-plannings: 0/10.
+The initial M1 submission was recorded as run progress 2/8. Sanity review found three defects in
+rebuild and paging. Correction 1/2 is implemented and awaits review. Until review accepts M1, the
+current accepted progress is 1/8 complete and 7 remain. Run re-plannings: 0/10.
 M0 correction attempts: 1/2. The first M0 submission had only a Pydantic payload-size fixture and
 an unpopulated hard-corpus capture. Correction 1 adds a real route fixture with persisted package,
 analysis, processor-run and node histories, unrelated records, counters, and fixed-state checks.
@@ -180,13 +182,13 @@ passed its fixture and source-growth checks.
 The [0117 exit decision](../../reports/0117-Supersession_and_Exit.md#execution-control) governs
 scope stops.
 
-M1 result: [catalog index and publication contract](../../reports/0120-M1_Catalog_Index.md). The
-versioned SQLite index, source receipts, atomic pending-publication files, explicit pending replay,
-and staged rebuild are implemented. The fixture proves source publication, metadata reads, restart,
-replay, recovery and bounded pages. M1 does not connect production writers or switch
-`/v1/recordings`; the first complete API workflow remains M2.
+M1 result and correction history: [catalog index and publication contract](../../reports/0120-M1_Catalog_Index.md).
+Correction 1 addresses rebuild from current source versions, generation switching with open readers
+and interrupted switching, and keyset pagination through rows with no `received_at`. M1 does not
+connect production writers or switch `/v1/recordings`; the first complete API workflow remains M2.
 
-M1 family corrections: 0/2. No re-planning or scope change occurred. Next proof: M2 connects node
-and selection publication and reads the real `/v1/recordings` route with old discovery disabled.
-Stop if this requires another persistent contract or a source authority beyond the frozen M0
-inventory. M1 checks and known limits are in its report.
+M1 family corrections: 1/2. No re-planning or scope change occurred. The correction is complete
+pending review. Next proof after acceptance: M2 connects node and selection publication and reads
+the real `/v1/recordings` route with old discovery disabled. Stop if this requires another
+persistent contract or a source authority beyond the frozen M0 inventory. M1 checks and known
+limits are in its report.
