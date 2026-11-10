@@ -7,46 +7,160 @@
   with retained pipeline, processor-run, or analysis history.
 - **Origin:** [0117 exit decision](../../reports/0117-Supersession_and_Exit.md).
 
-## Current disposition — source-authority feasibility
+## Current disposition — recording root and HEAD
 
-On 2026-11-10 the user authorized catalog disposition and then source-authority list work. The index rollout is
-superseded. The historical plan and handoff below record the original work and are not
-current instructions. M0–M2 remain accepted as historical results; M3 is unaccepted and
-M4–M7 are superseded, not complete. The original eight milestones and all correction
-counts remain in the handoff. This is a materially different approach, not another M3
-correction. Its disposition milestone has a maximum of two corrections; none have been
-used. The previous run is stopped; its 1/10 re-planning count is retained.
+On 2026-11-10 the user changed the validation boundary. Listing a recording must
+read its root and current state, not validate the data inside it or its historical
+revisions. A virtual-card view, processor, or other operation validates the resource
+it opens. The node-availability review remains historical evidence; its proposed
+requirement to detect arbitrary historical damage during every list request is
+superseded. Missing or corrupt list metadata must remain visible; it must not become
+an invented empty, complete, or runnable state.
 
-The disposition removes the unused catalog projection, writer hooks, run intent and test
-route. It retains the source transaction journal for standalone and coordinated selection
-updates. Existing source stores remain authoritative. The backend refuses to start when
-a retired catalog outbox is nonempty or invalid; it preserves that evidence for source
-reconciliation. No catalog or other retained data is deleted. See the
-[disposition report](../../reports/0120-Catalog_Disposition.md).
+The catalog index, catalog outbox and run-intent approach were removed. The source
+transaction journal for node and selection changes remains. The backend still
+refuses startup for a nonempty or invalid retired catalog outbox and preserves it
+for reconciliation. No retained catalog or source data was deleted. See the
+[disposition](../../reports/0120-Catalog_Disposition.md), [partial list result](../../reports/0120-Source_List_Progress.md),
+[feasibility review](../../reports/0120-Node_Availability_Feasibility.md), and
+[0117 exit](../../reports/0117-Supersession_and_Exit.md). This plan supersedes the
+0117 exit's freeze on HEAD **for the list proof only**. It does not authorize a
+workspace or processor-input migration. Coordinate with 0121 before changing any
+shared state or selection authority.
 
-Current progress and proposed next work:
+### Outcome and limits
 
-1. **Partial; speed checkpoint not met.** The production list now has a bounded response
-   and scans analyses once. Status and blocker behavior and detail access remain. The
-   1x/10x and hard-corpus checks show that source reads still grow and the measured hard
-   request still takes about 18 seconds. See the [progress report](../../reports/0120-Source_List_Progress.md).
-   The node-history shortcut was not safe on the available evidence.
-2. **Stopped at feasibility review.** A disposable counterexample shows that unchanged
-   node head and current revision do not reveal a corrupt older revision, although the
-   current history read fails. No summary or transaction boundary is proved. See the
-   [node availability review](../../reports/0120-Node_Availability_Feasibility.md).
-   Resolve the required integrity and error boundary before authorizing a proof; do not
-   silently weaken it. A proof must cover persistence, concurrency, interruption,
-   restart and retained-data initialization.
-3. Only after that proof, specify the finite remaining source owners, rehearse retained-data
-   initialization, cut over and qualify independent growth counters, status and blocker
-   parity, restart, concurrency and comparable latency sessions.
+Open `/recordings` quickly with per-recording root and current-state reads. With the
+number of recordings and active work fixed, list reads must not grow with retained
+pipeline revisions, processor runs, analyses, or packages. The recording count may
+still affect list cost. Preserve the visible five stages, current active/failed/
+partial behavior and analysis blocker, unless the user explicitly approves a
+specific semantic change. Do not report a reference as verified content: an
+operation must check the exact resource it uses. Keep detail/history accessible
+through their existing explicit paths.
 
-Stop if a small summary cannot cover the remaining owners without a broad multi-store
-transaction system. Report the measured improvement and request a decision; do not claim
-history-independent reads or move qualification to accommodate new prerequisites. The
-first production workflow is step 1, which remains incomplete. No implementation of a
-summary is authorized by this review.
+The list enumerates `RecordingBundleStore.list_metadata()` today. A recording HEAD
+is a separate pointer to an immutable selected snapshot; its compact summary
+contains selected/stale slot states. `get_current()` reads HEAD and the selected
+snapshot and may repair its summary. This is a candidate for bounded current-state
+reads, not evidence that every recording has initialized HEAD or that ordinary
+writers maintain it. The current list instead reconstructs availability from every
+node revision, reads processor-run histories and analysis states, and derives the
+blocker from an exact table-observation selection or a valid linked package.
+HEAD's selected state is not automatically equivalent to the old “any historical
+revision exists” state. Preserve the distinction and establish a truthful mapping;
+do not turn historical availability into current selection by assertion.
+
+The web list uses recording/round identity, timestamp, session, thumbnail and five
+stage states. The list API also returns counts, latest analysis and blocker fields;
+the detail API has full histories. Audit real callers before changing any field.
+The requested blocker behavior remains a requirement even if the current web list
+does not render it. It is not permission to scan package history on every request.
+
+### Existing owners and open boundaries
+
+| Need | Current owner and known gap | Proof or decision |
+| --- | --- | --- |
+| Identity and order | `RecordingBundleStore` and intake metadata | Read recording roots without video or history; preserve order and navigation. |
+| Selected state | `RecordingStateSnapshotStore`, `RecordingStateWorkingEditor` and state API | Existing HEAD is an experimental selected-state path; normal node and selection writers are not shown to maintain it. Prove a real selected event workflow first. |
+| Visible available stage | `PipelineWorkspaceService.get_statuses`, node and selection stores | Old code uses any valid historical `data_revision`; selected/stale HEAD slots have different meaning. Test unselected and stale output. Stop if exact visible behavior needs a broad authority migration. |
+| Active, partial and failed stage | `ProcessorRunStore` | HEAD has no run status. Identify a bounded current source and prove ordinary run lifecycle, interruption and restart; do not substitute Job Manager status without proving equivalent behavior. |
+| Analysis stage and blocker | `RoundAnalysisStore`, `PipelineNodeSelectionStore`, `EvidencePackageStore`, `RoundAnalysisService` | HEAD alone has neither analysis states nor package availability. Keep exact selection/package blocker and actual analysis precedence; identify bounded current authority and its writers. |
+| Detail and validation | Existing workspace, resource and analysis APIs | Check exact referenced content when used; old and corrupt unrelated history must not prevent the list from opening. |
+
+The current hard-corpus list capture took 18.482 seconds, read 14 revision
+records and about 70 MB. It is one instrumented sample, not a latency qualification.
+The bounded response and shared analysis scan have not proved a speedup. The 1x/10x
+fixture still shows separate node, node-history, run, analysis and package growth.
+
+### Finite delivery plan
+
+M0–M2 remain accepted historical results. M3 remains unaccepted after correction
+2/2; M4–M7 are superseded, not completed. The original eight-milestone baseline,
+its correction history and the stopped run's 1/10 re-planning count remain in the
+handoff. The new work is a materially different HEAD-based feasibility and delivery
+approach, with at most two corrections for its proof family. It does not reset M3's
+exhausted corrections or authorize another Luna loop. No implementation is
+started by this plan. This user-directed re-plan is outside the stopped run; it does
+not add to or reset that run's recorded count. The current plan has four unstarted
+milestones, M8–M11, with the first workflow in M8 and qualification in M11.
+
+| Milestone | Observable result and commit boundary | Status |
+| --- | --- | --- |
+| M8 | One real, persisted HEAD-backed recording list workflow with old node discovery disabled; measure and make a go/stop decision. Commit the narrow proof, checks and report together. | Not started |
+| M9 | Complete a finite, explicitly specified current-status and blocker publication path for the remaining supported list workflow, only if M8 establishes a small set of owners and at most one new persistent contract. Commit that bounded work and evidence. | Not started; specify after M8 |
+| M10 | Rehearse initialization for retained recordings and activate the production list for the supported corpus; verify behavior and restart, or stop. Commit activation and evidence. | Not started; specify after M8 |
+| M11 | Qualify real browser/list latency, independent retained-history growth, correctness and recovery; remove only proved obsolete list code and close or record an unmet outcome. Commit qualification and report. | Not started; qualification |
+
+**M8 assignment.** Use the existing `RecordingBundleStore`,
+`RecordingStateSnapshotStore`, state API and `RecordingStateWorkingEditor` with
+`recordings_api` and the web list. In disposable persisted storage, import an
+accepted recording, initialize its recording HEAD using the real state API, select
+and edit an events revision using the real working editor, then open the actual
+`/recordings` page and navigate to the recording. The selected events stage must
+show the truthful current status; include an empty recording and the unchanged
+analysis blocker. Restart the backend and repeat the list. Disable the legacy node
+history discovery for the tested list path and fail the test if it is called. Use
+processor stubs only if a processor is needed. A fixture-only state API request or
+mocked browser response alone is not this proof.
+
+M8 must not claim the whole production cutover. It must give an explicit, visible
+unavailable state for recordings whose HEAD is missing, invalid or cannot represent
+required list fields; never silently synthesize empty status, an unblocked action,
+or fall back to full history. Exercise two recordings so one unavailable state does
+not hide a valid row. The proof may use a disposable opt-in app configuration until
+all required writers and retained recordings are covered. It must use the real list
+route and browser and must not make a fixture-only endpoint the claimed workflow.
+No new persistent storage or transaction contract is authorized in M8. If the
+existing HEAD APIs cannot support this proof without such a contract, stop and
+report the missing boundary instead of adding one.
+
+M8 checks: supported HEAD selection and update, no-op and stale HEAD behavior,
+missing/corrupt HEAD and selected snapshot, invalid historical node payload with
+valid current state, selected content corruption deferred to the operation that
+opens it, blocker and stage mapping, restart, and separate concurrent HEAD reader/
+writer checks using the existing state-store guarantees. Measure node-history,
+node-manifest, run, analysis and package reads independently in 1x/10x fixtures;
+report the remaining growth, do not mark it passing. Capture comparable hard-corpus
+list timing only where its HEAD initialization is valid, documenting fixture and
+measurement limits. Run targeted backend and browser/API checks, type/lint checks,
+and record revision and data snapshot. Keep older crash and concurrency regressions.
+
+At M8 close, inventory the concrete supported and unsupported cases, current
+writers, preserved data schemas and the exact remaining blockers. Specify M9 before
+assignment with one observable result, a finite owner/adapter list, authority,
+checks and one commit boundary. Do the same for M10 and M11 before each starts.
+One milestone may add at most one persistent storage or transaction contract. Do
+not require bounded writes or optimize scheduling unless measured contention or
+moved work blocks the list. Do not hide a writer or transaction contract inside
+retained-data initialization. If multiple independent contracts are necessary,
+stop and return a smaller outcome or ask for a new scope decision; do not silently
+extend this plan or move qualification.
+
+**Retained data and removal.** Before production activation, inventory representative
+recording bundle and state schemas, existing HEADs, node selections, package and
+analysis records, and all affected readers/writers. Rehearse initialization in a
+disposable frozen snapshot. Verify actual current selections, blocker inputs, usable
+content, editing, restart and exact dependencies; counts or copies alone do not
+prove cutover. An absent HEAD must not be initialized as empty when existing source
+state is present. Record the activation snapshot, a way to recover and rollback,
+and how concurrent writes are excluded or reconciled. Never delete retained source
+history or the retired catalog/outbox data as part of this plan. Remove replaced
+list-only scans or other code only after the consumer/writer audit and proof show
+that detail, selection, recovery and explicit history readers still work; preserve
+all other code until separately justified.
+
+**Stop and closure.** Stop after M8 if the real workflow needs a broad selection
+migration, unbounded owner discovery, a new general multi-store transaction, or a
+semantic change to visible status/blocker that has not been approved. Also stop if
+M8 cannot prove the workflow without another persistent contract, or if later work
+cannot be split into the finite boundaries above. Report the measured result, source
+owners and decision; do not add prerequisites to postpone qualification. Closure
+requires default production list and browser navigation on retained initialized data,
+truthful status/blocker behavior, explicit resource validation at use, no list-time
+history/content scan, independent 1x/10x bounds, recovery/concurrency checks and
+comparable repeated latency sessions against the same corpus. If any requirement is
+unmet, leave the epic open and state exactly what remains.
 
 ## Historical original plan (superseded)
 
