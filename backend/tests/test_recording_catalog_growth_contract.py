@@ -200,7 +200,9 @@ def test_list_reads_do_not_grow_with_independent_history_family(
 
     assert high_counts == low_counts
     assert high_response == low_response
-    assert low_counts["opens"] == 8
+    # Event selection now comes from recording.json HEAD. The row does not open
+    # the retired pipeline-node selection file.
+    assert low_counts["opens"] == 7
     assert low_counts["directory_visits"] == 1
     assert low_counts["bytes"] == (recording_bundle / "recording.json").stat().st_size
     assert len(high_response) < 20_000
@@ -228,49 +230,49 @@ def test_list_reads_during_concurrent_selection_updates_are_atomic(tmp_path: Pat
             frontend_dist=tmp_path / "frontend",
         )
     )
-    selection_store = app.state.pipeline_selection_store
-    node_store = selection_store.node_store
-    source = {
-        "schema_version": "recording-video/v1",
-        "recording_id": recording_id,
-        "relative_path": "data/intake/recordings/recording-both/video.mov",
-        "video_sha256": "a" * 64,
-        "byte_length": 100,
-        "duration_us": 10_000_000,
-    }
-    revisions = [
-        node_store.create(
-            f"events-{index}",
-            "Events",
-            "events",
-            source,
-            {"schema_version": "event-data/v1", "events": []},
-            {},
+    event_set_store = app.state.event_set_store
+    references = []
+    for index in range(2):
+        saved = event_set_store.save(
+            recording_id,
+            set_id=f"events-{index}",
+            version="1",
+            content={
+                "schema_version": "event-data/v1",
+                "events": [
+                    {
+                        "event_id": f"event-{index}",
+                        "event_type": "card_state_changed",
+                        "start_us": index * 100,
+                        "end_us": index * 100 + 50,
+                    }
+                ],
+            },
+            origin="manual",
+            provenance={"source": "concurrency-test"},
         )
-        for index in range(2)
-    ]
-    pointers = [
-        {"node_id": f"events-{index}", "revision_id": revision.revision_id}
-        for index, revision in enumerate(revisions)
-    ]
+        references.append({"set_id": saved["set_id"], "version": saved["version"]})
     transaction_pending = Event()
     continue_transaction = Event()
+    original_replace = app.state.recording_folder_store.replace_root
 
-    def pause_after_locator(boundary: str) -> None:
-        if boundary == "locator":
+    def pause_before_replace(recording_id_arg, value, *, expected_version):
+        if expected_version == 1:
             transaction_pending.set()
             assert continue_transaction.wait(timeout=5)
+        return original_replace(recording_id_arg, value, expected_version=expected_version)
 
-    node_store._after_durable_boundary = pause_after_locator
+    app.state.recording_folder_store.replace_root = pause_before_replace
 
     def writer() -> None:
         for index in range(20):
-            selection_store.update_exact(
+            current = app.state.recording_folder_store.get(recording_id)
+            assert current is not None
+            event_set_store.select(
                 recording_id,
-                "events",
-                expected_revision=index,
-                selected_generated=pointers[index % 2],
-                selected_completed_reference=None,
+                choice="generated",
+                reference=references[index % 2],
+                expected_version=current.version,
             )
 
     def read(client: TestClient) -> list[dict]:
@@ -282,21 +284,18 @@ def test_list_reads_during_concurrent_selection_updates_are_atomic(tmp_path: Pat
         writer_task = pool.submit(writer)
         assert transaction_pending.wait(timeout=5)
         pending = read(client)
-        assert all(item["state"] == "unavailable" for item in pending)
+        event_selection = next(item for item in pending if item["content_type"] == "events")
+        assert event_selection["state"] == "not-selected"
         continue_transaction.set()
         observations = [read(client) for _ in range(30)]
         writer_task.result()
+        final = read(client)
 
     for selections in observations:
         events = next(item for item in selections if item["content_type"] == "events")
-        assert events["state"] in {"not-selected", "selected", "unavailable"}
+        assert events["state"] in {"not-selected", "selected"}
         if events["state"] == "selected":
-            assert events["selected_generated"] in pointers
-        elif events["state"] == "unavailable":
-            assert all(item["state"] == "unavailable" for item in selections)
-        else:
-            assert all(
-                item["state"] == "not-selected"
-                for item in selections
-                if item["content_type"] != "events"
-            )
+            assert events["selected_generated"] in references
+    final_events = next(item for item in final if item["content_type"] == "events")
+    assert final_events["state"] == "selected"
+    assert final_events["selected_generated"] in references

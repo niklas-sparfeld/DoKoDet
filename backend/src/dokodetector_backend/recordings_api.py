@@ -255,7 +255,12 @@ def list_recordings(request: Request) -> RecordingListResponse:
             received_at = None
             display_name = recording_id
             metadata_state = "unavailable"
-        selections = _recording_selections(node_store.root, recording_id, locator_pending)
+        selections = _recording_selections(
+            node_store.root,
+            recording_id,
+            locator_pending,
+            {} if recording is None else recording.head,
+        )
         rows.append(
             RecordingSummary(
                 recording_id=recording_id,
@@ -319,13 +324,31 @@ def _selection_locator_pending(path: Path) -> bool:
 
 
 def _recording_selections(
-    root: Path, recording_id: str, locator_pending: bool
+    root: Path,
+    recording_id: str,
+    locator_pending: bool,
+    recording_head: dict | None = None,
 ) -> list[RecordingSelectionSummary]:
     rows = []
     for content_type in _LIST_SELECTION_TYPES:
         generated = completed = None
         state: SelectionState = "unavailable" if locator_pending else "not-selected"
-        if not locator_pending:
+        if content_type == "events" and recording_head is not None:
+            try:
+                event_head = recording_head.get("events", {})
+                if not isinstance(event_head, dict) or set(event_head) - {
+                    "generated",
+                    "reference",
+                }:
+                    raise ValueError("event HEAD selection is invalid")
+                generated = _event_set_pointer(event_head.get("generated"))
+                completed = _event_set_pointer(event_head.get("reference"))
+                state = (
+                    "selected" if generated is not None or completed is not None else "not-selected"
+                )
+            except (ValueError, TypeError):
+                state = "unavailable"
+        if not locator_pending and not (content_type == "events" and recording_head is not None):
             path = root / ".pipeline-node-selections" / recording_id / f"{content_type}.json"
             try:
                 raw = _bounded_json(path, 64_000)
@@ -368,6 +391,18 @@ def _list_pointer(value: object) -> dict[str, str] | None:
         or not all(isinstance(value[key], str) and value[key] for key in value)
     ):
         raise ValueError("selection pointer shape is invalid")
+    return value
+
+
+def _event_set_pointer(value: object) -> dict[str, str] | None:
+    if value is None:
+        return None
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"set_id", "version"}
+        or not all(isinstance(value[key], str) and value[key] for key in value)
+    ):
+        raise ValueError("event-set pointer shape is invalid")
     return value
 
 

@@ -191,6 +191,33 @@ class EventSetStore:
         )
         return {"recording_version": updated.version, "head": updated.head}
 
+    def get_selection(self, recording_id: str) -> dict[str, Any] | None:
+        root = self.recordings.get(recording_id)
+        if root is None:
+            return None
+        events = root.head.get("events", {})
+        if not isinstance(events, dict) or set(events) - {"generated", "reference"}:
+            raise EventSetError("event-set selection in recording HEAD is invalid")
+        result = {}
+        for choice in ("generated", "reference"):
+            reference = events.get(choice)
+            if reference is not None and (
+                not isinstance(reference, dict)
+                or set(reference) != {"set_id", "version"}
+                or not isinstance(reference["set_id"], str)
+                or not isinstance(reference["version"], str)
+                or self.get(recording_id, reference["set_id"], reference["version"]) is None
+            ):
+                raise EventSetError(f"event-set {choice} reference in recording HEAD is invalid")
+            result[choice] = reference
+        return {
+            "schema_version": "event-set-selection/v1",
+            "recording_id": recording_id,
+            "recording_version": root.version,
+            "generated": result["generated"],
+            "reference": result["reference"],
+        }
+
 
 def _safe_identifier(value: str, field: str) -> str:
     pattern = r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}"

@@ -237,6 +237,7 @@ def create_app(
         visible_card_identity_classifiers=visible_card_identity_classifiers,
         event_provider=event_provider,
         recording_folder_store=app.state.recording_folder_store,
+        event_set_store=app.state.event_set_store,
     )
     install_pipeline_composition(app.state, pipeline_composition)
     app.state.pipeline_lineage_writer.node_store.reconcile_revision_history_outbox()

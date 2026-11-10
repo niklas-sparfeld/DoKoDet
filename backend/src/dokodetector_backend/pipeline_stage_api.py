@@ -33,6 +33,7 @@ from dokodetector_backend.proposed_card_scene_pipeline_service import (
     ProposedCardScenePipelineError,
     ProposedCardScenePipelineInputError,
 )
+from dokodetector_backend.recording_folder_store import RecordingVersionConflict
 from dokodetector_backend.visible_card_pipeline_service import (
     VisibleCardPipelineError,
     VisibleCardPipelineInputError,
@@ -269,6 +270,16 @@ def get_generated_selection(recording_id: str, request: Request) -> dict[str, An
     """Return the current generated and completed-reference event pointers."""
 
     validate_recording_id(recording_id)
+    selection = request.app.state.event_set_store.get_selection(recording_id)
+    if selection is not None:
+        return {
+            "recording_id": recording_id,
+            "selection": {
+                "revision": selection["recording_version"],
+                "selected_generated": selection["generated"],
+                "selected_completed_reference": selection["reference"],
+            },
+        }
     selection = _event_service(request).selection_store.get_exact(recording_id, "events")
     return {
         "recording_id": recording_id,
@@ -287,10 +298,12 @@ def update_generated_selection(
     validate_recording_id(recording_id)
     try:
         selection = _event_service(request).select_generated(recording_id, payload)
-    except PipelineSelectionConflict as error:
+    except (PipelineSelectionConflict, RecordingVersionConflict) as error:
         raise ContractError("selection_conflict", str(error), status_code=409) from error
     except (PipelineInputError, PipelineConflict) as error:
         raise ContractError("invalid_selection", str(error), status_code=422) from error
+    if isinstance(selection, dict):
+        return {"recording_id": recording_id, "selection": selection}
     return {"recording_id": recording_id, "selection": selection.to_mapping()}
 
 

@@ -17,6 +17,75 @@ from dokodetector_backend.poc_analyzer import create_local_poc_analyzer
 from dokodetector_backend.recording_folder_store import RecordingFolderStore
 
 
+class RestartableBrowserApp:
+    """Recreate the backend app against the same disposable recording files."""
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self.app = self._new_app()
+        self._lifespan = None
+
+    def _new_app(self):
+        app = create_app(self.settings, analyzer=create_local_poc_analyzer())
+
+        def forbid_recording_catalog(*_args, **_kwargs):
+            raise AssertionError("the retired recording catalog was called")
+
+        app.state.recording_bundle_store.list_metadata = forbid_recording_catalog
+        app.state.recording_bundle_store.get_metadata = forbid_recording_catalog
+        app.state.round_analysis_service.recording_catalog = forbid_recording_catalog
+        selection_store = app.state.pipeline_selection_store
+        get_exact = selection_store.get_exact
+        update_exact = selection_store.update_exact
+
+        def forbid_event_get(recording_id: str, content_type: str):
+            if content_type == "events":
+                raise AssertionError("legacy event selection read was called")
+            return get_exact(recording_id, content_type)
+
+        def forbid_event_update(recording_id: str, content_type: str, **kwargs):
+            if content_type == "events":
+                raise AssertionError("legacy event selection write was called")
+            return update_exact(recording_id, content_type, **kwargs)
+
+        selection_store.get_exact = forbid_event_get
+        selection_store.update_exact = forbid_event_update
+        return app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    self._lifespan = self.app.router.lifespan_context(self.app)
+                    await self._lifespan.__aenter__()
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    if self._lifespan is not None:
+                        await self._lifespan.__aexit__(None, None, None)
+                        self._lifespan = None
+                    await send({"type": "lifespan.shutdown.complete"})
+                    return
+
+        if scope["type"] == "http" and scope["path"] == "/__test/restart":
+            if self._lifespan is not None:
+                await self._lifespan.__aexit__(None, None, None)
+            self.app = self._new_app()
+            self._lifespan = self.app.router.lifespan_context(self.app)
+            await self._lifespan.__aenter__()
+            body = b'{"restarted":true}'
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [(b"content-type", b"application/json")],
+                }
+            )
+            await send({"type": "http.response.body", "body": body})
+            return
+        await self.app(scope, receive, send)
+
+
 def main() -> None:
     repository = Path(__file__).parents[2]
     fixture = repository / "fixtures/repository-bundle/v1/both"
@@ -37,14 +106,7 @@ def main() -> None:
             pending_video_root=Path(directory) / "incoming",
             frontend_dist=repository / "web" / "dist",
         )
-        app = create_app(settings, analyzer=create_local_poc_analyzer())
-
-        def forbidden(*_args, **_kwargs):
-            raise AssertionError("the retired recording catalog was called")
-
-        app.state.recording_bundle_store.list_metadata = forbidden
-        app.state.recording_bundle_store.get_metadata = forbidden
-        app.state.round_analysis_service.recording_catalog = forbidden
+        app = RestartableBrowserApp(settings)
         uvicorn.run(app, host="127.0.0.1", port=8767, log_level="warning")
 
 

@@ -53,6 +53,13 @@ class PipelineWorkspaceNodeReferenceResponse(ContractModel):
     revision_id: str
 
 
+class PipelineWorkspaceEventSetReferenceResponse(ContractModel):
+    """One exact event-set version selected in recording HEAD."""
+
+    set_id: str
+    version: str
+
+
 class PipelineWorkspaceProcessorInputReferenceResponse(ContractModel):
     """One exact node revision and revision policy frozen for processing."""
 
@@ -169,6 +176,8 @@ class PipelineWorkspaceStageResponse(ContractModel):
     selection_revision: int | None = Field(default=None, ge=0)
     selected_generated: PipelineWorkspaceNodeReferenceResponse | None = None
     selected_completed_reference: PipelineWorkspaceNodeReferenceResponse | None = None
+    selected_event_set_generated: PipelineWorkspaceEventSetReferenceResponse | None = None
+    selected_event_set_reference: PipelineWorkspaceEventSetReferenceResponse | None = None
     runs: list[PipelineWorkspaceRunResponse]
     analyses: list[PipelineWorkspaceAnalysisResponse]
     can_run: bool

@@ -35,6 +35,7 @@ from doko_operations.pipeline_data import (
     sha256_bytes,
 )
 
+from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.intake_contract import parse_proposal_generator_run
 from dokodetector_backend.job_models import Job, JobCancelled
@@ -306,10 +307,12 @@ class EventPipelineService:
         run_store: ProcessorRunStore,
         selection_store: PipelineNodeSelectionStore,
         recording_folder_store: RecordingFolderStore | None = None,
+        event_set_store: EventSetStore | None = None,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
         self.recording_folder_store = recording_folder_store
+        self.event_set_store = event_set_store
         self.repository_storage = repository_storage
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.run_store = run_store
@@ -438,7 +441,35 @@ class EventPipelineService:
         self,
         recording_id: str,
         payload: Mapping[str, Any],
-    ) -> ExactNodeSelection:
+    ) -> ExactNodeSelection | dict[str, Any]:
+        if self._uses_event_set_selection(recording_id):
+            expected_version = payload.get("expected_recording_version")
+            selected = payload.get("selected_generated")
+            if isinstance(expected_version, bool) or not isinstance(expected_version, int):
+                raise PipelineInputError("expected_recording_version must be a positive integer.")
+            if selected is not None and not isinstance(selected, Mapping):
+                raise PipelineInputError(
+                    "selected_generated must be an event-set reference or null."
+                )
+            try:
+                updated = self.event_set_store.select(
+                    recording_id,
+                    choice="generated",
+                    reference=None if selected is None else dict(selected),
+                    expected_version=expected_version,
+                )
+                selection = self.event_set_store.get_selection(recording_id)
+                return {
+                    "schema_version": "event-set-selection/v1",
+                    "recording_id": recording_id,
+                    "revision": updated["recording_version"],
+                    "selected_generated": None if selection is None else selection["generated"],
+                    "selected_completed_reference": (
+                        None if selection is None else selection["reference"]
+                    ),
+                }
+            except ValueError as error:
+                raise PipelineInputError(str(error)) from error
         expected_revision = payload.get("expected_revision")
         selected = payload.get("selected_generated")
         if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
@@ -759,6 +790,7 @@ class EventPipelineService:
                     revision, _ = self.selection_store.publish_processor_revision(
                         revision.manifest, revision.content
                     )
+                self._save_event_set(run, revision.content)
                 self.run_store.complete(
                     run_id,
                     [revision.manifest.revision_id],
@@ -1022,7 +1054,35 @@ class EventPipelineService:
         )
         return stored
 
+    def _save_event_set(self, run: StoredProcessorRun, content: EventData) -> None:
+        recording_id = run.request.source.recording_id
+        if not self._uses_event_set_selection(recording_id):
+            return
+        self.event_set_store.save(
+            recording_id,
+            set_id=f"run-{run.run_id}",
+            version="1",
+            content=content.to_mapping(),
+            origin="processor",
+            provenance={
+                "source": {
+                    "recording_id": recording_id,
+                    "video_sha256": run.request.source.video_sha256,
+                    "run_id": run.run_id,
+                }
+            },
+        )
+
+    def _uses_event_set_selection(self, recording_id: str) -> bool:
+        return (
+            self.event_set_store is not None
+            and self.recording_folder_store is not None
+            and self.recording_folder_store.get(recording_id) is not None
+        )
+
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:
+        if self._uses_event_set_selection(recording_id):
+            return
         current = self.selection_store.get_exact(recording_id, "events")
         expected = 0 if current is None else current.revision
         completed = None if current is None else current.selected_completed_reference

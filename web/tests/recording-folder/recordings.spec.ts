@@ -77,6 +77,9 @@ test("recording folder saves, selects, edits and reopens two event-set alternati
   await page.getByLabel("End (µs)").fill("200");
   await page.getByRole("button", { name: "Save event set" }).click();
   await expect(page.getByRole("status")).toContainText("Saved manual-");
+  const firstSaved = await page.getByRole("status").textContent();
+  const firstSetId = firstSaved?.match(/manual-[^ ]+/)?.[0];
+  expect(firstSetId).toBeTruthy();
   await page.getByRole("button", { name: "Select reference" }).click();
   await expect(page.getByRole("status")).toContainText(
     "Selected this event set",
@@ -85,29 +88,60 @@ test("recording folder saves, selects, edits and reopens two event-set alternati
   await page.getByLabel("End (µs)").fill("300");
   await page.getByRole("button", { name: "Save as alternative" }).click();
   await expect(page.getByRole("status")).toContainText("Saved manual-");
+  const secondSaved = await page.getByRole("status").textContent();
+  const secondSetId = secondSaved?.match(/manual-[^ ]+/)?.[0];
+  expect(secondSetId).toBeTruthy();
   const alternatives = page.getByRole("list", {
     name: "Saved event-set versions",
   });
   await expect(alternatives.getByRole("listitem")).toHaveCount(2);
   await page.getByRole("button", { name: "Select generated" }).click();
+  await page
+    .getByRole("button", { name: `Open ${firstSetId} version 1` })
+    .click();
+  await expect(page.getByRole("status")).toContainText(
+    `Opened ${firstSetId} version 1`,
+  );
+  await page.getByLabel("Start (µs)").fill("150");
+  await page.getByRole("button", { name: "Save event set" }).click();
+  await expect(page.getByRole("status")).toContainText("version 2");
+  const editedResponse = await page.request.get(
+    `http://127.0.0.1:8767/api/recordings/recording-both/event-sets/${firstSetId}/versions/2`,
+  );
+  expect(editedResponse.status()).toBe(200);
+  expect((await editedResponse.json()).content.events[0].start_us).toBe(150);
+  await page.getByRole("button", { name: "Select reference" }).click();
+
+  const restarted = await page.request.post(
+    "http://127.0.0.1:8767/__test/restart",
+  );
+  expect(restarted.status()).toBe(200);
   await page.reload();
   await expect(
     page.getByRole("region", { name: "Event sets" }).getByRole("heading", {
       name: "Event sets",
     }),
   ).toBeVisible();
-  await expect(alternatives.getByText("generated")).toHaveCount(1);
-
-  const savedButtons = page
-    .getByRole("list", { name: "Saved event-set versions" })
-    .getByRole("button");
-  await savedButtons.first().click();
-  await page.getByLabel("Start (µs)").fill("150");
-  await page.getByRole("button", { name: "Save event set" }).click();
-  await expect(page.getByRole("status")).toContainText("version 2");
-  await page.reload();
-  await expect(page.getByRole("button", { name: /version 2/ })).toBeVisible();
-  await page.getByRole("button", { name: /version 2/ }).click();
+  const reopenedAlternatives = page.getByRole("list", {
+    name: "Saved event-set versions",
+  });
+  await expect(reopenedAlternatives.getByRole("listitem")).toHaveCount(3);
+  const editedFirst = reopenedAlternatives.getByRole("listitem").filter({
+    has: page.getByRole("button", { name: `Open ${firstSetId} version 2` }),
+  });
+  const selectedSecond = reopenedAlternatives.getByRole("listitem").filter({
+    has: page.getByRole("button", { name: `Open ${secondSetId} version 1` }),
+  });
+  await expect(editedFirst).toContainText("reference");
+  await expect(selectedSecond).toContainText("generated");
+  await page
+    .getByRole("button", { name: `Open ${firstSetId} version 2` })
+    .click();
   await expect(page.getByLabel("Start (µs)")).toHaveValue("150");
+  await page
+    .getByRole("button", { name: `Open ${secondSetId} version 1` })
+    .click();
+  await expect(page.getByLabel("Start (µs)")).toHaveValue("100");
+  await expect(page.getByLabel("End (µs)")).toHaveValue("300");
   expect(legacyEventReads).toEqual([]);
 });

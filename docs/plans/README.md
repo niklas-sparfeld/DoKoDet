@@ -125,7 +125,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0124 — Recording folders and events](3-in-progress/0124-Recording_Folders_and_Events.md) | None | M0–M1 complete; M2–M3 remain. Root-backed import/list/media and event-set save/select/edit/reopen are proven; producer/consumer conversion and retained-data cutover remain. |
+| [0124 — Recording folders and events](3-in-progress/0124-Recording_Folders_and_Events.md) | None | M0–M1 complete; M2–M3 remain. Root-backed import/list/media and two event-set alternatives save/select/edit/reopen through one HEAD selection authority; review/downstream cutover and retained-data qualification remain. |
 
 ### In Progress
 

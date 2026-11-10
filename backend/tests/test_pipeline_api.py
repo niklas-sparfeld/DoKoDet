@@ -379,23 +379,27 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
         )
         assert body["revisions"][0]["manifest"]["producer"]["kind"] == "processor"
         selection = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/selection")
-        assert (
-            selection.json()["selection"]["selected_generated"]["revision_id"]
-            == (body["state"]["output_revision_ids"][0])
-        )
+        assert selection.json()["selection"]["selected_generated"] is None
         exact_selection = selection.json()["selection"]
+        alternatives = client.get(f"/api/recordings/{RECORDING_ID}/event-sets").json()
+        generated = next(
+            item for item in alternatives["event_sets"] if item["set_id"] == f"run-{run_id}"
+        )
         updated = client.put(
             f"/api/recordings/{RECORDING_ID}/pipeline/events/selection",
             json={
-                "expected_revision": exact_selection["revision"],
-                "selected_generated": exact_selection["selected_generated"],
+                "expected_recording_version": exact_selection["revision"],
+                "selected_generated": {
+                    "set_id": generated["set_id"],
+                    "version": generated["version"],
+                },
             },
         )
         assert updated.status_code == 200, updated.text
-        assert (
-            updated.json()["selection"]["selected_generated"]
-            == exact_selection["selected_generated"]
-        )
+        assert updated.json()["selection"]["selected_generated"] == {
+            "set_id": generated["set_id"],
+            "version": generated["version"],
+        }
         assert updated.json()["selection"]["revision"] == exact_selection["revision"] + 1
     assert len(provider.calls) == 1
 
@@ -575,7 +579,7 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
             "round_analyses",
         ]
         assert initial_body["stages"][0]["state"] == "video-only"
-        assert initial_body["stages"][0]["selection_revision"] is None
+        assert initial_body["stages"][0]["selection_revision"] == 1
         assert initial_body["stages"][1]["state"] == "empty"
 
         created = _enqueue_event_job(client, RECORDING_ID, _request("workspace-run"))
@@ -586,10 +590,9 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         assert workspace.status_code == 200
         body = workspace.json()
         events = body["stages"][0]
-        selected = events["selected_generated"]
-        revision_id = selected["revision_id"]
+        selected = events["selected_event_set_generated"]
+        assert selected is None
         assert events["state"] == "data-available"
-        assert revision_id is not None
         assert events["selection_revision"] == 1
         assert events["comparable_run_ids"] == [created.json()["id"]]
         assert events["runs"][0]["run_id"] == created.json()["id"]
@@ -599,11 +602,8 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
             "version": "v1",
         }
         assert events["runs"][0]["state"]["items"] == []
-        assert events["runs"][0]["output_revision_ids"] == [revision_id]
-        assert selected["node_id"] == events["input_options"][0]["node_id"]
-        assert events["input_options"][0]["node_revision_id"] == revision_id
-        assert events["input_options"][0]["node_id"]
-        assert events["input_options"][0]["origin"] == "processor"
+        assert events["runs"][0]["output_revision_ids"]
+        assert events["selected_generated"] is None
 
         # Processor results have one canonical node write and no revision-store copy.
         assert not hasattr(app.state, "pipeline_revision_store")
@@ -613,8 +613,11 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         catalog_selections = {
             item["content_type"]: item for item in catalog.json()["recordings"][0]["selections"]
         }
-        assert catalog_selections["events"]["state"] == "selected"
-        assert catalog_selections["events"]["selected_generated"] == selected
+        assert catalog_selections["events"]["state"] == "not-selected"
+        event_sets = client.get(f"/api/recordings/{RECORDING_ID}/event-sets").json()
+        assert any(
+            item["set_id"] == f"run-{created.json()['id']}" for item in event_sets["event_sets"]
+        )
         assert catalog_selections["visible_cards"]["state"] == "not-selected"
 
         reloaded = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
@@ -644,7 +647,6 @@ def test_recording_pipeline_workspace_reads_each_selection_once(
 
     assert workspace["schema_version"] == "pipeline-workspace/v1"
     assert calls == [
-        (RECORDING_ID, "events"),
         (RECORDING_ID, "visible_cards"),
         (RECORDING_ID, "visual_identities"),
         (RECORDING_ID, "table_observations"),
@@ -711,9 +713,7 @@ def test_workspace_run_summary_uses_exact_graph_inputs(tmp_path: Path) -> None:
 
     event_run = workspace["stages"][0]["runs"][0]
     assert event_run["input_revision_ids"] == []
-    assert event_run["output_revision_ids"] == [
-        workspace["stages"][0]["selected_generated"]["revision_id"]
-    ]
+    assert event_run["output_revision_ids"]
 
 
 def test_compatible_observation_inputs_return_exact_node_references(tmp_path: Path) -> None:
@@ -789,7 +789,7 @@ def test_runtime_workspace_does_not_load_legacy_reference_store(tmp_path: Path) 
     app.state.pipeline_workspace_service.get_statuses([RECORDING_ID], analyses_by_recording={})
 
 
-def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
+def test_recording_pipeline_workspace_ignores_legacy_event_selection_pointer(
     tmp_path: Path,
 ) -> None:
     _install_recording(tmp_path)
@@ -799,6 +799,19 @@ def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
         created = _enqueue_event_job(client, RECORDING_ID, _request("invalid-selection-run"))
         assert created.status_code == 202
         _wait_for_status(client, created.json()["id"], "complete")
+
+        revision = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/events/{created.json()['id']}/result"
+        ).json()["revisions"][0]
+        app.state.pipeline_selection_store.update_exact(
+            RECORDING_ID,
+            "events",
+            expected_revision=0,
+            selected_generated=app.state.pipeline_selection_store.reference_for_processor_output(
+                revision["manifest"]["revision_id"], RECORDING_ID, "events"
+            ),
+            selected_completed_reference=None,
+        )
 
         selection_path = app.state.pipeline_selection_store.selection_path(RECORDING_ID, "events")
         selection = json.loads(selection_path.read_text(encoding="utf-8"))
@@ -811,16 +824,16 @@ def test_recording_pipeline_workspace_reports_invalid_selection_pointer(
         response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert response.status_code == 200, response.text
         events = response.json()["stages"][0]
-        assert events["selection_revision"] is None
+        assert events["selection_revision"] == 1
         assert events["selected_generated"] is None
         assert not any(
             option["node_revision_id"] == "missing-revision" for option in events["input_options"]
         )
-        assert {
+        assert not {
             diagnostic["code"]
             for diagnostic in response.json()["diagnostics"]
             if diagnostic["content_type"] == "events"
-        } == {"invalid_selection"}
+        }
 
 
 def test_pipeline_workspace_does_not_read_evidence_package_media_or_manifests(
@@ -898,7 +911,8 @@ def test_provider_failure_cannot_change_existing_generated_selection(tmp_path: P
         assert status["state"]["status"] == "failed"
         assert "provider secret" not in json.dumps(status)
         selection = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/selection").json()
-        assert selection["selection"] is None
+        assert selection["selection"]["selected_generated"] is None
+        assert selection["selection"]["selected_completed_reference"] is None
 
 
 def test_event_job_cancel_does_not_publish_and_retry_creates_new_attempt(tmp_path: Path) -> None:

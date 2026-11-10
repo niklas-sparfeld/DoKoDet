@@ -3097,6 +3097,16 @@ export interface components {
             revision_id?: string | null;
         };
         /**
+         * PipelineWorkspaceEventSetReferenceResponse
+         * @description One exact event-set version selected in recording HEAD.
+         */
+        PipelineWorkspaceEventSetReferenceResponse: {
+            /** Set Id */
+            set_id: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * PipelineWorkspaceFailureResponse
          * @description The public failure summary for one processor run.
          */
@@ -3303,6 +3313,8 @@ export interface components {
             /** Runs */
             runs: components["schemas"]["PipelineWorkspaceRunResponse"][];
             selected_completed_reference?: components["schemas"]["PipelineWorkspaceNodeReferenceResponse"] | null;
+            selected_event_set_generated?: components["schemas"]["PipelineWorkspaceEventSetReferenceResponse"] | null;
+            selected_event_set_reference?: components["schemas"]["PipelineWorkspaceEventSetReferenceResponse"] | null;
             selected_generated?: components["schemas"]["PipelineWorkspaceNodeReferenceResponse"] | null;
             /** Selection Revision */
             selection_revision?: number | null;

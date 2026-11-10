@@ -27,11 +27,13 @@ from table_evidence_analyzer.pipeline_data import (
     parse_visual_identity_data_bytes,
 )
 
+from dokodetector_backend.event_set_store import EventSetError, EventSetStore
 from dokodetector_backend.filesystem import enumerate_resource_directories
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore, _read_json
 from dokodetector_backend.processor_run_models import ProcessorRunStatus, StoredProcessorRun
 from dokodetector_backend.processor_run_store import ProcessorRunStore
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 from dokodetector_backend.round_analysis_contract import parse_round_analysis_create_request_bytes
 
 LOGGER = logging.getLogger(__name__)
@@ -91,6 +93,16 @@ class _WorkspaceNodeRevision:
     migrated_draft: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class _EventSetSelection:
+    """The recording-root event choice, separate from node revision pointers."""
+
+    revision: int
+    selected_event_set_generated: dict[str, str] | None
+    selected_event_set_reference: dict[str, str] | None
+    is_event_set_selection: bool = True
+
+
 class RecordingPipelineWorkspaceService:
     """Aggregate persisted recording-pipeline state for the recording workspace."""
 
@@ -103,6 +115,8 @@ class RecordingPipelineWorkspaceService:
         round_analysis_store: Any,
         node_store: PipelineNodeStore,
         lineage_service: Any,
+        recording_folder_store: RecordingFolderStore | None = None,
+        event_set_store: EventSetStore | None = None,
     ) -> None:
         self.recording_source_provider = recording_source_provider
         self.run_store = run_store
@@ -110,6 +124,8 @@ class RecordingPipelineWorkspaceService:
         self.round_analysis_store = round_analysis_store
         self.node_store = node_store
         self.lineage_service = lineage_service
+        self.recording_folder_store = recording_folder_store
+        self.event_set_store = event_set_store
 
     def get_workspace(
         self,
@@ -494,9 +510,16 @@ class RecordingPipelineWorkspaceService:
             if definition.key == "table_observations"
             else []
         )
+        is_event_set_selection = isinstance(selection, _EventSetSelection)
         selection_revision = None if selection is None else selection.revision
-        selected_generated = None if selection is None else selection.selected_generated
-        selected_completed = None if selection is None else selection.selected_completed_reference
+        selected_generated = (
+            None if selection is None or is_event_set_selection else selection.selected_generated
+        )
+        selected_completed = (
+            None
+            if selection is None or is_event_set_selection
+            else selection.selected_completed_reference
+        )
         comparable_run_ids = [
             run.run_id
             for run in stage_runs
@@ -532,6 +555,12 @@ class RecordingPipelineWorkspaceService:
             "selection_revision": selection_revision,
             "selected_generated": selected_generated,
             "selected_completed_reference": selected_completed,
+            "selected_event_set_generated": (
+                selection.selected_event_set_generated if is_event_set_selection else None
+            ),
+            "selected_event_set_reference": (
+                selection.selected_event_set_reference if is_event_set_selection else None
+            ),
             "runs": [
                 self._run_summary(
                     run,
@@ -559,6 +588,31 @@ class RecordingPipelineWorkspaceService:
         content_type: str,
         diagnostics: list[dict[str, Any]],
     ) -> Any:
+        if (
+            content_type == "events"
+            and self.event_set_store is not None
+            and self.recording_folder_store is not None
+            and self.recording_folder_store.get(recording_id) is not None
+        ):
+            try:
+                selection = self.event_set_store.get_selection(recording_id)
+            except (EventSetError, OSError, TypeError, ValueError):
+                selection = None
+                diagnostics.append(
+                    {
+                        "code": "invalid_selection",
+                        "message": "The events selection in recording HEAD is invalid.",
+                        "content_type": "events",
+                        "revision_id": None,
+                    }
+                )
+            if selection is None:
+                return None
+            return _EventSetSelection(
+                revision=selection["recording_version"],
+                selected_event_set_generated=selection["generated"],
+                selected_event_set_reference=selection["reference"],
+            )
         try:
             selection = self.selection_store.get_exact(recording_id, content_type)
         except (OSError, TypeError, ValueError):
@@ -706,12 +760,27 @@ class RecordingPipelineWorkspaceService:
         if definition.key in {"visible_cards", "visual_identities"}:
             upstream = "events" if definition.key == "visible_cards" else "visible_cards"
             selection = selections[upstream]
+            if isinstance(selection, _EventSetSelection):
+                if (
+                    selection.selected_event_set_generated is not None
+                    or selection.selected_event_set_reference is not None
+                ):
+                    return ["Event-set inputs are not connected to this stage yet."]
+                return ["Select a complete events revision first."]
             if selection is None or not (
                 selection.selected_completed_reference or selection.selected_generated
             ):
                 return [f"Select a complete {upstream.replace('_', ' ')} revision first."]
             return []
         if definition.key == "table_observations":
+            event_selection = selections["events"]
+            if isinstance(event_selection, _EventSetSelection):
+                if (
+                    event_selection.selected_event_set_generated is not None
+                    or event_selection.selected_event_set_reference is not None
+                ):
+                    return ["Event-set inputs are not connected to this stage yet."]
+                return ["Select a complete events revision first."]
             if not compatible_input_sets:
                 return [
                     "No compatible event, visible-card, and visual-identity revision set "
@@ -726,6 +795,8 @@ class RecordingPipelineWorkspaceService:
                     or selections[content_type].selected_generated
                 )
             ]
+            if isinstance(selections["events"], _EventSetSelection):
+                return ["Event-set inputs are not connected to this stage yet."]
             return (
                 ["Select complete event, visible-card, and visual-identity revisions first."]
                 if missing

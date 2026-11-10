@@ -62,8 +62,8 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | Milestone | Observable result and commit boundary | State |
 | --- | --- | --- |
 | M0 | Concrete recording-root contract; import/list/media-open/restart from one new recording folder | Complete |
-| M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives | Complete |
-| M2 | Existing event producer, review, and the named exact-input consumers use event resources | Not started |
+| M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives under one event-selection authority | Complete |
+| M2 | Review and the named exact-input consumers use event resources | Not started |
 | M3 | Retained-data rehearsal, default cutover, event-only old-path removal, and qualification | Not started |
 
 ### Next assignment after dependency closure
@@ -99,28 +99,59 @@ not change the earlier files.
 `recording.json` owns `head.events.generated` and `head.events.reference`. Each is null or an exact
 `set_id` and `version` reference. Selection validates the referenced files, checks the expected
 recording version, and atomically replaces the root under its existing recording-local lock. Saving
-does not select the version. The editor reads and writes only event-set resources through
-`/api/recordings/{recording_id}/event-sets`; its dedicated browser route does not load the pipeline
-workspace or event nodes. The event-stage inspector links to this route. This keeps the first human
-event workflow independent of legacy event-node reads. It does not convert producer or downstream
-consumer reads; those remain in M2. Review files stay out of scope for M1.
+does not select the version. For recording-folder recordings, the processor saves each completed
+output as an unselected event-set alternative. The stage API, workspace, inspector, and recording
+list read event choices from `recording.json` HEAD; event selection writes update only that HEAD.
+These root-backed paths do not read or write `.pipeline-node-selections/events.json`. They do not
+select the newest output by time. The dedicated browser route reads and writes only event-set
+resources. Review files and named downstream exact-input consumers stay in M2. Legacy non-folder
+pipeline records keep their existing path until the M3 event-only cutover.
 
 M1 verification: `test_event_set_store.py` covers separate alternatives, immutable versions,
-versioned edits, exact open, selection, stale root conflicts, API persistence and restart. The
-recording-folder Playwright test creates two alternatives, selects each choice, edits a saved set,
-reopens version 2 after reload, and asserts that the workflow makes no legacy pipeline or node API
-requests. `test_recording_folder_store.py` and `test_recording_catalog_growth_contract.py` retain
-the M0 restart and 0123 list-growth regression boundaries. API generation verification, web build,
-and the browser test pass.
+versioned edits, exact open, selection, stale root conflicts, and persisted API reopen. The pipeline
+API test proves a processor output is saved as an unselected alternative and exact selection updates
+HEAD. Root-backed stage, workspace, and list tests prove those readers use the same references and
+ignore legacy event selection state. The recording-folder Playwright test saves two alternatives,
+selects both choices, edits version 2, recreates the backend against the same files, then reopens and
+checks both alternatives and their HEAD choices. The test forbids legacy event selection reads and
+writes and checks that the browser makes no legacy pipeline or node requests. The M0 store/restart
+and 0123 list-growth regressions pass; the list test now expects seven file opens because it no
+longer opens the retired event-selection file. API generation, web tests/build, Ruff, and browser
+checks pass.
+
+### M1 correction 1: one event-selection authority
+
+The first M1 submission proved the dedicated editor, but inspection found that the pipeline stage
+API and readers still used `.pipeline-node-selections/events.json` while the event-set editor used
+`recording.json`. Node/revision references cannot name an event-set/version. This leaves two live
+selection authorities and makes the pipeline and list disagree with the editor.
+
+Bounded replan: move only the planned event producer adapter and event selection adapters from M2
+into M1. Owners are `event_pipeline_service.py`, the event selection routes in
+`pipeline_stage_api.py`, event selection assembly in `pipeline_workspace_service.py`, and event
+selection summaries in `recordings_api.py`, plus the event-stage inspector and selector client.
+Processor outputs become unselected event-set alternatives. Explicit selection reads and writes
+only `recording.json` HEAD. No automatic newest-by-time selection is allowed. Keep review layout
+and conversion, and named visible-card, observation, and round-analysis exact-input consumers in
+M2. Do not convert other resources.
+
+Proof: API tests use a real processor stub to create an unselected event-set alternative and verify
+that stage selection, workspace choices, and list summaries use exact references from recording
+HEAD. The browser saves two manual alternatives, selects exact references, edits the first version,
+recreates the backend against the same persisted files, reopens both versions, and confirms both
+HEAD choices and event content. The backend forbids legacy event selection reads and writes during
+this workflow, and the browser confirms it makes no legacy pipeline or node requests. Required
+regressions remain M0 restart and 0123 list growth. Stop and report if producer publication needs a
+second persistent contract/transaction or if downstream exact-input conversion is required before
+the event editor can satisfy this proof.
 
 ### M2 assignment after the first workflow
 
-Observable result: one event producer, event review, and the named exact-input consumers read and
-write the same event-set files and root HEAD. Disable their old event-node reads and selection writes
-in the integration workflow. Keep the existing behavior for all other resource types.
+Observable result: event review and the named exact-input consumers read and write the same event-set
+files and root HEAD. Disable their old event-node reads and selection writes in the integration
+workflow. Keep the existing behavior for all other resource types.
 
-Source owners: `event_pipeline_service.py` and the event branch in `pipeline_stage_api.py` for
-production; `pipeline_node_reviews.py` for event review records beside the saved event-set version;
+Source owners: `pipeline_node_reviews.py` for event review records beside the saved event-set version;
 event branches in `pipeline_workspace_service.py`; event reads in
 `visible_card_pipeline_service.py`, `observation_pipeline_service.py`, and
 `round_analysis_service.py`; and event selection/editor API clients used by the event-set page.
@@ -176,22 +207,22 @@ cross-store transactions. Final closure check remains the disposable retained-da
 event-only old-path cutover in M3.
 
 Baseline: 4 milestones; 2 remain. M0 proves the recording-folder import/list/media-open/restart
-workflow, including root-backed detail and workspace reads. M1 proves event-set save/select/edit and
-reopen in the dedicated browser route with legacy pipeline/node API reads absent. Qualification
-remains in M3. The run limit is 4 milestones; 2 are complete and 2 remain. M0 used 0 replans and 1
-correction of 2; M1 used 0 corrections and 0 replans; the run used 0 replans. M1 added the concrete
-event-set store/API and dedicated browser page within the planned event-set contract. No other
-persistent contract or resource owner was added. M2 owns the remaining producer, review, and exact
-input consumers. Last scope decision: retain the four milestones; M1's dedicated route proves the
-human event workflow without reading legacy event nodes. Stop if M2 requires a second selection
-authority, another resource conversion, cross-store transaction, or moves M3 qualification.
+workflow, including root-backed detail and workspace reads. M1 proves save/select/edit/reopen for
+two alternatives, with processor output, stage selection, workspace choices, and list summaries all
+using exact event-set references from recording HEAD. The browser test recreates the backend against
+the same persisted files and forbids legacy event-selection reads and writes. Qualification remains
+in M3. The run limit is 4 milestones; 2 are complete and 2 remain. M0 used 0 replans and 1
+correction of 2; M1 used 1 replan and 1 correction of 2; the run used 1 replan. The bounded replan
+transferred only the event producer and event selection adapters from M2 to M1. No new storage or
+transaction contract was added. M2 owns review and named downstream exact-input conversion. M3 owns
+retained-data rehearsal and qualification. Stop if M2 needs another resource conversion, a
+cross-store transaction, or a second event-selection authority.
 
-M1 changes include backend immutable set/event files and endpoints, explicit event HEAD selection
-through the recording version check, a dedicated event-set browser page, and generated API types.
-Checks passed: `pytest backend/tests/test_event_set_store.py
-backend/tests/test_recording_folder_store.py backend/tests/test_recording_catalog_growth_contract.py
--q`; Ruff on changed backend files; `npm run verify:api`; `npm run build`; and
-`npx playwright test --config playwright.recording-folder.config.ts`. The existing pipeline event
-node routes remain for M2 conversion, but the M1 browser acceptance workflow does not request them.
-Next: implement the specified M2 producer, review, and exact-input consumer conversion with the
-same event-set content contract, then specify M3 retained-data rehearsal and qualification.
+M1 first submission commit: `7238a483`. M1 correction 1/2: one root-backed event selection
+authority across producer, stage API, workspace, and list. M1 re-plans: 1/5; run re-plans: 1/10.
+Checks passed: focused event-set, pipeline, recording-folder, and list-growth backend tests; Ruff
+check/format; `npm run verify:api`; `npm run lint`; `npm run format`; `npm test -- --run` (242
+tests); `npm run build`; and `npx playwright test --config playwright.recording-folder.config.ts`
+(2 tests). M1 correction commit: recorded in the execution history after integration. M2 starts
+with review and downstream exact-input conversion. M3 remains the retained-data rehearsal and
+qualification milestone.

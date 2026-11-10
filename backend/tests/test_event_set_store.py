@@ -1,6 +1,7 @@
 import json
 import shutil
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from app_factory import create_test_app
@@ -122,7 +123,9 @@ def test_selection_is_exact_and_recording_version_checked(tmp_path: Path):
         )
 
 
-def test_event_set_api_saves_selects_edits_and_reopens_after_restart(tmp_path: Path):
+def test_event_set_api_saves_selects_edits_and_reopens_after_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     repository = Path(__file__).parents[2]
     corpus = tmp_path / "corpus"
     shutil.copytree(FIXTURE, corpus / "recording-both")
@@ -136,7 +139,27 @@ def test_event_set_api_saves_selects_edits_and_reopens_after_restart(tmp_path: P
         operations_root=tmp_path / "operations",
         frontend_dist=tmp_path / "frontend",
     )
+    monkeypatch.setattr(
+        "dokodetector_backend.event_pipeline_service.probe_video_path_metadata",
+        lambda _path: SimpleNamespace(duration_ms=2_000),
+    )
     first = create_test_app(settings)
+    selection_store = first.state.pipeline_selection_store
+    get_exact = selection_store.get_exact
+    update_exact = selection_store.update_exact
+
+    def forbid_event_get(recording_id, content_type):
+        if content_type == "events":
+            raise AssertionError("legacy event selection read was called")
+        return get_exact(recording_id, content_type)
+
+    def forbid_event_update(recording_id, content_type, **kwargs):
+        if content_type == "events":
+            raise AssertionError("legacy event selection write was called")
+        return update_exact(recording_id, content_type, **kwargs)
+
+    selection_store.get_exact = forbid_event_get
+    selection_store.update_exact = forbid_event_update
     with TestClient(first) as client:
         for set_id, start in (("first", 10), ("second", 20)):
             saved = client.post(
@@ -159,6 +182,45 @@ def test_event_set_api_saves_selects_edits_and_reopens_after_restart(tmp_path: P
             },
         )
         assert selected.status_code == 200, selected.text
+        event_selection = client.get("/api/recordings/recording-both/pipeline/events/selection")
+        assert event_selection.status_code == 200
+        assert event_selection.json()["selection"]["selected_completed_reference"] == {
+            "set_id": "second",
+            "version": "1",
+        }
+        advanced = client.put(
+            "/api/recordings/recording-both/pipeline/events/selection",
+            json={
+                "expected_recording_version": 2,
+                "selected_generated": {"set_id": "first", "version": "1"},
+            },
+        )
+        assert advanced.status_code == 200, advanced.text
+        listed_recordings = client.get("/v1/recordings")
+        event_row = next(
+            row
+            for row in listed_recordings.json()["recordings"][0]["selections"]
+            if row["content_type"] == "events"
+        )
+        assert event_row["selected_generated"] == {"set_id": "first", "version": "1"}
+        assert event_row["selected_completed_reference"] == {
+            "set_id": "second",
+            "version": "1",
+        }
+        workspace = client.get("/api/recordings/recording-both/pipeline?stage=events")
+        assert workspace.status_code == 200, workspace.text
+        event_stage = next(
+            stage for stage in workspace.json()["stages"] if stage["key"] == "events"
+        )
+        assert event_stage["selected_generated"] is None
+        assert event_stage["selected_event_set_generated"] == {
+            "set_id": "first",
+            "version": "1",
+        }
+        assert event_stage["selected_event_set_reference"] == {
+            "set_id": "second",
+            "version": "1",
+        }
         stale = client.put(
             "/api/recordings/recording-both/event-sets/selection",
             json={"choice": "generated", "reference": None, "expected_recording_version": 1},
@@ -170,5 +232,6 @@ def test_event_set_api_saves_selects_edits_and_reopens_after_restart(tmp_path: P
     assert listing.status_code == 200
     assert len(listing.json()["event_sets"]) == 2
     assert listing.json()["head"]["reference"] == {"set_id": "second", "version": "1"}
+    assert listing.json()["head"]["generated"] == {"set_id": "first", "version": "1"}
     assert reopened.status_code == 200
     assert reopened.json()["content"] == _content(20)
