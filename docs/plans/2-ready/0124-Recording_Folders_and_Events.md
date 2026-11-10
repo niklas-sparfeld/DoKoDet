@@ -447,8 +447,8 @@ changed. User-selected baseline on 2026-11-10: six milestones, M0–M2 complete,
 The original loop ended at its scope gate after three accepted milestones. This request authorizes
 planning only; a later implementation command selects the next run and its limit. First recording
 workflow was proved in M0 and event workflow in M1. M2 proves review and exact consumer inputs.
-Next proof is M3 normal-app use on the retained pilot, including bounded activation and an available
-real detector smoke check. M4 rolls out that working flow; M5 completes removal and qualification.
+M3 proves normal-app use on the retained pilot, including bounded activation and the configured real
+detector smoke. M4 rolls out that working flow; M5 completes removal and qualification.
 
 Correction history: M0 1/2; M1 2/2 and one replan; M2 2/2 and zero replans. Those exhausted
 allowances remain exhausted. Original M3 family: zero implementation attempts, replan 2/5. Previous
