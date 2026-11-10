@@ -5,6 +5,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
+from threading import Event
 
 import pytest
 from doko_operations.pipeline_data import (
@@ -104,6 +105,104 @@ def test_pending_run_intent_cancels_when_source_state_did_not_commit(tmp_path: P
         "processor_run:event-detection:queued": 1
     }
     assert restarted_catalog.pending_processor_runs() == ()
+
+
+def test_same_process_retry_replays_converted_outbox_before_next_write(
+    tmp_path: Path, monkeypatch
+) -> None:
+    store, catalog = _stores(tmp_path)
+    store.create(_request(), created_at="2026-09-05T10:00:00Z")
+    atomic_replace_json = catalog_module.atomic_replace_json
+
+    def interrupt_source_receipt(path, value, **kwargs):
+        if Path(path).parent == catalog.sources:
+            raise OSError("simulated stop after catalog receipt commit")
+        return atomic_replace_json(path, value, **kwargs)
+
+    monkeypatch.setattr(catalog_module, "atomic_replace_json", interrupt_source_receipt)
+    with pytest.raises(RecordingCatalogError, match="catalog publication failed"):
+        store.start("catalog-run", started_at="2026-09-05T10:01:00Z")
+    monkeypatch.undo()
+
+    store.update_progress(
+        "catalog-run",
+        progress=RunProgress(completed=1, total=2),
+        updated_at="2026-09-05T10:02:00Z",
+    )
+    assert catalog.read("recording-01")["counters"] == {"processor_run:event-detection:running": 1}
+    assert catalog.pending_processor_runs() == ()
+
+
+def test_startup_recovery_waits_for_writer_holding_run_lock(tmp_path: Path, monkeypatch) -> None:
+    writer, catalog = _stores(tmp_path)
+    writer.create(_request(), created_at="2026-09-05T10:00:00Z")
+    recovery, recovery_catalog = _stores(tmp_path)
+    intent_written = Event()
+    release_writer = Event()
+    recovery_started = Event()
+    recovery_done = Event()
+    prepare = writer._prepare_run_catalog_intent
+
+    def pause_after_intent(*args, **kwargs):
+        result = prepare(*args, **kwargs)
+        intent_written.set()
+        if not release_writer.wait(timeout=5):
+            raise TimeoutError("writer test was not released")
+        return result
+
+    monkeypatch.setattr(writer, "_prepare_run_catalog_intent", pause_after_intent)
+
+    def write_transition():
+        return writer.start("catalog-run", started_at="2026-09-05T10:01:00Z")
+
+    def recover():
+        recovery_started.set()
+        try:
+            return recovery.recover_catalog_publications()
+        finally:
+            recovery_done.set()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        writer_future = executor.submit(write_transition)
+        assert intent_written.wait(timeout=5)
+        recovery_future = executor.submit(recover)
+        assert recovery_started.wait(timeout=5)
+        assert recovery_done.wait(timeout=0.1) is False
+        release_writer.set()
+        assert writer_future.result().state.status == "running"
+        assert recovery_future.result() == 1
+
+    assert recovery_catalog.read("recording-01")["counters"] == {
+        "processor_run:event-detection:running": 1
+    }
+    assert recovery_catalog.pending_processor_runs() == ()
+
+
+def test_concurrent_recovery_rechecks_exact_intent_under_run_lock(tmp_path: Path) -> None:
+    store, catalog = _stores(tmp_path)
+    run, _ = store.create(_request(), created_at="2026-09-05T10:00:00Z")
+    old_bytes = store.state_path(run.run_id).read_bytes()
+    target = replace(run.state, status="running", started_at="2026-09-05T10:01:00Z")
+    target_bytes = canonical_processor_run_state_bytes(target)
+    store._prepare_run_catalog_intent(
+        run.request,
+        target,
+        old_state_digest=hashlib.sha256(old_bytes).hexdigest(),
+        target_state_bytes=target_bytes,
+    )
+    first, _ = _stores(tmp_path)
+    second, _ = _stores(tmp_path)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(first.recover_catalog_publications),
+            executor.submit(second.recover_catalog_publications),
+        ]
+        assert [future.result() for future in futures] == [1, 1]
+
+    assert catalog.pending_processor_runs() == ()
+    assert store.require(run.run_id).state.status == "queued"
+    assert catalog.read("recording-01")["counters"] == {"processor_run:event-detection:queued": 1}
 
 
 def test_create_source_commit_before_index_is_recovered_by_exact_intent(

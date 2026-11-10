@@ -52,7 +52,7 @@ or index-only API stub as a complete workflow. No queue, acceptance-key or sched
 | M0 | Frozen list contract, consumer/writer matrix and failing growth assertions | Complete |
 | M1 | Catalog metadata index, common publication outbox and explicit rebuild contract | Complete |
 | M2 | Node and selection publication through one real catalog workflow | Complete |
-| M3 | Processor-run status publication with pending-only crash recovery | Complete |
+| M3 | Processor-run status publication with pending-only crash recovery | In Progress |
 | M4 | Recording, analysis and package metadata adapters | Not started |
 | M5 | Retained-data conversion rehearsal and activation manifest | Not started |
 | M6 | API/web cutover and obsolete list-path removal | Not started |
@@ -246,14 +246,19 @@ complete and 5 remain; run re-plannings are 1/10 and this M3 scope-review re-pla
 M0 corrections remain 1/2, M1 corrections 2/2, M2 corrections 1/2; M3 corrections start at 0/2.
 M2's first complete workflow and its accepted evidence remain unchanged.
 
-M3 result: [processor-run status publication](../../reports/0120-M3_Processor_Run_Publication.md).
-Create, state changes, progress writes and pending-only recovery now publish compact status counts
-through the M1 index. The indexed disposable route reads aggregate counters and does not parse saved
-run requests. Tests cover every status, replay, pre/post source-commit crashes, same-run create
+M3 initial submission: [processor-run status publication](../../reports/0120-M3_Processor_Run_Publication.md).
+It connects create, state changes, progress writes and pending-only recovery to compact catalog
+status counts. The indexed disposable route reads aggregate counters and does not parse saved run
+requests. Initial checks cover all statuses, replay, pre/post source-commit crashes, same-run create
 concurrency, progress count stability and 10x terminal-run history. The production list remains on
-its old reader until M5/M6. M3 is complete; run progress is 4/8 complete and 4 remain. The run
-re-planning count is 1/10, the M3 scope-review count is 1/5, and M3 corrections are 0/2. No further
-source owner or contract was added after the recorded M3 decision. Next: M4 connects recording,
-analysis and package metadata writers. The next proof is M4's empty/mixed state, concurrent publish,
-retry, crash/restart, result-state and 10x history checks. Stop if M4 requires another contract or
-source family.
+its old reader until M5/M6. Initial status was reported complete with 4/8 accepted and 4 remaining;
+sanity review found a recovery race and a same-process receipt-replay gap, so M3 acceptance is
+pending correction. Current goal progress is 3/8 accepted and 5 remain. Run re-plannings are 1/10;
+the M3 scope-review re-planning is 1/5. M0 corrections remain 1/2, M1 corrections 2/2, M2
+corrections 1/2, and M3 corrections are now 1/2. The correction must serialize exact-run recovery
+with writers and recover a converted ordinary outbox record on same-process retry. Correction 1/2
+implements both fixes and keeps the separate restart receipt-gap regression. The expanded targeted
+tests, lint, format and diff checks pass; see the M3 report for details. Sanity review acceptance
+is pending. Goal progress remains 3/8 accepted and 5 remain. No new contract or authority was
+added. Do not start M4 until acceptance. Stop if recovery needs another contract or cannot be made
+safe within the remaining correction turn.

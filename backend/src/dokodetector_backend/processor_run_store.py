@@ -52,7 +52,7 @@ from dokodetector_backend.processor_run_codec import (
     read_item_file,
     write_item_file,
 )
-from dokodetector_backend.processor_run_models import StoredProcessorRun
+from dokodetector_backend.processor_run_models import ProcessorRunStatus, StoredProcessorRun
 from dokodetector_backend.processor_run_reader import ProcessorRunReader
 from dokodetector_backend.recording_catalog_index import RecordingCatalogIndex
 
@@ -157,7 +157,7 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         state_bytes = _canonical_split_state_bytes(state, ())
         destination = self.run_path(parsed_request.run_id)
         with _process_lock(self.root / f".{parsed_request.run_id}.lock", self._lock):
-            self._recover_run_catalog_intent(parsed_request.run_id)
+            self._recover_run_catalog_intent_locked(parsed_request.run_id)
             if destination.exists() or destination.is_symlink():
                 existing = self._existing_or_error(destination)
                 if canonical_processor_run_request_bytes(existing.request) == request_bytes:
@@ -195,7 +195,7 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
                         validate=lambda path: self._read_path(path, require_canonical_name=False),
                     )
             except FileExistsError as error:
-                self._recover_run_catalog_intent(parsed_request.run_id)
+                self._recover_run_catalog_intent_locked(parsed_request.run_id)
                 existing = self._existing_or_error(destination)
                 if canonical_processor_run_request_bytes(existing.request) == request_bytes:
                     return existing, False
@@ -231,7 +231,7 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         if parsed_state.run_id != run_id:
             raise PipelineStateError("run state ID differs from the requested run")
         with _process_lock(self.root / f".{_safe_id(run_id, 'run_id')}.lock", self._lock):
-            self._recover_run_catalog_intent(run_id)
+            self._recover_run_catalog_intent_locked(run_id)
             current = self.require(run_id)
             self._validate_transition(current.state, parsed_state)
             self._validate_output_revisions(current.request, parsed_state)
@@ -451,7 +451,7 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         timestamp = _canonical_timestamp(updated_at)
         safe_run_id = _safe_id(run_id, "run_id")
         with _process_lock(self.root / f".{safe_run_id}.lock", self._lock):
-            self._recover_run_catalog_intent(run_id)
+            self._recover_run_catalog_intent_locked(run_id)
             path = self.run_path(run_id)
             if not self.items_path(run_id).is_dir():
                 current = self.require(run_id)
@@ -534,32 +534,50 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         return len(intents)
 
     def _recover_run_catalog_intent(self, run_id: str) -> None:
+        with _process_lock(self.root / f".{_safe_id(run_id, 'run_id')}.lock", self._lock):
+            self._recover_run_catalog_intent_locked(run_id)
+
+    def _recover_run_catalog_intent_locked(self, run_id: str) -> None:
         if self.catalog_index is None:
             return
         source_key = f"processor-run:{run_id}"
-        intent = self.catalog_index.pending_processor_run(source_key)
-        if intent is None:
+        pending = self.catalog_index.pending_processor_publication(source_key)
+        if pending is None:
             return
         path = self.run_path(run_id)
+        expected_source = (
+            pending
+            if pending["schema_version"] == "recording-catalog-run-intent/v1"
+            else pending["source"]["value"]
+        )
         if path.exists() and not path.is_symlink() and (path / "state.json").is_file():
             status = self._read_status(path)
             state_digest = hashlib.sha256((path / "state.json").read_bytes()).hexdigest()
             if (
-                status.run_id != intent["run_id"]
-                or status.recording_id != intent["recording_id"]
-                or status.processor_type != intent["processor_type"]
+                status.run_id != run_id
+                or status.recording_id != expected_source["recording_id"]
+                or status.processor_type != expected_source["processor_type"]
             ):
                 raise PipelineStoreError("pending processor-run identity does not match its source")
         else:
             status = None
             state_digest = None
-        if state_digest == intent["target_state_digest"]:
-            if status is None or status.status != intent["status"]:
+        if pending["schema_version"] == "recording-catalog-outbox/v1":
+            if status is None or pending["source"]["value"] != self._status_catalog_value(status):
+                raise PipelineStoreError(
+                    "pending processor-run publication does not match its source state"
+                )
+            self.catalog_index.recover_processor_run_publication(
+                source_key,
+                source_value=self._status_catalog_value(status),
+            )
+        elif state_digest == pending["target_state_digest"]:
+            if status is None or status.status != pending["status"]:
                 raise PipelineStoreError("pending processor-run target status does not match")
             self.catalog_index.finalize_processor_run(
                 source_key, observed_state_digest=state_digest
             )
-        elif state_digest == intent["old_state_digest"]:
+        elif state_digest == pending["old_state_digest"]:
             self.catalog_index.cancel_processor_run(source_key, observed_state_digest=state_digest)
         else:
             raise PipelineStoreError("pending processor-run state matches neither commit digest")
@@ -601,15 +619,31 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         self.catalog_index.publish_latest(
             source_key=f"processor-run:{request.run_id}",
             recording_id=request.source.recording_id,
-            source_value={
-                "run_id": request.run_id,
-                "recording_id": request.source.recording_id,
-                "processor_type": request.processor_type,
-                "status": state.status,
-            },
+            source_value=self._run_catalog_value(request, state),
             metadata_delta={},
             counter_delta={f"processor_run:{request.processor_type}:{state.status}": 1},
         )
+
+    @staticmethod
+    def _run_catalog_value(
+        request: ProcessorRunRequest,
+        state: ProcessorRunState,
+    ) -> dict[str, str]:
+        return {
+            "run_id": request.run_id,
+            "recording_id": request.source.recording_id,
+            "processor_type": request.processor_type,
+            "status": state.status,
+        }
+
+    @staticmethod
+    def _status_catalog_value(status: ProcessorRunStatus) -> dict[str, str]:
+        return {
+            "run_id": status.run_id,
+            "recording_id": status.recording_id,
+            "processor_type": status.processor_type,
+            "status": status.status,
+        }
 
     def state_path(self, run_id: str) -> Path:
         return self.run_path(run_id) / "state.json"

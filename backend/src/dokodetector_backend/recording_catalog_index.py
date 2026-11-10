@@ -276,10 +276,24 @@ class RecordingCatalogIndex:
 
     def pending_processor_run(self, source_key: str) -> dict[str, Any] | None:
         """Read one exact processor-run intent without scanning the pending directory."""
-        record = self._read_optional(self._outbox_path(source_key))
+        record = self.pending_processor_publication(source_key)
         if record is None or record.get("schema_version") != "recording-catalog-run-intent/v1":
             return None
-        self._validate_run_intent(record)
+        return record
+
+    def pending_processor_publication(self, source_key: str) -> dict[str, Any] | None:
+        """Read one exact run intent or publication record without scanning the outbox."""
+        record = self._read_optional(self._outbox_path(source_key))
+        if record is None:
+            return None
+        if record.get("schema_version") == "recording-catalog-run-intent/v1":
+            self._validate_run_intent(record)
+        elif record.get("schema_version") == "recording-catalog-outbox/v1":
+            self._validate_outbox(record)
+        else:
+            raise RecordingCatalogError("pending processor-run publication is corrupt")
+        if record.get("source_key") != source_key:
+            raise RecordingCatalogError("pending processor-run source identity is corrupt")
         return record
 
     def finalize_processor_run(self, source_key: str, *, observed_state_digest: str) -> None:
@@ -317,6 +331,31 @@ class RecordingCatalogIndex:
             }
             atomic_replace_json(self._outbox_path(source_key), publication)
             self._apply(publication)
+
+    def recover_processor_run_publication(
+        self,
+        source_key: str,
+        *,
+        source_value: dict[str, Any],
+    ) -> bool:
+        """Replay one ordinary run publication after confirming its exact source summary."""
+        with _process_lock(self.root / "publication.lock", self._thread_lock):
+            path = self._outbox_path(source_key)
+            publication = self._read_optional(path)
+            if publication is None or publication.get("schema_version") != (
+                "recording-catalog-outbox/v1"
+            ):
+                return False
+            self._validate_outbox(publication)
+            if (
+                publication["source_key"] != source_key
+                or publication["source"]["value"] != source_value
+            ):
+                raise RecordingCatalogError(
+                    "pending processor-run publication differs from its authoritative source"
+                )
+            self._apply(publication)
+            return True
 
     def cancel_processor_run(self, source_key: str, *, observed_state_digest: str | None) -> None:
         """Remove an uncommitted intent after its exact prior state is confirmed."""
