@@ -52,6 +52,7 @@ from dokodetector_backend.pipeline_composition import (
 from dokodetector_backend.pipeline_run_preflight import validate_local_stage_providers
 from dokodetector_backend.proposed_card_scene_jobs import ProposedCardSceneJobParticipant
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
+from dokodetector_backend.recording_catalog_index import RecordingCatalogIndex
 from dokodetector_backend.recording_history_store import RecordingHistoryStore
 from dokodetector_backend.recording_state_api import router as recording_state_router
 from dokodetector_backend.recording_state_store import RecordingStateSnapshotStore
@@ -146,6 +147,9 @@ def create_app(
         app_settings.repository_intake_root
     )
     app.state.recording_bundle_store = RecordingBundleStore(app.state.repository_bundle_storage)
+    app.state.recording_catalog_index = RecordingCatalogIndex(app_settings.operations_root)
+    app.state.recording_catalog_index.initialize()
+    app.state.recording_catalog_index.recover_pending()
     app.state.recording_thumbnail_cache = RecordingThumbnailCache(
         app_settings.evidence_root / "recording-thumbnails"
     )
@@ -217,6 +221,7 @@ def create_app(
         app.state.recording_bundle_store,
         app.state.repository_bundle_storage,
         app.state.round_analysis_store,
+        catalog_index=app.state.recording_catalog_index,
         visible_card_provider=app.state.visible_card_provider,
         visible_card_providers=visible_card_providers,
         visible_card_frame_resolver=visible_card_frame_resolver,
@@ -225,6 +230,7 @@ def create_app(
         event_provider=event_provider,
     )
     install_pipeline_composition(app.state, pipeline_composition)
+    app.state.pipeline_lineage_writer.node_store.reconcile_revision_history_outbox()
     app.state.recording_state_working_editor = RecordingStateWorkingEditor(
         app.state.recording_state_store,
         app.state.pipeline_node_edits,
@@ -248,6 +254,7 @@ def create_app(
         app.state.analyzer,
         pipeline_selection_store=app.state.pipeline_selection_store,
         pipeline_lineage_writer=app.state.pipeline_lineage_writer,
+        catalog_index=app.state.recording_catalog_index,
     )
     calculation_jobs = CalculationJobs(
         app_settings.operations_root,

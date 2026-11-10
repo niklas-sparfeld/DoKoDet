@@ -181,6 +181,31 @@ class RecordingCatalogIndex:
                 counter_delta=counter_delta,
             )
 
+    def publish_latest(
+        self,
+        *,
+        source_key: str,
+        recording_id: str,
+        source_value: dict[str, Any],
+        metadata_delta: dict[str, Any],
+        counter_delta: dict[str, int],
+    ) -> int:
+        """Publish the next version of a source, treating an identical retry as a no-op."""
+        with _process_lock(self.root / "publication.lock", self._thread_lock):
+            old = self._read_optional(self._source_path(source_key))
+            if old is not None and old.get("value") == source_value:
+                return int(old["source_version"])
+            version = 1 if old is None else int(old["source_version"]) + 1
+            self._publish_locked(
+                source_key=source_key,
+                source_version=version,
+                recording_id=recording_id,
+                source_value=source_value,
+                metadata_delta=metadata_delta,
+                counter_delta=counter_delta,
+            )
+            return version
+
     def _publish_locked(
         self,
         *,

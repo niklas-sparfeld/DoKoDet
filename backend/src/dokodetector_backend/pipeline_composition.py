@@ -66,6 +66,7 @@ def build_pipeline_composition(
     recording_store: RecordingBundleStore,
     repository_storage: RepositoryBundleStorage,
     round_analysis_store: RoundAnalysisStore,
+    catalog_index: Any | None = None,
     *,
     visible_card_provider: Any | None,
     visible_card_frame_resolver: Any | None,
@@ -77,13 +78,17 @@ def build_pipeline_composition(
     """Create shared pipeline stores and services with explicit dependencies."""
 
     runtime_storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
-    node_store = PipelineNodeStore(settings.operations_root / "pipeline-nodes")
+    node_store = PipelineNodeStore(
+        settings.operations_root / "pipeline-nodes", catalog_index=catalog_index
+    )
     lineage_service = PipelineLineage(node_store)
     lineage_writer = PipelineLineageWriter(
         node_store, lineage_service, PipelineNodeUses(node_store)
     )
     run_store = ProcessorRunStore(runtime_storage, lineage_writer=lineage_writer)
-    selection_store = PipelineNodeSelectionStore(node_store, lineage_writer)
+    selection_store = PipelineNodeSelectionStore(
+        node_store, lineage_writer, catalog_index=catalog_index
+    )
     node_edits = PipelineNodeEdits(node_store)
     node_reviews = PipelineNodeReviews(node_store)
     event_service = EventPipelineService(

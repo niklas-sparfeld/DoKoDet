@@ -64,9 +64,11 @@ class PipelineNodeSelectionStore:
         self,
         node_store: PipelineNodeStore,
         lineage_writer: PipelineLineageWriter | None = None,
+        catalog_index: Any | None = None,
     ) -> None:
         self.node_store = node_store
         self.lineage_writer = lineage_writer
+        self.catalog_index = catalog_index or node_store.catalog_index
         self.root = node_store.root / ".pipeline-node-selections"
         self._lock = RLock()
 
@@ -143,6 +145,30 @@ class PipelineNodeSelectionStore:
                 stored = self.get_exact(recording_id, content_type)
                 if stored is None:
                     raise PipelineStoreError("The updated exact node selection failed validation.")
+                if self.catalog_index is not None:
+                    selected = stored.selected_completed_reference or stored.selected_generated
+                    self.catalog_index.publish_latest(
+                        source_key=f"pipeline-selection:{recording_id}:{content_type}",
+                        recording_id=recording_id,
+                        source_value={
+                            "recording_id": recording_id,
+                            "content_type": content_type,
+                            "revision": stored.revision,
+                            "selected_generated": stored.selected_generated,
+                            "selected_completed_reference": stored.selected_completed_reference,
+                        },
+                        metadata_delta={
+                            f"selection:{content_type}": {
+                                "selected_generated": stored.selected_generated,
+                                "selected_completed_reference": stored.selected_completed_reference,
+                            }
+                        },
+                        counter_delta=(
+                            {"selected_table_observation": 1 if selected is not None else 0}
+                            if content_type == "table_observations"
+                            else {}
+                        ),
+                    )
                 return stored
 
     def _validate_exact_pointer(

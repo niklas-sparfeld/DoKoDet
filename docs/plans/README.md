@@ -113,7 +113,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0–M1 complete; M1 passed sanity review after two corrections. No production list behavior has changed. M2 must prove real node/selection publication and API reads with old discovery disabled, blocker verification, and restart. No recording HEAD adoption or Job Manager redesign. |
+| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0–M2 complete; M2 passed the real `/v1/recordings` node/selection workflow with node discovery disabled, exact blocker verification, and restart. M3 connects processor-run state. No recording HEAD adoption or Job Manager redesign. |
 
 ### In Progress
 

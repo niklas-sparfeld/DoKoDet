@@ -211,10 +211,63 @@ def list_recordings(request: Request) -> RecordingListResponse:
 
     service: RoundAnalysisService = request.app.state.round_analysis_service
     entries = service.recording_catalog()
-    pipeline_statuses = request.app.state.pipeline_workspace_service.get_statuses(
-        [entry.recording.recording_id for entry in entries],
-        analyses_by_recording={entry.recording.recording_id: entry.analyses for entry in entries},
+    catalog_index = request.app.state.recording_catalog_index
+    pipeline_statuses = {}
+    node_stage_names = {
+        "events": ("events", "event-detection"),
+        "visible_cards": ("visible_cards", "visible-card-detection"),
+        "visual_identities": ("visual_identities", "visual-card-identity"),
+        "table_observations": ("table_observations", "observation-assembly"),
+    }
+    recording_ids = {entry.recording.recording_id for entry in entries}
+    run_statuses = request.app.state.pipeline_workspace_service._list_statuses_for_recordings(
+        recording_ids
     )
+    runs_by_recording: dict[str, list[tuple[str, str]]] = {}
+    for run in run_statuses:
+        runs_by_recording.setdefault(run.recording_id, []).append((run.processor_type, run.status))
+    for entry in entries:
+        recording_id = entry.recording.recording_id
+        catalog_row = catalog_index.read(recording_id)
+        counters = {} if catalog_row is None else catalog_row["counters"]
+        recording_runs = runs_by_recording.get(recording_id, ())
+        stages = []
+        for key, (node_type, processor_type) in node_stage_names.items():
+            stage_runs = [status for kind, status in recording_runs if kind == processor_type]
+            if any(status in {"queued", "running"} for status in stage_runs):
+                state = "active-run"
+            elif counters.get(f"pipeline_node:{node_type}", 0):
+                state = "data-available"
+            elif any(status == "partial" for status in stage_runs):
+                state = "partial"
+            elif any(status == "failed" for status in stage_runs):
+                state = "failed"
+            else:
+                state = "video-only" if key == "events" else "empty"
+            stages.append({"key": key, "state": state})
+        analyses = entry.analyses
+        round_analysis_runs = [
+            status for kind, status in recording_runs if kind == "round-analysis"
+        ]
+        if any(status in {"queued", "running"} for status in round_analysis_runs) or any(
+            item.state in {"queued", "analyzing_evidence", "reconstructing"} for item in analyses
+        ):
+            analysis_state = "active-run"
+        elif any(item.state == "complete" for item in analyses):
+            analysis_state = "complete"
+        elif any(item.state == "failed" for item in analyses):
+            analysis_state = "failed"
+        elif any(status == "partial" for status in round_analysis_runs):
+            analysis_state = "partial"
+        elif any(status == "failed" for status in round_analysis_runs):
+            analysis_state = "failed"
+        else:
+            analysis_state = "empty"
+        stages.append({"key": "round_analyses", "state": analysis_state})
+        pipeline_statuses[recording_id] = {
+            "schema_version": "recording-pipeline-status/v1",
+            "stages": stages,
+        }
     return RecordingListResponse(
         recordings=[
             RecordingSummary(

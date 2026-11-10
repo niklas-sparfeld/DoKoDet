@@ -51,7 +51,7 @@ or index-only API stub as a complete workflow. No queue, acceptance-key or sched
 | --- | --- | --- |
 | M0 | Frozen list contract, consumer/writer matrix and failing growth assertions | Complete |
 | M1 | Catalog metadata index, common publication outbox and explicit rebuild contract | Complete |
-| M2 | Node and selection publication through one real catalog workflow | Not started |
+| M2 | Node and selection publication through one real catalog workflow | Complete |
 | M3 | Processor-run status publication | Not started |
 | M4 | Recording, analysis and package metadata adapters | Not started |
 | M5 | Retained-data conversion rehearsal and activation manifest | Not started |
@@ -197,3 +197,17 @@ proof: M2 connects node and selection publication and reads the real `/v1/record
 old discovery disabled, verifies the blocker and restarts. Stop if M2 misses its assigned
 acceptance. Run the scope review before any additional implementation; do not add a contract or
 source authority. M1 checks and known limits are in its report.
+
+M2 result: [node and selection publication through the real recordings route](../../reports/0120-M2_Node_Selection_Publication.md).
+The real route reads stage availability and the exact table-observation blocker from catalog rows.
+Node create/save publications use the existing revision-history outbox for restart recovery.
+Exact generated and completed-reference selections publish through the M1 protocol. The route test
+disables node enumeration and the old workspace status reader, writes persisted node and selection
+state, verifies the blocker clears, and restarts the app. Run statuses remain sourced from the
+existing processor-run store until M3. Recording identity and analysis/package summaries remain on
+their existing readers until later milestones.
+
+M2 family corrections: 0/2; no re-planning or scope change. The first complete workflow passed.
+Current run progress is 3/8 complete and 5 remain. No source owner or persistent contract was added.
+Next: M3 connects processor-run state writers. Keep status precedence and exact-target validation;
+do not expand into recording, package, or analysis writers.
