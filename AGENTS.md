@@ -103,11 +103,54 @@ epic. The file can contain both the specification and its work items.
 Structure each epic into small implementation milestones named `M0`, `M1`, and so on. Each
 milestone must be small enough for Luna to implement in one phase.
 
+### Plans for implementing agents
+
+Plan one bounded user-visible outcome per epic. Record the original problem, observable success,
+non-goals, and a finite closure check before listing milestones. Distinguish the requested outcome
+from a proposed architecture. A performance goal does not by itself authorize a selection-authority
+migration, a scheduler rewrite, or optimization of every related write path.
+
+Inspect the real consumer and its readers/writers before choosing the solution. Compare the
+smallest change using existing authority with the proposed new infrastructure. For each new
+prerequisite, name the failing requirement, actual call/data path, and why the smaller solution
+cannot satisfy it. Keep independent improvements out of the dependency chain. Do not require
+bounded writes to prove bounded reads unless measured contention or moved work makes them necessary.
+
+Prefer three to six implementation milestones for one outcome. A larger plan must explain why
+separate deliverables would not reduce risk. Identify the first complete user workflow and schedule
+its proof within the first three implementation milestones. Measurement/specification milestones
+do not count as that proof. If this cannot be done, make the first epic a bounded feasibility proof
+with a stop decision rather than a long infrastructure program. Keep qualification in the delivery
+plan at its promised position. Do not displace it to fit added prerequisites. A short authorized run
+can end before qualification that was already scheduled later.
+
+Each implementation assignment must name one observable result, a finite set of source owners or
+adapters, existing authority, required checks, and a commit boundary. A worker must not need to
+choose the architecture or discover an unbounded adapter set. One milestone may introduce at most
+one new persistent storage or transaction contract. Detail the near-term work; keep later work as
+bounded outcomes until the first workflow validates the approach. Specify each later assignment
+before starting it; do not silently increase the epic or authorized run.
+
+Fix defects introduced by the current work within its scope. Put pre-existing or independent
+subsystem defects in separate epics with a reproducer and an owner. Add a dependency only when the
+defect blocks the selected workflow. Never reclassify a failing acceptance criterion as unrelated
+debt just to close the current milestone.
+
+### Scope and progress checks
+
 Before starting a milestone, name its observable result, required checks, and commit boundary.
 Split oversized milestones before assignment. New storage, transaction, or processor contracts are
 implementation work; give them explicit milestones instead of hiding them in migration or cleanup.
 If two successive attempts discover new prerequisites or do not reduce the remaining scope,
-revise the plan before another attempt. Keep the existing authorization and run limits.
+perform the scope review in the [execution workflow](docs/workflows/epic-execution.md#scope-review)
+before another attempt. This rule applies to single-milestone work as well as loops. Renaming or
+splitting the milestone is not itself a scope review. Keep the original outcome, existing
+authorization, cumulative failure history, and run limits.
+
+After each milestone, check progress toward the first complete workflow and final closure, not
+only completed infrastructure or passing test counts. Before accepting a new prerequisite or
+stronger guarantee, repeat the dependency check above. Keep valid correctness requirements; reduce
+the implementation scope or change the approach when it cannot meet them within the bounded plan.
 
 Implement an epic one milestone at a time. When the user says `start epic 1234`, begin with `M0`
 of epic 1234. When the user says `next phase`, implement the next incomplete milestone. Do not
@@ -224,6 +267,11 @@ Before considering a change complete:
 * run applicable linting, formatting, type, or static checks,
 * verify that the change is reproducible locally,
 * add a regression test for a fixed bug when practical.
+
+Keep distinct regression boundaries covered when adding a correction. Do not replace an earlier
+crash/restart or concurrency test with the newly discovered case. Remove or consolidate a test only
+when its original behavior remains covered and record that evidence. Test counts alone do not prove
+that coverage accumulated.
 
 Match evidence to the completion claim. Mocked browser APIs verify UI behavior. For changes across
 the UI and persistence, include one real-backend workflow with disposable persisted data; processor
