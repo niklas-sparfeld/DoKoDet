@@ -1,7 +1,7 @@
 # Recording folders and events
 
 - **Status:** Blocked
-- **Depends on:** [0123](../2-ready/0123-Simple_Recording_List.md) closure, to stabilize the list API before its source layout changes.
+- **Depends on:** [0123](../3-in-progress/0123-Simple_Recording_List.md) closure, to stabilize the list API before its source layout changes.
 - **Outcome:** Import a recording, create/select/edit alternative event sets, and reopen them from a simple recording folder.
 - **Origin:** [Recording data storage](../../RecordingDataStorage.md).
 

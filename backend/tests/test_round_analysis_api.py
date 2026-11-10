@@ -376,10 +376,12 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
     )
     assert saved.status_code == 200
 
-    # Two distinct experimental selection types must stay distinct in the row.
-    for content_type, node_id in (
-        ("virtual_scenes", "virtual-node"),
-        ("card_scene_proposals", "proposal-node"),
+    # Keep virtual and proposed scenes distinct; reject malformed revision numbers.
+    for content_type, node_id, revision_number in (
+        ("virtual_scenes", "virtual-node", 1),
+        ("card_scene_proposals", "proposal-node", 1),
+        ("visible_cards", "invalid-zero-revision", 0),
+        ("table_observations", "invalid-negative-revision", -1),
     ):
         selection_path = node_store.root / ".pipeline-node-selections" / RECORDING_ID
         selection_path.mkdir(parents=True, exist_ok=True)
@@ -387,7 +389,7 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
             "schema_version": "pipeline-node-selection/v1",
             "recording_id": RECORDING_ID,
             "content_type": content_type,
-            "revision": 1,
+            "revision": revision_number,
             "selected_generated": (
                 {"node_id": node_id, "revision_id": "missing-revision"}
                 if content_type == "virtual_scenes"
@@ -412,9 +414,11 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
     by_type = {item["content_type"]: item for item in row["selections"]}
     assert by_type["events"]["state"] == "selected"
     assert by_type["events"]["selected_generated"]["revision_id"] == revision.revision_id
-    assert by_type["visible_cards"]["state"] == "not-selected"
+    assert by_type["visible_cards"]["state"] == "unavailable"
     assert by_type["virtual_scenes"]["state"] == "selected"
     assert by_type["card_scene_proposals"]["state"] == "selected"
+    assert by_type["visible_cards"]["state"] == "unavailable"
+    assert by_type["table_observations"]["state"] == "unavailable"
     assert by_type["virtual_scenes"]["selected_generated"]["revision_id"] == "missing-revision"
     assert by_type["card_scene_proposals"]["selected_completed_reference"][
         "revision_id"

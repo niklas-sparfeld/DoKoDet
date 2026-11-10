@@ -1,6 +1,6 @@
 # Simple recording list
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** None. Existing recording and exact-selection metadata is sufficient.
 - **Outcome:** Open `/recordings` from recording metadata and explicit selected-data indicators
   without reading content, process history, or validating referenced resources.
@@ -87,7 +87,8 @@ enrollment for each recording, six exact-selection files, and the transaction lo
 does not call the recording catalog, history stores, or workspace status readers. It reports
 invalid root metadata as an unavailable row and malformed selection metadata as unavailable.
 Selections show pointer identity and shape only. A pointer can refer to absent content and still
-appears as selected; the row does not verify that resource. An empty locator is accepted, while a
+appears as selected; the row does not verify that resource. Selection rows require revision 1 or
+greater; zero and negative revisions are unavailable. An empty locator is accepted, while a
 pending or invalid locator makes all six indicators unavailable. Root metadata reads stop at 1 MiB
 per file; selection and locator reads stop at 64 KiB per file. Oversized files are unavailable.
 
@@ -95,7 +96,8 @@ The web row shows the source filename, date, session, thumbnail, and six selecte
 does not show pipeline progress. `RecordingAnalysisSummary` now comes from the detail response.
 Backend API tests prove selection through the existing selection route, missing referenced content,
 unselected saved content, distinct virtual-scene and card-scene proposal choices, corrupt root and
-selection metadata, pending transaction behavior, and restart. The real browser workflow reads the
+selection metadata (including zero and negative revisions), pending transaction behavior, and restart.
+The real browser workflow reads the
 persisted selection, opens the recording, and confirms the workspace after backend restart.
 
 Checks passed: focused recording, bundle-store, and exact-selection tests; Ruff; web recording
@@ -149,9 +151,12 @@ direct tests. Existing selection files and transaction locator remain the author
 history-growth fixture was replaced because it asserted the list contract that M0 removed; the
 independent history growth and latency qualification remain scheduled for M1.
 
-Run 1 of 3 authorized milestones: M0 complete; 2 run slots remain; 0 re-plannings; 0 corrections
-of 2 allowed. No scope change. No performance or broad history-growth claim is made. Next: M1's
-independent history-growth, invalid-metadata, concurrent-selection, and local latency checks. Stop
+Run 1 of 3 authorized milestones: M0 complete; 2 run slots remain; 0 re-plannings; 1 correction of
+2 allowed. The reviewer found that zero and negative selection revisions were accepted. The narrow
+fix now marks them unavailable, matching `PipelineNodeSelectionStore`'s positive-revision rule.
+Focused backend tests and Ruff pass after this correction. No scope change. No performance or broad
+history-growth claim is made. Next: M1's independent history-growth, invalid-metadata,
+concurrent-selection, and local latency checks. Stop
 if those checks require a new authority, writer protocol, cache, or move of the qualification target.
 
 The 0120 ledger approach is superseded, not accepted. Its M3 correction history remains exhausted

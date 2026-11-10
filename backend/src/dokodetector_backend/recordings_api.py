@@ -342,6 +342,8 @@ def _recording_selections(
                     or not isinstance(raw.get("revision"), int)
                     or isinstance(raw.get("revision"), bool)):
                     raise ValueError("selection identity is invalid")
+                if raw["revision"] < 1:
+                    raise ValueError("selection revision must be positive")
                 generated = _list_pointer(raw.get("selected_generated"))
                 completed = _list_pointer(raw.get("selected_completed_reference"))
                 state = (
