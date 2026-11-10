@@ -84,3 +84,28 @@ The targeted backend tests, Ruff, format, Markdown link and diff checks pass. Sa
 is pending, and the M3 correction allowance is exhausted at 2/2. Goal progress remains 3/8 accepted
 and 5 remain. Run re-plannings are 1/10; the M3 scope-review count is 1/5. Do not start M4 before
 acceptance. If re-review does not accept, perform scope review before further M3 work.
+
+## Scope review after correction exhaustion
+
+Final sanity review found another recovery edge in the same intent approach. In
+`_recover_run_catalog_intent_locked`, an existing run path whose `state.json` is missing, a symlink,
+or another non-file path falls into the same branch as an absent run. When the intent's old digest is
+`None`, recovery can cancel the create intent and hide an invalid persisted run. This is an
+unaccepted M3 defect; the implementation must not treat it as an absent source.
+
+No code change was authorized because M3 has used both correction turns and this finding is another
+edge in the same approach. M3 stays In Progress. The bounded correction, if the user authorizes it,
+must distinguish a truly absent run directory from an existing invalid path; preserve the pending
+intent and fail visibly for an existing symlink or non-directory run path, a missing or symlinked
+state file, or a state path that is not a file. Only a truly absent create source or a valid exact
+old-state digest can cancel an intent. Add tests for absent-create cancellation and invalid-path
+preservation. Retain all prior pre/post-commit, writer-overlap, concurrent-recovery, same-process
+retry and restart receipt-gap boundaries. Re-run M3 checks and stop if more contracts or broader
+recovery are required.
+
+Initial plan count is eight; M0–M2 are accepted, including M2's first disposable API workflow.
+M3 remains pending, followed by M4 recording/analysis/package adapters, M5 retained-data rehearsal,
+M6 API/web activation, and M7 qualification/closure. Progress is 3/8 accepted and 5 remain. M3
+scope-review re-plannings are 1/5, run re-plannings are 1/10, and M3 corrections are exhausted at
+2/2. Do not start M4 or retry M3 on a new run until the user explicitly authorizes an additional
+correction or selects another disposition.

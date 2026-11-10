@@ -265,3 +265,26 @@ The targeted tests, lint, format and diff checks pass; see the M3 report. Sanity
 is pending and the M3 correction allowance is exhausted. Goal progress remains 3/8 accepted and 5
 remain. No new contract or authority was added. Do not start M4 until acceptance. If re-review does
 not accept, perform scope review before further M3 work.
+
+M3 scope review after correction exhaustion: final sanity review found that recovery treats an
+existing run path with a missing, non-file, or symlinked `state.json` as if the run were absent.
+For a create intent with no old state digest, recovery can then cancel the intent and hide the
+invalid persisted run. This is another edge in the same intent-recovery approach, not evidence for a
+materially different or smaller approach. M3 remains In Progress and is not accepted. Do not make
+another code correction or start M4 without explicit authorization because the two-turn correction
+limit is exhausted.
+
+Finite remaining M3 correction, if authorized: distinguish a truly absent run directory from an
+existing invalid run path; fail visibly and preserve the intent for an existing symlink, non-directory,
+missing state file, symlinked state file, or non-file state path. Keep cancellation only for a truly
+absent create source or a valid exact old-state digest. Add separate regressions for absent-create
+cancellation and existing-invalid-path preservation. Retain the earlier pre/post-commit, writer
+overlap, concurrent-recovery, same-process retry, and restart receipt-gap tests. Then run the M3
+targeted checks and diff/link checks. Stop if any case needs another contract or broader recovery.
+
+Initial plan count remains eight. M0–M2 are accepted and M2's first disposable API workflow remains
+proved. M3 is pending; M4 recording/analysis/package adapters, M5 retained-data rehearsal, M6 API/web
+activation, and M7 qualification/closure remain. Goal progress is 3/8 accepted and 5 remain. M3
+scope-review re-plannings are 1/5; run re-plannings are 1/10; M3 corrections are 2/2. No new
+milestone or re-planning was added. Stop until the user explicitly authorizes one additional M3
+correction or chooses a materially different disposition. Do not reset counts on a new run.
