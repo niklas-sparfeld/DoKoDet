@@ -22,7 +22,7 @@ state. Job mutation cost remains visible in qualification, but is not a new opti
 
 ## Delivery order and boundaries
 
-1. [0119 — Pipeline recovery defects](../plans/3-in-progress/0119-Pipeline_Recovery_Defects.md): two
+1. [0119 — Pipeline recovery defects](../plans/4-blocked/0119-Pipeline_Recovery_Defects.md): two
    milestones to close the known cancellation/link gaps and retain the restart regressions.
 2. [0120 — Recording catalog performance](../plans/4-blocked/0120-Recording_Catalog_Performance.md):
    bounded metadata reads and one real `/recordings` cutover. No recording HEAD adoption, job

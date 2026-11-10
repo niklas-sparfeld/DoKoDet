@@ -26,13 +26,15 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Performance delivery was reset on 2026-11-10. **0117 is closed as Superseded.** Run
-[0119 recovery repairs](3-in-progress/0119-Pipeline_Recovery_Defects.md) first, then
+Performance delivery was reset on 2026-11-10. **0117 is closed as Superseded.**
+[0119 recovery repairs](4-blocked/0119-Pipeline_Recovery_Defects.md) are blocked at M1 by the
+[0122 node-publication test discrepancy](2-ready/0122-Node_Publication_Test_Discrepancy.md).
+Resolve that finite test/behavior question, complete 0119, then proceed to
 [0120 catalog delivery](4-blocked/0120-Recording_Catalog_Performance.md). The
 [0121 workspace follow-up](1-backlog/0121-Current_Workspace_Reads.md) stays in Backlog.
 No old 0117 loop continues. See the [scope and revert decision](../reports/0117-Supersession_and_Exit.md).
 
-Active epics: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**, **[0106 — iOS end-to-end proof of concept](3-in-progress/0106-iOS_End_to_End_PoC.md)**, and **[0119 — Pipeline recovery defects](3-in-progress/0119-Pipeline_Recovery_Defects.md)**. Epic 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) handoff reported all 165 targets unavailable in its checkout. The 0100 M5 checks resolved all exact detector targets and reproduced their frame identities. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md) and [0100 M0 inventory](../reports/0100-M0_Compatibility_Inventory.md).
+Active epics: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)** and **[0106 — iOS end-to-end proof of concept](3-in-progress/0106-iOS_End_to_End_PoC.md)**. Epic 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) handoff reported all 165 targets unavailable in its checkout. The 0100 M5 checks resolved all exact detector targets and reproduced their frame identities. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md) and [0100 M0 inventory](../reports/0100-M0_Compatibility_Inventory.md).
 
 Epic **0100 — Local pipeline compatibility** is closed. M0–M6 are complete. M6 verified the
 fixture workflow, ran bounded CPU probes with the three frozen models, and published a direct
@@ -112,7 +114,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0119 — Pipeline recovery defects](3-in-progress/0119-Pipeline_Recovery_Defects.md) | Integrated job/pipeline code; 0117 closed | M0 complete; M1 not started. Exact current-phase recovery restores unlinked interrupted children and rejects persisted same-phase conflicts across queued, failed, and succeeded states. Crash regressions remain separate. See the [M0 report](../reports/0119-M0_Pipeline_Recovery.md). No queue or acceptance optimization. |
+| [0122 — Node-publication test discrepancy](2-ready/0122-Node_Publication_Test_Discrepancy.md) | None | M0 not started. Resolve two baseline failed-save test failures by confirming the publication behavior and correcting implementation or assertions with evidence. |
 
 
 ### In Progress
@@ -126,6 +128,7 @@ The shared target architecture is
 
 | Epic                                                                                                              | Depends on                                                                                                                   | Outcome                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0119 — Pipeline recovery defects](4-blocked/0119-Pipeline_Recovery_Defects.md) | 0122 M0 | M0 complete; M1 blocked. The real Job Manager and run-store workflow plus recovery matrix are recorded, but two pre-existing node-publication test failures block the required full suite. See the [M1 evidence report](../reports/0119-M1_Recovery_Matrix.md). |
 | [0120 — Recording catalog performance](4-blocked/0120-Recording_Catalog_Performance.md) | 0119 M1 | M0–M7 not started. Replace catalog history reconstruction with compact metadata and deliver a measured API/web cutover. No recording HEAD adoption or Job Manager redesign. |
 
 ### Closed

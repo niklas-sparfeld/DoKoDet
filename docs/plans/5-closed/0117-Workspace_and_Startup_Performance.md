@@ -6,7 +6,7 @@
 - **Closure note:** The user requested a bounded exit after repeated M6b1a corrections. This epic
   did not deliver or qualify faster catalog or current-workspace reads. Its execution loop is
   cancelled. Do not resume its handoff, correction budgets, or remaining milestones.
-- **Replacement:** [0119](../3-in-progress/0119-Pipeline_Recovery_Defects.md) repairs the known integrated
+- **Replacement:** [0119](../4-blocked/0119-Pipeline_Recovery_Defects.md) repairs the known integrated
   recovery defects. [0120](../4-blocked/0120-Recording_Catalog_Performance.md) delivers catalog
   performance. [0121](../1-backlog/0121-Current_Workspace_Reads.md) owns the deferred workspace
   boundary and disposition of unused recording-state infrastructure.

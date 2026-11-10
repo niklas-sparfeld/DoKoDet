@@ -10,7 +10,10 @@ import pytest
 
 from dokodetector_backend.automated_pipeline_contracts import StageDefinition
 from dokodetector_backend.automated_pipeline_jobs import AutomatedPipelineJobParticipant
-from dokodetector_backend.automated_pipeline_run import AutomatedPipelineRunStore
+from dokodetector_backend.automated_pipeline_run import (
+    AutomatedPipelineRunService,
+    AutomatedPipelineRunStore,
+)
 from dokodetector_backend.job_models import Job
 from dokodetector_backend.job_scheduler import Claims, JobScheduler
 from dokodetector_backend.job_store import JobManager
@@ -156,6 +159,59 @@ def _wait_for(predicate, timeout: float = 5) -> None:
     raise AssertionError("condition was not reached")
 
 
+def _real_run_service(root: Path) -> AutomatedPipelineRunService:
+    return AutomatedPipelineRunService(
+        store=AutomatedPipelineRunStore(root),
+        recording_source_provider=lambda recording_id: SimpleNamespace(
+            to_mapping=lambda: {
+                "schema_version": "recording-video/v1",
+                "recording_id": recording_id,
+                "video_sha256": "a" * 64,
+            }
+        ),
+        recording_provider_validator=lambda _recording_id, stage_requests: {
+            "stage_requests": stage_requests,
+            "providers": {"event_proposals": {"name": "deterministic-test"}},
+        },
+        round_session_provider=lambda _recording_id: "session-1",
+    )
+
+
+def _start_real_run(service: AutomatedPipelineRunService, recording_id: str) -> dict:
+    run, idempotent = service.start(
+        recording_id,
+        {
+            "idempotency_key": str(uuid4()),
+            "session_id": "session-1",
+            "round_context": {
+                "game_id": "game-1",
+                "round_id": "round-1",
+                "active_players": ["p1", "p2", "p3", "p4"],
+                "dealer": "p1",
+                "first_trick_leader": "p2",
+            },
+            "rules_version": "v1",
+            "search": {
+                "max_missing_plays": 1,
+                "max_hypotheses": 16,
+                "max_search_nodes": 1000,
+            },
+            "stage_requests": {
+                name: {"configuration": {"stage": name}}
+                for name in (
+                    "event_proposals",
+                    "visible_card_and_pile_proposals",
+                    "card_scene_and_calibration",
+                    "visual_identity_proposals",
+                    "table_observations",
+                )
+            },
+        },
+    )
+    assert not idempotent
+    return run
+
+
 def test_mixed_recording_pipeline_yields_to_an_independent_leaf_job(tmp_path: Path) -> None:
     run_id = str(uuid4())
     document, _service, participant = _participant(run_id)
@@ -240,6 +296,122 @@ def test_mixed_recording_pipeline_yields_to_an_independent_leaf_job(tmp_path: Pa
         ]
         assert all(stages_by_name[name]["child_job_id"] for name in stages_by_name)
         assert document["status"] == "complete"
+
+
+def test_real_job_manager_and_run_store_complete_and_recover_cancellation(
+    tmp_path: Path,
+) -> None:
+    run_root = tmp_path / "pipeline-runs"
+    service = _real_run_service(run_root)
+    completed_run = _start_real_run(service, "recording-complete")
+    cancelled_run = _start_real_run(service, "recording-cancelled")
+    participant = AutomatedPipelineJobParticipant(service, SimpleNamespace())
+    participant._child_request = lambda _parent, definition, _inputs: {
+        "type": "fake",
+        "context": {"recording_id": "recording"},
+        "request": {"input": f"stage:{definition.name}"},
+    }
+    stages = (
+        "event_proposals",
+        "visible_card_and_pile_proposals",
+        "card_scene_and_calibration",
+        "visual_identity_proposals",
+        "table_observations",
+        "reconstruction",
+    )
+
+    with _manager(tmp_path / "jobs", participant) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "recording-complete"},
+                "request": {"run_id": completed_run["run_id"]},
+            },
+        )
+
+        def handle(job: Job, _claims: Claims, token) -> None:
+            if job.type == "automated_pipeline":
+                participant.handle(job, Claims(), token, manager)
+                return
+            current = manager.get(job.id)
+            current.results = [
+                {
+                    "kind": "pipeline_revision",
+                    "id": f"revision:{job.request['input']}:{job.id}",
+                    "digest": "d" * 64,
+                    "available": True,
+                }
+            ]
+            manager._write_job(current)
+
+        with JobScheduler(manager, handle, lambda _job: Claims()):
+            _wait_for(lambda: manager.get(parent.id).state in {"succeeded", "failed"})
+            assert manager.get(parent.id).state == "succeeded", manager.get(parent.id).model_dump()
+
+        completed = AutomatedPipelineRunStore(run_root).get(completed_run["run_id"])
+        assert completed["status"] == "complete"
+        completed_rows = {row["name"]: row for row in completed["stages"]}
+        children = [job for job in manager.list_jobs() if job.parent_id == parent.id]
+        assert [job.parent_step_id for job in children] == list(stages)
+        output_by_stage = {
+            job.parent_step_id: job.results[0]["id"]
+            for job in children
+            if job.parent_step_id is not None
+        }
+        assert [completed_rows[name]["status"] for name in stages] == ["complete"] * 6
+        assert completed_rows["event_proposals"]["input_revision_ids"] == []
+        assert completed_rows["visible_card_and_pile_proposals"]["input_revision_ids"] == [
+            output_by_stage["event_proposals"]
+        ]
+        assert completed_rows["card_scene_and_calibration"]["input_revision_ids"] == [
+            output_by_stage["visible_card_and_pile_proposals"]
+        ]
+        assert completed_rows["visual_identity_proposals"]["input_revision_ids"] == [
+            output_by_stage["card_scene_and_calibration"]
+        ]
+        assert completed_rows["table_observations"]["input_revision_ids"] == [
+            output_by_stage["event_proposals"],
+            output_by_stage["visible_card_and_pile_proposals"],
+            output_by_stage["visual_identity_proposals"],
+        ]
+        assert completed_rows["reconstruction"]["input_revision_ids"] == [
+            output_by_stage["table_observations"]
+        ]
+
+        cancel_parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "recording-cancelled"},
+                "request": {"run_id": cancelled_run["run_id"]},
+            },
+        )
+        manager.transition(cancel_parent.id, "running")
+        participant.handle(
+            manager.get(cancel_parent.id),
+            Claims(),
+            type("Token", (), {"check": lambda _self: None})(),
+            manager,
+        )
+        cancel_child = next(job for job in manager.list_jobs() if job.parent_id == cancel_parent.id)
+        manager.transition(cancel_child.id, "running")
+        manager.cancel(cancel_parent.id)
+        assert manager.get(cancel_parent.id).state == "cancelling"
+        assert manager.get(cancel_child.id).state == "cancelling"
+
+    with _manager(tmp_path / "jobs", participant) as manager:
+        participant.reconcile(manager.list_jobs())
+        assert manager.get(cancel_parent.id).state == "cancelled"
+        assert manager.get(cancel_child.id).state == "interrupted"
+        cancelled = AutomatedPipelineRunStore(run_root).get(cancelled_run["run_id"])
+        assert cancelled["status"] == "cancelled"
+        cancelled_stage = cancelled["stages"][0]
+        assert cancelled_stage["status"] == "interrupted"
+        assert cancelled_stage["child_job_id"] == cancel_child.id
+        assert cancelled_stage["run_id"] == cancel_child.id
+        assert cancelled_stage["input_revision_ids"] == []
+        assert manager.queue().job_ids == []
 
 
 def test_restart_recovers_unlinked_child_and_completes_pipeline(tmp_path: Path) -> None:

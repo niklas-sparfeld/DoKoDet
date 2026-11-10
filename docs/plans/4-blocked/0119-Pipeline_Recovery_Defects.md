@@ -1,7 +1,7 @@
 # Pipeline recovery defects
 
-- **Status:** In Progress
-- **Depends on:** Integrated job and pipeline implementation at `99b79d59`; 0117 is closed.
+- **Status:** Blocked
+- **Depends on:** Integrated job and pipeline implementation at `99b79d59`; 0117 is closed; [0122 node-publication test discrepancy](../2-ready/0122-Node_Publication_Test_Discrepancy.md) M0 must resolve the two existing node-publication test failures before M1 can pass its required backend suite.
 - **Outcome:** Recover the current pipeline stage, child identity, and exact input lineage after
   cancellation and interrupted child acceptance. Retain all distinct crash regressions.
 - **Origin:** [0117 exit decision](../../reports/0117-Supersession_and_Exit.md).
@@ -25,7 +25,7 @@ reproducer proves a local repair cannot satisfy them.
 | Milestone | Result | Status |
 | --- | --- | --- |
 | M0 | Exact current-child cancellation recovery and additive persisted regressions | Complete |
-| M1 | Finite recovery matrix and real service closeout | Not started |
+| M1 | Finite recovery matrix and real service closeout | Blocked |
 
 ## M0 — Repair the current-child lookup
 
@@ -59,6 +59,10 @@ entry, and mechanically repair links to its new location. Do not start 0120 auto
 Close Complete only when the known gaps and retained tests pass together. A new unrelated defect
 gets a separate epic. If the repair reveals a broken journal/queue authority design, stop and use
 the selective rollback requirements in the exit decision; do not create an endless correction loop.
+
+### M1 execution result
+
+The persisted service proof and recovery matrix are recorded in the [M1 evidence report](../../reports/0119-M1_Recovery_Matrix.md). M1 remains incomplete because two required pipeline tests fail on the pre-M1 baseline. They assume a failed pipeline-node save leaves an unpublished revision directory; the current staged write leaves no revision directory. The baseline reproduces both failures at `28642242`. Epic [0122](../2-ready/0122-Node_Publication_Test_Discrepancy.md) owns the bounded investigation and repair. Do not close 0119 or unblock 0120 until the full required suite passes.
 
 ## Execution handoff
 
@@ -95,8 +99,10 @@ the selective rollback requirements in the exit decision; do not create an endle
   queued and other non-cancelled outcomes before counting could hide a conflicting same-phase
   child. The lookup now counts every child for the exact parent phase before selecting one.
   No inherited 0117 correction budget.
+- M1 accounting: 0/5 re-plannings; no correction turns used. Its real service test and matrix evidence are committed, but the required full suite has two baseline failures. The run remains at 1/2 milestones completed.
 - Scope decision: keep the bounded local fix in existing authority. No new storage, transaction,
-  processor contract, source owner, or stronger guarantee was added.
-- Next: M1 finite recovery matrix and real service closeout. Stop if the matrix exposes an
-  authority-design defect; use the rollback assessment in the 0117 exit decision rather than
-  expanding local recovery scope.
+  processor contract, or stronger guarantee was added. Record the independent node-publication
+  discrepancy in 0122; it is a dependency only because the specified M1 suite includes those tests.
+- Next: after 0122 M0 resolves the two baseline failures, resume M1, rerun the required backend
+  suite, and close only if it passes. No 0120 work starts before 0119 closes. Stop if the recovery
+  matrix exposes an authority-design defect; use the rollback assessment in the 0117 exit decision.
