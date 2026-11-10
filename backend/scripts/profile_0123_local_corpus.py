@@ -21,14 +21,6 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-SELECTION_TYPES = (
-    "events",
-    "visible_cards",
-    "virtual_scenes",
-    "card_scene_proposals",
-    "visual_identities",
-    "table_observations",
-)
 ROOT_METADATA = ("manifest.json", "source-record.json", "initial-task-enrollment.json")
 
 
@@ -69,7 +61,7 @@ def _terminate(process: subprocess.Popen[bytes], timeout: float = 10.0) -> None:
 
 
 def _corpus_snapshot(recording_root: Path, selection_root: Path) -> dict[str, Any]:
-    entries: list[dict[str, Any]] = []
+    entries: list[tuple[str, str, int]] = []
     recordings = sorted(
         path
         for path in recording_root.iterdir()
@@ -79,35 +71,59 @@ def _corpus_snapshot(recording_root: Path, selection_root: Path) -> dict[str, An
         for name in ROOT_METADATA:
             path = bundle / name
             if not path.is_file() or path.is_symlink():
-                entries.append({"path": f"{bundle.name}/{name}", "missing": True})
                 continue
             raw = path.read_bytes()
-            entries.append(
-                {
-                    "path": f"{bundle.name}/{name}",
-                    "byte_length": len(raw),
-                    "sha256": hashlib.sha256(raw).hexdigest(),
-                }
+            entries.append((f"{bundle.name}/{name}", hashlib.sha256(raw).hexdigest(), len(raw)))
+    for path in sorted(selection_root.glob("*/*.json")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        raw = path.read_bytes()
+        entries.append(
+            (
+                f"selections/{path.parent.name}/{path.name}",
+                hashlib.sha256(raw).hexdigest(),
+                len(raw),
             )
-        for content_type in SELECTION_TYPES:
-            path = selection_root / bundle.name / f"{content_type}.json"
-            if not path.is_file() or path.is_symlink():
-                continue
-            raw = path.read_bytes()
-            entries.append(
-                {
-                    "path": f"selections/{bundle.name}/{content_type}.json",
-                    "byte_length": len(raw),
-                    "sha256": hashlib.sha256(raw).hexdigest(),
-                }
-            )
-    canonical = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode()
+        )
+    canonical = json.dumps(entries, separators=(",", ":"), sort_keys=True).encode()
     return {
         "recording_count": len(recordings),
         "files": len(entries),
-        "bytes": sum(entry.get("byte_length", 0) for entry in entries),
+        "bytes": sum(entry[2] for entry in entries),
         "sha256": hashlib.sha256(canonical).hexdigest(),
+        "digest_method": "SHA256 of compact JSON tuples (relative path, file SHA256, byte length)",
     }
+
+
+def _freeze_corpus(
+    recording_root: Path, selection_root: Path, destination: Path
+) -> tuple[Path, Path, dict[str, Any]]:
+    source_snapshot = _corpus_snapshot(recording_root, selection_root)
+    frozen_recordings = destination / "recordings"
+    frozen_selections = destination / "selections"
+    frozen_recordings.mkdir(parents=True)
+    frozen_selections.mkdir(parents=True)
+    for bundle in sorted(
+        path
+        for path in recording_root.iterdir()
+        if path.is_dir() and not path.is_symlink() and not path.name.startswith(".")
+    ):
+        target_bundle = frozen_recordings / bundle.name
+        target_bundle.mkdir()
+        for name in ROOT_METADATA:
+            source = bundle / name
+            if source.is_file() and not source.is_symlink():
+                shutil.copyfile(source, target_bundle / name)
+    for source in sorted(selection_root.glob("*/*.json")):
+        if source.is_file() and not source.is_symlink():
+            target = frozen_selections / source.parent.name / source.name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+    source_after_copy = _corpus_snapshot(recording_root, selection_root)
+    frozen_snapshot = _corpus_snapshot(frozen_recordings, frozen_selections)
+    if source_snapshot != source_after_copy or source_snapshot != frozen_snapshot:
+        raise RuntimeError("recording metadata changed while the frozen corpus was copied")
+    return frozen_recordings, frozen_selections, frozen_snapshot
 
 
 def _copy_selections(selection_root: Path, operations_root: Path) -> None:
@@ -126,6 +142,7 @@ def _run_session(
     browser_contexts: int,
     timeout: float,
     artifact_root: Path,
+    corpus_sha256: str,
 ) -> dict[str, Any]:
     fresh_samples_ns: list[int] = []
     warm_samples_ns: list[int] = []
@@ -307,6 +324,7 @@ def _run_session(
         if len(set(response_sizes)) != 1:
             raise RuntimeError("list response size changed during a profile session")
         return {
+            "corpus_sha256": corpus_sha256,
             "fresh_process_samples_ns": fresh_samples_ns,
             "fresh_process_median_ns": statistics.median(fresh_samples_ns),
             "warm_samples_ns": warm_samples_ns,
@@ -357,19 +375,31 @@ def main() -> int:
     artifact_root = output.with_suffix(".artifacts")
     artifact_root.mkdir(parents=True, exist_ok=True)
     sessions = []
-    for index in range(args.sessions):
-        sessions.append(
-            _run_session(
-                recording_root=recording_root,
-                selection_root=selection_root,
-                expected_recordings=corpus["recording_count"],
-                fresh_processes=args.fresh_processes,
-                warm_requests=args.warm_requests,
-                browser_contexts=args.browser_contexts,
-                timeout=args.timeout,
-                artifact_root=artifact_root / f"session-{index + 1:02d}",
-            )
+    with tempfile.TemporaryDirectory(prefix=".0123-frozen-corpus-", dir=ROOT) as temp:
+        frozen_recordings, frozen_selections, frozen_corpus = _freeze_corpus(
+            recording_root, selection_root, Path(temp)
         )
+        corpus = frozen_corpus
+        for index in range(args.sessions):
+            if _corpus_snapshot(frozen_recordings, frozen_selections) != corpus:
+                raise RuntimeError("frozen corpus changed between qualification sessions")
+            sessions.append(
+                _run_session(
+                    recording_root=frozen_recordings,
+                    selection_root=frozen_selections,
+                    expected_recordings=corpus["recording_count"],
+                    fresh_processes=args.fresh_processes,
+                    warm_requests=args.warm_requests,
+                    browser_contexts=args.browser_contexts,
+                    timeout=args.timeout,
+                    artifact_root=artifact_root / f"session-{index + 1:02d}",
+                    corpus_sha256=corpus["sha256"],
+                )
+            )
+        if _corpus_snapshot(frozen_recordings, frozen_selections) != corpus:
+            raise RuntimeError("frozen corpus changed during qualification")
+    if any(session["corpus_sha256"] != corpus["sha256"] for session in sessions):
+        raise RuntimeError("qualification sessions did not use one frozen corpus")
     result = {
         "schema_version": "0123-local-recording-list-profile/v1",
         "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -388,7 +418,7 @@ def main() -> int:
             "warm_requests_per_session": args.warm_requests,
             "browser_contexts_per_session": args.browser_contexts,
             "browser_end_condition": "all expected recording rows are visible in the document",
-            "thumbnail_requests": "aborted to measure list rendering separately",
+            "thumbnail_requests": "fulfilled with HTTP 204 to measure list rendering separately",
         },
         "sessions_result": sessions,
     }

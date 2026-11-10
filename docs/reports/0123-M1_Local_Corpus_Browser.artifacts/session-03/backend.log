@@ -1,192 +1,192 @@
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90742]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96747]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65315 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65316 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50262 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50263 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90742]
+INFO:     Finished server process [96747]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90748]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96752]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65324 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65325 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50270 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50271 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90748]
+INFO:     Finished server process [96752]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90758]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96779]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65334 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65335 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50281 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50282 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90758]
+INFO:     Finished server process [96779]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90782]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96784]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65342 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65343 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50289 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50290 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90782]
+INFO:     Finished server process [96784]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90793]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96808]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65352 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65353 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50299 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50300 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90793]
+INFO:     Finished server process [96808]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90811]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96812]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65360 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65361 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50307 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50308 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90811]
+INFO:     Finished server process [96812]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90820]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96817]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65368 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65369 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50316 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50317 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90820]
+INFO:     Finished server process [96817]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90840]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96838]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65378 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65379 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50326 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50327 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90840]
+INFO:     Finished server process [96838]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90852]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96846]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65386 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65387 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50334 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50335 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90852]
+INFO:     Finished server process [96846]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90872]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96867]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65397 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65398 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50344 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50345 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90872]
+INFO:     Finished server process [96867]
 /Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/backend/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
   from starlette.testclient import TestClient as TestClient  # noqa
-processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-hd3wa84v/data/operations/pipeline/runs reason=resource root is unavailable
-INFO:     Started server process [90880]
+processor_run_catalog_skipped path=/Users/niklas.sparfeld/.codex/worktrees/1268/doko_detector/.0123-list-profile-ponl9m6c/data/operations/pipeline/runs reason=resource root is unavailable
+INFO:     Started server process [96872]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:65307 (Press CTRL+C to quit)
-INFO:     127.0.0.1:65406 - "GET /health/ready HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65407 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65408 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65409 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65410 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65411 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65412 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65413 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65414 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65415 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65416 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65417 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65418 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65419 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65420 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65421 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65422 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65423 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65424 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65425 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65426 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65427 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65428 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65429 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65430 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65431 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65432 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65433 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65434 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65435 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65436 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65450 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65451 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65460 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65461 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65470 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65471 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65482 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65483 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65492 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65493 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65502 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65503 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65512 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65513 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65522 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65523 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65534 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:65535 - "GET /v1/recordings HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49160 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49161 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:50254 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50352 - "GET /health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50353 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50354 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50355 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50356 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50357 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50358 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50359 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50360 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50361 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50362 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50363 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50364 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50365 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50366 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50367 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50368 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50369 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50370 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50371 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50372 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50373 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50374 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50375 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50376 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50377 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50378 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50379 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50380 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50381 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50382 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50396 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50397 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50406 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50407 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50417 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50418 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50429 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50430 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50439 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50440 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50449 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50450 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50460 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50461 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50470 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50471 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50482 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50483 - "GET /v1/recordings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50491 - "GET /api/jobs?scope=active&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50492 - "GET /v1/recordings HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [90880]
+INFO:     Finished server process [96872]

@@ -1,8 +1,8 @@
 
 > dokodetector-web@0.1.0 dev
-> vite --host 127.0.0.1 --port 65070 --strictPort
+> vite --host 127.0.0.1 --port 50016 --strictPort
 
 
-  VITE v8.3.5  ready in 78 ms
+  VITE v8.3.5  ready in 77 ms
 
-  ➜  Local:   http://127.0.0.1:65070/
+  ➜  Local:   http://127.0.0.1:50016/
