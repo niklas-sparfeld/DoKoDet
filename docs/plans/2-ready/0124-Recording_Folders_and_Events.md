@@ -460,8 +460,9 @@ a prerequisite. The preceding provenance-first M3 assignment is superseded, not 
 Stop before expanding to another resource conversion, scheduler replacement, or generic resolver.
 
 M3 current run: requested 1 milestone, completed 0, remaining 1. M3 implementation attempts: 1;
-M3 family re-plans remain 2/5 and this run remains 3/10. No new owners, storage contracts, or
-transaction contracts were added. The first implementation attempt found one local defect in the
+M3 family re-plans remain 2/5; current-run re-plans are 0/10 and cumulative run history remains
+3/10. No new source owners, storage contracts, or transaction contracts were added. The first
+implementation attempt found one local defect in the
 named `visible_card_pipeline_service.py` owner: folder-backed detector launch still read the retired
 recording catalog and its old bundle video path. The service now resolves the accepted media and
 digest from the existing recording root through `EventSetStore.recordings`. A normal-route browser
@@ -479,12 +480,29 @@ for those exact revisions number zero. Both old selector files and node revision
 Frozen inputs and rollback instructions are in
 `data/operations-recovery/0124-m3-20261110/snapshot.json`.
 
-The real-provider smoke is pending. The existing local backend on port 8000 owns
-`data/operations/jobs/owner.lock` and runs from the main worktree. Its `/api/jobs?scope=active`
-response had zero jobs, and `/api/jobs?scope=all` had zero jobs. It does not serve the current
-worktree fix. Do not stop it until the fixed commit is in `main`; then restart it with its existing
-command and settings, and verify the provider through the normal app. M4 still follows this pilot;
+The live normal-app smoke played the activated recording, edited and selected
+`manual-efadbf34-2c3c-4fa6-888f-2b9b46128ffe@1`, and browsed the unselected
+`retained-generated@1`. After installing only the already declared `inference` dependency group,
+the configured local provider `local-rfdetr-fine-frame` v8 on MPS processed all 50 event frames.
+Job `7111edd7-9f72-4fdc-9c10-a90d94db172f` froze event digest
+`a3c284533668d7b316f65142718262424f62769e85bd19d0f67e177fb6b84c78` and source video digest
+`2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7`. A 1,177,157-byte output
+revision exists with digest
+`905ecbb65fc9137a15187f9bd0465e8f7923d120bbaff1b7840411250c582e23`.
+
+M3 remains incomplete. The processor run state says complete, but its job remains `running` in
+`Publish visible-card revision`; the job publication record is `prepared`, and the backend no longer
+answers Job Manager requests. A read-only process sample shows JSON encoding while the process
+holds the existing pipeline-node transaction and node locks. The revision and publication files
+have not changed since 21:04:33 local time. The M3 source change is not in this publisher. Keep the
+active write intact; assign the exact-selection/pipeline-node publication stall to the existing
+pipeline-node store owner. Do not add a transaction, authority, or resolver to 0124. Result
+inspection, selection change after the result, backend restart, exact-input reopen, and this
+provider's normal-app acceptance remain unproved. M4 follows only after M3's workflow is complete;
 M5 still owns removal and qualification.
+
+See [the M3 pilot report](../../reports/0124-M3_Pilot_Workflow.md) for the provider setup, exact
+job data, sample location, and acceptance gap.
 
 M2 contract detail: store `event-review/v1` under
 `event-sets/<set-id>/reviews/<review-id>.json`. Each immutable record identifies `set_id`,

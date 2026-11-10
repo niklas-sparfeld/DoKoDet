@@ -41,12 +41,42 @@ inputs and the removal-only rollback instruction are at
 - Ruff check and format check for the changed backend service and browser server — passed.
 - Pilot conversion rehearsal and source/event digest comparison — passed.
 
-## Remaining acceptance
+## Live provider smoke and gap
 
-The required real-provider smoke through the normal local app is not complete. The backend on port
-8000 owns the main operations job lock. Its active and all-job lists were empty, but it still runs
-the main-worktree code and does not serve this fix. After the fixed commit reaches `main`, restart
-that backend with its existing command and configuration. Then use the normal app to play the
-activated pilot, edit and select an alternative, run the already configured local detector, inspect
-the saved output, change event selection, restart, and reopen the exact event input. Record the
-provider, result ID, and any limit here before marking M3 complete.
+After commit `0080631a` reached `main`, the backend on port 8000 had no active or queued jobs. I
+restarted it with the existing command and configuration. The normal recordings list and event-set
+editor opened the activated pilot. The video played in the browser at 2.2 seconds. The editor opened
+`retained-reference@1`, saved and selected the edited alternative
+`manual-efadbf34-2c3c-4fa6-888f-2b9b46128ffe@1`, then opened the unselected `retained-generated@1`.
+
+The first detector launch returned HTTP 422 because the existing environment lacked `rfdetr==1.9.4`.
+I installed the project's existing `inference` dependency group with `mise exec -- uv sync --project
+backend --group dev --group inference`. The bundle and checkpoint were already present at
+`.runtime/rfdetr-segmentation-0092-m4/bundle`; no model weights were acquired. I restarted the same
+backend command and launched once through the normal app with the configured local provider.
+
+The provider was `local-rfdetr-fine-frame` v8 on MPS, using bundle digest
+`05fa6d142c4824bd7bd4aa12ccca9390ff59e02b08dab3701ef9b942e8fb9f5c` and checkpoint digest
+`80accf8a7c55ec65fdd346c0cd2cbfdd28b936260c242c30f1c39ced6043179e`. Job
+`7111edd7-9f72-4fdc-9c10-a90d94db172f` froze the exact input event set digest
+`a3c284533668d7b316f65142718262424f62769e85bd19d0f67e177fb6b84c78` and source video digest
+`2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7`. Its processor run recorded
+50 of 50 event outputs and a 1,177,157-byte visible-card revision with digest
+`905ecbb65fc9137a15187f9bd0465e8f7923d120bbaff1b7840411250c582e23`.
+
+The saved result is not yet available through the job API. `pipeline/runs/.../state.json` says
+complete, but `publication.json` remains `prepared` and `job.json` remains `running` at
+`Publish visible-card revision`. The backend stopped answering Job Manager requests. At 5:19 elapsed,
+PID 50672 used 98.4% CPU and 18.7% memory; the read-only sample
+`/tmp/python_2026-11-10_210747_3Cs5.sample.txt` shows CPython's JSON encoder serializing nested lists
+and floats. The process holds the existing `.transactions.lock` and node lock. The revision and
+publication files stopped changing at 21:04:33 local time. I did not restart or interrupt the active
+write.
+
+The changed M3 source adapter ends before publication. The observed stuck call is in the existing
+pipeline-node revision and exact-selection publication path (`PipelineNodeStore` /
+`PipelineNodeSelectionStore` / `PipelineNodeTransactions`), which M3 did not change. Assign that
+bounded recovery/publication diagnosis to the existing pipeline-node store owner in a follow-up; do
+not add another transaction or authority to 0124. Until the result is terminal and can be opened in
+the normal app after restart, M3's live-provider acceptance remains incomplete. This smoke is not
+production qualification.
