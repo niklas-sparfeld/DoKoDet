@@ -6,6 +6,38 @@ import type { RecordingDetail } from "./api/recordingContracts";
 import { App } from "./App";
 
 const recordingId = "recording-fixture";
+const listRecording = {
+  recording_id: recordingId,
+  source_asset_id: "source-fixture",
+  video_id: "video-fixture",
+  session_id: "session-fixture",
+  display_name: "round-7.mov",
+  received_at: "2026-09-06T12:00:00Z",
+  thumbnail_url: `/v1/repository-bundles/${recordingId}/thumbnail`,
+  metadata_state: "available",
+  selections: [
+    "events",
+    "visible_cards",
+    "virtual_scenes",
+    "card_scene_proposals",
+    "visual_identities",
+    "table_observations",
+  ].map((content_type) => ({
+    content_type,
+    state:
+      content_type === "events" || content_type === "card_scene_proposals"
+        ? "selected"
+        : "not-selected",
+    selected_generated:
+      content_type === "events"
+        ? { node_id: "event-node", revision_id: "event-revision" }
+        : null,
+    selected_completed_reference:
+      content_type === "card_scene_proposals"
+        ? { node_id: "proposal-node", revision_id: "proposal-reference" }
+        : null,
+  })),
+};
 
 function stage(
   key:
@@ -105,19 +137,6 @@ function response(value: unknown, status = 200) {
   });
 }
 
-function pipelineStatus(eventState = "video-only") {
-  return {
-    schema_version: "recording-pipeline-status/v1",
-    stages: [
-      { key: "events", state: eventState },
-      { key: "visible_cards", state: "empty" },
-      { key: "visual_identities", state: "empty" },
-      { key: "table_observations", state: "empty" },
-      { key: "round_analyses", state: "empty" },
-    ],
-  };
-}
-
 function pipelineLineage() {
   return {
     schema_version: "pipeline-lineage-graph/v1",
@@ -154,24 +173,7 @@ describe("App", () => {
       vi.fn<typeof fetch>(() =>
         Promise.resolve(
           response({
-            recordings: [
-              {
-                recording_id: recordingId,
-                source_asset_id: "source-fixture",
-                video_id: "video-fixture",
-                session_id: "session-fixture",
-                state: "accepted",
-                source_sha256: "a".repeat(64),
-                received_at: "2026-09-06T12:00:00Z",
-                round_id: "round-7",
-                evidence_package_count: 0,
-                analysis_count: 0,
-                latest_analysis: null,
-                pipeline_status: pipelineStatus(),
-                can_start_analysis: false,
-                analysis_blocker: "The pipeline is not ready.",
-              },
-            ],
+            recordings: [listRecording],
           }),
         ),
       ),
@@ -179,16 +181,18 @@ describe("App", () => {
 
     render(<App />);
 
-    const row = await screen.findByRole("link", { name: "Open round-7" });
+    const row = await screen.findByRole("link", { name: "Open round-7.mov" });
     expect(row).toHaveAttribute("href", `/recordings/${recordingId}`);
-    expect(row).toHaveTextContent("Events");
-    expect(row).toHaveTextContent("Visible cards");
-    expect(row).toHaveTextContent("Identities");
+    expect(within(row).getByText("events")).toBeInTheDocument();
+    expect(within(row).getByText("Generated selected")).toBeInTheDocument();
+    expect(within(row).getByText("Reference selected")).toBeInTheDocument();
+    expect(within(row).getByText("visible cards")).toBeInTheDocument();
+    expect(within(row).getAllByText("Not selected")).toHaveLength(4);
     expect(row).toHaveTextContent("Received");
     expect(row).toHaveTextContent("Session");
     expect(row).toHaveTextContent("session-fixture");
     expect(
-      screen.getByRole("img", { name: "Cached thumbnail from round-7" }),
+      screen.getByRole("img", { name: "Cached thumbnail from round-7.mov" }),
     ).toBeInTheDocument();
     expect(row.querySelector("img")).toHaveAttribute(
       "src",
@@ -204,90 +208,13 @@ describe("App", () => {
     expect(screen.queryByText("Analyses")).not.toBeInTheDocument();
   });
 
-  it("shows the completed pipeline stage in the recording progress", async () => {
-    const recording = {
-      recording_id: recordingId,
-      source_asset_id: "source-fixture",
-      video_id: "video-fixture",
-      session_id: "session-fixture",
-      state: "accepted",
-      source_sha256: "a".repeat(64),
-      received_at: "2026-09-06T12:00:00Z",
-      round_id: "round-7",
-      evidence_package_count: 0,
-      analysis_count: 0,
-      latest_analysis: null,
-      pipeline_status: pipelineStatus("complete"),
-      can_start_analysis: false,
-      analysis_blocker: "The pipeline is not ready.",
-    };
-    const fetchMock = vi.fn<typeof fetch>((input) => {
-      if (String(input).startsWith("/api/jobs?"))
-        return Promise.resolve(
-          response({
-            items: [],
-            next_cursor: null,
-            groups: [],
-            queue_revision: 0,
-          }),
-        );
-      expect(String(input)).toBe("/v1/recordings");
-      return Promise.resolve(response({ recordings: [recording] }));
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    render(<App />);
-
-    const row = await screen.findByRole("link", { name: "Open round-7" });
-    expect(await within(row).findByText("Events")).toBeInTheDocument();
-    expect(row).toHaveTextContent("Visible cards");
-    const progress = within(row).getByRole("list", {
-      name: "Pipeline progress",
-    });
-    expect(
-      within(progress).getByRole("listitem", { name: "Events: Complete" }),
-    ).toHaveAttribute("data-state", "complete");
-    expect(
-      within(progress).getByRole("listitem", {
-        name: "Visible cards: No processor output",
-      }),
-    ).toHaveAttribute("data-state", "active");
-    expect(
-      fetchMock.mock.calls.filter(
-        ([input]) => String(input) === "/v1/recordings",
-      ),
-    ).toHaveLength(1);
-  });
-
-  it("shows processor output and run state for each pipeline stage", async () => {
-    const status = pipelineStatus("complete");
-    status.stages[1].state = "data-available";
-    status.stages[2].state = "data-available";
-    status.stages[3].state = "active-run";
-    status.stages[4].state = "failed";
+  it("shows selection status without pipeline progress", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>(() =>
         Promise.resolve(
           response({
-            recordings: [
-              {
-                recording_id: recordingId,
-                source_asset_id: "source-fixture",
-                video_id: "video-fixture",
-                session_id: "session-fixture",
-                state: "accepted",
-                source_sha256: "a".repeat(64),
-                received_at: "2026-09-06T12:00:00Z",
-                round_id: "round-7",
-                evidence_package_count: 0,
-                analysis_count: 0,
-                latest_analysis: null,
-                pipeline_status: status,
-                can_start_analysis: false,
-                analysis_blocker: "The pipeline is not ready.",
-              },
-            ],
+            recordings: [listRecording],
           }),
         ),
       ),
@@ -295,54 +222,18 @@ describe("App", () => {
 
     render(<App />);
 
-    const progress = within(
-      await screen.findByRole("link", { name: "Open round-7" }),
-    ).getByRole("list", { name: "Pipeline progress" });
+    const row = await screen.findByRole("link", { name: "Open round-7.mov" });
+    expect(screen.getByText("Generated selected")).toBeInTheDocument();
+    expect(screen.getAllByText("Reference selected")).toHaveLength(1);
+    expect(screen.getAllByText("Not selected")).toHaveLength(4);
     expect(
-      within(progress).getByRole("listitem", {
-        name: "Events: Complete",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(progress).getByRole("listitem", {
-        name: "Visible cards: Data available",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(progress).getByRole("listitem", {
-        name: "Identities: Data available",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(progress).getByRole("listitem", {
-        name: "Observations: Processor running",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(progress).getByRole("listitem", {
-        name: "Analysis: Processor failed",
-      }),
-    ).toBeInTheDocument();
+      within(row).queryByRole("list", { name: "Pipeline progress" }),
+    ).toBeNull();
   });
 
   it("does not poll the recording catalog for lifecycle while a job is active", async () => {
     vi.useFakeTimers();
-    const activeRecording = {
-      recording_id: recordingId,
-      source_asset_id: "source-fixture",
-      video_id: "video-fixture",
-      session_id: "session-fixture",
-      state: "accepted",
-      source_sha256: "a".repeat(64),
-      received_at: "2026-09-06T12:00:00Z",
-      round_id: "round-7",
-      evidence_package_count: 0,
-      analysis_count: 0,
-      latest_analysis: null,
-      pipeline_status: pipelineStatus("active-run"),
-      can_start_analysis: false,
-      analysis_blocker: "The pipeline is running.",
-    };
+    const activeRecording = listRecording;
     let recordingReads = 0;
     const fetchMock = vi.fn<typeof fetch>((input) => {
       if (String(input).startsWith("/api/jobs?"))

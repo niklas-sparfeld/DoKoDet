@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime
 from pathlib import Path
@@ -17,13 +18,9 @@ from dokodetector_backend.intake_contract import (
     Disposition,
     LifecycleState,
     TaskEnrollment,
+    parse_repository_bundle,
     parse_source_record,
     parse_task_enrollment,
-)
-from dokodetector_backend.recording_state_store import (
-    RecordingHeadNotFound,
-    RecordingSnapshotCorrupt,
-    RecordingSnapshotNotFound,
 )
 from dokodetector_backend.round_analysis_api import _queue_round_analysis
 from dokodetector_backend.round_analysis_contract import RoundAnalysisStatus
@@ -103,25 +100,36 @@ class RecordingAnalysisSummary(BaseModel):
     completed_at: datetime | None
 
 
+SelectionState = Literal["selected", "not-selected", "unavailable"]
+SelectionType = Literal[
+    "events", "visible_cards", "virtual_scenes", "card_scene_proposals",
+    "visual_identities", "table_observations",
+]
+
+
+class RecordingSelectionSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content_type: SelectionType
+    state: SelectionState
+    selected_generated: dict[str, str] | None
+    selected_completed_reference: dict[str, str] | None
+
+
 class RecordingSummary(BaseModel):
-    """One accepted recording with bounded analysis and package summaries."""
+    """One recording row built from bounded root metadata and exact selections."""
 
     model_config = ConfigDict(extra="forbid")
 
     recording_id: str
-    source_asset_id: str
-    video_id: str
-    session_id: str
-    state: str
-    source_sha256: str
-    received_at: datetime
-    round_id: str
-    evidence_package_count: int
-    analysis_count: int
-    latest_analysis: RecordingAnalysisSummary | None
-    pipeline_status: RecordingPipelineStatusSummary
-    can_start_analysis: bool
-    analysis_blocker: str | None
+    source_asset_id: str | None
+    video_id: str | None
+    session_id: str | None
+    display_name: str
+    received_at: datetime | None
+    thumbnail_url: str | None
+    metadata_state: Literal["available", "unavailable"]
+    selections: list[RecordingSelectionSummary] = Field(min_length=6, max_length=6)
 
 
 class RecordingListResponse(BaseModel):
@@ -214,51 +222,149 @@ class RecordingDetailResponse(BaseModel):
 
 @router.get("/v1/recordings", response_model=RecordingListResponse)
 def list_recordings(request: Request) -> RecordingListResponse:
-    """List accepted recordings with linked packages and analyses."""
-
-    service: RoundAnalysisService = request.app.state.round_analysis_service
-    entries = service.recording_catalog()
-    workspace = request.app.state.pipeline_workspace_service
-    ids = [entry.recording.recording_id for entry in entries]
-    analyses = {entry.recording.recording_id: entry.analyses for entry in entries}
-    if request.app.state.settings.recording_list_head_proof:
-        states = {}
-        for recording_id in ids:
-            try:
-                states[recording_id] = request.app.state.recording_state_store.get_current(
-                    recording_id
-                ).summary
-            except (
-                RecordingHeadNotFound,
-                RecordingSnapshotNotFound,
-                RecordingSnapshotCorrupt,
-                OSError,
-            ):
-                states[recording_id] = None
-        pipeline_statuses = workspace.get_head_proof_statuses(ids, states, analyses)
-    else:
-        pipeline_statuses = workspace.get_statuses(ids, analyses_by_recording=analyses)
-    return RecordingListResponse(
-        recordings=[
-            RecordingSummary(
-                recording_id=entry.recording.recording_id,
-                source_asset_id=entry.recording.source_asset_id,
-                video_id=entry.recording.video_id,
-                session_id=entry.recording.session_id,
-                state=entry.recording.state,
-                source_sha256=entry.recording.source_sha256,
-                received_at=entry.recording.received_at,
-                round_id=entry.round_id,
-                evidence_package_count=len(entry.evidence_package_ids),
-                analysis_count=len(entry.analyses),
-                latest_analysis=(_analysis_summary(entry.analyses[0]) if entry.analyses else None),
-                pipeline_status=pipeline_statuses[entry.recording.recording_id],
-                can_start_analysis=entry.can_start_analysis,
-                analysis_blocker=entry.analysis_blocker,
+    """List recording identity and exact selections without opening referenced content."""
+    storage = request.app.state.repository_bundle_storage
+    root = storage.root
+    try:
+        directories = sorted(
+            (
+                path
+                for path in root.iterdir()
+                if path.is_dir() and not path.is_symlink() and not path.name.startswith(".")
+            ),
+            key=lambda path: path.name,
+        )
+    except FileNotFoundError:
+        directories = []
+    node_store = request.app.state.pipeline_selection_store.node_store
+    locator = node_store.root / ".coordinated-transactions" / ".locator" / "pending.json"
+    locator_pending = _selection_locator_pending(locator)
+    rows = []
+    for bundle_path in directories:
+        recording_id = bundle_path.name
+        try:
+            manifest = parse_repository_bundle(
+                _bounded_bytes(bundle_path / "manifest.json", 1_000_000)
             )
-            for entry in entries
-        ]
-    )
+            source = parse_source_record(
+                _bounded_bytes(bundle_path / "source-record.json", 1_000_000)
+            )
+            enrollment = parse_task_enrollment(
+                _bounded_bytes(bundle_path / "initial-task-enrollment.json", 1_000_000)
+            )
+            valid = (
+                manifest.recording_id == recording_id
+                and source.recording_id == recording_id
+                and manifest.source_asset_id == source.source_asset_id
+                and manifest.video_id == source.video_id
+                and manifest.session_id == source.session_id
+                and manifest.source_sha256 == source.sha256
+                and enrollment.source_asset_id == source.source_asset_id
+            )
+            received = min(item.created_at_utc for item in enrollment.enrollments)
+            received_at = datetime.fromisoformat(received.replace("Z", "+00:00"))
+            metadata_state = "available" if valid else "unavailable"
+        except (OSError, ValueError, TypeError, KeyError, IndexError):
+            manifest, source = {}, {}
+            received_at = None
+            metadata_state = "unavailable"
+        selections = _recording_selections(node_store.root, recording_id, locator_pending)
+        rows.append(RecordingSummary(
+            recording_id=recording_id,
+            source_asset_id=getattr(source, "source_asset_id", None),
+            video_id=getattr(manifest, "video_id", None),
+            session_id=getattr(source, "session_id", None),
+            display_name=getattr(source, "original_filename", recording_id),
+            received_at=received_at,
+            thumbnail_url=(
+                f"/v1/repository-bundles/{recording_id}/thumbnail"
+                if metadata_state == "available"
+                else None
+            ),
+            metadata_state=metadata_state,
+            selections=selections,
+        ))
+    return RecordingListResponse(recordings=rows)
+
+
+_LIST_SELECTION_TYPES: tuple[SelectionType, ...] = (
+    "events", "visible_cards", "virtual_scenes", "card_scene_proposals",
+    "visual_identities", "table_observations",
+)
+
+
+def _bounded_json(path: Path, max_bytes: int) -> dict:
+    value = json.loads(_bounded_bytes(path, max_bytes))
+    if not isinstance(value, dict):
+        raise ValueError("metadata file must contain an object")
+    return value
+
+
+def _bounded_bytes(path: Path, max_bytes: int) -> bytes:
+    if path.is_symlink():
+        raise ValueError("metadata file must not be a symlink")
+    with path.open("rb") as file:
+        raw = file.read(max_bytes + 1)
+    if len(raw) > max_bytes:
+        raise ValueError("metadata file exceeds list limit")
+    return raw
+
+
+def _selection_locator_pending(path: Path) -> bool:
+    try:
+        value = _bounded_json(path, 64_000)
+    except FileNotFoundError:
+        return False
+    except (OSError, ValueError, TypeError):
+        return True
+    if (
+        set(value) != {"schema_version", "transaction_id", "request_digest"}
+        or value["schema_version"] != "pipeline-node-pending-transaction/v1"
+    ):
+        return True
+    return value["transaction_id"] is not None or value["request_digest"] is not None
+
+
+def _recording_selections(
+    root: Path, recording_id: str, locator_pending: bool
+) -> list[RecordingSelectionSummary]:
+    rows = []
+    for content_type in _LIST_SELECTION_TYPES:
+        generated = completed = None
+        state: SelectionState = "unavailable" if locator_pending else "not-selected"
+        if not locator_pending:
+            path = root / ".pipeline-node-selections" / recording_id / f"{content_type}.json"
+            try:
+                raw = _bounded_json(path, 64_000)
+                if (raw.get("schema_version") != "pipeline-node-selection/v1"
+                    or raw.get("recording_id") != recording_id
+                    or raw.get("content_type") != content_type
+                    or not isinstance(raw.get("revision"), int)
+                    or isinstance(raw.get("revision"), bool)):
+                    raise ValueError("selection identity is invalid")
+                generated = _list_pointer(raw.get("selected_generated"))
+                completed = _list_pointer(raw.get("selected_completed_reference"))
+                state = (
+                    "selected"
+                    if generated is not None or completed is not None
+                    else "not-selected"
+                )
+            except FileNotFoundError:
+                pass
+            except (OSError, ValueError, TypeError, KeyError):
+                state = "unavailable"
+        rows.append(RecordingSelectionSummary(content_type=content_type, state=state,
+            selected_generated=generated, selected_completed_reference=completed))
+    return rows
+
+
+def _list_pointer(value: object) -> dict[str, str] | None:
+    if value is None:
+        return None
+    if (not isinstance(value, dict) or set(value) != {"node_id", "revision_id"}
+        or not all(isinstance(value[key], str) and value[key] for key in value)):
+        raise ValueError("selection pointer shape is invalid")
+    return value
 
 
 @router.get(

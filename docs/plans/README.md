@@ -122,7 +122,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0123 — Simple recording list](2-ready/0123-Simple_Recording_List.md) | None | M0–M2 not started. Metadata and selected-data indicators from fixed root reads; real browser/restart proof in M0, sub-second local qualification in M1, scoped removal/closure in M2. No new persistent contract. |
+| [0123 — Simple recording list](2-ready/0123-Simple_Recording_List.md) | None | M0 complete: metadata-only rows, exact selection indicators, and persisted select/list/open/restart browser proof. M1–M2 remain: independent history-growth and sub-second local qualification, then scoped removal/closure. No new persistent contract. |
 
 ### In Progress
 

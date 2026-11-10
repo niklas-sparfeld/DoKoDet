@@ -606,13 +606,13 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
 
         catalog = client.get("/v1/recordings")
         assert catalog.status_code == 200
-        assert catalog.json()["recordings"][0]["pipeline_status"]["stages"] == [
-            {"key": "events", "state": "data-available"},
-            {"key": "visible_cards", "state": "empty"},
-            {"key": "visual_identities", "state": "empty"},
-            {"key": "table_observations", "state": "empty"},
-            {"key": "round_analyses", "state": "empty"},
-        ]
+        catalog_selections = {
+            item["content_type"]: item
+            for item in catalog.json()["recordings"][0]["selections"]
+        }
+        assert catalog_selections["events"]["state"] == "selected"
+        assert catalog_selections["events"]["selected_generated"] == selected
+        assert catalog_selections["visible_cards"]["state"] == "not-selected"
 
         reloaded = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert reloaded.json() == body

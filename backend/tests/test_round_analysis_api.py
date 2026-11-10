@@ -250,27 +250,31 @@ def test_create_runs_worker_and_publishes_compact_result(backend_tmp_path: Path)
     }
 
 
-def test_recording_catalog_reads_analyses_once_for_multiple_recordings(
+def test_recording_list_does_not_call_catalog_or_history_readers(
     backend_tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, app = _backend(backend_tmp_path)
-    recording_store = app.state.recording_bundle_store
-    original_recordings = recording_store.list_metadata
-    monkeypatch.setattr(recording_store, "list_metadata", lambda: original_recordings() * 2)
-    analysis_store = app.state.round_analysis_store
-    original_list = analysis_store.list
-    calls = 0
-
-    def count_list():
-        nonlocal calls
-        calls += 1
-        return original_list()
-
-    monkeypatch.setattr(analysis_store, "list", count_list)
+    monkeypatch.setattr(
+        app.state.recording_bundle_store,
+        "list_metadata",
+        lambda: pytest.fail("recording catalog reader called"),
+    )
+    monkeypatch.setattr(
+        app.state.round_analysis_service,
+        "recording_catalog",
+        lambda: pytest.fail("history catalog reader called"),
+    )
+    monkeypatch.setattr(
+        app.state.pipeline_workspace_service,
+        "get_statuses",
+        lambda *args, **kwargs: pytest.fail("pipeline history reader called"),
+    )
     response = client.get("/v1/recordings")
     assert response.status_code == 200
-    assert len(response.json()["recordings"]) == 2
-    assert calls == 1
+    row = response.json()["recordings"][0]
+    assert row["metadata_state"] == "available"
+    assert row["display_name"] == "round.mov"
+    assert len(row["selections"]) == 6
 
 
 def test_recording_catalog_summary_and_detail_survive_restart(backend_tmp_path: Path) -> None:
@@ -285,8 +289,6 @@ def test_recording_catalog_summary_and_detail_survive_restart(backend_tmp_path: 
     after = restarted.get("/v1/recordings").json()["recordings"][0]
     detail = restarted.get(f"/v1/recordings/{RECORDING_ID}").json()
     assert after == before
-    assert after["analysis_count"] == 1
-    assert after["latest_analysis"]["analysis_id"] == str(ANALYSIS_ID)
     assert detail["evidence_package_ids"] == [package_id]
     assert detail["analyses"][0]["analysis_id"] == str(ANALYSIS_ID)
 
@@ -300,21 +302,8 @@ def test_recording_catalog_starts_and_lists_analysis(backend_tmp_path: Path) -> 
     assert catalog.status_code == 200
     recording = catalog.json()["recordings"][0]
     assert recording["recording_id"] == RECORDING_ID
-    assert recording["round_id"] == "round-round-analysis"
-    assert recording["evidence_package_count"] == 1
-    assert recording["analysis_count"] == 0
-    assert recording["latest_analysis"] is None
-    assert recording["pipeline_status"] == {
-        "schema_version": "recording-pipeline-status/v1",
-        "stages": [
-            {"key": "events", "state": "video-only"},
-            {"key": "visible_cards", "state": "empty"},
-            {"key": "visual_identities", "state": "empty"},
-            {"key": "table_observations", "state": "empty"},
-            {"key": "round_analyses", "state": "empty"},
-        ],
-    }
-    assert recording["can_start_analysis"] is True
+    assert recording["display_name"] == "round.mov"
+    assert {item["state"] for item in recording["selections"]} == {"not-selected"}
 
     started = client.post(f"/v1/recordings/{RECORDING_ID}/round-analyses")
 
@@ -330,6 +319,147 @@ def test_recording_catalog_starts_and_lists_analysis(backend_tmp_path: Path) -> 
     assert started.status_code == 202
     assert started.json()["state"] == "complete"
     assert started.json()["round_context"]["dealer"] == "seat-1"
+
+
+def test_metadata_list_reports_exact_selection_without_validating_resources(
+    backend_tmp_path: Path,
+) -> None:
+    client, app = _backend(backend_tmp_path)
+    node_store = app.state.pipeline_selection_store.node_store
+    revision = node_store.create(
+        "event-node",
+        "Events",
+        "events",
+        {
+            "schema_version": "recording-video/v1",
+            "recording_id": RECORDING_ID,
+            "relative_path": f"data/intake/recordings/{RECORDING_ID}/video.mov",
+            "video_sha256": "a" * 64,
+            "byte_length": 100,
+            "duration_us": 10_000_000,
+        },
+        {
+            "schema_version": "event-data/v1",
+            "events": [{
+                "event_id": "event-1",
+                "event_type": "card_state_changed",
+                "start_us": 10,
+                "end_us": 20,
+            }],
+        },
+        {},
+    )
+    node_store.create(
+        "unselected-visible-node",
+        "Saved but unselected visible cards",
+        "visible_cards",
+        {
+            "schema_version": "recording-video/v1",
+            "recording_id": RECORDING_ID,
+            "relative_path": f"data/intake/recordings/{RECORDING_ID}/video.mov",
+            "video_sha256": "a" * 64,
+            "byte_length": 100,
+            "duration_us": 10_000_000,
+        },
+        {"schema_version": "visible-card-data/v1", "outcomes": []},
+        {},
+    )
+    saved = client.put(
+        f"/api/recordings/{RECORDING_ID}/pipeline/events/selection",
+        json={
+            "expected_revision": 0,
+            "selected_generated": {
+                "node_id": "event-node",
+                "revision_id": revision.revision_id,
+            },
+        },
+    )
+    assert saved.status_code == 200
+
+    # Two distinct experimental selection types must stay distinct in the row.
+    for content_type, node_id in (
+        ("virtual_scenes", "virtual-node"),
+        ("card_scene_proposals", "proposal-node"),
+    ):
+        selection_path = node_store.root / ".pipeline-node-selections" / RECORDING_ID
+        selection_path.mkdir(parents=True, exist_ok=True)
+        (selection_path / f"{content_type}.json").write_text(json.dumps({
+            "schema_version": "pipeline-node-selection/v1",
+            "recording_id": RECORDING_ID,
+            "content_type": content_type,
+            "revision": 1,
+            "selected_generated": (
+                {"node_id": node_id, "revision_id": "missing-revision"}
+                if content_type == "virtual_scenes"
+                else None
+            ),
+            "selected_completed_reference": (
+                {"node_id": node_id, "revision_id": "missing-reference"}
+                if content_type == "card_scene_proposals"
+                else None
+            ),
+            "updated_at": "2026-11-10T00:00:00Z",
+        }, separators=(",", ":"), sort_keys=True))
+
+    # A damaged root remains visible as an unavailable row.
+    corrupt = app.state.repository_bundle_storage.root / "corrupt-recording"
+    corrupt.mkdir()
+    (corrupt / "manifest.json").write_text("{")
+
+    before = client.get("/v1/recordings")
+    assert before.status_code == 200
+    row = next(item for item in before.json()["recordings"] if item["recording_id"] == RECORDING_ID)
+    by_type = {item["content_type"]: item for item in row["selections"]}
+    assert by_type["events"]["state"] == "selected"
+    assert by_type["events"]["selected_generated"]["revision_id"] == revision.revision_id
+    assert by_type["visible_cards"]["state"] == "not-selected"
+    assert by_type["virtual_scenes"]["state"] == "selected"
+    assert by_type["card_scene_proposals"]["state"] == "selected"
+    assert by_type["virtual_scenes"]["selected_generated"]["revision_id"] == "missing-revision"
+    assert by_type["card_scene_proposals"]["selected_completed_reference"][
+        "revision_id"
+    ] == "missing-reference"
+    corrupt_row = next(
+        item for item in before.json()["recordings"]
+        if item["recording_id"] == "corrupt-recording"
+    )
+    assert corrupt_row["metadata_state"] == "unavailable"
+
+    selections_dir = node_store.root / ".pipeline-node-selections" / RECORDING_ID
+    (selections_dir / "visual_identities.json").write_text("{")
+    invalid_selection_rows = client.get("/v1/recordings").json()["recordings"]
+    invalid_selection_row = next(
+        item for item in invalid_selection_rows if item["recording_id"] == RECORDING_ID
+    )
+    assert next(
+        item
+        for item in invalid_selection_row["selections"]
+        if item["content_type"] == "visual_identities"
+    )["state"] == "unavailable"
+    with_pending_locator = (
+        node_store.root / ".coordinated-transactions" / ".locator" / "pending.json"
+    )
+    with_pending_locator.parent.mkdir(parents=True, exist_ok=True)
+    with_pending_locator.write_text(json.dumps({
+        "schema_version": "pipeline-node-pending-transaction/v1",
+        "transaction_id": "pending-transaction",
+        "request_digest": "f" * 64,
+    }, separators=(",", ":"), sort_keys=True))
+    pending = client.get("/v1/recordings").json()["recordings"]
+    pending_row = next(item for item in pending if item["recording_id"] == RECORDING_ID)
+    assert {item["state"] for item in pending_row["selections"]} == {"unavailable"}
+    with_pending_locator.unlink()
+
+    restarted = TestClient(create_test_app(app.state.settings))
+    after = restarted.get("/v1/recordings")
+    after_row = next(
+        item for item in after.json()["recordings"] if item["recording_id"] == RECORDING_ID
+    )
+    after_selections = {
+        item["content_type"]: item for item in after_row["selections"]
+    }
+    assert after_selections["events"] == by_type["events"]
+    assert after_selections["visual_identities"]["state"] == "unavailable"
 
 
 def test_timeline_projects_exact_analysis_and_selects_central_frame(

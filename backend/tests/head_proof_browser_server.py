@@ -23,7 +23,7 @@ from dokodetector_backend.poc_analyzer import create_local_poc_analyzer
 
 def settings_for(directory: str):
     return _settings(Path(directory)).model_copy(
-        update={"recording_list_head_proof": True, "repository_root": Path(directory).resolve()}
+        update={"repository_root": Path(directory).resolve()}
     )
 
 
@@ -53,6 +53,17 @@ def seed(directory: str):
             duration_us=1_000_000,
         )
         revision = store.create("events-proof", "Events", "events", source, content, {})
+        response = client.put(
+            f"/api/recordings/{RECORDING}/pipeline/events/selection",
+            json={
+                "expected_revision": 0,
+                "selected_generated": {
+                    "node_id": "events-proof",
+                    "revision_id": revision.revision_id,
+                },
+            },
+        )
+        assert response.status_code == 200, response.text
         response = client.post(
             f"/api/recordings/{RECORDING}/state",
             json=_snapshot_payload(generated=_reference(revision, "events-proof")),

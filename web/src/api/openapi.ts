@@ -1151,7 +1151,7 @@ export interface paths {
         };
         /**
          * List Recordings
-         * @description List accepted recordings with linked packages and analyses.
+         * @description List recording identity and exact selections without opening referenced content.
          */
         get: operations["list_recordings_v1_recordings_get"];
         put?: never;
@@ -3419,34 +3419,26 @@ export interface components {
             /** Width */
             width: number;
         };
-        /**
-         * RecordingPipelineStageSummary
-         * @description One compact pipeline stage state for the recording catalog.
-         */
-        RecordingPipelineStageSummary: {
+        /** RecordingSelectionSummary */
+        RecordingSelectionSummary: {
             /**
-             * Key
+             * Content Type
              * @enum {string}
              */
-            key: "events" | "visible_cards" | "visual_identities" | "table_observations" | "round_analyses";
+            content_type: "events" | "visible_cards" | "virtual_scenes" | "card_scene_proposals" | "visual_identities" | "table_observations";
+            /** Selected Completed Reference */
+            selected_completed_reference: {
+                [key: string]: string;
+            } | null;
+            /** Selected Generated */
+            selected_generated: {
+                [key: string]: string;
+            } | null;
             /**
              * State
              * @enum {string}
              */
-            state: "video-only" | "empty" | "active-run" | "partial" | "failed" | "data-available" | "complete" | "unavailable";
-        };
-        /**
-         * RecordingPipelineStatusSummary
-         * @description The lightweight pipeline status embedded in each recording catalog entry.
-         */
-        RecordingPipelineStatusSummary: {
-            /**
-             * Schema Version
-             * @constant
-             */
-            schema_version: "recording-pipeline-status/v1";
-            /** Stages */
-            stages: components["schemas"]["RecordingPipelineStageSummary"][];
+            state: "selected" | "not-selected" | "unavailable";
         };
         /**
          * RecordingSourceResponse
@@ -3521,38 +3513,30 @@ export interface components {
         };
         /**
          * RecordingSummary
-         * @description One accepted recording with bounded analysis and package summaries.
+         * @description One recording row built from bounded root metadata and exact selections.
          */
         RecordingSummary: {
-            /** Analysis Blocker */
-            analysis_blocker: string | null;
-            /** Analysis Count */
-            analysis_count: number;
-            /** Can Start Analysis */
-            can_start_analysis: boolean;
-            /** Evidence Package Count */
-            evidence_package_count: number;
-            latest_analysis: components["schemas"]["RecordingAnalysisSummary"] | null;
-            pipeline_status: components["schemas"]["RecordingPipelineStatusSummary"];
+            /** Display Name */
+            display_name: string;
             /**
-             * Received At
-             * Format: date-time
+             * Metadata State
+             * @enum {string}
              */
-            received_at: string;
+            metadata_state: "available" | "unavailable";
+            /** Received At */
+            received_at: string | null;
             /** Recording Id */
             recording_id: string;
-            /** Round Id */
-            round_id: string;
+            /** Selections */
+            selections: components["schemas"]["RecordingSelectionSummary"][];
             /** Session Id */
-            session_id: string;
+            session_id: string | null;
             /** Source Asset Id */
-            source_asset_id: string;
-            /** Source Sha256 */
-            source_sha256: string;
-            /** State */
-            state: string;
+            source_asset_id: string | null;
+            /** Thumbnail Url */
+            thumbnail_url: string | null;
             /** Video Id */
-            video_id: string;
+            video_id: string | null;
         };
         /**
          * RecordingTaskEnrollmentResponse

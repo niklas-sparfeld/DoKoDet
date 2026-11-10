@@ -284,7 +284,7 @@ def test_empty_head_does_not_prove_absence_of_unselected_events(tmp_path):
         )
 
 
-def test_head_proof_list_uses_persisted_state_without_node_discovery(tmp_path, monkeypatch):
+def test_metadata_list_ignores_experimental_head_and_node_discovery(tmp_path, monkeypatch):
     settings = _settings(tmp_path).model_copy(update={"recording_list_head_proof": True})
     app = create_app(settings, analyzer=create_local_poc_analyzer())
     node_store = app.state.pipeline_node_edits.store
@@ -381,13 +381,9 @@ def test_head_proof_list_uses_persisted_state_without_node_discovery(tmp_path, m
         response = client.get("/v1/recordings")
         assert response.status_code == 200, response.text
         rows = {row["recording_id"]: row for row in response.json()["recordings"]}
-        assert rows[RECORDING]["pipeline_status"]["stages"][0]["state"] == "data-available"
-        assert rows[RECORDING]["can_start_analysis"] is False
-        assert rows[RECORDING]["analysis_blocker"]
-        assert all(
-            stage["state"] == "unavailable"
-            for stage in rows["missing-head"]["pipeline_status"]["stages"]
-        )
+        assert rows[RECORDING]["metadata_state"] == "available"
+        assert rows["missing-head"]["metadata_state"] == "available"
+        assert {item["state"] for item in rows[RECORDING]["selections"]} == {"not-selected"}
         empty_snapshot = _snapshot_payload()
         empty_snapshot["recording_id"] = "missing-head"
         canonical = json.dumps(
@@ -406,13 +402,8 @@ def test_head_proof_list_uses_persisted_state_without_node_discovery(tmp_path, m
             for row in client.get("/v1/recordings").json()["recordings"]
             if row["recording_id"] == "missing-head"
         )
-        assert [stage["state"] for stage in empty_row["pipeline_status"]["stages"]] == [
-            "unavailable",
-            "unavailable",
-            "unavailable",
-            "unavailable",
-            "empty",
-        ]
+        assert empty_row["metadata_state"] == "available"
+        assert {item["state"] for item in empty_row["selections"]} == {"not-selected"}
         current = app.state.recording_state_store.get_current(RECORDING)
         head_path = app.state.recording_state_store.head_path(RECORDING)
         head_bytes = head_path.read_bytes()
@@ -428,9 +419,8 @@ def test_head_proof_list_uses_persisted_state_without_node_discovery(tmp_path, m
             row = next(
                 row for row in broken.json()["recordings"] if row["recording_id"] == RECORDING
             )
-            assert all(
-                stage["state"] == "unavailable" for stage in row["pipeline_status"]["stages"]
-            )
+            assert row["metadata_state"] == "available"
+            assert {item["state"] for item in row["selections"]} == {"not-selected"}
             path.write_bytes(head_bytes if path == head_path else snapshot_bytes)
         snapshot_path.unlink()
         missing_snapshot = client.get("/v1/recordings")
@@ -438,7 +428,7 @@ def test_head_proof_list_uses_persisted_state_without_node_discovery(tmp_path, m
         row = next(
             row for row in missing_snapshot.json()["recordings"] if row["recording_id"] == RECORDING
         )
-        assert row["pipeline_status"]["stages"][0]["state"] == "unavailable"
+        assert row["metadata_state"] == "available"
         snapshot_path.write_bytes(snapshot_bytes)
 
         # History and selected content are validated by the operation that opens them.
@@ -458,8 +448,8 @@ def test_head_proof_list_uses_persisted_state_without_node_discovery(tmp_path, m
         rows = {
             row["recording_id"]: row for row in client.get("/v1/recordings").json()["recordings"]
         }
-        assert rows[RECORDING]["pipeline_status"]["stages"][0]["state"] == "data-available"
-        assert rows["missing-head"]["pipeline_status"]["stages"][0]["state"] == "unavailable"
+        assert rows[RECORDING]["metadata_state"] == "available"
+        assert rows["missing-head"]["metadata_state"] == "available"
 
 
 def test_recording_state_real_api_workflow_survives_restart(tmp_path, monkeypatch):

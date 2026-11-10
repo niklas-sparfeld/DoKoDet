@@ -3,14 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError } from "./api/transport";
 import { createRecordingsClient } from "./api/recordingsClient";
 import { type RecordingSummary } from "./api/recordingContracts";
-import { repositoryBundleThumbnailPath } from "./api/recordingsClient";
-import {
-  RecordingPipelineWorkspace,
-  type PipelineStageKey,
-} from "./pipeline/RecordingPipelineWorkspace";
+import { RecordingPipelineWorkspace } from "./pipeline/RecordingPipelineWorkspace";
 import type { PipelineNavigationStepKey } from "./pipeline/recordingPipelineUrl";
 import { ProfileControl } from "./profile/ProfileControl";
-import { formatPipelineStageState } from "./pipeline/recordingWorkspaceFormatting";
 import styles from "./App.module.css";
 
 export function RecordingListView() {
@@ -90,123 +85,56 @@ function RecordingRow({ recording }: { recording: RecordingSummary }) {
     <a
       className={styles.recordingRow}
       href={recordingPagePath(recording.recording_id)}
-      aria-label={`Open ${recording.round_id}`}
+      aria-label={`Open ${recording.display_name}`}
     >
       <RecordingThumbnail
-        recordingId={recording.recording_id}
-        roundId={recording.round_id}
+        thumbnailUrl={recording.thumbnail_url}
+        roundId={recording.display_name}
       />
       <div className={styles.recordingRowContent}>
         <div className={styles.recordingRowHeading}>
-          <h2>{recording.round_id}</h2>
+          <h2>{recording.display_name}</h2>
         </div>
-        <RecordingPipelineProgress status={recording.pipeline_status} />
+        <dl className={styles.recordingMetadata} aria-label="Selected data">
+          {recording.selections.map((selection) => (
+            <div key={selection.content_type} data-state={selection.state}>
+              <dt>{selection.content_type.replaceAll("_", " ")}</dt>
+              <dd>{selectionLabel(selection)}</dd>
+            </div>
+          ))}
+        </dl>
+        {recording.metadata_state === "unavailable" ? (
+          <p role="status">Recording metadata unavailable</p>
+        ) : null}
         <dl className={styles.recordingMetadata}>
-          <div>
-            <dt>Received</dt>
-            <dd>{formatTimestamp(recording.received_at)}</dd>
-          </div>
-          <div>
-            <dt>Session</dt>
-            <dd title={recording.session_id}>
-              {formatSessionId(recording.session_id)}
-            </dd>
-          </div>
+          {recording.received_at ? (
+            <div>
+              <dt>Received</dt>
+              <dd>{formatTimestamp(recording.received_at)}</dd>
+            </div>
+          ) : null}
+          {recording.session_id ? (
+            <div>
+              <dt>Session</dt>
+              <dd title={recording.session_id}>
+                {formatSessionId(recording.session_id)}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       </div>
     </a>
   );
 }
 
-const PIPELINE_PROGRESS_LABELS: Record<PipelineStageKey, string> = {
-  events: "Events",
-  visible_cards: "Visible cards",
-  visual_identities: "Identities",
-  table_observations: "Observations",
-  round_analyses: "Analysis",
-};
-
-type PipelineProgressState = "complete" | "active" | "pending" | "failed";
-
-function RecordingPipelineProgress({
-  status,
-}: {
-  status: RecordingSummary["pipeline_status"];
-}) {
-  return (
-    <ol
-      className={styles.recordingPipelineProgress}
-      aria-label="Pipeline progress"
-    >
-      {status.stages.map((stage, index) => {
-        const progressState = pipelineProgressState(
-          stage.state,
-          index,
-          status.stages,
-        );
-        const label = PIPELINE_PROGRESS_LABELS[stage.key];
-        const stateLabel = formatPipelineStageState(stage.state);
-        return (
-          <li
-            key={stage.key}
-            className={styles.recordingPipelineStep}
-            data-state={progressState}
-            data-stage-state={stage.state}
-            aria-current={progressState === "active" ? "step" : undefined}
-            aria-label={`${label}: ${stateLabel}`}
-            title={`${label}: ${stateLabel}`}
-          >
-            <span className={styles.recordingPipelineMarker} aria-hidden="true">
-              {pipelineProgressMarker(progressState, index)}
-            </span>
-            <span className={styles.recordingPipelineCopy}>
-              <span className={styles.recordingPipelineLabel}>{label}</span>
-              <span className={styles.recordingPipelineStatus}>
-                {stateLabel}
-              </span>
-            </span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function pipelineProgressState(
-  state: RecordingSummary["pipeline_status"]["stages"][number]["state"],
-  index: number,
-  stages: RecordingSummary["pipeline_status"]["stages"],
-): PipelineProgressState {
-  if (state === "complete") return "complete";
-  if (state === "failed") return "failed";
-  if (state === "unavailable") return "pending";
-  if (state === "active-run" || state === "partial") {
-    return "active";
-  }
-  if (index === stages.findIndex((stage) => stage.state !== "complete")) {
-    return "active";
-  }
-  return "pending";
-}
-
-function pipelineProgressMarker(
-  state: PipelineProgressState,
-  index: number,
-): string {
-  if (state === "complete") return "✓";
-  if (state === "active") return "›";
-  if (state === "failed") return "×";
-  return String(index + 1);
-}
-
 function RecordingThumbnail({
-  recordingId,
+  thumbnailUrl,
   roundId,
 }: {
-  recordingId: string;
+  thumbnailUrl: string | null;
   roundId: string;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState(thumbnailUrl === null);
 
   return (
     <div
@@ -214,9 +142,9 @@ function RecordingThumbnail({
       role="img"
       aria-label={`Cached thumbnail from ${roundId}`}
     >
-      {!failed ? (
+      {!failed && thumbnailUrl ? (
         <img
-          src={repositoryBundleThumbnailPath(recordingId)}
+          src={thumbnailUrl}
           alt=""
           loading="lazy"
           onError={() => setFailed(true)}
@@ -254,6 +182,18 @@ function formatTimestamp(value: string): string {
 
 function formatSessionId(value: string): string {
   return value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
+}
+
+function selectionLabel(
+  selection: RecordingSummary["selections"][number],
+): string {
+  if (selection.state === "unavailable") return "Unavailable";
+  const generated = selection.selected_generated !== null;
+  const reference = selection.selected_completed_reference !== null;
+  if (generated && reference) return "Generated and reference selected";
+  if (generated) return "Generated selected";
+  if (reference) return "Reference selected";
+  return "Not selected";
 }
 
 export function recordingPagePath(recordingId: string): string {

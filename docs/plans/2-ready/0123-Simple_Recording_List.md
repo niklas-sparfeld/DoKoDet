@@ -76,11 +76,33 @@ inspect this finite path; do not introduce a cache or writer-publication protoco
 
 | Milestone | Observable result and commit boundary | State |
 | --- | --- | --- |
-| M0 | Production metadata-only route and web rows; one persisted select/list/open/restart workflow | Not started |
+| M0 | Production metadata-only route and web rows; one persisted select/list/open/restart workflow | Complete |
 | M1 | Independent history-growth, invalid-metadata, and concurrent-selection checks; local latency qualification | Not started |
 | M2 | Remove unused list-only proof/reconstruction code, complete affected checks, and close | Not started |
 
 ### M0 — Deliver the simple list
+
+**State: Complete.** The list route now reads at most the manifest, source record, and initial
+enrollment for each recording, six exact-selection files, and the transaction locator once. It
+does not call the recording catalog, history stores, or workspace status readers. It reports
+invalid root metadata as an unavailable row and malformed selection metadata as unavailable.
+Selections show pointer identity and shape only. A pointer can refer to absent content and still
+appears as selected; the row does not verify that resource. An empty locator is accepted, while a
+pending or invalid locator makes all six indicators unavailable. Root metadata reads stop at 1 MiB
+per file; selection and locator reads stop at 64 KiB per file. Oversized files are unavailable.
+
+The web row shows the source filename, date, session, thumbnail, and six selected-data states. It
+does not show pipeline progress. `RecordingAnalysisSummary` now comes from the detail response.
+Backend API tests prove selection through the existing selection route, missing referenced content,
+unselected saved content, distinct virtual-scene and card-scene proposal choices, corrupt root and
+selection metadata, pending transaction behavior, and restart. The real browser workflow reads the
+persisted selection, opens the recording, and confirms the workspace after backend restart.
+
+Checks passed: focused recording, bundle-store, and exact-selection tests; Ruff; web recording
+tests; TypeScript, ESLint, Prettier, and generated API verification; and the real Playwright
+workflow. The former list-growth test encoded the removed process-history contract. M0 replaced
+that check with the new exact row schema. Independent history-family growth and latency evidence
+remain for M1. No new persistent contract or source writer was added.
 
 Implement only the finite reader and web owners above. Use the existing selection API to create a
 real selected events reference in disposable storage. Read the actual route, load the real web
@@ -119,10 +141,21 @@ scoped removal and closure evidence. Update this decision's active links when mo
 
 ## Execution handoff
 
-Planning only; no loop has started. Baseline: 3 milestones, 3 remain. First complete API/browser
-workflow: M0. Qualification: M1. New persistent contracts/source writers: zero.
+M0 complete. Baseline: 3 milestones, 2 remain; 1 complete. First complete API/browser workflow:
+proved in M0 with persisted selection, browser navigation, and backend restart. Qualification:
+M1, not started. New persistent contracts/source writers: zero. Source owners changed: backend
+`recordings_api.py`; web `recordings.tsx`, `recordingContracts.ts`, generated `openapi.ts`, and
+direct tests. Existing selection files and transaction locator remain the authority. The old
+history-growth fixture was replaced because it asserted the list contract that M0 removed; the
+independent history growth and latency qualification remain scheduled for M1.
+
+Run 1 of 3 authorized milestones: M0 complete; 2 run slots remain; 0 re-plannings; 0 corrections
+of 2 allowed. No scope change. No performance or broad history-growth claim is made. Next: M1's
+independent history-growth, invalid-metadata, concurrent-selection, and local latency checks. Stop
+if those checks require a new authority, writer protocol, cache, or move of the qualification target.
+
 The 0120 ledger approach is superseded, not accepted. Its M3 correction history remains exhausted
 at 2/2; M9 never started. This materially smaller approach changes the list semantics and removes
 all five source-publication adapters. It is not another ledger correction. Its own family gets at
 most two corrections under the [execution workflow](../../workflows/epic-execution.md#scope-review).
-Next when selected: M0. Stop for a proposed new store, writer protocol, or displaced workflow proof.
+Stop for a proposed new store, writer protocol, or displaced qualification.
