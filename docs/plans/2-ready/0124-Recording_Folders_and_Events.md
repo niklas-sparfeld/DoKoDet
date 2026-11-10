@@ -64,7 +64,7 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | M0 | Concrete recording-root contract; import/list/media-open/restart from one new recording folder | Complete |
 | M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives under one event-selection authority | Complete |
 | M2 | Review and the named exact-input consumers use event resources | Complete |
-| M3 | Normal app workflow works on one retained recording: open media, edit/select events, run detection, reopen result | Not started |
+| M3 | Normal app workflow works on one retained recording: open media, edit/select events, run detection, reopen result | In progress |
 | M4 | Extend the proved workflow to the retained recording/event corpus through rehearsed conversion | Not started |
 | M5 | Remove obsolete event runtime paths and qualify the usable app on activated data | Not started |
 
@@ -458,6 +458,33 @@ workflow. Output-owned provenance replaces blanket historical-run migration only
 flow needs it. Universal history independence and job consolidation are deferred to 0129; it is not
 a prerequisite. The preceding provenance-first M3 assignment is superseded, not complete.
 Stop before expanding to another resource conversion, scheduler replacement, or generic resolver.
+
+M3 current run: requested 1 milestone, completed 0, remaining 1. M3 implementation attempts: 1;
+M3 family re-plans remain 2/5 and this run remains 3/10. No new owners, storage contracts, or
+transaction contracts were added. The first implementation attempt found one local defect in the
+named `visible_card_pipeline_service.py` owner: folder-backed detector launch still read the retired
+recording catalog and its old bundle video path. The service now resolves the accepted media and
+digest from the existing recording root through `EventSetStore.recordings`. A normal-route browser
+test with a deterministic detector passed edit, generated selection, launch, saved result, changed
+HEAD, restart, and exact old input reopen. It also browsed the unselected set and retained review
+facts. The browser test uses disposable synthetic media; it does not prove the retained pilot's
+provider.
+
+Pilot rehearsal and activation: `cardeventnet-IMG_0662` was rehearsed in disposable storage, then
+published under `data/recordings/cardeventnet-IMG_0662`. Source SHA-256 is
+`2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7`; the generated and reference
+event digests match the frozen source revisions (`66f3770998399b646af198791a64420d8bb8212effc9bf97379948003c985bad`
+and `00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5`). The existing reviews
+for those exact revisions number zero. Both old selector files and node revisions remain unchanged.
+Frozen inputs and rollback instructions are in
+`data/operations-recovery/0124-m3-20261110/snapshot.json`.
+
+The real-provider smoke is pending. The existing local backend on port 8000 owns
+`data/operations/jobs/owner.lock` and runs from the main worktree. Its `/api/jobs?scope=active`
+response had zero jobs, and `/api/jobs?scope=all` had zero jobs. It does not serve the current
+worktree fix. Do not stop it until the fixed commit is in `main`; then restart it with its existing
+command and settings, and verify the provider through the normal app. M4 still follows this pilot;
+M5 still owns removal and qualification.
 
 M2 contract detail: store `event-review/v1` under
 `event-sets/<set-id>/reviews/<review-id>.json`. Each immutable record identifies `set_id`,

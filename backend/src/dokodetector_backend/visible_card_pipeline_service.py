@@ -1034,8 +1034,17 @@ class VisibleCardPipelineService:
             LOGGER.exception("visible_card_pipeline_failure_persist_failed")
 
     def _accepted_source(self, recording_id: str) -> tuple[Any, RecordingVideoSource]:
-        bundle = self.recording_store.get_metadata(recording_id)
-        if bundle is None:
+        folder_recording = (
+            self.event_set_store.recordings.get(recording_id)
+            if self.event_set_store is not None
+            else None
+        )
+        bundle = (
+            None
+            if folder_recording is not None
+            else self.recording_store.get_metadata(recording_id)
+        )
+        if folder_recording is None and bundle is None:
             raise PipelineNotFound(f"The recording was not found: {recording_id}")
         video_path = self._video_path(recording_id)
         if not video_path.is_file():
@@ -1046,20 +1055,30 @@ class VisibleCardPipelineService:
             raise VisibleCardPipelineInputError(
                 "The accepted recording video is unavailable."
             ) from error
+        video_byte_length = (
+            folder_recording.media["byte_length"]
+            if folder_recording is not None
+            else bundle.video_byte_length
+        )
+        source_sha256 = (
+            folder_recording.media["sha256"]
+            if folder_recording is not None
+            else bundle.source_sha256
+        )
         cache_key = (
             video_stat.st_mtime_ns,
             video_stat.st_ctime_ns,
             video_stat.st_size,
-            bundle.video_byte_length,
-            bundle.source_sha256,
+            video_byte_length,
+            source_sha256,
         )
         with self._lock:
             cached = self._source_contexts.get(recording_id)
             if cached is not None and cached[0] == cache_key:
-                return bundle, cached[1]
+                return folder_recording or bundle, cached[1]
 
         actual_length, actual_digest = _file_identity(video_path)
-        if actual_length != bundle.video_byte_length or actual_digest != bundle.source_sha256:
+        if actual_length != video_byte_length or actual_digest != source_sha256:
             raise VisibleCardPipelineInputError(
                 "The accepted recording video does not match its manifest."
             )
@@ -1072,25 +1091,39 @@ class VisibleCardPipelineService:
                 "The accepted recording video could not be probed."
             ) from error
         try:
-            relative_path = (
-                video_path.resolve().relative_to(self.settings.repository_root).as_posix()
-            )
+            path_root = getattr(self.settings, "storage_root", None)
+            path_root = path_root or self.settings.repository_root
+            relative_path = video_path.resolve().relative_to(path_root.resolve()).as_posix()
         except ValueError as error:
-            raise VisibleCardPipelineInputError(
-                "The accepted recording video is outside the repository root."
-            ) from error
+            if folder_recording is None:
+                raise VisibleCardPipelineInputError(
+                    "The accepted recording video is outside the repository root."
+                ) from error
+            relative_path = (
+                Path("data/recordings") / recording_id / folder_recording.media["relative_path"]
+            ).as_posix()
         source = RecordingVideoSource(
             recording_id=recording_id,
             relative_path=relative_path,
-            video_sha256=bundle.source_sha256,
+            video_sha256=source_sha256,
             byte_length=actual_length,
             duration_us=probe.duration_ms * 1000,
         )
         with self._lock:
             self._source_contexts[recording_id] = (cache_key, source)
-        return bundle, source
+        return folder_recording or bundle, source
 
     def _video_path(self, recording_id: str) -> Path:
+        recording = (
+            self.event_set_store.recordings.get(recording_id)
+            if self.event_set_store is not None
+            else None
+        )
+        if recording is not None:
+            return (
+                self.event_set_store.recordings.recording_path(recording_id)
+                / recording.media["relative_path"]
+            )
         manifest = self.repository_storage.bundle_path(recording_id) / "manifest.json"
         try:
             value = json.loads(manifest.read_text(encoding="utf-8"))

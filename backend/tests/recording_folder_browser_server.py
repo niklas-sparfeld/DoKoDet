@@ -10,9 +10,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import uvicorn
+from table_evidence_analyzer.visible_cards import ProviderResult
 
 from dokodetector_backend.app import create_app
 from dokodetector_backend.config import Settings
+from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.poc_analyzer import create_local_poc_analyzer
 from dokodetector_backend.recording_folder_store import RecordingFolderStore
 
@@ -26,7 +28,11 @@ class RestartableBrowserApp:
         self._lifespan = None
 
     def _new_app(self):
-        app = create_app(self.settings, analyzer=create_local_poc_analyzer())
+        app = create_app(
+            self.settings,
+            analyzer=create_local_poc_analyzer(),
+            visible_card_provider=BrowserDetector(),
+        )
 
         def forbid_recording_catalog(*_args, **_kwargs):
             raise AssertionError("the retired recording catalog was called")
@@ -86,6 +92,16 @@ class RestartableBrowserApp:
         await self.app(scope, receive, send)
 
 
+class BrowserDetector:
+    """Deterministic provider for the persisted recording-folder browser proof."""
+
+    name = "gemini"
+    version = "recording-folder-browser/v1"
+
+    def propose(self, _request) -> ProviderResult:
+        return ProviderResult(status="ok")
+
+
 def main() -> None:
     repository = Path(__file__).parents[2]
     fixture = repository / "fixtures/repository-bundle/v1/both"
@@ -94,7 +110,72 @@ def main() -> None:
         shutil.copytree(fixture, transport)
         _make_playable_transport(transport)
         data_root = Path(directory) / "data" / "recordings"
-        RecordingFolderStore(data_root).publish_bundle(transport, recording_id="recording-both")
+        recording_store = RecordingFolderStore(data_root)
+        recording_store.publish_bundle(transport, recording_id="recording-both")
+        event_sets = EventSetStore(recording_store)
+        reference = event_sets.save(
+            "recording-both",
+            set_id="retained-reference",
+            version="1",
+            content={
+                "schema_version": "event-data/v1",
+                "events": [
+                    {
+                        "event_id": "retained-event-1",
+                        "event_type": "card_state_changed",
+                        "start_us": 500_000,
+                        "end_us": 750_000,
+                    }
+                ],
+            },
+            origin="corrected",
+            provenance={"source": "recording-folder-browser-proof"},
+        )
+        event_sets.save_review(
+            "recording-both",
+            reference["set_id"],
+            reference["version"],
+            review_id="retained-reference-review",
+            kind="overall",
+            question="Is this event set correct?",
+            decision="accepted",
+            reviewer={"id": "test-operator"},
+            evidence={"policy": "event-review/v1", "source": "browser-proof"},
+        )
+        generated = event_sets.save(
+            "recording-both",
+            set_id="retained-generated",
+            version="1",
+            content={
+                "schema_version": "event-data/v1",
+                "events": [
+                    {
+                        "event_id": "retained-event-1",
+                        "event_type": "card_state_changed",
+                        "start_us": 600_000,
+                        "end_us": 800_000,
+                    }
+                ],
+            },
+            origin="processor",
+            provenance={"source": "recording-folder-browser-proof"},
+        )
+        root = recording_store.get("recording-both")
+        assert root is not None
+        event_sets.select(
+            "recording-both",
+            choice="generated",
+            reference={"set_id": generated["set_id"], "version": generated["version"]},
+            expected_version=root.version,
+        )
+        root = recording_store.get("recording-both")
+        assert root is not None
+        event_sets.select(
+            "recording-both",
+            choice="reference",
+            reference={"set_id": reference["set_id"], "version": reference["version"]},
+            expected_version=root.version,
+        )
         settings = Settings(
             _env_file=None,
             repository_root=repository,
