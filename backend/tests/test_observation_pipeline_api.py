@@ -460,6 +460,21 @@ def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Pa
             },
         )
         assert selected.status_code == 200, selected.text
+        node_store = app.state.pipeline_selection_store.node_store
+        original_read = node_store.read_revision
+        original_history = node_store.history
+
+        def forbid_event_node_read(node_id: str, revision_id: str):
+            if node_store.get(node_id).content_type == "events":
+                raise AssertionError("event-set workflow read a legacy event node")
+            return original_read(node_id, revision_id)
+
+        def forbid_event_node_history(node_id: str):
+            if node_store.get(node_id).content_type == "events":
+                raise AssertionError("workspace enumerated legacy event-node history")
+            return original_history(node_id)
+
+        node_store.read_revision = forbid_event_node_read
         visible = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={
@@ -477,6 +492,7 @@ def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Pa
         visible_revision_id = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_id}/result"
         ).json()["state"]["output_revision_ids"][0]
+        node_store.read_revision = original_read
         identity_revision_id = _run_pipeline(
             client,
             "identity-event-set-observation",
@@ -485,6 +501,8 @@ def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Pa
         )
         input_refs = _exact_input_refs(app, [visible_revision_id, identity_revision_id])
         assert visible_revision_id != identity_revision_id
+        node_store.read_revision = forbid_event_node_read
+        node_store.history = forbid_event_node_history
         observation_stage = client.get(f"/api/recordings/{RECORDING_ID}/pipeline").json()["stages"][
             3
         ]
@@ -501,15 +519,7 @@ def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Pa
             "content_sha256": event_set_content["content_sha256"],
         }
         input_refs = workspace_candidate["input_node_refs"]
-        node_store = app.state.pipeline_selection_store.node_store
-        original_read = node_store.read_revision
-
-        def forbid_event_node_read(node_id: str, revision_id: str):
-            if node_store.get(node_id).content_type == "events":
-                raise AssertionError("observation assembly read a legacy event node")
-            return original_read(node_id, revision_id)
-
-        node_store.read_revision = forbid_event_node_read
+        node_store.history = original_history
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
             json={
@@ -538,6 +548,20 @@ def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Pa
             RECORDING_ID, "table_observations"
         ).selected_generated
         assert observation_ref is not None
+        observation_node = node_store.get(observation_ref["node_id"])
+        observation_revision = node_store.read_revision(
+            observation_node.node_id, observation_ref["revision_id"]
+        )
+        persisted_source = observation_revision.content["observations"][0]["source"]
+        assert persisted_source["event_set_ref"] == {
+            "set_id": event_set["set_id"],
+            "version": event_set["version"],
+            "content_sha256": event_set_content["content_sha256"],
+        }
+        assert persisted_source["input_revision_ids"] == [
+            visible_revision_id,
+            identity_revision_id,
+        ]
         analysis = client.post(
             "/v1/round-analyses",
             json={

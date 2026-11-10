@@ -208,6 +208,21 @@ legacy event-node reads and selection writes; affected generated API and web che
 plus 0123 list-growth regressions. Commit the finite adapter conversion, tests, layout, and plan
 update together. Specify M3 retained-data rehearsal and qualification after M2 passes.
 
+### M2 correction 1: skip event-node history on folder-backed workspaces
+
+The first M2 implementation resolved folder event authority after building pipeline-node revision
+history. A folder-backed workspace therefore still enumerated legacy event-node histories. Resolve
+selection authority first, then exclude event nodes from workspace history for recording-folder
+recordings. Keep their event-run summaries and state available from processor-run records and root
+event sets. Retain the node-backed path for non-folder recordings.
+
+Proof: the event-set visible-card and observation workflows guard event-node history during the
+workspace fetch and guard event-node revision reads through both named consumers. The persisted
+observation source contains the full selected set ID, version, and digest plus exactly the visible
+card and identity revision IDs before round analysis starts. The legacy node-selection workspace
+tests and 0123 list-growth regression still pass. This correction stays within the M2 workspace
+owner and adds no contract or prerequisite.
+
 ## M0 recording-root contract
 
 `Settings.recordings_root` resolves to `data/recordings/`. With `DOKO_STORAGE_ROOT`, it resolves
@@ -263,7 +278,7 @@ transferred only the event producer and event selection adapters from M2 to M1. 
 transaction contract was added. M2 introduced one event-review storage contract and evolved the
 existing request, lineage, and observation source contracts. M3 owns retained-data rehearsal and
 qualification. Stop if M3 needs another resource conversion, a cross-store transaction, or a second
-event-selection authority. M2 used no corrections or replans; the run replan count remains 1.
+event-selection authority. M2 used 1 correction of 2 and 0 replans; the run replan count remains 1.
 
 M2 contract detail: store `event-review/v1` under
 `event-sets/<set-id>/reviews/<review-id>.json`. Each immutable record identifies `set_id`,

@@ -548,22 +548,29 @@ def test_visible_card_run_uses_exact_event_set_without_event_node_reads(tmp_path
             },
         )
         assert selected.status_code == 200, selected.text
+        node_store = app.state.visible_card_pipeline_service.node_store
+        original_read = node_store.read_revision
+        original_history = node_store.history
+
+        def forbid_event_node_read(node_id: str, revision_id: str):
+            if node_store.get(node_id).content_type == "events":
+                raise AssertionError("visible-card workflow read a legacy event node")
+            return original_read(node_id, revision_id)
+
+        def forbid_event_node_history(node_id: str):
+            if node_store.get(node_id).content_type == "events":
+                raise AssertionError("workspace enumerated legacy event-node history")
+            return original_history(node_id)
+
+        node_store.read_revision = forbid_event_node_read
+        node_store.history = forbid_event_node_history
         workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline").json()
+        node_store.history = original_history
         selected_from_workspace = workspace["stages"][0]["selected_event_set_generated"]
         assert selected_from_workspace == {
             "set_id": event_set["set_id"],
             "version": event_set["version"],
         }
-        node_store = app.state.visible_card_pipeline_service.node_store
-        original_read = node_store.read_revision
-
-        def forbid_event_node_read(node_id: str, revision_id: str):
-            node = node_store.get(node_id)
-            if node.content_type == "events":
-                raise AssertionError("visible-card consumer read a legacy event node")
-            return original_read(node_id, revision_id)
-
-        node_store.read_revision = forbid_event_node_read
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
             json={

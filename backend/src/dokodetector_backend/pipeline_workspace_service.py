@@ -136,25 +136,7 @@ class RecordingPipelineWorkspaceService:
         """Read one complete workspace snapshot without changing pipeline state."""
 
         source = self.recording_source_provider(recording_id)
-        revision_cache: dict[str, Any] = {}
-        include_revision_content = stage_key in {None, "table_observations"}
-        revisions = self._node_revisions_for_recording(
-            recording_id, include_content=include_revision_content
-        )
-        runs = self.run_store.list_for_recording(
-            recording_id,
-            revision_cache=revision_cache,
-            include_items=stage_key == "table_observations",
-            validate_output_revisions=False,
-            include_items_for_processor_types={"observation-assembly"},
-        )
-        lineage_runs_by_output = self._lineage_runs_by_output(revisions)
         diagnostics: list[dict[str, Any]] = []
-        revision_by_id = {self._manifest(revision).revision_id: revision for revision in revisions}
-        revision_targets = {
-            self._manifest(revision).revision_id: (revision.node_id, revision.node_revision_id)
-            for revision in revisions
-        }
         selections = {
             content_type: self._selection(
                 recording_id,
@@ -167,6 +149,29 @@ class RecordingPipelineWorkspaceService:
                 "visual_identities",
                 "table_observations",
             )
+        }
+        folder_event_recordings = (
+            {recording_id} if isinstance(selections["events"], _EventSetSelection) else set()
+        )
+        revision_cache: dict[str, Any] = {}
+        include_revision_content = stage_key in {None, "table_observations"}
+        revisions = self._node_revisions_for_recording(
+            recording_id,
+            include_content=include_revision_content,
+            event_set_authority_recordings=folder_event_recordings,
+        )
+        runs = self.run_store.list_for_recording(
+            recording_id,
+            revision_cache=revision_cache,
+            include_items=stage_key == "table_observations",
+            validate_output_revisions=False,
+            include_items_for_processor_types={"observation-assembly"},
+        )
+        lineage_runs_by_output = self._lineage_runs_by_output(revisions)
+        revision_by_id = {self._manifest(revision).revision_id: revision for revision in revisions}
+        revision_targets = {
+            self._manifest(revision).revision_id: (revision.node_id, revision.node_revision_id)
+            for revision in revisions
         }
         full_revisions = revisions if include_revision_content else ()
         stages = [
@@ -207,7 +212,11 @@ class RecordingPipelineWorkspaceService:
             return {}
 
         revisions_by_recording: dict[str, set[str]] = {}
-        for revision in self._node_revisions_for_recordings(requested_ids):
+        folder_event_recordings = self._recordings_with_event_set_authority(requested_ids)
+        for revision in self._node_revisions_for_recordings(
+            requested_ids,
+            event_set_authority_recordings=folder_event_recordings,
+        ):
             manifest = self._manifest(revision)
             if manifest.recording_id in requested_ids:
                 revisions_by_recording.setdefault(manifest.recording_id, set()).add(
@@ -250,10 +259,15 @@ class RecordingPipelineWorkspaceService:
         return statuses
 
     def _node_revisions_for_recordings(
-        self, recording_ids: Collection[str], *, include_content: bool = False
+        self,
+        recording_ids: Collection[str],
+        *,
+        include_content: bool = False,
+        event_set_authority_recordings: Collection[str] = (),
     ) -> tuple[Any, ...]:
         """Build workspace revision records from immutable node revisions."""
         requested = set(recording_ids)
+        folder_event_recordings = set(event_set_authority_recordings)
         revisions = []
         parsers = {
             "events": parse_event_data_bytes,
@@ -265,6 +279,10 @@ class RecordingPipelineWorkspaceService:
             node
             for node in self.node_store.list_nodes()
             if node.source.get("recording_id") in requested
+            and not (
+                node.content_type == "events"
+                and node.source.get("recording_id") in folder_event_recordings
+            )
         ]
         target_node_ids = {node.node_id for node in nodes}
         graph_inputs: dict[tuple[str, str], list[str]] = {}
@@ -355,9 +373,26 @@ class RecordingPipelineWorkspaceService:
         return tuple(revisions)
 
     def _node_revisions_for_recording(
-        self, recording_id: str, *, include_content: bool = False
+        self,
+        recording_id: str,
+        *,
+        include_content: bool = False,
+        event_set_authority_recordings: Collection[str] = (),
     ) -> tuple[Any, ...]:
-        return self._node_revisions_for_recordings((recording_id,), include_content=include_content)
+        return self._node_revisions_for_recordings(
+            (recording_id,),
+            include_content=include_content,
+            event_set_authority_recordings=event_set_authority_recordings,
+        )
+
+    def _recordings_with_event_set_authority(self, recording_ids: Collection[str]) -> set[str]:
+        if self.recording_folder_store is None or self.event_set_store is None:
+            return set()
+        return {
+            recording_id
+            for recording_id in recording_ids
+            if self.recording_folder_store.get(recording_id) is not None
+        }
 
     def _lineage_runs_by_output(
         self, revisions: tuple[_WorkspaceNodeRevision, ...]
@@ -529,10 +564,17 @@ class RecordingPipelineWorkspaceService:
             run.run_id
             for run in stage_runs
             if run.state.status in {"complete", "partial"}
-            and any(
-                (revision := revision_by_id.get(revision_id)) is not None
-                and self._manifest(revision).content_type == definition.content_type
-                for revision_id in run.state.output_revision_ids
+            and (
+                (
+                    definition.key == "events"
+                    and is_event_set_selection
+                    and bool(run.state.output_revision_ids)
+                )
+                or any(
+                    (revision := revision_by_id.get(revision_id)) is not None
+                    and self._manifest(revision).content_type == definition.content_type
+                    for revision_id in run.state.output_revision_ids
+                )
             )
         ]
         comparable_run_ids.sort()
@@ -543,18 +585,41 @@ class RecordingPipelineWorkspaceService:
             selections=selections,
             compatible_input_sets=compatible_input_sets,
         )
+        state = self._stage_state(definition, source, options, stage_runs, analyses)
+        if (
+            definition.key == "events"
+            and is_event_set_selection
+            and (
+                selection.selected_event_set_generated is not None
+                or selection.selected_event_set_reference is not None
+                or comparable_run_ids
+            )
+        ):
+            state = "data-available"
+        run_summaries = [
+            self._run_summary(
+                run,
+                next(
+                    (
+                        lineage_runs_by_output[target]
+                        for revision_id in run.state.output_revision_ids
+                        if (target := revision_targets.get(revision_id)) in lineage_runs_by_output
+                    ),
+                    None,
+                ),
+            )
+            for run in self._ordered_runs(stage_runs)
+        ]
+        if definition.key == "events" and is_event_set_selection:
+            for run_summary in run_summaries:
+                run_summary["input_revision_ids"] = []
+                run_summary["request"]["input_revision_ids"] = []
         return {
             "key": definition.key,
             "processor_key": definition.processor_key,
             "processor_type": definition.processor_type,
             "output_content_type": definition.content_type,
-            "state": self._stage_state(
-                definition,
-                source,
-                options,
-                stage_runs,
-                analyses,
-            ),
+            "state": state,
             "input_options": options,
             "compatible_input_sets": compatible_input_sets,
             "selection_revision": selection_revision,
@@ -573,21 +638,7 @@ class RecordingPipelineWorkspaceService:
                 if definition.key == "events"
                 else None
             ),
-            "runs": [
-                self._run_summary(
-                    run,
-                    next(
-                        (
-                            lineage_runs_by_output[target]
-                            for revision_id in run.state.output_revision_ids
-                            if (target := revision_targets.get(revision_id))
-                            in lineage_runs_by_output
-                        ),
-                        None,
-                    ),
-                )
-                for run in self._ordered_runs(stage_runs)
-            ],
+            "runs": run_summaries,
             "analyses": analyses,
             "can_run": not run_blockers,
             "run_blockers": run_blockers,

@@ -694,6 +694,9 @@ def test_workspace_run_summary_omits_frozen_crop_items() -> None:
 def test_workspace_run_summary_uses_exact_graph_inputs(tmp_path: Path) -> None:
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+    # This test verifies the retained pipeline-node event authority.
+    app.state.pipeline_workspace_service.recording_folder_store = None
+    app.state.pipeline_workspace_service.event_set_store = None
     run_store = app.state.pipeline_run_store
     original_list = run_store.list_for_recording
 
@@ -720,6 +723,9 @@ def test_workspace_run_summary_uses_exact_graph_inputs(tmp_path: Path) -> None:
 def test_compatible_observation_inputs_return_exact_node_references(tmp_path: Path) -> None:
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+    # Exercise the legacy node-backed event path alongside other node inputs.
+    app.state.pipeline_workspace_service.recording_folder_store = None
+    app.state.pipeline_workspace_service.event_set_store = None
     node_store = app.state.pipeline_lineage_writer.node_store
     source = app.state.event_pipeline_service.get_recording_source(RECORDING_ID).to_mapping()
     fixtures = (
