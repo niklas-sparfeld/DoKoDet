@@ -459,7 +459,7 @@ flow needs it. Universal history independence and job consolidation are deferred
 a prerequisite. The preceding provenance-first M3 assignment is superseded, not complete.
 Stop before expanding to another resource conversion, scheduler replacement, or generic resolver.
 
-M3 current run: requested 1 milestone, completed 0, remaining 1. M3 implementation attempts: 1;
+M3 current run: requested 1 milestone, completed 0, remaining 1. M3 implementation attempts: 2;
 M3 family re-plans remain 2/5; current-run re-plans are 0/10 and cumulative run history remains
 3/10. No new source owners, storage contracts, or transaction contracts were added. The first
 implementation attempt found one local defect in the
@@ -486,19 +486,22 @@ The live normal-app smoke played the activated recording, edited and selected
 the configured local provider `local-rfdetr-fine-frame` v8 on MPS processed all 50 event frames.
 Job `7111edd7-9f72-4fdc-9c10-a90d94db172f` froze event digest
 `a3c284533668d7b316f65142718262424f62769e85bd19d0f67e177fb6b84c78` and source video digest
-`2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7`. A 1,177,157-byte output
-revision exists with digest
-`905ecbb65fc9137a15187f9bd0465e8f7923d120bbaff1b7840411250c582e23`.
+`2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7`. Its 1,177,157-byte output
+revision digest is `905ecbb65fc9137a15187f9bd0465e8f7923d120bbaff1b7840411250c582e23`. The normal
+app opened this exact output and showed 50 outcomes. Publication took about eight minutes after
+launch, including 7 minutes 18 seconds after the processor state was complete. The job then reached
+`succeeded` and the backend answered again; see the pilot report for the read-only sample.
 
-M3 remains incomplete. The processor run state says complete, but its job remains `running` in
-`Publish visible-card revision`; the job publication record is `prepared`, and the backend no longer
-answers Job Manager requests. A read-only process sample shows JSON encoding while the process
-holds the existing pipeline-node transaction and node locks. The revision and publication files
-have not changed since 21:04:33 local time. The M3 source change is not in this publisher. Keep the
-active write intact; assign the exact-selection/pipeline-node publication stall to the existing
-pipeline-node store owner. Do not add a transaction, authority, or resolver to 0124. Result
-inspection, selection change after the result, backend restart, exact-input reopen, and this
-provider's normal-app acceptance remain unproved. M4 follows only after M3's workflow is complete;
+A direct selection of unedited `retained-generated@1` returned HTTP 422 because the editor sent the
+full set list entry instead of the exact `{set_id, version}` reference. The editor now normalizes
+the opened reference and sends only those two fields. The persisted browser test asserts that this
+selection returns HTTP 200 and the new choice appears. E2E passed (3 tests), `npm run check` passed
+(244 tests, type, lint, format, generated API), and `npm run build` passed. The active normal app
+still needs this commit before direct selection can be rechecked there.
+
+M3 remains incomplete until the fixed app selects the unedited alternative, the backend restarts,
+and the normal app reopens the detector result, its exact event parent, and the unselected set.
+No transaction, authority, or resolver was added. M4 follows only after M3's workflow is complete;
 M5 still owns removal and qualification.
 
 See [the M3 pilot report](../../reports/0124-M3_Pilot_Workflow.md) for the provider setup, exact

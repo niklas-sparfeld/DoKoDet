@@ -256,7 +256,16 @@ test("normal recording workflow edits an event, runs detection and reopens its e
   await page
     .getByRole("button", { name: "Open retained-generated version 1" })
     .click();
+  const selectUneditedAlternative = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PUT" &&
+      response.url().endsWith("/event-sets/selection"),
+  );
   await page.getByRole("button", { name: "Select generated" }).click();
+  expect((await selectUneditedAlternative).status()).toBe(200);
+  await expect(page.getByRole("status")).toContainText(
+    "Selected this event set as the generated choice.",
+  );
   const restarted = await page.request.post(
     "http://127.0.0.1:8767/__test/restart",
   );

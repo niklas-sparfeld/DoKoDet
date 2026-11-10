@@ -63,7 +63,7 @@ export function RecordingEventSetEditor({
     const saved = (await response.json()) as {
       content: { events: EventRecord[] };
     };
-    setSelected(reference);
+    setSelected({ set_id: reference.set_id, version: reference.version });
     setEvents(saved.content.events);
     const reviewsResponse = await fetch(
       `/api/recordings/${encodeURIComponent(recordingId)}/event-sets/${encodeURIComponent(reference.set_id)}/versions/${encodeURIComponent(reference.version)}/reviews`,
@@ -148,7 +148,7 @@ export function RecordingEventSetEditor({
   };
 
   const select = async (choice: "generated" | "reference") => {
-    if (data === null) return;
+    if (data === null || selected === null) return;
     try {
       const response = await fetch(
         `/api/recordings/${encodeURIComponent(recordingId)}/event-sets/selection`,
@@ -157,7 +157,7 @@ export function RecordingEventSetEditor({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             choice,
-            reference: selected,
+            reference: { set_id: selected.set_id, version: selected.version },
             expected_recording_version: data.recording_version,
           }),
         },

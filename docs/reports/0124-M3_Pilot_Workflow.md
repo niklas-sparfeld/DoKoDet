@@ -64,19 +64,29 @@ The provider was `local-rfdetr-fine-frame` v8 on MPS, using bundle digest
 50 of 50 event outputs and a 1,177,157-byte visible-card revision with digest
 `905ecbb65fc9137a15187f9bd0465e8f7923d120bbaff1b7840411250c582e23`.
 
-The saved result is not yet available through the job API. `pipeline/runs/.../state.json` says
-complete, but `publication.json` remains `prepared` and `job.json` remains `running` at
-`Publish visible-card revision`. The backend stopped answering Job Manager requests. At 5:19 elapsed,
-PID 50672 used 98.4% CPU and 18.7% memory; the read-only sample
-`/tmp/python_2026-11-10_210747_3Cs5.sample.txt` shows CPython's JSON encoder serializing nested lists
-and floats. The process holds the existing `.transactions.lock` and node lock. The revision and
-publication files stopped changing at 21:04:33 local time. I did not restart or interrupt the active
-write.
+The normal app initially showed the completed processor run and revision, while its job stayed in
+`Publish visible-card revision`. For 7 minutes 18 seconds after the processor state became complete,
+`publication.json` remained `prepared`, `job.json` remained `running`, and the backend did not answer
+Job Manager requests. At 5:19 elapsed, PID 50672 used 98.4% CPU and 18.7% memory; the read-only
+sample `/tmp/python_2026-11-10_210747_3Cs5.sample.txt` showed CPython's JSON encoder serializing
+nested lists and floats. The process held the existing `.transactions.lock` and node lock. I did not
+restart or interrupt the active write. It committed at 21:11:51 local time, about 8 minutes after
+launch. The backend then answered again. This is a long local publication delay; no new transaction
+or authority was added.
 
-The changed M3 source adapter ends before publication. The observed stuck call is in the existing
-pipeline-node revision and exact-selection publication path (`PipelineNodeStore` /
-`PipelineNodeSelectionStore` / `PipelineNodeTransactions`), which M3 did not change. Assign that
-bounded recovery/publication diagnosis to the existing pipeline-node store owner in a follow-up; do
-not add another transaction or authority to 0124. Until the result is terminal and can be opened in
-the normal app after restart, M3's live-provider acceptance remains incomplete. This smoke is not
-production qualification.
+The normal app opened the saved exact node revision and showed 50 event outcomes, including its
+first frame. Its exact event parent remained `manual-efadbf34-2c3c-4fa6-888f-2b9b46128ffe@1` with
+the frozen content digest above. The detector result digest is
+`905ecbb65fc9137a15187f9bd0465e8f7923d120bbaff1b7840411250c582e23`.
+
+A later attempt to select an unedited retained set in the editor returned HTTP 422. The editor kept
+the complete list entry in state and sent its `events`, `source`, and `provenance` fields where the
+API requires only `set_id` and `version`. The M3 editor now projects the exact reference on open and
+on selection. The browser regression checks the PUT returns 200 and the UI confirms the new choice.
+The recording-folder E2E passed (3 tests), `npm run check` passed (244 tests plus type, lint,
+format, and generated API checks), and `npm run build` passed after this change.
+
+The local provider run and normal-app result inspection passed, but M3 remains incomplete until the
+selection fix is integrated into the active app, direct selection of the unedited alternative
+passes there, and the backend restarts with the exact input and unselected alternative reopened.
+This smoke is not production qualification.
