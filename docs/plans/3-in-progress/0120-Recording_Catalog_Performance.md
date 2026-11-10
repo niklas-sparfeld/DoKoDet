@@ -160,9 +160,13 @@ supply catalog summaries; the common publication protocol remains a single contr
 No production source owners were added. M1 implements the one planned catalog index and shared
 publication contract. The initial plan has eight milestones.
 
-The initial M1 submission was recorded as run progress 2/8. Sanity review found three defects in
-rebuild and paging. Correction 1/2 is implemented and awaits review. Until review accepts M1, the
-current accepted progress is 1/8 complete and 7 remain. Run re-plannings: 0/10.
+The initial M1 submission was recorded as run progress 2/8. Sanity review found defects in rebuild,
+generation switching, and paging. Correction 1/2 fixed current source versions, safe generation
+switching, and null-time pagination. Correction 2/2 adds overlapping reader/writer coverage and
+compares 1x and 10x retained source history with fixed page output and bounded SQL work. It awaits
+review. The M1 correction allowance is exhausted; any further correction requires the documented
+scope review. Until review accepts M1, the current accepted progress is 1/8 complete and 7 remain.
+Run re-plannings: 0/10.
 M0 correction attempts: 1/2. The first M0 submission had only a Pydantic payload-size fixture and
 an unpopulated hard-corpus capture. Correction 1 adds a real route fixture with persisted package,
 analysis, processor-run and node histories, unrelated records, counters, and fixed-state checks.
@@ -187,8 +191,8 @@ Correction 1 addresses rebuild from current source versions, generation switchin
 and interrupted switching, and keyset pagination through rows with no `received_at`. M1 does not
 connect production writers or switch `/v1/recordings`; the first complete API workflow remains M2.
 
-M1 family corrections: 1/2. No re-planning or scope change occurred. The correction is complete
+M1 family corrections: 2/2. No re-planning or scope change occurred. The corrections are complete
 pending review. Next proof after acceptance: M2 connects node and selection publication and reads
 the real `/v1/recordings` route with old discovery disabled. Stop if this requires another
-persistent contract or a source authority beyond the frozen M0 inventory. M1 checks and known
-limits are in its report.
+persistent contract or a source authority beyond the frozen M0 inventory. Any further M1 correction
+requires scope review. M1 checks and known limits are in its report.

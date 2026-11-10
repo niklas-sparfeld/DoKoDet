@@ -113,7 +113,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0 complete; M1 correction awaits review. Rebuild now covers current source versions and safe generation switching; null-time pages are covered. M2 remains the first real API workflow. No recording HEAD adoption or Job Manager redesign. |
+| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0 complete; M1 correction 2/2 awaits review. Reader/writer overlap and 1x/10x bounded-page work are covered. M2 remains the first real API workflow. No recording HEAD adoption or Job Manager redesign. |
 
 ### In Progress
 

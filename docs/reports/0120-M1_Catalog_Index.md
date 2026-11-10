@@ -45,7 +45,9 @@ uses an exact recording-key read and an ordered SQL `LIMIT` page with a keyset c
 does not affect the page result size or cursor traversal.
 
 - `mise exec -- uv run --project backend pytest backend/tests/test_recording_catalog_index.py -q`
-  — passed, 16 tests after correction 1.
+  — passed, 17 tests after correction 2.
+- Combined catalog and M0 growth tests — passed; the M0 test retains 3 strict expected failures for
+  list reconstruction scheduled for removal in M6.
 - `mise exec -- uv run --project backend ruff check backend/src/dokodetector_backend/recording_catalog_index.py backend/tests/test_recording_catalog_index.py`
   — passed.
 - `mise exec -- uv run --project backend ruff format --check backend/src/dokodetector_backend/recording_catalog_index.py backend/tests/test_recording_catalog_index.py`
@@ -70,9 +72,20 @@ still readable, and multiple pages containing null timestamps. It also verifies 
 generation fails visibly. Existing crash, replay, missing and corrupt source, corrupt index, and
 concurrent publication/read tests remain.
 
-Correction 1/2 is implemented and awaits sanity review. Until review accepts M1, current accepted
-progress is 1/8 complete and 7 remaining. Re-plannings remain 0/10; M0 has one correction and M1
-has one correction. No source owner, persistent contract, or scope changed. The scope decision is
-to keep the bounded index approach. After acceptance, M2 must connect node and selection writers and
-prove the real `/v1/recordings` workflow with old discovery disabled and restart. That workflow is
-not proved by this report.
+Correction 2/2 adds deterministic overlapping reader/writer coverage. A reader holds a SQLite read
+transaction while a writer publishes another source contribution. The writer completes during the
+reader transaction; the reader retains its original snapshot, and a new read sees the update.
+
+The bounded-page test compares 1x and 10x retained source history for the same one-row catalog.
+Both datasets return the same page row, execute the same two catalog SELECTs, and use the ordering
+index with `LIMIT`. SQLite virtual-machine instruction counts match. The test confirms that the
+source payload contains 1 and 10 history entries respectively; page reads do not read those files.
+Existing crash/restart and concurrent-writer coverage remains separate.
+
+Correction 2/2 is implemented and awaits sanity review. The correction allowance is exhausted. Until
+review accepts M1, current accepted progress is 1/8 complete and 7 remaining. Re-plannings remain
+0/10; M0 has one correction and M1 has two. No source owner, persistent contract, or scope changed.
+Any further M1 correction requires the documented scope review. The scope decision remains to keep
+the bounded index approach. After acceptance, M2 must connect node and selection writers and prove
+the real `/v1/recordings` workflow with old discovery disabled and restart. That workflow is not
+proved by this report.

@@ -175,28 +175,102 @@ def test_concurrent_publications_keep_counters_and_reads_consistent(tmp_path: Pa
     assert index.read("recording-shared")["counters"] == {"source_items": 20}
 
 
-def test_page_query_is_bounded_under_tenfold_source_growth(tmp_path: Path) -> None:
+def test_reader_transaction_overlaps_writer_publication(tmp_path: Path) -> None:
     index = RecordingCatalogIndex(tmp_path)
-    for number in range(10):
+    _publish(index, source_key="first", recording_id="recording-shared")
+    reader_ready = Event()
+    writer_done = Event()
+
+    def hold_reader_snapshot() -> int:
+        with closing(sqlite3.connect(index.path, isolation_level=None)) as reader:
+            reader.execute("BEGIN")
+            before = reader.execute(
+                "SELECT counters_json FROM recording_rows WHERE recording_id = 'recording-shared'"
+            ).fetchone()[0]
+            reader_ready.set()
+            assert writer_done.wait(5)
+            after = reader.execute(
+                "SELECT counters_json FROM recording_rows WHERE recording_id = 'recording-shared'"
+            ).fetchone()[0]
+            assert after == before
+            return json.loads(after)["source_items"]
+
+    def publish_while_reader_is_open() -> None:
+        assert reader_ready.wait(5)
         _publish(
             index,
-            source_key=f"source-{number}",
-            recording_id=f"recording-{number:02d}",
-            value=f"value-{number}",
-            received_at=f"2026-11-{number + 1:02d}T10:00:00Z",
+            source_key="second",
+            recording_id="recording-shared",
+            value="concurrent",
         )
+        writer_done.set()
 
-    page = index.page(limit=3)
-    assert len(page) == 3
-    assert [row["recording_id"] for row in page] == [
-        "recording-09",
-        "recording-08",
-        "recording-07",
-    ]
-    cursor = (page[-1]["received_at"], page[-1]["recording_id"])
-    next_page = index.page(limit=3, after=cursor)
-    assert len(next_page) == 3
-    assert next_page[0]["recording_id"] == "recording-06"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        reader_task = pool.submit(hold_reader_snapshot)
+        writer_task = pool.submit(publish_while_reader_is_open)
+        assert writer_task.result(timeout=5) is None
+        assert reader_task.result(timeout=5) == 1
+    assert index.read("recording-shared")["counters"] == {"source_items": 2}
+
+
+def test_page_query_is_bounded_under_tenfold_source_growth(tmp_path: Path) -> None:
+    def measure_history(
+        history_length: int,
+        root: Path,
+    ) -> tuple[int, int, tuple[str, ...], dict]:
+        index = RecordingCatalogIndex(root)
+        index.publish(
+            source_key="fixture-source",
+            source_version=1,
+            recording_id="fixed-recording",
+            source_value={"retained_history": list(range(history_length))},
+            metadata_delta={"received_at": "2026-11-10T10:00:00Z"},
+            counter_delta={"source_items": 1},
+        )
+        query_steps = 0
+        traced_selects: list[str] = []
+        original_connect = index._connect
+
+        def traced_connect(*, create: bool = False):
+            connection = original_connect(create=create)
+
+            def count_vm_step() -> int:
+                nonlocal query_steps
+                query_steps += 1
+                return 0
+
+            connection.set_progress_handler(count_vm_step, 1)
+            connection.set_trace_callback(
+                lambda statement: (
+                    traced_selects.append(statement)
+                    if statement.lstrip().upper().startswith("SELECT")
+                    else None
+                )
+            )
+            return connection
+
+        index._connect = traced_connect
+        rows = index.page(limit=1)
+        with closing(sqlite3.connect(index.path)) as connection:
+            plan = connection.execute(
+                "EXPLAIN QUERY PLAN SELECT recording_id, received_at, metadata_json, counters_json "
+                "FROM recording_rows ORDER BY received_at DESC, recording_id ASC LIMIT 1"
+            ).fetchall()
+        assert len(rows) == 1
+        assert rows[0]["recording_id"] == "fixed-recording"
+        assert len(traced_selects) == 2
+        assert "LIMIT 1" in traced_selects[1]
+        assert any("recording_page_order" in row[3] for row in plan)
+        stored_source = json.loads((index.sources / "fixture-source.json").read_bytes())
+        assert len(stored_source["value"]["retained_history"]) == history_length
+        return history_length, query_steps, tuple(traced_selects), rows[0]
+
+    small = measure_history(1, tmp_path / "small")
+    large = measure_history(10, tmp_path / "large")
+    assert small[0] * 10 == large[0]
+    assert small[1] == large[1]
+    assert small[2] == large[2]
+    assert small[3] == large[3]
 
 
 def test_keyset_pages_include_null_received_at_rows(tmp_path: Path) -> None:
