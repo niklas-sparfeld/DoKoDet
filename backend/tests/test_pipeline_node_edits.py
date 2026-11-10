@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from dokodetector_backend.filesystem import atomic_write_json
+from dokodetector_backend.filesystem import atomic_replace_json, atomic_write_json
 from dokodetector_backend.pipeline_item_provenance import ItemProvenanceService
 from dokodetector_backend.pipeline_node_edits import PipelineNodeEdits
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
@@ -160,19 +160,29 @@ def test_copy_historical_restore_and_recovery(tmp_path: Path, monkeypatch) -> No
     )
 
 
-def test_retry_after_revision_published_but_head_update_failed(tmp_path: Path, monkeypatch) -> None:
+def test_retry_after_revision_written_but_head_update_failed(tmp_path: Path, monkeypatch) -> None:
     store = PipelineNodeStore(tmp_path)
     initial = store.create("n", "Events", "events", SOURCE, content(200), {})
     edits = PipelineNodeEdits(store)
 
-    def fail(*args, **kwargs):
-        raise OSError("head update failed")
+    def fail_head(*args, **kwargs):
+        path = Path(args[0])
+        if path == tmp_path / "n" / "head.json":
+            raise OSError("head update failed")
+        return atomic_replace_json(*args, **kwargs)
 
     with monkeypatch.context() as context:
-        context.setattr("dokodetector_backend.pipeline_node_store.atomic_replace_json", fail)
+        context.setattr("dokodetector_backend.pipeline_node_store.atomic_replace_json", fail_head)
         with pytest.raises(OSError, match="head update failed"):
             edits.edit("n", initial.revision_id, content(300), "retry", ACTOR)
     assert store.get("n").head_revision_id == initial.revision_id
+    unpublished = next(
+        path.name
+        for path in (tmp_path / "n" / "revisions").iterdir()
+        if path.name != initial.revision_id
+    )
+    assert store.has_revision("n", unpublished)
+    assert not (tmp_path / "n" / "publications" / unpublished).exists()
     result = edits.edit("n", initial.revision_id, content(300), "retry", ACTOR)
     assert not result["copied"]
     assert store.read_revision("n", result["revision_id"]).content == content(300)
@@ -185,18 +195,31 @@ def test_retry_does_not_delete_orphan_with_dependent_records(tmp_path: Path, mon
     edits = PipelineNodeEdits(store)
 
     def fail_head(*args, **kwargs):
-        raise OSError("head update failed")
+        path = Path(args[0])
+        if path == tmp_path / "n" / "head.json":
+            raise OSError("head update failed")
+        return atomic_replace_json(*args, **kwargs)
 
     with monkeypatch.context() as context:
         context.setattr("dokodetector_backend.pipeline_node_store.atomic_replace_json", fail_head)
         with pytest.raises(OSError, match="head update failed"):
             edits.edit("n", initial.revision_id, content(300), "dependent-retry", ACTOR)
 
-    orphan = next(
-        path.name
+    revision_dirs_before_reopen = [
+        path
         for path in (tmp_path / "n" / "revisions").iterdir()
         if path.name != initial.revision_id
-    )
+    ]
+    assert len(revision_dirs_before_reopen) == 1
+    unpublished_path = revision_dirs_before_reopen[0]
+    assert (unpublished_path / "revision.json").is_file()
+    assert not (tmp_path / "n" / "publications" / unpublished_path.name).exists()
+    orphan = unpublished_path.name
+
+    reopened = PipelineNodeStore(tmp_path)
+    assert reopened.get("n").head_revision_id == initial.revision_id
+    assert reopened.has_revision("n", orphan)
+    assert not (tmp_path / "n" / "publications" / orphan).exists()
     atomic_write_json(
         tmp_path / ".accepted-uses" / "legacy-use.json",
         {"inputs": [{"node_id": "n", "revision_id": orphan}]},
@@ -210,7 +233,7 @@ def test_retry_does_not_delete_orphan_with_dependent_records(tmp_path: Path, mon
         edits.edit("n", initial.revision_id, content(300), "dependent-retry", ACTOR)
 
     assert store.has_revision("n", orphan)
-    assert store.get("n").head_revision_id == initial.revision_id
+    assert reopened.get("n").head_revision_id == initial.revision_id
 
 
 def test_run_acceptance_and_service_edit_race(tmp_path: Path) -> None:

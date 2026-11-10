@@ -27,9 +27,9 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 ## Current delivery order
 
 Performance delivery was reset on 2026-11-10. **0117 is closed as Superseded.**
-[0119 recovery repairs](4-blocked/0119-Pipeline_Recovery_Defects.md) are blocked at M1 by the
-[0122 node-publication test discrepancy](2-ready/0122-Node_Publication_Test_Discrepancy.md).
-Resolve that finite test/behavior question, complete 0119, then proceed to
+[0122 node-publication test discrepancy](5-closed/0122-Node_Publication_Test_Discrepancy.md) is
+resolved. [0119 recovery repairs](4-blocked/0119-Pipeline_Recovery_Defects.md) can now rerun its
+required suite and complete M1 before work proceeds to
 [0120 catalog delivery](4-blocked/0120-Recording_Catalog_Performance.md). The
 [0121 workspace follow-up](1-backlog/0121-Current_Workspace_Reads.md) stays in Backlog.
 No old 0117 loop continues. See the [scope and revert decision](../reports/0117-Supersession_and_Exit.md).
@@ -110,13 +110,6 @@ The shared target architecture is
 | [0121 — Current workspace reads](1-backlog/0121-Current_Workspace_Reads.md) | Completed exact-read/history foundations from 0117; scheduled after catalog delivery | M0–M4 not started. Exact current selections, on-demand stage content and explicit paged history. Deferred; audit/remove unused recording-state runtime without losing retained human work. |
 | [0044 — Productive local identity model operations](1-backlog/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. Defer campaign UI, promotion, and rollback until current corpus and model work have been exercised. 0088 found no quality-qualified candidate; no promotion recommendation or new training belongs here. |
 
-### Ready
-
-| Epic | Depends on | Outcome |
-| --- | --- | --- |
-| [0122 — Node-publication test discrepancy](2-ready/0122-Node_Publication_Test_Discrepancy.md) | None | M0 not started. Resolve two baseline failed-save test failures by confirming the publication behavior and correcting implementation or assertions with evidence. |
-
-
 ### In Progress
 
 | Epic | Depends on | Outcome |
@@ -128,7 +121,7 @@ The shared target architecture is
 
 | Epic                                                                                                              | Depends on                                                                                                                   | Outcome                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0119 — Pipeline recovery defects](4-blocked/0119-Pipeline_Recovery_Defects.md) | 0122 M0 | M0 complete; M1 blocked. The real Job Manager and run-store workflow plus recovery matrix are recorded, but two pre-existing node-publication test failures block the required full suite. See the [M1 evidence report](../reports/0119-M1_Recovery_Matrix.md). |
+| [0119 — Pipeline recovery defects](4-blocked/0119-Pipeline_Recovery_Defects.md) | 0122 M0 | M0 complete; M1 real workflow proof is recorded. Rerun the required broader acceptance suite after 0122 resolved its two failed-save tests. See the [M1 evidence report](../reports/0119-M1_Recovery_Matrix.md). |
 | [0120 — Recording catalog performance](4-blocked/0120-Recording_Catalog_Performance.md) | 0119 M1 | M0–M7 not started. Replace catalog history reconstruction with compact metadata and deliver a measured API/web cutover. No recording HEAD adoption or Job Manager redesign. |
 
 ### Closed
@@ -136,6 +129,7 @@ The shared target architecture is
 | Epic                                                                                                                                             | Closure reason     | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [0117 — Recording HEAD and bounded pipeline reads](5-closed/0117-Workspace_and_Startup_Performance.md) | Superseded | No qualified catalog/workspace speedup. Execution loop cancelled; M6b1a remains incomplete. 0119 owns recovery defects, 0120 catalog delivery, and 0121 deferred workspace reads. See the [exit decision](../reports/0117-Supersession_and_Exit.md). |
+| [0122 — Node-publication test discrepancy](5-closed/0122-Node_Publication_Test_Discrepancy.md) | Complete | M0 resolved the two failed-save tests by injecting failure at the intended HEAD replacement. The unpublished revision remains unauthorized after reopen; exact reads reject it, and edit cleanup preserves dependent records. No production storage or authority behavior changed. See the [M0 evidence report](../reports/0122-M0_Node_Publication_Behavior.md). |
 | [0114 — Interactive UI and backend startup performance](5-closed/0114-Interactive_UI_Performance.md) | Complete | M0–M13 complete. M11 froze 179 performance budgets and 70 UI route budgets. M12 reduced hard lineage reads by 50.9%. M13 requalified all startup profiles and seven current browser/load workflows, verified both fixture tiers, and stopped cycle two after profiling found no safe bounded reduction. About 30 slow-debt groups remain above their planning targets; the M13 report records them and the pre-existing UI test follow-up. See the [M13 closure report](../reports/0114-M13_Final_Qualification_and_Closure.md), [M11 baseline](../reports/0114-M11_Performance_Baseline.json), and [M12 report](../reports/0114-M12_Candidate_Profile_and_Cycle_One.md). |
 | [0118 — Operational logs and recovery lifecycle](5-closed/0118-Operational_and_Recovery_Lifecycle.md) | Complete | M0–M4 complete. No safe expiry or removal policy was established, so all logs, recovery copies, the 0070 training view, and known review roots remain preserved. M1 retains its existing 1,000-entry behavior; M2 has no independent recovery source or expiry window; M3 found 7/24 exact states and 0/24 exact drafts across bounded recovery roots, with 17 states and all drafts unavailable. No cleanup code or data removal was added. Logical removal and relocation are zero; physical space reclaimed is not established. See the [M4 closure report](../reports/0118-M4_Lifecycle_Closure.md), [M3 audit](../reports/0118-M3_0070_Synthetic_Training_View.md), [M2 audit](../reports/0118-M2_Accepted_Loss_Recovery_Copy.md), [M1 audit](../reports/0118-M1_Managed_Job_Log_Audit.md), and [M0 inventory](../reports/0118-M0_Lifecycle_Family_Inventory.md). |
 | [0115 — Data cleanup](5-closed/0115-Data_Cleanup.md) | Complete | M0–M15 complete for the revised scope. Essential cache-policy checks and retained-data recovery verification passed. M3/M4 removal, M8/M9 tracking changes, isolated M12 compression, cache limits, and unchanged Git/LFS are reported separately. The conditional 24.1 GiB recovery-tree bound was superseded by exact dependency evidence; physical space reclaimed is not established. Operational lifecycle work moves to 0118. See the [M15 closure report](../reports/0115-M15_Qualification_and_Closure.md), [M14 storage map](../reports/0115-M14_Maintained_Storage_Map.md), and [M13 report](../reports/0115-M13_Growth_Bounds.md). |

@@ -134,17 +134,28 @@ def test_interrupted_head_update_does_not_publish_revision(tmp_path: Path, monke
     first = store.create("n", "Events", "events", SOURCE, events(1), {})
 
     def fail_head(*args, **kwargs):
-        raise OSError("interrupted")
+        path = Path(args[0])
+        if path == tmp_path / "n" / "head.json":
+            raise OSError("interrupted")
+        return atomic_replace_json(*args, **kwargs)
 
     monkeypatch.setattr("dokodetector_backend.pipeline_node_store.atomic_replace_json", fail_head)
     with pytest.raises(OSError, match="interrupted"):
         store.save("n", first.revision_id, events(2), {})
+    revision_dirs_before_reopen = [
+        path for path in (tmp_path / "n" / "revisions").iterdir() if path.name != first.revision_id
+    ]
+    assert len(revision_dirs_before_reopen) == 1
+    unpublished_path = revision_dirs_before_reopen[0]
+    assert (unpublished_path / "revision.json").is_file()
+    assert not (tmp_path / "n" / "publications" / unpublished_path.name).exists()
+
     reopened = PipelineNodeStore(tmp_path)
+    assert unpublished_path.is_dir()
+    assert not (tmp_path / "n" / "publications" / unpublished_path.name).exists()
     assert reopened.get("n").head_revision_id == first.revision_id
     assert [r.revision_id for r in reopened.history("n")] == [first.revision_id]
-    unpublished = next(
-        p.name for p in (tmp_path / "n" / "revisions").iterdir() if p.name != first.revision_id
-    )
+    unpublished = unpublished_path.name
     with pytest.raises(KeyError):
         reopened.read_revision("n", unpublished)
     with pytest.raises(KeyError):
