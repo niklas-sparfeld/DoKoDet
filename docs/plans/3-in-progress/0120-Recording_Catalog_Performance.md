@@ -50,7 +50,7 @@ or index-only API stub as a complete workflow. No queue, acceptance-key or sched
 | Milestone | Observable result and commit boundary | Status |
 | --- | --- | --- |
 | M0 | Frozen list contract, consumer/writer matrix and failing growth assertions | Complete |
-| M1 | Catalog metadata index, common publication outbox and explicit rebuild contract | In Progress |
+| M1 | Catalog metadata index, common publication outbox and explicit rebuild contract | Complete |
 | M2 | Node and selection publication through one real catalog workflow | Not started |
 | M3 | Processor-run status publication | Not started |
 | M4 | Recording, analysis and package metadata adapters | Not started |
@@ -163,10 +163,8 @@ publication contract. The initial plan has eight milestones.
 The initial M1 submission was recorded as run progress 2/8. Sanity review found defects in rebuild,
 generation switching, and paging. Correction 1/2 fixed current source versions, safe generation
 switching, and null-time pagination. Correction 2/2 adds overlapping reader/writer coverage and
-compares 1x and 10x retained source history with fixed page output and bounded SQL work. It awaits
-review. The M1 correction allowance is exhausted; any further correction requires the documented
-scope review. Until review accepts M1, the current accepted progress is 1/8 complete and 7 remain.
-Run re-plannings: 0/10.
+compares 1x and 10x retained source history with fixed page output and bounded SQL work. M1 passed
+sanity review. Current run progress is 2/8 complete and 6 remain. Run re-plannings: 0/10.
 M0 correction attempts: 1/2. The first M0 submission had only a Pydantic payload-size fixture and
 an unpopulated hard-corpus capture. Correction 1 adds a real route fixture with persisted package,
 analysis, processor-run and node histories, unrelated records, counters, and fixed-state checks.
@@ -175,9 +173,12 @@ recording, stage state, latest analysis state, and active processor-run count re
 response and source-row checks remain strict expected failures until M6 removes reconstruction.
 M6 must assert each growth counter separately; the combined expected-failure test stops at the
 first failing response-size assertion.
-Scope decision: keep the bounded catalog index approach. M1's disposable write/read/restart proof
-passed through one deterministic fixture adapter. It adds no production writer or source owner.
-The 0117 exit decision remains the scope boundary.
+Scope decision after the two-correction limit: keep the bounded catalog index approach. M1 proves
+the index contract with one disposable source write/read/restart workflow. No production list
+behavior has improved yet. The exact next proof is M2: publish real node and selection changes, read
+`/v1/recordings` with old discovery disabled, verify the blocker, and restart. Continue only if M2
+meets that acceptance. If it fails, perform the scope review before more implementation; do not add
+another prerequisite or contract. The 0117 exit decision remains the wider scope boundary.
 
 M0 correction changes: retain the first response-size fixture and add real persisted growth
 evidence. See [M0 contract and source map](../../reports/0120-M0_Recording_Catalog_Contract.md) and
@@ -191,8 +192,8 @@ Correction 1 addresses rebuild from current source versions, generation switchin
 and interrupted switching, and keyset pagination through rows with no `received_at`. M1 does not
 connect production writers or switch `/v1/recordings`; the first complete API workflow remains M2.
 
-M1 family corrections: 2/2. No re-planning or scope change occurred. The corrections are complete
-pending review. Next proof after acceptance: M2 connects node and selection publication and reads
-the real `/v1/recordings` route with old discovery disabled. Stop if this requires another
-persistent contract or a source authority beyond the frozen M0 inventory. Any further M1 correction
-requires scope review. M1 checks and known limits are in its report.
+M1 family corrections: 2/2; sanity review passed. No re-planning or scope change occurred. Next
+proof: M2 connects node and selection publication and reads the real `/v1/recordings` route with
+old discovery disabled, verifies the blocker and restarts. Stop if M2 misses its assigned
+acceptance. Run the scope review before any additional implementation; do not add a contract or
+source authority. M1 checks and known limits are in its report.

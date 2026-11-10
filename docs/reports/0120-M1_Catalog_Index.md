@@ -82,10 +82,11 @@ index with `LIMIT`. SQLite virtual-machine instruction counts match. The test co
 source payload contains 1 and 10 history entries respectively; page reads do not read those files.
 Existing crash/restart and concurrent-writer coverage remains separate.
 
-Correction 2/2 is implemented and awaits sanity review. The correction allowance is exhausted. Until
-review accepts M1, current accepted progress is 1/8 complete and 7 remaining. Re-plannings remain
-0/10; M0 has one correction and M1 has two. No source owner, persistent contract, or scope changed.
-Any further M1 correction requires the documented scope review. The scope decision remains to keep
-the bounded index approach. After acceptance, M2 must connect node and selection writers and prove
-the real `/v1/recordings` workflow with old discovery disabled and restart. That workflow is not
-proved by this report.
+Correction 2/2 passed sanity review. Current run progress is 2/8 complete and 6 remaining.
+Re-plannings remain 0/10; M0 has one correction and M1 has two. No source owner, persistent
+contract, or scope changed. The scope review after the correction limit kept the bounded index
+approach: the disposable write/read/restart proof passed, but production list behavior has not
+improved. M2 is the exact next proof: real node and selection publication, `/v1/recordings` reads
+with old discovery disabled, blocker verification, and restart. Continue only if M2 meets that
+acceptance. If it fails, perform scope review before further implementation and add no prerequisite
+or contract. The real API workflow is not proved by this report.
