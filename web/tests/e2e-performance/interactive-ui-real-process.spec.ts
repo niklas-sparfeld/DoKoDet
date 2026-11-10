@@ -12,6 +12,9 @@ const RECORDING_ID = "recording-both";
 const IDENTITY_RECORDING_ID = RECORDING_ID;
 const REVIEW_ITEMS = 4;
 const RUNS = Number(process.env.UI_PERF_CONTEXTS ?? "10");
+const EXPECTED_RECORDINGS = Number(
+  process.env.UI_PERF_EXPECTED_RECORDINGS ?? "1",
+);
 const OUT = process.env.UI_PERF_SAMPLE_OUTPUT;
 if (!OUT) throw new Error("UI_PERF_SAMPLE_OUTPUT is required");
 
@@ -273,6 +276,33 @@ test("recordings list opens the exact recording workspace", async ({
     await expect(
       page.getByRole("complementary", { name: "Workspace inspector" }),
     ).toBeVisible();
+  });
+});
+
+test("recordings list renders all expected rows", async ({ browser }) => {
+  await repeat(browser, "recordings_list_visible", async (page) => {
+    await page.route("**/thumbnail", (route) =>
+      route.fulfill({ status: 204, body: "" }),
+    );
+    await page.goto("/");
+    await page.waitForFunction((expected) => {
+      const rows = Array.from(
+        document.querySelectorAll('a[href^="/recordings/"]'),
+      );
+      return (
+        rows.length === expected &&
+        rows.every((row) => {
+          const style = getComputedStyle(row);
+          const bounds = row.getBoundingClientRect();
+          return (
+            style.display !== "none" &&
+            style.visibility !== "hidden" &&
+            bounds.width > 0 &&
+            bounds.height > 0
+          );
+        })
+      );
+    }, EXPECTED_RECORDINGS);
   });
 });
 

@@ -1,0 +1,7 @@
+
+Running 1 test using 1 worker
+
+
+
+[1/1] tests/e2e-performance/interactive-ui-real-process.spec.ts:282:1 › recordings list renders all expected rows
+  1 passed (4.7s)

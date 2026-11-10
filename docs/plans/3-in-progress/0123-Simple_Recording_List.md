@@ -141,12 +141,13 @@ selection cases passed again.
 
 The local corpus in the main worktree contains 58 recordings. Its three root metadata files per
 recording and all existing exact-selection files total 310 files and 214,150 bytes. The frozen
-digest is `834c532851e12f44087044839ed7ca66c9bd2d6606d9181f7939f55d1e762ed8`. Across three
-uncontended sessions, fresh-process API medians were 20.887, 21.232, and 20.624 ms; warm API
-medians were 17.015, 17.442, and 17.341 ms; browser list medians were 204.855, 200.728, and
-211.080 ms. Each session used ten fresh API processes, 30 warm requests, and ten fresh Chromium
-contexts. Browser requests omitted thumbnails; lazy thumbnail work remains a separate measurement.
-See the [M1 local corpus qualification](../../reports/0123-M1_Local_Corpus_Qualification.md).
+digest is `628211c82ef16f731ba4c061800dfd704cd1265d94ac3b0daf9fe0fef3eca57d`. Across three
+uncontended sessions, fresh-process API medians were 20.427, 20.694, and 20.586 ms; warm API
+medians were 17.238, 17.534, and 17.260 ms. The corrected browser test waited for all 58 row links
+to be visible in the document. Its medians were 331.542, 329.830, and 331.348 ms. Each session
+used ten fresh API processes, 30 warm requests, and ten fresh Chromium contexts. See the
+[M1 local corpus qualification](../../reports/0123-M1_Local_Corpus_Qualification.md) and its
+[raw browser samples](../../reports/0123-M1_Local_Corpus_Browser.json).
 
 ### M2 — Remove replaced list code and close
 
@@ -164,12 +165,12 @@ workflow: proved in M0 with persisted selection, browser navigation, and backend
 proved independent history growth, invalid metadata, concurrent selection reads, and sub-second
 fresh-process, warm, and browser list medians on the frozen 58-recording local corpus. New
 persistent contracts/source writers: zero. Source owners changed for this milestone: the growth
-contract tests and the existing browser performance runner, which now records list endpoint
-timings. Existing selection files and transaction locator remain the authority. M0's removed
-history-growth contract remains replaced by the independent six-family read-boundary check.
+contract tests, local-corpus profile runner, browser visibility test, and existing browser
+performance runner. Existing selection files and transaction locator remain the authority. M0's
+removed history-growth contract remains replaced by the independent six-family read-boundary check.
 
 Run 2 of 3 authorized milestones: M0 and M1 complete; 1 run slot remains; 0 re-plannings; M0's
-correction family remains exhausted at 2/2; M1 corrections 0/2. Correction 1 rejects zero and
+correction family remains exhausted at 2/2; M1 corrections 1/2. Correction 1 rejects zero and
 negative selection revisions, matching
 `PipelineNodeSelectionStore`'s positive-revision rule. Correction 2 restores the valid revision-1
 saved-but-unselected case, and tests revision zero and a negative revision on separate content
@@ -181,9 +182,13 @@ M1 evidence: six history families each grew 10x without changing file opens, byt
 visits, or response bytes. Invalid root and selection metadata cases passed. Concurrent list reads
 observed only current exact pointers, no selection, or unavailable while the locator was pending.
 The 58-recording local corpus passed fresh-process API, warm API, and actual browser list timing in
-three sessions. Detailed corpus digest and timings are in the linked report. M1 corrections 0/2;
-re-plannings 0; no scope change. Next: M2 removes only unused list code, reruns affected checks, and
-closes. Stop if cleanup changes an active reader or any closure check fails.
+three sessions. Correction 1/2 replaces the initial browser workspace-navigation timing with a
+reproducible visible-row measurement. The browser test asserts all 58 links have visible CSS and
+nonzero bounds before timing ends. It records one list request and zero per-recording detail
+requests per page. The correction reused capture set 2, the same frozen corpus digest; capture set
+1 was the generated fixture. It did not change scope, architecture, dependencies, or the original
+outcome. Re-plannings 0. Next: M2 removes only unused list code, reruns affected checks, and closes.
+Stop if cleanup changes an active reader or any closure check fails.
 
 Scope review after M0 correction exhaustion: the real list, navigation, and restart workflow now
 works. The failed requirement was local selection metadata validation and preservation of its

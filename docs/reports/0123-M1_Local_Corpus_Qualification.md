@@ -1,7 +1,7 @@
 # 0123 M1: local corpus qualification
 
-Date: 2026-11-10  
-Reader source revision: `6fa028b6d12e300bdae74cc7fe2645855964d4f0`  
+Date: 2026-11-10
+Reader source revision: `7d58eb94a2fa7b9353fc44984f5bb1edd41d7bda`
 Local data worktree: `/Users/niklas.sparfeld/Developer/doko_detector` at
 `5cc4a0911ab0c9ff43cea5265c1530f7f043faf6`
 
@@ -12,7 +12,7 @@ existing exact-selection file. It does not cover video or process-history conten
 
 - 58 recordings.
 - 310 metadata and selection files, 214,150 bytes.
-- Corpus digest: `834c532851e12f44087044839ed7ca66c9bd2d6606d9181f7939f55d1e762ed8`.
+- Corpus digest: `628211c82ef16f731ba4c061800dfd704cd1265d94ac3b0daf9fe0fef3eca57d`.
 - The list response was 80,976 bytes in every sample. It reported 136 selected indicators and no
 unavailable metadata rows.
 
@@ -20,16 +20,36 @@ unavailable metadata rows.
 
 Each session used a fresh temporary runtime and copied exact-selection metadata. The production
 FastAPI route ran in ten fresh Uvicorn processes, then handled 30 warm HTTP requests. Chromium used
-ten fresh browser contexts against the production Vite app and FastAPI app. Thumbnail requests were
-aborted so the list timing excludes lazy thumbnail work, which the plan measures separately.
+ten fresh browser contexts against the production Vite app and FastAPI app. The browser timer starts
+before navigation to `/` and ends only when the DOM contains all 58 recording links and each link
+has visible CSS and nonzero bounds. The Playwright test asserts this count on every sample. It
+fulfills thumbnail requests with HTTP 204 so thumbnail generation is excluded; this is separate
+from the measured visible-row condition.
+
+The earlier `recordings_to_workspace` duration included navigation into the workspace. It is
+superseded and is not the browser list result below. The corrected result is reproducible with:
+
+```sh
+mise exec -- uv run --project backend python backend/scripts/profile_0123_local_corpus.py \
+  --recordings-root /Users/niklas.sparfeld/Developer/doko_detector/data/intake/recordings \
+  --selection-root /Users/niklas.sparfeld/Developer/doko_detector/data/operations/pipeline-nodes/.pipeline-node-selections \
+  --output docs/reports/0123-M1_Local_Corpus_Browser.json
+```
+
+The runner stores raw per-request browser samples and server logs beside the JSON result. Each
+browser sample made one `/v1/recordings` request and zero per-recording detail requests. Capture
+set 1 used the generated browser fixture during M1 development. Capture set 2 used the frozen
+58-recording corpus; this correction reran that same digest. No third capture set was added.
 
 | Session | Fresh-process API median | Warm API median | Browser list median | Browser max |
 | --- | ---: | ---: | ---: | ---: |
-| 1 | 20.887 ms | 17.015 ms | 204.855 ms | 516.168 ms |
-| 2 | 21.232 ms | 17.442 ms | 200.728 ms | 540.546 ms |
-| 3 | 20.624 ms | 17.341 ms | 211.080 ms | 479.429 ms |
+| 1 | 20.427 ms | 17.238 ms | 331.542 ms | 357.320 ms |
+| 2 | 20.694 ms | 17.534 ms | 329.830 ms | 357.838 ms |
+| 3 | 20.586 ms | 17.260 ms | 331.348 ms | 347.555 ms |
 
-All medians were below one second. The page showed all 58 recording rows in every browser sample.
+All medians were below one second. The explicit browser row-count and visibility assertion passed in
+all 30 samples. See the [raw local-corpus browser samples](0123-M1_Local_Corpus_Browser.json) and
+their accompanying `.artifacts` directory.
 
 ## Growth and concurrent selection checks
 
@@ -44,5 +64,6 @@ writer after the pending locator is published and confirms that the list returns
 all six indicators unavailable. Other rows report the old or new exact pointer, or no selection.
 This test is separate from the M0 restart workflow.
 
-No new authority or writer contract was added. The only profile code change records fresh-process
-and warm list endpoint samples in the existing real-browser performance runner.
+No new authority or writer contract was added. The profile runner uses the same local recording
+and selection roots as the API measurements. Its temporary runtime contains only copied selection
+metadata; it does not write to the local recording corpus.
