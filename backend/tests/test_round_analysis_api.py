@@ -53,7 +53,6 @@ def _backend(
     *,
     synchronous: bool = True,
     max_concurrent_requests: int = 4,
-    recording_catalog_test_activation: bool = False,
 ) -> tuple[TestClient, object]:
     app = create_test_app(
         Settings(
@@ -64,7 +63,6 @@ def _backend(
             gemini_max_concurrent_requests=max_concurrent_requests,
         ),
         run_round_analysis_synchronously=synchronous,
-        recording_catalog_test_activation=recording_catalog_test_activation,
     )
     _write_recording_bundle(app)
     return TestClient(app), app

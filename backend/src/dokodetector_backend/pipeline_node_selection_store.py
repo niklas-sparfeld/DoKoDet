@@ -64,11 +64,9 @@ class PipelineNodeSelectionStore:
         self,
         node_store: PipelineNodeStore,
         lineage_writer: PipelineLineageWriter | None = None,
-        catalog_index: Any | None = None,
     ) -> None:
         self.node_store = node_store
         self.lineage_writer = lineage_writer
-        self.catalog_index = catalog_index or node_store.catalog_index
         self.root = node_store.root / ".pipeline-node-selections"
         self._lock = RLock()
 
@@ -175,35 +173,7 @@ class PipelineNodeSelectionStore:
                 stored = self.get_exact(recording_id, content_type)
                 if stored is None:
                     raise PipelineStoreError("The updated exact node selection failed validation.")
-                self._publish_catalog_selection(stored)
                 return stored
-
-    def _publish_catalog_selection(self, selection: ExactNodeSelection) -> None:
-        if self.catalog_index is None:
-            return
-        selected = selection.selected_completed_reference or selection.selected_generated
-        self.catalog_index.publish_latest(
-            source_key=(f"pipeline-selection:{selection.recording_id}:{selection.content_type}"),
-            recording_id=selection.recording_id,
-            source_value={
-                "recording_id": selection.recording_id,
-                "content_type": selection.content_type,
-                "revision": selection.revision,
-                "selected_generated": selection.selected_generated,
-                "selected_completed_reference": selection.selected_completed_reference,
-            },
-            metadata_delta={
-                f"selection:{selection.content_type}": {
-                    "selected_generated": selection.selected_generated,
-                    "selected_completed_reference": selection.selected_completed_reference,
-                }
-            },
-            counter_delta=(
-                {"selected_table_observation": 1 if selected is not None else 0}
-                if selection.content_type == "table_observations"
-                else {}
-            ),
-        )
 
     def _validate_exact_pointer(
         self,

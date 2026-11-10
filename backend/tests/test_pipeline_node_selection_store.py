@@ -166,3 +166,35 @@ def test_exact_selection_identical_retry_is_idempotent(tmp_path: Path) -> None:
     )
     with pytest.raises(PipelineSelectionConflict):
         write()
+
+
+def test_standalone_selection_recovers_after_selection_boundary(tmp_path: Path) -> None:
+    nodes, selections = _store(tmp_path)
+    revision = nodes.create("event-node", "Events", "events", SOURCE, EVENTS, {})
+    pointer = {"node_id": "event-node", "revision_id": revision.revision_id}
+
+    def interrupt(boundary: str) -> None:
+        if boundary == "selection":
+            raise RuntimeError("interrupted")
+
+    nodes._after_durable_boundary = interrupt
+    with pytest.raises(RuntimeError, match="interrupted"):
+        selections.update_exact(
+            "recording-01",
+            "events",
+            expected_revision=0,
+            selected_generated=pointer,
+            selected_completed_reference=None,
+        )
+    reopened = PipelineNodeSelectionStore(PipelineNodeStore(tmp_path / "nodes"))
+    assert reopened.get_exact("recording-01", "events").selected_generated == pointer
+    assert (
+        reopened.update_exact(
+            "recording-01",
+            "events",
+            expected_revision=0,
+            selected_generated=pointer,
+            selected_completed_reference=None,
+        ).revision
+        == 1
+    )

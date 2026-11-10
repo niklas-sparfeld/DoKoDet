@@ -160,10 +160,9 @@ def _read_json(path: Path) -> dict[str, Any]:
 class PipelineNodeStore:
     """Persist validated node revisions with atomic publication and compare-and-swap."""
 
-    def __init__(self, root: Path | str, catalog_index: Any | None = None) -> None:
+    def __init__(self, root: Path | str) -> None:
         self.root = Path(root).expanduser().resolve()
         self._lock = RLock()
-        self.catalog_index = catalog_index
 
     def transaction_lock(self):
         """Serialize all node and selection publication for this storage root."""
@@ -330,19 +329,6 @@ class PipelineNodeStore:
                 publication_sequence=1,
             )
             RecordingHistoryStore(self.root.parent).publish(entry["recording_id"], item)
-            if self.catalog_index is not None:
-                self.catalog_index.publish_latest(
-                    source_key=f"pipeline-node:{node.node_id}",
-                    recording_id=entry["recording_id"],
-                    source_value={
-                        "node_id": node.node_id,
-                        "recording_id": entry["recording_id"],
-                        "content_type": node.content_type,
-                        "head_revision_id": node.head_revision_id,
-                    },
-                    metadata_delta={},
-                    counter_delta={f"pipeline_node:{node.content_type}": 1},
-                )
             self._after_durable_boundary("history_published")
         atomic_replace_json(
             path,

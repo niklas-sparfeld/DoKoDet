@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Request
@@ -211,15 +211,10 @@ def list_recordings(request: Request) -> RecordingListResponse:
 
     service: RoundAnalysisService = request.app.state.round_analysis_service
     entries = service.recording_catalog()
-    if not request.app.state.recording_catalog_test_activation:
-        pipeline_statuses = request.app.state.pipeline_workspace_service.get_statuses(
-            [entry.recording.recording_id for entry in entries],
-            analyses_by_recording={
-                entry.recording.recording_id: entry.analyses for entry in entries
-            },
-        )
-    else:
-        pipeline_statuses = _recording_catalog_statuses(request, entries)
+    pipeline_statuses = request.app.state.pipeline_workspace_service.get_statuses(
+        [entry.recording.recording_id for entry in entries],
+        analyses_by_recording={entry.recording.recording_id: entry.analyses for entry in entries},
+    )
     return RecordingListResponse(
         recordings=[
             RecordingSummary(
@@ -240,85 +235,6 @@ def list_recordings(request: Request) -> RecordingListResponse:
             for entry in entries
         ]
     )
-
-
-def _recording_catalog_statuses(request: Request, entries: list[Any]) -> dict[str, Any]:
-    """Read pipeline availability from the catalog in explicit disposable test runs."""
-    catalog_index = request.app.state.recording_catalog_index
-    pipeline_statuses = {}
-    node_stage_names = {
-        "events": ("events", "event-detection"),
-        "visible_cards": ("visible_cards", "visible-card-detection"),
-        "visual_identities": ("visual_identities", "visual-card-identity"),
-        "table_observations": ("table_observations", "observation-assembly"),
-    }
-    recording_ids = {entry.recording.recording_id for entry in entries}
-    runs_by_recording: dict[str, list[tuple[str, str]]] = {}
-    catalog_enabled = bool(request.app.state.recording_catalog_test_activation)
-    if not catalog_enabled:
-        run_statuses = request.app.state.pipeline_workspace_service._list_statuses_for_recordings(
-            recording_ids
-        )
-        for run in run_statuses:
-            runs_by_recording.setdefault(run.recording_id, []).append(
-                (run.processor_type, run.status)
-            )
-    for entry in entries:
-        recording_id = entry.recording.recording_id
-        catalog_row = catalog_index.read(recording_id)
-        counters = {} if catalog_row is None else catalog_row["counters"]
-        recording_runs = runs_by_recording.get(recording_id, ())
-
-        def has_run(
-            processor_type: str,
-            statuses: set[str],
-            counters: dict[str, int] = counters,
-            recording_runs: tuple[tuple[str, str], ...] = recording_runs,
-            catalog_enabled: bool = catalog_enabled,
-        ) -> bool:
-            if catalog_enabled:
-                return any(
-                    counters.get(f"processor_run:{processor_type}:{status}", 0) > 0
-                    for status in statuses
-                )
-            return any(
-                kind == processor_type and status in statuses for kind, status in recording_runs
-            )
-
-        stages = []
-        for key, (node_type, processor_type) in node_stage_names.items():
-            if has_run(processor_type, {"queued", "running"}):
-                state = "active-run"
-            elif counters.get(f"pipeline_node:{node_type}", 0):
-                state = "data-available"
-            elif has_run(processor_type, {"partial"}):
-                state = "partial"
-            elif has_run(processor_type, {"failed"}):
-                state = "failed"
-            else:
-                state = "video-only" if key == "events" else "empty"
-            stages.append({"key": key, "state": state})
-        analyses = entry.analyses
-        if has_run("round-analysis", {"queued", "running"}) or any(
-            item.state in {"queued", "analyzing_evidence", "reconstructing"} for item in analyses
-        ):
-            analysis_state = "active-run"
-        elif any(item.state == "complete" for item in analyses):
-            analysis_state = "complete"
-        elif any(item.state == "failed" for item in analyses):
-            analysis_state = "failed"
-        elif has_run("round-analysis", {"partial"}):
-            analysis_state = "partial"
-        elif has_run("round-analysis", {"failed"}):
-            analysis_state = "failed"
-        else:
-            analysis_state = "empty"
-        stages.append({"key": "round_analyses", "state": analysis_state})
-        pipeline_statuses[recording_id] = {
-            "schema_version": "recording-pipeline-status/v1",
-            "stages": stages,
-        }
-    return pipeline_statuses
 
 
 @router.get(

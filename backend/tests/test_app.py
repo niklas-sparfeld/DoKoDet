@@ -15,6 +15,19 @@ from dokodetector_backend.round_analysis_store import RoundAnalysisStore
 BACKEND_ROOT = Path(__file__).parents[1]
 
 
+def test_retired_catalog_pending_publication_blocks_start_without_deletion(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, DOKO_STORAGE_ROOT=tmp_path)
+    outbox = settings.operations_root / "recording-catalog" / "outbox"
+    outbox.mkdir(parents=True)
+    pending = outbox / "pending.json"
+    pending.write_text('{"pending": true}')
+    with pytest.raises(RuntimeError, match="retired recording catalog"):
+        create_test_app(settings)
+    assert pending.read_text() == '{"pending": true}'
+    pending.unlink()
+    create_test_app(settings)
+
+
 def test_health_routes_report_process_status() -> None:
     client = TestClient(create_test_app(Settings(_env_file=None)))
 

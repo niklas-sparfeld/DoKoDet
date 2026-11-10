@@ -7,6 +7,44 @@
   with retained pipeline, processor-run, or analysis history.
 - **Origin:** [0117 exit decision](../../reports/0117-Supersession_and_Exit.md).
 
+## Current disposition — source-authority feasibility
+
+On 2026-11-10 the user authorized catalog disposition only. The index rollout is
+superseded. The historical plan and handoff below record the original work and are not
+current instructions. M0–M2 remain accepted as historical results; M3 is unaccepted and
+M4–M7 are superseded, not complete. The original eight milestones and all correction
+counts remain in the handoff. This is a materially different approach, not another M3
+correction. Its disposition milestone has a maximum of two corrections; none have been
+used. The previous run is stopped; its 1/10 re-planning count is retained.
+
+The disposition removes the unused catalog projection, writer hooks, run intent and test
+route. It retains the source transaction journal for standalone and coordinated selection
+updates. Existing source stores remain authoritative. The backend refuses to start when
+a retired catalog outbox is nonempty or invalid; it preserves that evidence for source
+reconciliation. No catalog or other retained data is deleted. See the
+[disposition report](../../reports/0120-Catalog_Disposition.md).
+
+Proposed next work, not authorized by this disposition:
+
+1. Deliver and measure a real list workflow using source authority. Avoid full workspace
+   history construction when validated source metadata can establish availability; scan
+   analyses once, and bound the response to the list consumer. Preserve stage precedence,
+   exact blocker behavior, error handling, detail access and restart. Measure the hard
+   corpus and the 1x/10x growth fixture. This has a narrower guarantee than the outcome.
+2. Identify each remaining history-dependent read and prove one small source-owned summary
+   through real persistence, concurrent writes, interruption, restart and retained-data
+   initialization. Name its owner and transaction boundary before implementation.
+3. Only after that proof, specify the finite remaining source owners, rehearse retained-data
+   initialization, cut over and qualify independent growth counters, status and blocker
+   parity, restart, concurrency and comparable latency sessions.
+
+Stop if a small summary cannot cover the remaining owners without a broad multi-store
+transaction system. Report the measured improvement and request a decision; do not claim
+history-independent reads or move qualification to accommodate new prerequisites. The
+first production workflow is step 1. No later step is authorized yet.
+
+## Historical original plan (superseded)
+
 ## Fixed boundary
 
 Deliver only the recordings list, its API consumers, and required metadata publication. Preserve
@@ -159,7 +197,7 @@ workflows and local links. Close Complete only when structural gates and the lat
 A missed target ends in a bounded report with a named cause; do not add startup, queue or workspace
 redesign to this epic. Commit: qualification, board and closure move.
 
-## Execution handoff
+## Historical execution handoff
 
 Original outcome: make `/recordings` metadata reads independent of retained pipeline, processor-run,
 and analysis history. Non-goals: recording HEAD selection authority, queue/scheduler/workspace

@@ -339,7 +339,6 @@ class PipelineNodeTransactions:
                     != update["selected_completed_reference"]
                 ):
                     raise PipelineSelectionConflict("selection changed during coordinated recovery")
-                selections._publish_catalog_selection(current)
                 continue
             if actual != update["expected_revision"]:
                 raise PipelineSelectionConflict("selection changed during coordinated recovery")

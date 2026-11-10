@@ -51,7 +51,6 @@ from dokodetector_backend.recording_bundle_store import (
     RecordingBundleStore,
     StoredRecordingBundle,
 )
-from dokodetector_backend.recording_catalog_index import RecordingCatalogIndex
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.round_analysis_contract import (
     AnalysisRoundContext,
@@ -146,7 +145,6 @@ class RoundAnalysisService:
         analyzer: TableEvidenceAnalyzer,
         pipeline_selection_store: PipelineNodeSelectionStore | None = None,
         pipeline_lineage_writer: Any | None = None,
-        catalog_index: RecordingCatalogIndex | None = None,
     ) -> None:
         self.store = store
         self.package_store = package_store
@@ -158,8 +156,6 @@ class RoundAnalysisService:
         self.repository_bundle_storage = repository_bundle_storage
         self.pipeline_selection_store = pipeline_selection_store
         self.pipeline_lineage_writer = pipeline_lineage_writer
-        self.catalog_index = catalog_index
-        self.catalog_enabled = False
         self.analyzer_runner = AnalyzerRunner(
             package_store,
             analyzer,
@@ -269,26 +265,8 @@ class RoundAnalysisService:
             analyses = self.store.list_by_recording(recording.recording_id)
             try:
                 _, _, round_id = self._analysis_identifiers(recording)
-                catalog_row = (
-                    self.catalog_index.read(recording.recording_id)
-                    if self.catalog_enabled and self.catalog_index is not None
-                    else None
-                )
-                selected = (
-                    None
-                    if catalog_row is None
-                    else catalog_row["metadata"].get("selection:table_observations")
-                )
-                has_pipeline_revision = (
-                    self._has_selected_table_observation_ref(recording.recording_id)
-                    if not self.catalog_enabled or self.catalog_index is None
-                    else bool(
-                        selected
-                        and (
-                            selected.get("selected_completed_reference")
-                            or selected.get("selected_generated")
-                        )
-                    )
+                has_pipeline_revision = self._has_selected_table_observation_ref(
+                    recording.recording_id
                 )
                 blocker = (
                     None

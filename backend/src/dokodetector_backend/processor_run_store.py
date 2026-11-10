@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from collections.abc import Mapping
 from dataclasses import replace
@@ -52,9 +51,8 @@ from dokodetector_backend.processor_run_codec import (
     read_item_file,
     write_item_file,
 )
-from dokodetector_backend.processor_run_models import ProcessorRunStatus, StoredProcessorRun
+from dokodetector_backend.processor_run_models import StoredProcessorRun
 from dokodetector_backend.processor_run_reader import ProcessorRunReader
-from dokodetector_backend.recording_catalog_index import RecordingCatalogIndex
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,12 +65,10 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         storage: PipelineRuntimeStorage | Path | str,
         *,
         lineage_writer: Any | None = None,
-        catalog_index: RecordingCatalogIndex | None = None,
     ) -> None:
         self.storage = _storage(storage)
         self.root = self.storage.runs_root
         self.lineage_writer = lineage_writer
-        self.catalog_index = catalog_index
         self._lock = RLock()
 
     def run_path(self, run_id: str) -> Path:
@@ -157,11 +153,9 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         state_bytes = _canonical_split_state_bytes(state, ())
         destination = self.run_path(parsed_request.run_id)
         with _process_lock(self.root / f".{parsed_request.run_id}.lock", self._lock):
-            self._recover_run_catalog_intent_locked(parsed_request.run_id)
             if destination.exists() or destination.is_symlink():
                 existing = self._existing_or_error(destination)
                 if canonical_processor_run_request_bytes(existing.request) == request_bytes:
-                    self._publish_run_status(existing.request, existing.state)
                     if self.lineage_writer is not None:
                         self.lineage_writer.accept_processor(existing.request, existing.state)
                     return existing, False
@@ -169,12 +163,6 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
                     "The run ID is already stored with different request content."
                 )
             try:
-                intent = self._prepare_run_catalog_intent(
-                    parsed_request,
-                    state,
-                    old_state_digest=None,
-                    target_state_bytes=state_bytes,
-                )
                 with staging_directory(self.root, prefix=f".{parsed_request.run_id}-") as staging:
                     (staging / "items").mkdir()
                     atomic_replace_json(
@@ -195,7 +183,6 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
                         validate=lambda path: self._read_path(path, require_canonical_name=False),
                     )
             except FileExistsError as error:
-                self._recover_run_catalog_intent_locked(parsed_request.run_id)
                 existing = self._existing_or_error(destination)
                 if canonical_processor_run_request_bytes(existing.request) == request_bytes:
                     return existing, False
@@ -207,10 +194,6 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
             stored = self.get(parsed_request.run_id)
             if stored is None:
                 raise PipelineStoreError("The created processor run failed validation.")
-            if intent:
-                self._finalize_run_catalog_intent(parsed_request.run_id, state_bytes)
-            else:
-                self._publish_run_status(stored.request, stored.state)
             if self.lineage_writer is not None:
                 self.lineage_writer.accept_processor(stored.request, stored.state)
             return stored, True
@@ -231,7 +214,6 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         if parsed_state.run_id != run_id:
             raise PipelineStateError("run state ID differs from the requested run")
         with _process_lock(self.root / f".{_safe_id(run_id, 'run_id')}.lock", self._lock):
-            self._recover_run_catalog_intent_locked(run_id)
             current = self.require(run_id)
             self._validate_transition(current.state, parsed_state)
             self._validate_output_revisions(current.request, parsed_state)
@@ -242,41 +224,24 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
                 current.state.updated_at
             ):
                 raise PipelineStateError("run updated_at cannot go backwards")
-            old_state_bytes = self.state_path(run_id).read_bytes()
-            split_layout = self.items_path(run_id).is_dir()
-            if split_layout:
+            if self.items_path(run_id).is_dir():
                 current_items = {item.item_id: item for item in current.state.items}
+                self._write_changed_items(run_id, current_items, parsed_state.items)
                 payload = _canonical_split_state_bytes(
                     parsed_state, tuple(item.item_id for item in parsed_state.items)
                 )
+                atomic_replace_json(
+                    self.state_path(run_id),
+                    payload,
+                    validate=lambda raw: self._validate_state_bytes(raw, run_id),
+                )
             else:
-                current_items = {}
                 payload = canonical_processor_run_state_bytes(parsed_state)
-            intent = False
-            if current.state.status != parsed_state.status:
-                intent = self._prepare_run_catalog_intent(
-                    current.request,
-                    parsed_state,
-                    old_state_digest=hashlib.sha256(old_state_bytes).hexdigest(),
-                    target_state_bytes=payload,
-                )
-            if split_layout:
-                self._write_changed_items(run_id, current_items, parsed_state.items)
                 atomic_replace_json(
                     self.state_path(run_id),
                     payload,
                     validate=lambda raw: self._validate_state_bytes(raw, run_id),
                 )
-            else:
-                atomic_replace_json(
-                    self.state_path(run_id),
-                    payload,
-                    validate=lambda raw: self._validate_state_bytes(raw, run_id),
-                )
-            if intent:
-                self._finalize_run_catalog_intent(run_id, payload)
-            else:
-                self._publish_run_status(current.request, parsed_state)
             stored = StoredProcessorRun(request=current.request, state=parsed_state)
             if self.lineage_writer is not None:
                 if parsed_state.status in {"complete", "partial", "failed"}:
@@ -451,7 +416,6 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         timestamp = _canonical_timestamp(updated_at)
         safe_run_id = _safe_id(run_id, "run_id")
         with _process_lock(self.root / f".{safe_run_id}.lock", self._lock):
-            self._recover_run_catalog_intent_locked(run_id)
             path = self.run_path(run_id)
             if not self.items_path(run_id).is_dir():
                 current = self.require(run_id)
@@ -469,10 +433,9 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
                     canonical_processor_run_state_bytes(next_state),
                     validate=lambda raw: self._validate_state_bytes(raw, run_id),
                 )
-                self._publish_run_status(current.request, next_state)
                 return
 
-            request, current_state, item_ids = self._read_split_metadata(path)
+            _, current_state, item_ids = self._read_split_metadata(path)
             if current_state.status != "running":
                 raise PipelineStateError("only running runs can receive progress")
             if _timestamp_value(timestamp) < _timestamp_value(current_state.updated_at):
@@ -496,7 +459,6 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
                 _canonical_split_state_bytes(next_state, next_item_ids),
                 validate=lambda raw: self._validate_state_bytes(raw, run_id),
             )
-            self._publish_run_status(request, next_state)
 
     def fail_non_terminal(
         self,
@@ -523,127 +485,6 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
             except (OSError, TypeError, UnicodeError, ValueError, PipelineStoreError) as error:
                 self._log_invalid(self.run_path(status.run_id), error)
         return failed
-
-    def recover_catalog_publications(self) -> int:
-        """Reconcile only exact processor runs named by pending catalog intents."""
-        if self.catalog_index is None:
-            return 0
-        intents = self.catalog_index.pending_processor_runs()
-        for intent in intents:
-            self._recover_run_catalog_intent(intent["run_id"])
-        return len(intents)
-
-    def _recover_run_catalog_intent(self, run_id: str) -> None:
-        with _process_lock(self.root / f".{_safe_id(run_id, 'run_id')}.lock", self._lock):
-            self._recover_run_catalog_intent_locked(run_id)
-
-    def _recover_run_catalog_intent_locked(self, run_id: str) -> None:
-        if self.catalog_index is None:
-            return
-        source_key = f"processor-run:{run_id}"
-        pending = self.catalog_index.pending_processor_publication(source_key)
-        if pending is None:
-            return
-        path = self.run_path(run_id)
-        expected_source = (
-            pending
-            if pending["schema_version"] == "recording-catalog-run-intent/v1"
-            else pending["source"]["value"]
-        )
-        if path.exists() and not path.is_symlink() and (path / "state.json").is_file():
-            status = self._read_status(path)
-            state_digest = hashlib.sha256((path / "state.json").read_bytes()).hexdigest()
-            if (
-                status.run_id != run_id
-                or status.recording_id != expected_source["recording_id"]
-                or status.processor_type != expected_source["processor_type"]
-            ):
-                raise PipelineStoreError("pending processor-run identity does not match its source")
-        else:
-            status = None
-            state_digest = None
-        if pending["schema_version"] == "recording-catalog-outbox/v1":
-            if status is None or pending["source"]["value"] != self._status_catalog_value(status):
-                raise PipelineStoreError(
-                    "pending processor-run publication does not match its source state"
-                )
-            self.catalog_index.recover_processor_run_publication(
-                source_key,
-                source_value=self._status_catalog_value(status),
-            )
-        elif state_digest == pending["target_state_digest"]:
-            if status is None or status.status != pending["status"]:
-                raise PipelineStoreError("pending processor-run target status does not match")
-            self.catalog_index.finalize_processor_run(
-                source_key, observed_state_digest=state_digest
-            )
-        elif state_digest == pending["old_state_digest"]:
-            self.catalog_index.cancel_processor_run(source_key, observed_state_digest=state_digest)
-        else:
-            raise PipelineStoreError("pending processor-run state matches neither commit digest")
-
-    def _prepare_run_catalog_intent(
-        self,
-        request: ProcessorRunRequest,
-        state: ProcessorRunState,
-        *,
-        old_state_digest: str | None,
-        target_state_bytes: bytes,
-    ) -> bool:
-        if self.catalog_index is None:
-            return False
-        self.catalog_index.prepare_processor_run(
-            run_id=request.run_id,
-            recording_id=request.source.recording_id,
-            processor_type=request.processor_type,
-            status=state.status,
-            old_state_digest=old_state_digest,
-            target_state_digest=hashlib.sha256(target_state_bytes).hexdigest(),
-        )
-        return True
-
-    def _finalize_run_catalog_intent(self, run_id: str, state_bytes: bytes) -> None:
-        if self.catalog_index is not None:
-            self.catalog_index.finalize_processor_run(
-                f"processor-run:{run_id}",
-                observed_state_digest=hashlib.sha256(state_bytes).hexdigest(),
-            )
-
-    def _publish_run_status(
-        self,
-        request: ProcessorRunRequest,
-        state: ProcessorRunState,
-    ) -> None:
-        if self.catalog_index is None:
-            return
-        self.catalog_index.publish_latest(
-            source_key=f"processor-run:{request.run_id}",
-            recording_id=request.source.recording_id,
-            source_value=self._run_catalog_value(request, state),
-            metadata_delta={},
-            counter_delta={f"processor_run:{request.processor_type}:{state.status}": 1},
-        )
-
-    @staticmethod
-    def _run_catalog_value(
-        request: ProcessorRunRequest,
-        state: ProcessorRunState,
-    ) -> dict[str, str]:
-        return {
-            "run_id": request.run_id,
-            "recording_id": request.source.recording_id,
-            "processor_type": request.processor_type,
-            "status": state.status,
-        }
-
-    @staticmethod
-    def _status_catalog_value(status: ProcessorRunStatus) -> dict[str, str]:
-        return {
-            "run_id": status.run_id,
-            "recording_id": status.recording_id,
-            "processor_type": status.processor_type,
-            "status": status.status,
-        }
 
     def state_path(self, run_id: str) -> Path:
         return self.run_path(run_id) / "state.json"
