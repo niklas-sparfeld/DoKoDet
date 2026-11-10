@@ -140,8 +140,10 @@ consolidation; it does not block recording/event cutover.
 Git history supplies additional recovery and change evidence. Runtime resources still need explicit
 version references and readable provenance in the checked-out data. Verify actual recovery inputs
 rather than assuming every source byte or ignored path is in Git. The revised
-[0124](plans/2-ready/0124-Recording_Folders_and_Events.md) separates output provenance, retained
-rehearsal, and activation/qualification into M3–M5. This replaces its historical-run migration gate.
+[0124](plans/2-ready/0124-Recording_Folders_and_Events.md) delivers normal app use on a retained recording in M3, extends it to retained recordings in M4,
+and removes replaced paths and qualifies in M5. Provenance changes serve that workflow; universal
+execution-history independence and job consolidation are deferred. The next proof must work in
+the normal app on an activated pilot, not only on an isolated editor or test backend.
 
 ## Recordings list contract
 

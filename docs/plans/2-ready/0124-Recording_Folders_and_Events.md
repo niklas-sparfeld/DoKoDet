@@ -2,7 +2,7 @@
 
 - **Status:** Ready
 - **Depends on:** None. Epic 0123 is closed, which stabilizes the list API before its source layout changes.
-- **Outcome:** Import a recording, create/select/edit alternative event sets, and reopen them from a simple recording folder.
+- **Outcome:** Use the normal app to open a retained recording, inspect/edit/select events, run visible-card detection, and reopen the saved result from simple recording resources.
 - **Origin:** [Recording data storage](../../RecordingDataStorage.md).
 
 ## Problem and success
@@ -64,9 +64,9 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | M0 | Concrete recording-root contract; import/list/media-open/restart from one new recording folder | Complete |
 | M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives under one event-selection authority | Complete |
 | M2 | Review and the named exact-input consumers use event resources | Complete |
-| M3 | Saved event versions and event-derived outputs expose direct parents and producer facts without execution history | Not started |
-| M4 | Retained recording/event/review conversion rehearsed with complete output provenance and recovery evidence | Not started |
-| M5 | Activate verified conversion, remove replaced event paths, and qualify the complete workflow | Not started |
+| M3 | Normal app workflow works on one retained recording: open media, edit/select events, run detection, reopen result | Not started |
+| M4 | Extend the proved workflow to the retained recording/event corpus through rehearsed conversion | Not started |
+| M5 | Remove obsolete event runtime paths and qualify the usable app on activated data | Not started |
 
 ### Next assignment after dependency closure
 
@@ -276,92 +276,131 @@ and retention. It is not a dependency of event cutover. Existing job/processor a
 to execute work during 0124. No historical-run resolver or migration of all lineage attempts is
 required for 0124 closure. Do not delete operational records in this epic.
 
-### M3 assignment — output provenance independent of run history
+### Usability-first scope decision — 2026-11-10
 
-Observable result: produce an event set, edit it, select it, run a stubbed detector, and open the
-saved event and detector result after restart with job, processor-run, and lineage-run history
-unavailable for data reads. Active job recovery remains a separate operational concern. The normal
-browser can inspect saved content and its parent choices under this condition; optional job detail
-may report unavailable history. Keep queued/running job status when the job service is available.
+The user clarified the overriding goals: simplify the domain model and use the app again. The
+preceding replan put infrastructure ahead of that outcome. It is superseded by this assignment
+sequence. M0–M2 remain accepted at their recorded boundaries; their isolated editor/API tests do
+not prove that the normal app works on retained recordings. Do not report the whole app as usable
+from those tests.
 
-Evidence for this prerequisite: `EventPipelineService._save_event_set` currently saves only source
-identity/digest and run ID. `EventSetStore.save` accepts an untyped provenance object. The workspace
-uses `_lineage_runs_by_output` and `_run_summary` to reconstruct input/output relationships.
-`DataRevision` already has input revision IDs and producer metadata, and M2 already preserves exact
-event-set inputs. Extend those existing owners instead of adding a run ledger or generic graph.
+Keep three remaining milestones, but make M3 deliver the complete user workflow on a real retained
+recording. M4 extends that proof to the retained corpus; M5 removes replaced paths and closes.
+Qualification starts with M3's pilot, rather than waiting until the final milestone. General
+execution-history independence and job-store consolidation are deferred to 0129. The output-owned
+provenance model remains the direction; only facts needed to read and use saved outputs belong in
+this dependency chain. Do not require universal provenance hardening before restoring the app.
 
-Finite owners: `event_set_store.py`, `event_sets_api.py`, `event_pipeline_service.py`,
-`pipeline_lineage_writer.py` output publication only, `pipeline_workspace_service.py`,
-`pipeline_workspace_api.py`, `visible_card_pipeline_service.py` output metadata,
-`operations/src/doko_operations/pipeline_data.py`, the event editor and concrete workspace clients.
-Inspect `observation_pipeline_service.py` and `round_analysis_service.py` only to verify M2's exact
-input boundary. Do not replace their storage formats.
+The smaller approach uses the existing recording/event stores and Job Manager. Connect them through
+the normal workspace, convert one retained recording with recovery evidence, and remove the
+superseded event path for that recording. New authority, transaction, generic resolver, or scheduler
+work is not planned. For every proposed prerequisite, identify the exact failed user action and
+why a local change to an existing owner cannot fix it. Stop after two attempts without progress
+and perform scope review; do not expand into another infrastructure program.
 
-Freeze the concrete provenance fields before implementation: exact direct parent resource/version
-and digest with role; exact source media identity/digest; processor type, implementation version,
-model identity/weights digest when available, configuration, and extraction policies that affect
-content. A manual edit records its exact base version and actor. A diagnostic job/run ID is optional
-and cannot be the only owner of these facts. Keep unavailable historical facts explicit. Do not
-invent processor versions or infer parents by time. Evolve the existing event-set and output
-metadata contracts; introduce no new persistent store or transaction contract.
+### M3 assignment — restore the normal app workflow
 
-Checks: real persisted API plus browser workflow with execution-history reads forbidden after
-completion/restart, exact parent content still readable after a later event edit and selection,
-producer/configuration facts available, explicit missing-history UI, active-run regression, M0–M2
-and 0123 list-growth checks, affected API/static/web checks. One focused commit contains the contract,
-finite adapters, tests, and plan/board updates. Stop if opening saved data requires scheduler changes,
-a generic resolver, or another resource-format conversion. Report the exact remaining dependency.
+Observable result: from the normal recordings list, open `cardeventnet-IMG_0662`, play its video,
+inspect existing events, save and select a corrected alternative, launch visible-card detection
+using that exact alternative, inspect the saved detector result, restart the backend, and reopen
+both the result and its exact event input. Browse the unselected event alternative. The list,
+workspace, editor and launch controls must agree on the selection. No hand-authored API requests,
+manual JSON edits, special test-only page, or shell launch can substitute for these user actions.
+The existing editor route is allowed when linked from and returned to the normal workspace.
 
-### M4 assignment — retained conversion rehearsal
+Pilot evidence: the main worktree has this recording's `repository-bundle/v1` and `source-record/v1`
+metadata at `data/intake/recordings/cardeventnet-IMG_0662/`. This check confirms source identity, not
+media health or complete runtime compatibility. Start implementation by reproducing the workflow
+failure and inspecting that recording's media, events, reviews and exact downstream dependencies.
+Freeze the pilot input paths/digests and recovery location before conversion. If another recording
+is needed, record the concrete input defect and choose one named existing replacement; do not
+convert the corpus merely to find a runnable example.
 
-Observable result: a frozen disposable copy of the retained recording/event/review corpus opens,
-edits, reviews, selects, and resolves direct parents with operational history unavailable. No live
-activation in this milestone. One offline conversion adapter owns its manifest and exact mapping;
-it is conversion evidence, not a permanent runtime resolver.
+Finite owners: `recording_folder_store.py`, `event_set_store.py`, `event_sets_api.py`,
+`recordings_api.py`, `repository_bundle_api.py`, `event_pipeline_service.py` source/output adapters,
+`pipeline_stage_api.py` event selection, `pipeline_workspace_service.py`,
+`pipeline_workspace_api.py`, `visible_card_pipeline_service.py`, `visible_card_jobs.py`,
+`pipeline_lineage_writer.py` output publication, and the concrete workspace/editor/visible-card
+launch components and clients already changed by M1/M2. A concrete offline pilot conversion adapter
+may stage existing recording/event/review contracts; no new runtime store or transaction contract.
+Inspect shared `pipeline_data.py` validation only for a demonstrated pilot input mismatch.
 
-Finite owners: a concrete retained-event conversion module and tests, `recording_folder_store.py`,
-`event_set_store.py`, and the M3 output provenance adapters. Read-only source owners include bundle
-manifests, event nodes/revisions, both event selectors, event reviews and unfinished work, output
-metadata, and named processor/lineage requests where they contain unique producer or parent facts.
-Inventory retained outputs that directly reference events, not just run input entries. Preserve all
-retained event alternatives and required exact versions, including unselected ones.
+Implementation boundary: adapt these owners to use one recording root and explicit event selection.
+Save direct event-parent identity/version/digest on the detector output and the exact base on an
+event edit; copy necessary processor/model/configuration facts with the output. Use existing fields
+where possible. A job/run link is diagnostic. Do not rebuild all historical execution ancestry or
+require all run stores to disappear. For the selected saved result, parent choice must come from
+output metadata rather than whichever run record happens to exist. Historical facts that cannot
+be recovered remain explicit. Preserve the pilot's source bytes, human reviews and alternatives,
+and original saved inputs. Rehearse conversion in disposable storage, verify usability, then
+activate only the verified pilot with recovery evidence so the user's normal local app can use it.
+Do not leave the only successful workflow in a test server.
 
-Before conversion, freeze named schemas, hashes, selections and review inputs. Compare selectors;
-report actual conflicting choices instead of selecting by timestamp. Map exact event inputs into
-new resource references on converted output metadata. Preserve existing content bytes and original
-saved revisions; stage converted metadata with verified identity mappings rather than silently
-rewriting old immutable content. Extract missing provenance from execution records only during this
-offline step. Missing parents/facts remain explicit and must not become invented usable lineage.
-Specify the finite affected output metadata paths before assignment; if a new content-format
-conversion is necessary, perform scope review before implementation.
+Required checks: one automated normal-browser workflow against a real persisted backend on a
+representative disposable pilot copy, including edit/select/launch/result/restart/reopen and exact
+parent inspection after later selection changes. A deterministic detector stub proves plumbing;
+it does not prove a real provider works. Also perform one bounded local app smoke check on the
+activated pilot with an already configured available detector. Record provider, result and limit;
+if the provider is unavailable, report that exact user-facing gap and do not claim the whole
+workflow is ready. No training, new model acquisition or phone is required. Verify media playback,
+durable content, source digests and retained review facts. Retain M0–M2 regression boundaries,
+active-job priority, stale-selection conflict, and 0123 list-growth checks. Run affected static,
+API, web and link checks. One focused implementation/pilot-evidence/plan commit.
 
-Checks: source digests, event contents, coverage, completed and unfinished independent reviews,
-generated/reference choices, direct parent content and producer facts for every retained affected
-output; real API edit/restart and historical-input reads with old event and execution-history reads
-forbidden. Verify conversion replay/conflict behavior and recovery snapshot. Rehearse the full
-closure workflow in disposable storage. One focused conversion/evidence commit. File counts alone
-cannot pass. Stop on unresolvable parent identity, selector disagreement, or unsupported review work;
-record exact exclusions without dropping a valid acceptance criterion.
+The receipt must give the normal app route, recording, working steps, provider used and any
+remaining limitation. Record simplification evidence: which duplicate event authority/read/write
+path was removed from the pilot and which concrete resource now owns it. New file counts or passing
+test counts alone are not success. Stop before a second storage/transaction contract, unrelated
+format conversion, or a new prerequisite without a failing user action. Do not postpone this
+workflow proof into M4.
 
-### M5 assignment — activation and final qualification
+### M4 assignment — extend the working flow to retained recordings
 
-Observable result: activate the rehearsed frozen conversion, remove replaced event runtime paths,
-and prove the original user workflow on the activated snapshot. No new storage contract.
+Observable result: the normal app lists and opens the retained recording/event corpus through the
+same path proved in M3. This is a rollout of a working flow, not an architecture discovery phase.
+Specify exact schemas and finite affected paths after the pilot passes, before assignment.
 
-Owners: the M4 converter, event branches in the original finite source-owner list, and its concrete
-API/UI clients. Verify the activation source still matches the frozen input manifest; retain and
-verify recovery evidence before switching authority. Remove event-node publication, selection and
-content-read paths for converted recordings. Unrelated resource types retain existing authority.
-Historical jobs can remain diagnostic records; runtime data reads must not use them to recover
-parents. Do not make job-history cleanup or replay of old failed runs a closure condition.
+Owners: M3's concrete converter, recording/event stores and their source/selection adapters.
+Read-only discovery covers retained bundle manifests, event alternatives and exact revisions,
+both event selectors, independent completed/unfinished review records, and retained outputs with
+direct event parents. Execution records are optional offline sources for unique missing parent or
+producer facts; their 281 input entries are not migration targets by default. Do not convert other
+resource formats. Use the actual retained-output dependencies to set the conversion boundary.
 
-Qualification includes source import, two alternatives, normal event producer and human edit,
-selection/review, exact earlier stubbed detector input after later edits, restart, unselected
-alternative browse, and browser/API saved-data inspection without old event or execution-history
-reads. Run interrupted version-save and HEAD-replacement tests, stale-version conflict, independent
-concurrent readers/writers, and 0123 no-history-growth regression. Run affected backend/web/static,
-generated API and Markdown-link checks. Record revision and data snapshot; resolve failures in
-scope. Close 0124 only when all checks pass; move it and repair links in the milestone commit.
+Freeze named inputs and recovery evidence. Rehearse conversion in disposable storage; compare source
+bytes, usable event content, exact required versions, selection, reviews and unfinished work.
+Verify saved outputs resolve their direct event parents after restart. Resolve selector disagreement
+from evidence, never by newest timestamp. Missing dependencies remain explicit and visible. Do not
+silently discard human work or turn a missing exact input into a usable result. Activate verified
+batches only after checking the frozen sources still match; keep the working pilot available.
+
+Checks: replay/conflict-safe conversion, content and review comparisons, normal browser open/edit/
+select/reopen on representative generated, corrected and reviewed recordings, exact earlier input
+read after a later edit, and M3's workflow regressions. Record all corpus exceptions and which
+actually prevent use. Stop before another resource conversion or generic historical resolver.
+One focused conversion/evidence/plan commit. Job-history migration and deletion stay deferred.
+
+### M5 assignment — remove replaced paths and close
+
+Observable result: the app keeps the M3/M4 workflows working on activated data, and the replaced
+event runtime path is removed. No new storage or transaction contract. Freeze exact removal owners
+from the pilot and rollout receipts before assignment; use the original finite event owners and
+concrete clients, not a broad repository cleanup.
+
+Remove duplicate event publication, selection and content reads now served by recording/event
+resources. Keep unrelated resource authorities and operational job adapters. Archived old files
+may remain as recovery/history evidence without a runtime compatibility path. Do not migrate or
+remove jobs just to make the architecture look complete. Describe the final ownership and actual
+removed runtime paths in the report; a new abstraction layered over all old ones is not closure.
+
+Qualify source import, normal event production and human editing under the same content contract,
+two alternatives, selection/review, detector launch and saved result, exact older input after edit,
+backend restart and unselected browse through the normal browser. Old event-node reads/writes must
+be disabled for this workflow. Test interrupted version save, interrupted HEAD replacement, stale
+version, separate concurrent readers/writers, active-job status and 0123 list growth. Run affected
+backend/web/static/generated/link checks against named code/data revisions. Verify the activated
+pilot still works with the available real detector and retain recovery evidence. Close 0124 only
+when these checks pass; move the epic, repair links, and commit implementation and evidence together.
 
 ## M0 recording-root contract
 
@@ -401,21 +440,23 @@ owns that follow-up; it does not block M0.
 
 Original outcome: import a recording, create/select/edit alternative event sets, and reopen them
 from a simple recording folder. Non-goals remain other resource conversions, scheduler work, and
-cross-store transactions. Final closure check remains the disposable retained-data rehearsal and
-event-only old-path cutover in M3.
+cross-store transactions. Final closure check is the normal app workflow, retained rollout and removal of replaced event paths in M5.
 
 Original baseline: four milestones. Original M3 stopped before implementation; no retained data
 changed. User-selected baseline on 2026-11-10: six milestones, M0–M2 complete, M3–M5 not started.
 The original loop ended at its scope gate after three accepted milestones. This request authorizes
 planning only; a later implementation command selects the next run and its limit. First recording
 workflow was proved in M0 and event workflow in M1. M2 proves review and exact consumer inputs.
-Next proof is M3 saved output inspection without execution history. Final qualification is M5.
+Next proof is M3 normal-app use on the retained pilot, including bounded activation and an available
+real detector smoke check. M4 rolls out that working flow; M5 completes removal and qualification.
 
 Correction history: M0 1/2; M1 2/2 and one replan; M2 2/2 and zero replans. Those exhausted
-allowances remain exhausted. Original M3 family: zero implementation attempts, replan 1/5. Previous
-run history: replan 2/10 including this user-requested scope revision. New assignments do not renew
-M1/M2 correction turns. Last scope decision: output-owned provenance replaces a historical-run
-resolver or blanket lineage migration. Separate 0129 is independent, not a new prerequisite.
+allowances remain exhausted. Original M3 family: zero implementation attempts, replan 2/5. Previous
+run history: replan 3/10 including the provenance and usability scope revisions. New assignments do not renew
+M1/M2 correction turns. Last scope decision: restore the normal app workflow first; deliver simplification through that
+workflow. Output-owned provenance replaces blanket historical-run migration only where the working
+flow needs it. Universal history independence and job consolidation are deferred to 0129; it is not
+a prerequisite. The preceding provenance-first M3 assignment is superseded, not complete.
 Stop before expanding to another resource conversion, scheduler replacement, or generic resolver.
 
 M2 contract detail: store `event-review/v1` under

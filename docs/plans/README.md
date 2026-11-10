@@ -40,7 +40,7 @@ workspace UI browser failures reproduce on baseline `adfca187`; the follow-up is
 epic. No new ledger, index, outbox, or producer protocol.
 
 Then select each resource epic separately: **0124 recording folders/events → 0125 detections →
-0126 virtual scenes → 0127 classifications → 0128 table observations**. 0124 now has six milestones after the user-selected provenance replan: M0–M2 complete, M3–M5 remain.
+0126 virtual scenes → 0127 classifications → 0128 table observations**. 0124 now has six milestones after the user-selected usability replan: M0–M2 complete, M3–M5 remain.
 0125–0128 each retain four milestones and their own cutover/qualification in M3. Later assignments
 are specified after the preceding workflow proves the approach. Original planning baseline: 23
 milestones across six epics; revised baseline: 25. These are independently selected epics, not one
@@ -122,13 +122,13 @@ The shared target architecture is
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [0044 — Productive local identity model operations](1-backlog/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. Defer campaign UI, promotion, and rollback until current corpus and model work have been exercised. 0088 found no quality-qualified candidate; no promotion recommendation or new training belongs here. |
 
-| [0129 — Execution history in jobs](1-backlog/0129-Execution_History_in_Jobs.md) | Event output provenance proof before removing duplicate execution records; not a dependency of 0124 | Event execution through existing job history, recovery and result links; no blanket historical-run migration or deletion. M0–M2 not started. |
+| [0129 — Execution history in jobs](1-backlog/0129-Execution_History_in_Jobs.md) | Deferred; not a dependency of 0124 | Consolidate event execution history only after the normal app workflow is usable and duplicate state causes a concrete problem. M0–M2 deferred; no automatic continuation. |
 
 ### Ready
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0124 — Recording folders and events](2-ready/0124-Recording_Folders_and_Events.md) | None | M0–M2 complete. Replanned M3 output-owned provenance, M4 retained rehearsal, M5 activation and qualification. Historical runs are not migration targets by default. |
+| [0124 — Recording folders and events](2-ready/0124-Recording_Folders_and_Events.md) | None | M0–M2 complete. M3 restores normal app use on IMG_0662, including event edit/select and detector result reopen. M4 retained rollout; M5 removes replaced paths and qualifies. No job-consolidation prerequisite. |
 
 ### In Progress
 

@@ -1,7 +1,7 @@
 # Execution history in jobs
 
 - **Status:** Backlog
-- **Depends on:** None for specification. Implementation must verify output-owned provenance on its selected processor path before removing execution records; 0124 M3 is the planned event-path proof.
+- **Depends on:** No delivery prerequisite for 0124. Deferred until the normal app workflow is usable and a concrete duplicate-state problem justifies this work.
 - **Outcome:** Inspect and recover an event-processing execution through the existing Job Manager, with one operational execution history and independently readable saved results.
 - **Origin:** User discussion on 2026-11-10; [recording storage decision](../../RecordingDataStorage.md).
 
@@ -36,16 +36,25 @@ processor inputs and output references. Do not migrate all processors to prove o
 
 Removing duplicate execution state cannot precede the saved-data independence proof: some current
 output producer metadata contains only a run ID, and the workspace scans execution records for
-relationships. 0124 M3 fixes that bounded event-data dependency. 0129 is not a dependency of 0124
+relationships. 0124 M3 restores the normal app workflow and fixes only the data dependencies that block it.
+It does not promise universal execution-history independence. Verify this independence for the
+selected path here before removing duplicate execution records. 0129 is not a dependency of 0124
 cutover. Do not turn historical run counts into required migration scope.
+
+## Deferral decision — 2026-11-10
+
+App usability and simplification through a complete workflow take priority. This epic is independent
+and deferred. Start it only after the normal app works and a concrete duplicate-state failure or
+maintenance cost justifies the selected boundary. Do not add it as a prerequisite to 0124 or
+automatically start it after 0124. Revalidate the assignments against the then-current code.
 
 ## Milestones
 
 | Milestone | Observable result and commit boundary | State |
 | --- | --- | --- |
-| M0 | Event job executes and exposes frozen processor inputs and result links using job-owned state; recovery/cancel proof through real APIs | Not started |
-| M1 | Event job detail and workspace use job history; remove duplicate event processor-run and lineage-run lifecycle writers/readers | Not started |
-| M2 | Qualify restart, failure and terminal-history independence; document retention and archive boundary for historical event execution records | Not started |
+| M0 | Event job executes and exposes frozen processor inputs and result links using job-owned state; recovery/cancel proof through real APIs | Deferred |
+| M1 | Event job detail and workspace use job history; remove duplicate event processor-run and lineage-run lifecycle writers/readers | Deferred |
+| M2 | Qualify restart, failure and terminal-history independence; document retention and archive boundary for historical event execution records | Deferred |
 
 ### M0 assignment boundary
 
@@ -77,5 +86,5 @@ authorities; keep actual cleanup separate from this delivery.
 
 ## Execution handoff
 
-Planning only. Baseline three milestones, three remain. First complete job workflow is M0;
+Planning only; deferred. Baseline three milestones, three remain, none implemented. First complete job workflow is M0;
 qualification is M2. No implementation run authorized. No automatic continuation from 0124.
