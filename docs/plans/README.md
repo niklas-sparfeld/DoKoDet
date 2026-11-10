@@ -113,7 +113,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0–M2 complete. M2 passed after one correction: standalone and coordinated selection publication recover through the existing transaction journal. The production list keeps its current reader until M5/M6 activation. M3 connects processor-run state. |
+| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0–M3 complete. M3 adds processor-run status publication through a pending-only prepare/finalize intent; the production list keeps its current reader until M5/M6 activation. M4 connects recording, analysis and package metadata. |
 
 ### In Progress
 

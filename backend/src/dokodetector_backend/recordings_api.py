@@ -253,36 +253,53 @@ def _recording_catalog_statuses(request: Request, entries: list[Any]) -> dict[st
         "table_observations": ("table_observations", "observation-assembly"),
     }
     recording_ids = {entry.recording.recording_id for entry in entries}
-    run_statuses = request.app.state.pipeline_workspace_service._list_statuses_for_recordings(
-        recording_ids
-    )
     runs_by_recording: dict[str, list[tuple[str, str]]] = {}
-    for run in run_statuses:
-        runs_by_recording.setdefault(run.recording_id, []).append((run.processor_type, run.status))
+    catalog_enabled = bool(request.app.state.recording_catalog_test_activation)
+    if not catalog_enabled:
+        run_statuses = request.app.state.pipeline_workspace_service._list_statuses_for_recordings(
+            recording_ids
+        )
+        for run in run_statuses:
+            runs_by_recording.setdefault(run.recording_id, []).append(
+                (run.processor_type, run.status)
+            )
     for entry in entries:
         recording_id = entry.recording.recording_id
         catalog_row = catalog_index.read(recording_id)
         counters = {} if catalog_row is None else catalog_row["counters"]
         recording_runs = runs_by_recording.get(recording_id, ())
+
+        def has_run(
+            processor_type: str,
+            statuses: set[str],
+            counters: dict[str, int] = counters,
+            recording_runs: tuple[tuple[str, str], ...] = recording_runs,
+            catalog_enabled: bool = catalog_enabled,
+        ) -> bool:
+            if catalog_enabled:
+                return any(
+                    counters.get(f"processor_run:{processor_type}:{status}", 0) > 0
+                    for status in statuses
+                )
+            return any(
+                kind == processor_type and status in statuses for kind, status in recording_runs
+            )
+
         stages = []
         for key, (node_type, processor_type) in node_stage_names.items():
-            stage_runs = [status for kind, status in recording_runs if kind == processor_type]
-            if any(status in {"queued", "running"} for status in stage_runs):
+            if has_run(processor_type, {"queued", "running"}):
                 state = "active-run"
             elif counters.get(f"pipeline_node:{node_type}", 0):
                 state = "data-available"
-            elif any(status == "partial" for status in stage_runs):
+            elif has_run(processor_type, {"partial"}):
                 state = "partial"
-            elif any(status == "failed" for status in stage_runs):
+            elif has_run(processor_type, {"failed"}):
                 state = "failed"
             else:
                 state = "video-only" if key == "events" else "empty"
             stages.append({"key": key, "state": state})
         analyses = entry.analyses
-        round_analysis_runs = [
-            status for kind, status in recording_runs if kind == "round-analysis"
-        ]
-        if any(status in {"queued", "running"} for status in round_analysis_runs) or any(
+        if has_run("round-analysis", {"queued", "running"}) or any(
             item.state in {"queued", "analyzing_evidence", "reconstructing"} for item in analyses
         ):
             analysis_state = "active-run"
@@ -290,9 +307,9 @@ def _recording_catalog_statuses(request: Request, entries: list[Any]) -> dict[st
             analysis_state = "complete"
         elif any(item.state == "failed" for item in analyses):
             analysis_state = "failed"
-        elif any(status == "partial" for status in round_analysis_runs):
+        elif has_run("round-analysis", {"partial"}):
             analysis_state = "partial"
-        elif any(status == "failed" for status in round_analysis_runs):
+        elif has_run("round-analysis", {"failed"}):
             analysis_state = "failed"
         else:
             analysis_state = "empty"

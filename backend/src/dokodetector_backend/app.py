@@ -231,6 +231,7 @@ def create_app(
         event_provider=event_provider,
     )
     install_pipeline_composition(app.state, pipeline_composition)
+    app.state.pipeline_run_store.recover_catalog_publications()
     app.state.pipeline_lineage_writer.node_store.reconcile_revision_history_outbox()
     app.state.recording_state_working_editor = RecordingStateWorkingEditor(
         app.state.recording_state_store,

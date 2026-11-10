@@ -34,6 +34,14 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(_canonical(value)).hexdigest()
 
 
+def _is_digest(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
 class RecordingCatalogIndex:
     """Apply source-owned deltas to one versioned SQLite metadata index."""
 
@@ -206,6 +214,170 @@ class RecordingCatalogIndex:
             )
             return version
 
+    def prepare_processor_run(
+        self,
+        *,
+        run_id: str,
+        recording_id: str,
+        processor_type: str,
+        status: str,
+        old_state_digest: str | None,
+        target_state_digest: str,
+    ) -> None:
+        """Record a compact run-state intent before its authoritative state commit."""
+        source_key = f"processor-run:{run_id}"
+        metadata_delta: dict[str, Any] = {}
+        counter_delta = {f"processor_run:{processor_type}:{status}": 1}
+        self._validate_publication(source_key, 1, recording_id, metadata_delta, counter_delta)
+        if (
+            not isinstance(run_id, str)
+            or not run_id
+            or not isinstance(processor_type, str)
+            or not processor_type
+            or not isinstance(status, str)
+            or status not in {"queued", "running", "complete", "partial", "failed"}
+            or not _is_digest(target_state_digest)
+            or (old_state_digest is not None and not _is_digest(old_state_digest))
+        ):
+            raise RecordingCatalogError("processor-run publication intent is invalid")
+        with _process_lock(self.root / "publication.lock", self._thread_lock):
+            self.initialize()
+            outbox_path = self._outbox_path(source_key)
+            pending = self._read_optional(outbox_path)
+            intent = {
+                "schema_version": "recording-catalog-run-intent/v1",
+                "source_key": source_key,
+                "recording_id": recording_id,
+                "run_id": run_id,
+                "processor_type": processor_type,
+                "status": status,
+                "old_state_digest": old_state_digest,
+                "target_state_digest": target_state_digest,
+                "metadata": metadata_delta,
+                "counters": counter_delta,
+            }
+            if pending is not None:
+                if pending == intent:
+                    return
+                raise RecordingCatalogError("a source publication is already pending")
+            atomic_replace_json(outbox_path, intent)
+
+    def pending_processor_runs(self) -> tuple[dict[str, Any], ...]:
+        """Return only explicit processor-run intents awaiting reconciliation."""
+        if not self.outbox.exists():
+            return ()
+        records = []
+        for path in sorted(self.outbox.glob("*.json")):
+            record = self._read_required(path)
+            if record.get("schema_version") == "recording-catalog-run-intent/v1":
+                self._validate_run_intent(record)
+                records.append(record)
+        return tuple(records)
+
+    def pending_processor_run(self, source_key: str) -> dict[str, Any] | None:
+        """Read one exact processor-run intent without scanning the pending directory."""
+        record = self._read_optional(self._outbox_path(source_key))
+        if record is None or record.get("schema_version") != "recording-catalog-run-intent/v1":
+            return None
+        self._validate_run_intent(record)
+        return record
+
+    def finalize_processor_run(self, source_key: str, *, observed_state_digest: str) -> None:
+        """Apply an intent after its exact authoritative run state has committed."""
+        with _process_lock(self.root / "publication.lock", self._thread_lock):
+            intent = self._read_required(self._outbox_path(source_key))
+            self._validate_run_intent(intent)
+            if intent["target_state_digest"] != observed_state_digest:
+                raise RecordingCatalogError("processor-run target state digest does not match")
+            source_value = {
+                "run_id": intent["run_id"],
+                "recording_id": intent["recording_id"],
+                "processor_type": intent["processor_type"],
+                "status": intent["status"],
+            }
+            source = {
+                "schema_version": "recording-catalog-source/v1",
+                "source_key": source_key,
+                "source_version": self._next_source_version(source_key),
+                "recording_id": intent["recording_id"],
+                "value": source_value,
+            }
+            source_digest = _digest(source)
+            publication = {
+                "schema_version": "recording-catalog-outbox/v1",
+                "source_key": source_key,
+                "source_version": source["source_version"],
+                "recording_id": intent["recording_id"],
+                "source_digest": source_digest,
+                "source": source,
+                "projection": {
+                    "metadata": intent["metadata"],
+                    "counters": intent["counters"],
+                },
+            }
+            atomic_replace_json(self._outbox_path(source_key), publication)
+            self._apply(publication)
+
+    def cancel_processor_run(self, source_key: str, *, observed_state_digest: str | None) -> None:
+        """Remove an uncommitted intent after its exact prior state is confirmed."""
+        with _process_lock(self.root / "publication.lock", self._thread_lock):
+            path = self._outbox_path(source_key)
+            intent = self._read_required(path)
+            self._validate_run_intent(intent)
+            if intent["old_state_digest"] != observed_state_digest:
+                raise RecordingCatalogError("processor-run prior state digest does not match")
+            path.unlink()
+
+    def _next_source_version(self, source_key: str) -> int:
+        old = self._read_optional(self._source_path(source_key))
+        if old is None:
+            return 1
+        return int(old["source_version"]) + 1
+
+    @staticmethod
+    def _validate_run_intent(record: dict[str, Any]) -> None:
+        expected = {
+            "schema_version",
+            "source_key",
+            "recording_id",
+            "run_id",
+            "processor_type",
+            "status",
+            "old_state_digest",
+            "target_state_digest",
+            "metadata",
+            "counters",
+        }
+        if (
+            set(record) != expected
+            or record.get("schema_version") != "recording-catalog-run-intent/v1"
+            or record.get("source_key") != f"processor-run:{record.get('run_id')}"
+            or not isinstance(record.get("run_id"), str)
+            or not isinstance(record.get("recording_id"), str)
+            or not isinstance(record.get("processor_type"), str)
+            or not isinstance(record.get("status"), str)
+            or record.get("status") not in {"queued", "running", "complete", "partial", "failed"}
+            or not _is_digest(record.get("target_state_digest"))
+            or (
+                record.get("old_state_digest") is not None
+                and not _is_digest(record["old_state_digest"])
+            )
+            or not isinstance(record.get("metadata"), dict)
+            or not isinstance(record.get("counters"), dict)
+        ):
+            raise RecordingCatalogError("processor-run publication intent is corrupt")
+        RecordingCatalogIndex._validate_publication(
+            record["source_key"],
+            1,
+            record["recording_id"],
+            record["metadata"],
+            record["counters"],
+        )
+        if record["metadata"] != {} or record["counters"] != {
+            f"processor_run:{record['processor_type']}:{record['status']}": 1
+        }:
+            raise RecordingCatalogError("processor-run projection is not compact")
+
     def _publish_locked(
         self,
         *,
@@ -273,8 +445,12 @@ class RecordingCatalogIndex:
         if not self.outbox.exists():
             return 0
         pending = sorted(self.outbox.glob("*.json"))
+        recovered = 0
         for path in pending:
             record = self._read_required(path)
+            if record.get("schema_version") == "recording-catalog-run-intent/v1":
+                self._validate_run_intent(record)
+                continue
             source = record.get("source")
             if (
                 not isinstance(source, dict)
@@ -286,7 +462,8 @@ class RecordingCatalogIndex:
             ):
                 raise RecordingCatalogError("pending publication source is absent or corrupt")
             self._apply(record)
-        return len(pending)
+            recovered += 1
+        return recovered
 
     def read(self, recording_id: str) -> dict[str, Any] | None:
         """Read one compact recording row without source access or reconstruction."""

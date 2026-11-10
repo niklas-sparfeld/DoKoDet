@@ -52,7 +52,7 @@ or index-only API stub as a complete workflow. No queue, acceptance-key or sched
 | M0 | Frozen list contract, consumer/writer matrix and failing growth assertions | Complete |
 | M1 | Catalog metadata index, common publication outbox and explicit rebuild contract | Complete |
 | M2 | Node and selection publication through one real catalog workflow | Complete |
-| M3 | Processor-run status publication | Not started |
+| M3 | Processor-run status publication with pending-only crash recovery | Complete |
 | M4 | Recording, analysis and package metadata adapters | Not started |
 | M5 | Retained-data conversion rehearsal and activation manifest | Not started |
 | M6 | API/web cutover and obsolete list-path removal | Not started |
@@ -97,10 +97,23 @@ failure, availability counts, blocker update and restart. Commit: these adapters
 
 ## M3 — Connect processor-run status writers
 
-Connect create and all durable state/progress/recovery paths in `ProcessorRunStore`. Progress-only
-updates must not inflate counts. Preserve status precedence without parsing saved run request
-payloads on list reads. Jobs keep their existing contracts. Checks: all status transitions, replay,
-source/index crash, restart and 10x historical run growth. Commit: run adapters and tests.
+Connect create and all durable state/progress/recovery paths in `ProcessorRunStore`. Extend M1's
+common outbox with one prepare/finalize intent for processor-run publication. Under the run lock,
+then the catalog publication lock, write a compact intent with the exact run ID, source key,
+recording/type/status projection, and expected old and target run-state digests. Commit the existing
+authoritative run state or staged run directory, then finalize the catalog receipt and counters and
+clear the intent. Progress-only writes keep the same status projection and must not inflate counts.
+On restart, process only pending intents. Exact-read the named run request/state and finalize only
+when its state digest matches the target; cancel only when it matches the expected old state (or the
+run is absent for create). Any other state is a visible error. Do not enumerate runs or parse saved
+request payloads on list reads. The run store remains authoritative; do not copy full request/state
+payloads into the catalog. Jobs retain their contracts.
+
+This is one explicit persistent transaction contract added to M1, not a new store or general
+transaction framework. Checks: all status transitions, identical replay, create and update crash
+gaps before/after source commit, restart recovery, same-run concurrency, progress-only count
+stability, and 10x historical run growth. Keep crash recovery coverage separate from concurrency
+coverage. Commit: the outbox extension, run adapter, plan and tests.
 
 ## M4 — Connect remaining catalog metadata writers
 
@@ -219,6 +232,28 @@ is gated to explicit test activation; the production default retains the existin
 M5/M6 activation. Separate crash/restart tests cover standalone and coordinated selection updates.
 The real API workflow still disables node and selection discovery after publication. No source
 owner, authority, persistent contract, or prerequisite was added. Run progress is 3/8 complete and
-5 remain; re-plannings 0/10. Next: M3 connects processor-run state writers. Preserve stage
-precedence and validate the exact selected target. Stop if M3 adds an unplanned source family or
-cannot meet its bounded acceptance.
+5 remain; re-plannings were 0/10 at M2 closeout. M3 was the next planned milestone.
+
+M3 scope review: the processor-run source store has no existing durable outbox or recovery journal.
+Its state file commits before `publish_latest` can create an M1 pending record. A crash in that gap
+leaves no evidence for pending-only recovery; startup run enumeration would violate the frozen
+recovery boundary. Keep the bounded catalog approach and extend M1's common outbox with one
+processor-run prepare/finalize intent contract. The run store remains the authority. The intent
+records only exact run identity, compact target projection and old/target state digests. Recovery
+reads only the named pending run and reconciles by digest. This adds one persistent contract within
+M3, with no new store, authority, or general transaction framework. Run progress remains 3/8
+complete and 5 remain; run re-plannings are 1/10 and this M3 scope-review re-planning is 1/5.
+M0 corrections remain 1/2, M1 corrections 2/2, M2 corrections 1/2; M3 corrections start at 0/2.
+M2's first complete workflow and its accepted evidence remain unchanged.
+
+M3 result: [processor-run status publication](../../reports/0120-M3_Processor_Run_Publication.md).
+Create, state changes, progress writes and pending-only recovery now publish compact status counts
+through the M1 index. The indexed disposable route reads aggregate counters and does not parse saved
+run requests. Tests cover every status, replay, pre/post source-commit crashes, same-run create
+concurrency, progress count stability and 10x terminal-run history. The production list remains on
+its old reader until M5/M6. M3 is complete; run progress is 4/8 complete and 4 remain. The run
+re-planning count is 1/10, the M3 scope-review count is 1/5, and M3 corrections are 0/2. No further
+source owner or contract was added after the recorded M3 decision. Next: M4 connects recording,
+analysis and package metadata writers. The next proof is M4's empty/mixed state, concurrent publish,
+retry, crash/restart, result-state and 10x history checks. Stop if M4 requires another contract or
+source family.

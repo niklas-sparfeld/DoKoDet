@@ -85,7 +85,11 @@ def build_pipeline_composition(
     lineage_writer = PipelineLineageWriter(
         node_store, lineage_service, PipelineNodeUses(node_store)
     )
-    run_store = ProcessorRunStore(runtime_storage, lineage_writer=lineage_writer)
+    run_store = ProcessorRunStore(
+        runtime_storage,
+        lineage_writer=lineage_writer,
+        catalog_index=catalog_index,
+    )
     selection_store = PipelineNodeSelectionStore(
         node_store, lineage_writer, catalog_index=catalog_index
     )
