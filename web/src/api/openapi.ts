@@ -3521,17 +3521,18 @@ export interface components {
         };
         /**
          * RecordingSummary
-         * @description One accepted recording and its round-analysis history.
+         * @description One accepted recording with bounded analysis and package summaries.
          */
         RecordingSummary: {
-            /** Analyses */
-            analyses: components["schemas"]["RecordingAnalysisSummary"][];
             /** Analysis Blocker */
             analysis_blocker: string | null;
+            /** Analysis Count */
+            analysis_count: number;
             /** Can Start Analysis */
             can_start_analysis: boolean;
-            /** Evidence Package Ids */
-            evidence_package_ids: string[];
+            /** Evidence Package Count */
+            evidence_package_count: number;
+            latest_analysis: components["schemas"]["RecordingAnalysisSummary"] | null;
             pipeline_status: components["schemas"]["RecordingPipelineStatusSummary"];
             /**
              * Received At

@@ -13,4 +13,6 @@ export type RecordingDetail = JsonResponse<
   paths["/v1/recordings/{recording_id}"]["get"]["responses"][200]
 >;
 export type RecordingSummary = RecordingListResponse["recordings"][number];
-export type RecordingAnalysisSummary = RecordingSummary["analyses"][number];
+export type RecordingAnalysisSummary = NonNullable<
+  RecordingSummary["latest_analysis"]
+>;

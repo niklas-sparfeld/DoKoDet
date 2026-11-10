@@ -14,6 +14,7 @@ from table_evidence_analyzer import AnalyzerEvidence, TableObservation, parse_ob
 from test_api import load_upload_fixture, multipart_parts
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.round_analysis_contract import RoundAnalysisCreateRequest
 
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 SESSION_ID = "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
@@ -249,6 +250,47 @@ def test_create_runs_worker_and_publishes_compact_result(backend_tmp_path: Path)
     }
 
 
+def test_recording_catalog_reads_analyses_once_for_multiple_recordings(
+    backend_tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, app = _backend(backend_tmp_path)
+    recording_store = app.state.recording_bundle_store
+    original_recordings = recording_store.list_metadata
+    monkeypatch.setattr(recording_store, "list_metadata", lambda: original_recordings() * 2)
+    analysis_store = app.state.round_analysis_store
+    original_list = analysis_store.list
+    calls = 0
+
+    def count_list():
+        nonlocal calls
+        calls += 1
+        return original_list()
+
+    monkeypatch.setattr(analysis_store, "list", count_list)
+    response = client.get("/v1/recordings")
+    assert response.status_code == 200
+    assert len(response.json()["recordings"]) == 2
+    assert calls == 1
+
+
+def test_recording_catalog_summary_and_detail_survive_restart(backend_tmp_path: Path) -> None:
+    client, app = _backend(backend_tmp_path)
+    package_id = _upload_linked_package(client)
+    request = RoundAnalysisCreateRequest.model_validate(
+        _analysis_payload(analysis_id=str(ANALYSIS_ID), package_ids=[package_id])
+    )
+    app.state.round_analysis_store.create(request)
+    before = client.get("/v1/recordings").json()["recordings"][0]
+    restarted = TestClient(create_test_app(app.state.settings))
+    after = restarted.get("/v1/recordings").json()["recordings"][0]
+    detail = restarted.get(f"/v1/recordings/{RECORDING_ID}").json()
+    assert after == before
+    assert after["analysis_count"] == 1
+    assert after["latest_analysis"]["analysis_id"] == str(ANALYSIS_ID)
+    assert detail["evidence_package_ids"] == [package_id]
+    assert detail["analyses"][0]["analysis_id"] == str(ANALYSIS_ID)
+
+
 def test_recording_catalog_starts_and_lists_analysis(backend_tmp_path: Path) -> None:
     client, app = _backend(backend_tmp_path)
     package_id = _upload_linked_package(client)
@@ -259,8 +301,9 @@ def test_recording_catalog_starts_and_lists_analysis(backend_tmp_path: Path) -> 
     recording = catalog.json()["recordings"][0]
     assert recording["recording_id"] == RECORDING_ID
     assert recording["round_id"] == "round-round-analysis"
-    assert recording["evidence_package_ids"] == [package_id]
-    assert recording["analyses"] == []
+    assert recording["evidence_package_count"] == 1
+    assert recording["analysis_count"] == 0
+    assert recording["latest_analysis"] is None
     assert recording["pipeline_status"] == {
         "schema_version": "recording-pipeline-status/v1",
         "stages": [

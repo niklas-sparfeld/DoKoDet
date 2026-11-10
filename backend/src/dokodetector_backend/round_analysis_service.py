@@ -255,6 +255,10 @@ class RoundAnalysisService:
                 continue
             packages_by_recording.setdefault(lineage.parent_recording_id, []).append(package)
 
+        analyses_by_recording: dict[str, list[StoredRoundAnalysis]] = {}
+        for analysis in self.store.list():
+            analyses_by_recording.setdefault(analysis.recording_id, []).append(analysis)
+
         entries: list[RecordingCatalogEntry] = []
         for recording in self.recording_bundle_store.list_metadata():
             packages = tuple(
@@ -262,7 +266,7 @@ class RoundAnalysisService:
                 for package in packages_by_recording.get(recording.recording_id, ())
                 if str(package.session_id) == recording.session_id
             )
-            analyses = self.store.list_by_recording(recording.recording_id)
+            analyses = tuple(analyses_by_recording.get(recording.recording_id, ()))
             try:
                 _, _, round_id = self._analysis_identifiers(recording)
                 has_pipeline_revision = self._has_selected_table_observation_ref(

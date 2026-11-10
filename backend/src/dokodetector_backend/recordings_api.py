@@ -98,7 +98,7 @@ class RecordingAnalysisSummary(BaseModel):
 
 
 class RecordingSummary(BaseModel):
-    """One accepted recording and its round-analysis history."""
+    """One accepted recording with bounded analysis and package summaries."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -110,8 +110,9 @@ class RecordingSummary(BaseModel):
     source_sha256: str
     received_at: datetime
     round_id: str
-    evidence_package_ids: list[UUID]
-    analyses: list[RecordingAnalysisSummary]
+    evidence_package_count: int
+    analysis_count: int
+    latest_analysis: RecordingAnalysisSummary | None
     pipeline_status: RecordingPipelineStatusSummary
     can_start_analysis: bool
     analysis_blocker: str | None
@@ -226,8 +227,9 @@ def list_recordings(request: Request) -> RecordingListResponse:
                 source_sha256=entry.recording.source_sha256,
                 received_at=entry.recording.received_at,
                 round_id=entry.round_id,
-                evidence_package_ids=list(entry.evidence_package_ids),
-                analyses=[_analysis_summary(analysis) for analysis in entry.analyses],
+                evidence_package_count=len(entry.evidence_package_ids),
+                analysis_count=len(entry.analyses),
+                latest_analysis=(_analysis_summary(entry.analyses[0]) if entry.analyses else None),
                 pipeline_status=pipeline_statuses[entry.recording.recording_id],
                 can_start_analysis=entry.can_start_analysis,
                 analysis_blocker=entry.analysis_blocker,

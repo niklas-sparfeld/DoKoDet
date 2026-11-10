@@ -64,8 +64,9 @@ def _recording(*, analyses: int, packages: int) -> RecordingSummary:
         source_sha256="0" * 64,
         received_at=now,
         round_id="round-growth",
-        evidence_package_ids=[PACKAGE_ID] * packages,
-        analyses=[latest] * analyses,
+        evidence_package_count=packages,
+        analysis_count=analyses,
+        latest_analysis=latest if analyses else None,
         pipeline_status=RecordingPipelineStatusSummary(
             schema_version="recording-pipeline-status/v1",
             stages=stages,
@@ -88,10 +89,6 @@ def test_recordings_list_keeps_order_status_and_blocker_contract() -> None:
     assert response.model_dump(mode="json")["recordings"][0]["recording_id"] == RECORDING_ID
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="M0 baseline: the current list embeds full analysis and package histories.",
-)
 def test_recordings_list_payload_stays_bounded_when_history_grows_tenfold() -> None:
     small = RecordingListResponse(recordings=[_recording(analyses=1, packages=1)])
     large = RecordingListResponse(recordings=[_recording(analyses=10, packages=10)])
@@ -296,14 +293,14 @@ def _measure_real_catalog(root: Path, *, retained_items: int) -> dict[str, objec
         "recording_count": len(body["recordings"]),
         "response_bytes": len(response.content),
         "stage_states": [stage["state"] for stage in target["pipeline_status"]["stages"]],
-        "latest_analysis_state": target["analyses"][0]["state"],
+        "latest_analysis_state": target["latest_analysis"]["state"],
         "active_runs": sum(
             run.status in {"queued", "running"}
             for run in app.state.pipeline_run_store.list_statuses()
             if run.recording_id == SERVICE_RECORDING_ID
         ),
-        "returned_package_ids": len(target["evidence_package_ids"]),
-        "returned_analysis_rows": len(target["analyses"]),
+        "returned_package_ids": target["evidence_package_count"],
+        "returned_analysis_rows": target["analysis_count"],
     }
 
 
@@ -342,10 +339,6 @@ def test_real_recordings_route_exposes_growth_in_each_source_family(
         assert large[counter] > small[counter], f"{counter}: small={small}, large={large}"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="M0 baseline: real catalog response embeds package and analysis histories.",
-)
 def test_real_recordings_route_payload_stays_bounded_as_history_grows_tenfold(
     real_catalog_growth: tuple[dict[str, object], dict[str, object]],
 ) -> None:
@@ -359,17 +352,21 @@ def test_real_recordings_route_payload_stays_bounded_as_history_grows_tenfold(
     strict=True,
     reason="M0 baseline: real catalog readers enumerate retained and unrelated source rows.",
 )
-def test_real_recordings_route_reads_stay_bounded_as_retained_data_grows_tenfold(
-    real_catalog_growth: tuple[dict[str, object], dict[str, object]],
-) -> None:
-    small, large = real_catalog_growth
-    for counter in (
+@pytest.mark.parametrize(
+    "counter",
+    [
         "node_listed",
         "node_history_records",
         "package_metadata_rows",
         "analysis_rows_read",
         "processor_run_directories",
-    ):
-        assert large[counter] <= small[counter] * 2, (
-            f"{counter} grew beyond the bound: small={small}, large={large}"
-        )
+    ],
+)
+def test_real_recordings_route_reads_stay_bounded_as_retained_data_grows_tenfold(
+    real_catalog_growth: tuple[dict[str, object], dict[str, object]],
+    counter: str,
+) -> None:
+    small, large = real_catalog_growth
+    assert large[counter] <= small[counter] * 2, (
+        f"{counter} grew beyond the bound: small={small}, large={large}"
+    )

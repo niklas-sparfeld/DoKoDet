@@ -9,7 +9,7 @@
 
 ## Current disposition — source-authority feasibility
 
-On 2026-11-10 the user authorized catalog disposition only. The index rollout is
+On 2026-11-10 the user authorized catalog disposition and then source-authority list work. The index rollout is
 superseded. The historical plan and handoff below record the original work and are not
 current instructions. M0–M2 remain accepted as historical results; M3 is unaccepted and
 M4–M7 are superseded, not complete. The original eight milestones and all correction
@@ -24,13 +24,13 @@ a retired catalog outbox is nonempty or invalid; it preserves that evidence for 
 reconciliation. No catalog or other retained data is deleted. See the
 [disposition report](../../reports/0120-Catalog_Disposition.md).
 
-Proposed next work, not authorized by this disposition:
+Current progress and proposed next work:
 
-1. Deliver and measure a real list workflow using source authority. Avoid full workspace
-   history construction when validated source metadata can establish availability; scan
-   analyses once, and bound the response to the list consumer. Preserve stage precedence,
-   exact blocker behavior, error handling, detail access and restart. Measure the hard
-   corpus and the 1x/10x growth fixture. This has a narrower guarantee than the outcome.
+1. **Partial; speed checkpoint not met.** The production list now has a bounded response
+   and scans analyses once. Status and blocker behavior and detail access remain. The
+   1x/10x and hard-corpus checks show that source reads still grow and the measured hard
+   request still takes about 18 seconds. See the [progress report](../../reports/0120-Source_List_Progress.md).
+   The node-history shortcut was not safe on the available evidence.
 2. Identify each remaining history-dependent read and prove one small source-owned summary
    through real persistence, concurrent writes, interruption, restart and retained-data
    initialization. Name its owner and transaction boundary before implementation.
@@ -41,7 +41,7 @@ Proposed next work, not authorized by this disposition:
 Stop if a small summary cannot cover the remaining owners without a broad multi-store
 transaction system. Report the measured improvement and request a decision; do not claim
 history-independent reads or move qualification to accommodate new prerequisites. The
-first production workflow is step 1. No later step is authorized yet.
+first production workflow is step 1, which remains incomplete. No later step is authorized yet.
 
 ## Historical original plan (superseded)
 
