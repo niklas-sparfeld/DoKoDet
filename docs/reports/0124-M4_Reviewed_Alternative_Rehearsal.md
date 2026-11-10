@@ -90,6 +90,47 @@ HTTP 200 after restart. The browser reopened that parent with its original first
 of `2001934` microseconds. The source output file digest remained
 `5a4bf4dd0a0c4797e4226649c6d94afe5ee4b337e2678e08eb67c5893fa14fc7`.
 
+## Correction 1/2: pre-M3 retained output parent
+
+The first report used output `7111edd7-9f72-4fdc-9c10-a90d94db172f`, created in M3 after the
+event-set cutover. Its parent was already folder-backed. That did not prove an actual retained
+legacy output's direct event-node parent.
+
+The corrected rehearsal freezes pre-M3 output run
+`6e2f3f6f-b5c3-5bb0-8056-47a34bf54327` for `cardeventnet-IMG_0662`. Its exact output is node
+`8bfa825d-94af-5ac6-877d-a1381e662d65`, revision
+`d9c461ee-c7f9-5a2c-be60-36da3ea9a169`, content digest
+`e7d585be69996a440c7c56d6e3fb3a2cd582288327b82555561a38c49191a1ad`. The output's retained
+request and revision both name old event revision `reference-events-fd5c08dc4f7540053b3ed1c04606b909`.
+The exact source event node/revision is
+`1dca5a93-4a87-59f6-ab83-d5c72154916b@d41f92f9-7fd1-52db-a065-7c94f963713a`, with content
+digest `00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5`. The offline adapter
+matched the output's event revision to that unique legacy revision metadata, then emitted the exact
+converted parent `1dca5a93-4a87-59f6-ab83-d5c72154916b@d41f92f9-7fd1-52db-a065-7c94f963713a`
+with the same digest. It fails if the run, output, or parent is missing, ambiguous, inconsistent, or
+has changed content. This is a named offline rehearsal input; it adds no runtime resolver or output
+format conversion.
+
+The copied output node (3 files) and run (52 files) had matching tree digests against their retained
+sources before and after browser use: `e9ea891414e4b5cc6c1c0b81e3081f6a72dfc94e940df81346228ebabc7f3107`
+and `ae8b6c73466836f72f846bbe0c0f1de851c6e25e0e2bed57d72b1bb4e08b6c92`. The normal browser
+opened the mapped parent in the event-set workspace, changed generated
+selection to `manual-efadbf34-2c3c-4fa6-888f-2b9b46128ffe@1`, restarted the backend, and reopened
+the mapped parent. Its first event remained at `2001934` microseconds. The exact parent digest was
+unchanged before and after restart, and the changed selection remained selected. The output node,
+revision, request, state, and items were not modified. The browser uses the emitted exact mapping to
+open the parent; no automatic output-to-parent link is added to the runtime UI.
+
+Correction snapshot:
+`/var/folders/gv/yr_91p3x2_vctbq99586hjm80000gn/T/0124-m4-final-39juxq3w/pre-m3-output-correction-manifest.json`.
+Its SHA-256 is `9724baeecc33a31112f43b31c9506a8020e408b9f417396662ef61331a1f4034`. The source output
+revision file, request, state, source event revision, and converted event-set document are frozen
+in that manifest.
+
+The previous M4 review, edit, selection, replay, conflict-rejection, and restart checks remain part
+of the evidence. M4 correction count is now 1/2; this run remains 1 requested, 1 completed, 0
+remaining. M5 qualification and M6 runtime removal remain unchanged.
+
 ## Checks
 
 - The named backend regressions passed: 53 tests. One existing Starlette deprecation warning was
@@ -103,6 +144,12 @@ of `2001934` microseconds. The source output file digest remained
   reviews.
 - A replay with a changed saved provenance record failed closed. The temporary record was restored
   byte-for-byte after the check.
+- Correction 1/2: the named pre-M3 output mapping replay passed, and the normal browser reopened its
+  converted exact parent after a selection change and backend restart. Output input copies matched
+  retained hashes before and after browser use.
+- Correction checks: 66 focused backend tests passed; Ruff check and format passed; `npm run check`
+  passed with 244 tests and type, lint, format, and generated API checks; the recording-folder
+  Playwright suite passed with 3 tests.
 
 There was no activation or qualification in M4. M5 owns the finite rollout and representative
 normal-app qualification. M6 owns removal of replaced event runtime paths and final closure.

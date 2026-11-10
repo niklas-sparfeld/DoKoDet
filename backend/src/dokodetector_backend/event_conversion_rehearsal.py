@@ -29,6 +29,8 @@ def rehearse(
     recordings_root: Path,
     pipeline_nodes_root: Path,
     legacy_pipeline_root: Path,
+    retained_output_runs_root: Path | None = None,
+    retained_output_run_ids: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Convert only the three named recordings into a caller-provided disposable root."""
     recordings = RecordingFolderStore(recordings_root)
@@ -223,7 +225,92 @@ def rehearse(
                 },
             }
         )
+    if retained_output_run_ids:
+        if retained_output_runs_root is None:
+            raise RehearsalError("retained output runs root is required for output lineage")
+        receipt["retained_output_parent_mappings"] = _map_retained_output_parents(
+            nodes=nodes,
+            runs_root=retained_output_runs_root,
+            run_ids=retained_output_run_ids,
+            converted_by_recording={
+                row["recording_id"]: {
+                    (version["node_id"], version["revision_id"]): version
+                    for version in row["converted_versions"]
+                }
+                for row in receipt["recordings"]
+            },
+        )
     return receipt
+
+
+def _map_retained_output_parents(
+    *,
+    nodes: PipelineNodeStore,
+    runs_root: Path,
+    run_ids: tuple[str, ...],
+    converted_by_recording: dict[str, dict[tuple[str, str], dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    """Map named saved outputs through their exact legacy event revision metadata."""
+    mappings = []
+    all_nodes = nodes.list_nodes()
+    for run_id in run_ids:
+        run_root = runs_root / run_id
+        request = _read_json(run_root / "request.json")
+        state = _read_json(run_root / "state.json")
+        output_revision_ids = state.get("output_revision_ids")
+        outputs = [
+            (node, revision)
+            for node in all_nodes
+            if node.content_type == "visible_cards"
+            for revision in nodes.history(node.node_id)
+            if revision.metadata.get("producer", {}).get("run_id") == run_id
+        ]
+        if len(outputs) != 1 or len(output_revision_ids or []) != 1:
+            raise RehearsalError(f"named retained output is ambiguous or missing: {run_id}")
+        output_node, output_revision = outputs[0]
+        if output_revision.metadata.get("legacy_revision_id") != output_revision_ids[0]:
+            raise RehearsalError(f"retained output revision differs from run state: {run_id}")
+        recording_id = output_node.source.get("recording_id")
+        coverage = output_revision.metadata.get("coverage", {})
+        parent_legacy_id = coverage.get("event_revision_id")
+        if not parent_legacy_id or request.get("input_revision_ids") != [parent_legacy_id]:
+            raise RehearsalError(
+                f"retained output parent differs from its frozen request: {run_id}"
+            )
+        parents = [
+            (node, revision)
+            for node in all_nodes
+            if node.content_type == "events" and node.source.get("recording_id") == recording_id
+            for revision in nodes.history(node.node_id)
+            if revision.metadata.get("legacy_revision_id") == parent_legacy_id
+        ]
+        if len(parents) != 1:
+            raise RehearsalError(f"retained output event parent is ambiguous or missing: {run_id}")
+        parent_node, parent_revision = parents[0]
+        target = converted_by_recording.get(recording_id, {}).get(
+            (parent_node.node_id, parent_revision.revision_id)
+        )
+        if target is None or target["content_sha256"] != parent_revision.content_sha256:
+            raise RehearsalError(f"converted exact parent is missing or changed: {run_id}")
+        mappings.append(
+            {
+                "run_id": run_id,
+                "recording_id": recording_id,
+                "output_node_id": output_node.node_id,
+                "output_revision_id": output_revision.revision_id,
+                "output_content_sha256": output_revision.content_sha256,
+                "source_event_revision_id": parent_legacy_id,
+                "source_event_node_id": parent_node.node_id,
+                "source_event_node_revision_id": parent_revision.revision_id,
+                "source_event_content_sha256": parent_revision.content_sha256,
+                "converted_parent": {
+                    "set_id": target["node_id"],
+                    "version": target["revision_id"],
+                    "content_sha256": target["content_sha256"],
+                },
+            }
+        )
+    return mappings
 
 
 def _origin(metadata: dict[str, Any]) -> str:
@@ -283,12 +370,16 @@ def main() -> None:
     parser.add_argument("--recordings-root", type=Path, required=True)
     parser.add_argument("--pipeline-nodes-root", type=Path, required=True)
     parser.add_argument("--legacy-pipeline-root", type=Path, required=True)
+    parser.add_argument("--retained-output-runs-root", type=Path)
+    parser.add_argument("--retained-output-run-id", action="append", default=[])
     parser.add_argument("--receipt", type=Path, required=True)
     args = parser.parse_args()
     result = rehearse(
         recordings_root=args.recordings_root,
         pipeline_nodes_root=args.pipeline_nodes_root,
         legacy_pipeline_root=args.legacy_pipeline_root,
+        retained_output_runs_root=args.retained_output_runs_root,
+        retained_output_run_ids=tuple(args.retained_output_run_id),
     )
     args.receipt.parent.mkdir(parents=True, exist_ok=True)
     args.receipt.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")

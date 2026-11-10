@@ -128,7 +128,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0124 — Recording folders and events](2-ready/0124-Recording_Folders_and_Events.md) | None | M0–M4 complete. M4 rehearsed reviewed alternatives and exact parents for three recordings. M5 rolls out and qualifies; M6 removes replaced paths and closes. No job-consolidation prerequisite. |
+| [0124 — Recording folders and events](2-ready/0124-Recording_Folders_and_Events.md) | None | M0–M4 complete. M4 correction 1/2 maps and reopens a pre-M3 retained output's exact converted event parent; reviewed alternatives remain rehearsed for three recordings. M5 rolls out and qualifies; M6 removes replaced paths and closes. No job-consolidation prerequisite. |
 
 ### In Progress
 

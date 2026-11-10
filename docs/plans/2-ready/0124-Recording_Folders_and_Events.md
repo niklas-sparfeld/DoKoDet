@@ -470,7 +470,7 @@ owns that follow-up; it does not block M0.
 ## Execution handoff
 
 Current run: requested 1 milestone, completed 1, remaining 0. M4 family re-plans 1/5; run
-re-plans 1/10; corrections 0/2. Original baseline four milestones; user-selected baseline six;
+re-plans 1/10; M4 corrections 1/2. Original baseline four milestones; user-selected baseline six;
 current baseline seven. M0–M4 are complete; M5–M6 remain. M4 separates retained-data rehearsal from
 rollout; M5 keeps qualification and M6 retains removal and closure. The existing recording and
 event stores remain the authorities. One concrete offline converter was added because no reusable
@@ -571,6 +571,16 @@ transaction, or authority was added. The adapter preserves review time in the ex
 records for unpublished source revisions because the normal user-facing review listing only
 returns published revisions.
 
+Correction 1/2 adds an explicit offline map for pre-M3 output
+`6e2f3f6f-b5c3-5bb0-8056-47a34bf54327`: its retained output node/revision and content digest map
+through the direct old event revision to the converted exact event-set/version/content digest. The
+first M4 browser check used only M3 output `7111edd7-9f72-4fdc-9c10-a90d94db172f`, whose parent was
+already folder-backed; that evidence was insufficient for the legacy-output requirement. The
+correction freezes and compares the pre-M3 output revision, request, and state, and the normal
+browser reopened its mapped exact parent after changing selection and restarting the backend. The
+existing UI opens the exact mapped version from the event-set list; it does not add an automatic
+output-to-parent link. No runtime resolver, output format conversion, or new authority was added.
+
 The frozen-input manifest is
 `/var/folders/gv/yr_91p3x2_vctbq99586hjm80000gn/T/0124-m4-final-39juxq3w/frozen-input-manifest.json`
 with SHA-256 `a806ca35d95f2424adfa9c14a063f0d33aeadaff2dcc41af25b9ef32b014f03f`. It records 14
@@ -593,11 +603,15 @@ overwrite versions or reviews.
 The normal browser opened reviewed, unselected versions on all three recordings and showed 52,
 54, and 51 decisions for the chosen exact versions. On disposable 0662 data, it edited and saved an
 alternative, selected it, restarted the backend, and reopened the reviewed alternative and the
-saved output's exact event parent. Output `7111edd7-9f72-4fdc-9c10-a90d94db172f` still references
+M3 saved output's exact event parent. Output `7111edd7-9f72-4fdc-9c10-a90d94db172f` still references
 `manual-efadbf34-2c3c-4fa6-888f-2b9b46128ffe@1`, with content digest
 `a3c284533668d7b316f65142718262424f62769e85bd19d0f67e177fb6b84c78`. Its output content digest
 is `905ecbb65fc9137a15187f9bd0465e8f7923d120bbaff1b7840411250c582e23`. No saved output was
 rewritten. M4 authorizes no activation; M5 must define and rehearse the rollout batch.
+
+Correction 1/2 also reopened the exact parent of pre-M3 run
+`6e2f3f6f-b5c3-5bb0-8056-47a34bf54327`; see the report for its direct lineage, digests, copy hashes,
+and browser evidence. Its original output bytes and run records were unchanged.
 
 Checks: the named backend regressions passed (53 tests); Ruff check and format passed;
 `npm run check` passed (244 tests, type, lint, format and generated API); the recording-folder
