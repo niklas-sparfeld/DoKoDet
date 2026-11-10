@@ -49,7 +49,7 @@ or index-only API stub as a complete workflow. No queue, acceptance-key or sched
 
 | Milestone | Observable result and commit boundary | Status |
 | --- | --- | --- |
-| M0 | Frozen list contract, consumer/writer matrix and failing growth assertions | Complete |
+| M0 | Frozen list contract, consumer/writer matrix and failing growth assertions | In Progress |
 | M1 | Catalog metadata index, common publication outbox and explicit rebuild contract | Not started |
 | M2 | Node and selection publication through one real catalog workflow | Not started |
 | M3 | Processor-run status publication | Not started |
@@ -157,18 +157,25 @@ First complete workflow: M1 proves one source write, catalog metadata read, and 
 real `/v1/recordings` route with old discovery disabled and restart. The checkpoint remains M2 and
 has not been reached. M0 confirms existing exact node publication authority and selection cannot
 supply catalog summaries; the common publication protocol remains a single contract prerequisite.
-No new source owners or contracts were added. The initial plan has eight milestones; seven remain.
+No new source owners or contracts were added. The initial plan has eight milestones; eight remain
+until M0 is accepted.
 
-Current run requested 8 milestones, completed 1 (M0), and has 7 remaining. Run re-plannings: 0/10.
-M0 corrections: 0/5; no inherited loop or correction count. Scope decision: keep the bounded catalog
-index approach. M0 exposed the current history scans and fixed the list response shape without
-adding storage or transaction work. Next proof: M1's disposable write/read/restart workflow using
-one deterministic source adapter. Stop if that proof requires a second persistent contract, a new
-authority, or expansion beyond the named adapters; review the 0117 exit decision before changing
-scope.
+Current run requested 8 milestones, completed 0, and has 8 remaining pending M0 acceptance. Run
+re-plannings: 0/10. M0 correction attempts: 1/2. The first M0 submission had only a Pydantic
+payload-size fixture and an unpopulated hard-corpus capture. Correction 1 adds a real route fixture
+with persisted package, analysis, processor-run and node histories, unrelated records, counters,
+and fixed-state checks. Its structural assertions confirm source reads grow with 10x retained data
+while the returned recording, stage state, latest analysis state, and active processor-run count
+remain fixed.
+The bounded assertions remain strict expected failures until M6 removes reconstruction.
+Scope decision: keep the bounded catalog index approach. Next: recheck M0 acceptance. After
+acceptance, M1's proof is a disposable write/read/restart workflow using one deterministic source
+adapter. Stop if that proof requires a second persistent contract, a new authority, or expansion
+beyond the named adapters; review the 0117 exit decision before changing scope.
 
-M0 changes: frozen contract, source schema and writer map, one catalog-only capture, and one
-strict expected-failure 10x response-size fixture. M0 does not claim implementation completion.
-See [M0 contract and source map](../../reports/0120-M0_Recording_Catalog_Contract.md).
+M0 correction changes: retain the first response-size fixture and add real persisted growth
+evidence. See [M0 contract and source map](../../reports/0120-M0_Recording_Catalog_Contract.md) and
+[growth capture](../../reports/0120-M0_Growth_Capture.json). The correction passes its fixture and
+source-growth checks; the M0 milestone remains In Progress pending acceptance.
 The [0117 exit decision](../../reports/0117-Supersession_and_Exit.md#execution-control) governs
 scope stops.

@@ -1,0 +1,38 @@
+{
+  "schema_version": "0120-m0-growth-capture/v1",
+  "captured_at": "2026-11-10",
+  "route": "GET /v1/recordings",
+  "method": "real FastAPI route with disposable filesystem stores",
+  "fixture_source": "backend/tests/test_recording_catalog_growth_contract.py",
+  "retained_items": {
+    "one_x": 1,
+    "ten_x": 10
+  },
+  "invariants": {
+    "returned_recordings": [1, 1],
+    "route_response_bytes": [1096, 4732],
+    "stage_states": [
+      "active-run",
+      "empty",
+      "empty",
+      "empty",
+      "active-run"
+    ],
+    "latest_analysis_state": ["queued", "queued"],
+    "target_active_processor_runs": [1, 1]
+  },
+  "source_rows": {
+    "node_manifests_enumerated": [2, 11],
+    "target_node_history_records_read": [1, 10],
+    "stored_package_metadata_rows_read": [1, 10],
+    "analysis_state_rows_read_including_unrelated_recordings": [2, 20],
+    "processor_run_directories_enumerated": [2, 11],
+    "returned_package_ids": [1, 10],
+    "returned_analysis_summaries": [1, 10]
+  },
+  "interpretation": "Returned recording and active work stay stable while retained and unrelated source reads grow with the 10x fixture; route response bytes grow from 1096 to 4732 because package IDs and analysis summaries are embedded.",
+  "limitations": [
+    "This is structural growth evidence from two disposable fixture sizes, not a latency qualification.",
+    "The separate 0117 hard-corpus catalog capture has no populated package, analysis, or processor-run roots."
+  ]
+}

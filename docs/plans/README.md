@@ -113,7 +113,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0 complete; M1–M7 remain. Freeze list contract and source map; next prove one metadata write/read/restart. No recording HEAD adoption or Job Manager redesign. |
+| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0 correction in progress; the real route fixture now covers 10x retained and unrelated source rows. M1–M7 follow acceptance. No recording HEAD adoption or Job Manager redesign. |
 
 ### In Progress
 

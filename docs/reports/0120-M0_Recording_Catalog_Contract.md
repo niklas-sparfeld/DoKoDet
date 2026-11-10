@@ -93,18 +93,45 @@ the current reader logged those roots unavailable; this capture does not verify 
 work. It did not measure startup or workspace routes. Exact counters and fixture digest are in the
 [capture artifact](0120-M0_Catalog_Capture.json).
 
-`backend/tests/test_recording_catalog_growth_contract.py` fixes one returned recording, its stage
-state and active work, then grows embedded analysis and package history from one item to ten. Its
-strict expected-failure assertion records the current unbounded response shape. A companion passing
-assertion freezes stage order and blocker fields. Existing regression checks retain empty/mixed and
-corrupt package behavior (`backend/tests/test_round_analysis_api.py`), node selection errors and
-stage precedence (`backend/tests/test_pipeline_api.py`), and run-status summaries. M6 must replace
-the expected failure with a passing bounded response test, and keep these separate boundaries.
+`backend/tests/test_recording_catalog_growth_contract.py` retains the model-level response-size
+fixture and adds a real `/v1/recordings` route fixture. It publishes real package bundles, target
+node revisions, processor runs and analyses through their stores. It grows target node history and
+package/analysis history from 1 to 10, while unrelated nodes, runs and analyses also grow from 1 to
+10. One target recording, its latest queued analysis, five stage states and one active processor
+run remain fixed. Passing assertions check those invariants and show growth in every source family.
+Separate strict expected-failure assertions check route response size and source-row counters; they
+fail because the list embeds package/analysis history and readers reconstruct from retained source
+rows. M6 must replace the expected failures with passing bounded-read tests,
+and keep the existing regression boundaries: empty/mixed and corrupt package behavior
+(`backend/tests/test_round_analysis_api.py`), node selection errors and stage precedence
+(`backend/tests/test_pipeline_api.py`), and run-status summaries.
+
+The populated real-route fixture produced these source-row counts in one small and one 10x
+disposable run:
+
+| Counter | 1x | 10x |
+| --- | ---: | ---: |
+| Returned recordings | 1 | 1 |
+| Real route response bytes | 1,096 | 4,732 |
+| Pipeline node manifests enumerated | 2 | 11 |
+| Target node history records read | 1 | 10 |
+| Stored package metadata rows read | 1 | 10 |
+| Analysis state rows read, including unrelated recordings | 2 | 20 |
+| Processor-run directories enumerated | 2 | 11 |
+| Returned package IDs | 1 | 10 |
+| Returned analysis summaries | 1 | 10 |
+| Target stage states | `active-run, empty, empty, empty, active-run` | Same |
+| Target queued analysis / active processor run | 1 / 1 | 1 / 1 |
+
+Exact counts are retained in the [growth capture artifact](0120-M0_Growth_Capture.json). This
+fixture measures a route over disposable persisted services. The earlier 0117 hard-corpus
+capture remains unpopulated for packages, analyses and runs; it is retained only as its separate
+single-request drift capture. The new fixture supplies the populated growth evidence without a
+startup or broad latency remeasurement.
 
 ## M0 checks and result
 
-- `mise exec -- uv run --project backend pytest backend/tests/test_recording_catalog_growth_contract.py -q` — passed; one contract assertion passed and the 10x growth assertion is the expected strict xfail (`.x`).
-- `mise exec -- uv run --project backend pytest backend/tests/test_round_analysis_api.py backend/tests/test_recording_bundle_store.py backend/tests/test_pipeline_api.py::test_recording_pipeline_workspace_aggregates_persisted_stage_state backend/tests/test_pipeline_api.py::test_recording_pipeline_workspace_reports_invalid_selection_pointer -q` — passed, 29 tests. One existing Starlette/httpx deprecation warning.
+- `mise exec -- uv run --project backend pytest backend/tests/test_recording_catalog_growth_contract.py backend/tests/test_round_analysis_api.py backend/tests/test_recording_bundle_store.py backend/tests/test_pipeline_api.py::test_recording_pipeline_workspace_aggregates_persisted_stage_state backend/tests/test_pipeline_api.py::test_recording_pipeline_workspace_reports_invalid_selection_pointer -q` — passed, 31 tests and 3 strict expected failures. The passing tests include fixed route state and demonstrated growth in every source family. The expected failures are model payload size, real-route payload size, and real-route source-row bounds. One existing Starlette/httpx deprecation warning.
 - `mise exec -- uv run --project backend ruff check backend/tests/test_recording_catalog_growth_contract.py` — passed.
 - `mise exec -- uv run --project backend ruff format --check backend/tests/test_recording_catalog_growth_contract.py` — passed.
 - `git diff --check` — passed.
