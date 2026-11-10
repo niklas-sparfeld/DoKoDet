@@ -242,6 +242,7 @@ class EventSetStore:
         evidence: dict[str, Any],
         item_id: str | None = None,
         coverage: dict[str, Any] | None = None,
+        reviewed_at: str | None = None,
     ) -> dict[str, Any]:
         """Save one immutable review beside an exact event-set version."""
         _safe_identifier(review_id, "review ID")
@@ -291,6 +292,13 @@ class EventSetStore:
             or not evidence
         ):
             raise EventSetError("reviewer and evidence must be non-empty objects")
+        if reviewed_at is not None:
+            try:
+                timestamp = datetime.fromisoformat(reviewed_at.replace("Z", "+00:00"))
+            except (AttributeError, TypeError, ValueError) as error:
+                raise EventSetError("review timestamp must be an ISO 8601 value") from error
+            if timestamp.tzinfo is None:
+                raise EventSetError("review timestamp must include a timezone")
         content_bytes = json.dumps(
             event_set["content"], sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode()
@@ -306,7 +314,7 @@ class EventSetStore:
             "reviewer": reviewer,
             "evidence": evidence,
             **details,
-            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_at": reviewed_at or datetime.now(timezone.utc).isoformat(),
         }
         directory = contained_path(
             self.recordings.recording_path(recording_id) / "event-sets",

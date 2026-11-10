@@ -40,10 +40,10 @@ workspace UI browser failures reproduce on baseline `adfca187`; the follow-up is
 epic. No new ledger, index, outbox, or producer protocol.
 
 Then select each resource epic separately: **0124 recording folders/events → 0125 detections →
-0126 virtual scenes → 0127 classifications → 0128 table observations**. 0124 now has six milestones after the user-selected usability replan: M0–M3 complete, M4–M5 remain.
+0126 virtual scenes → 0127 classifications → 0128 table observations**. 0124 has seven milestones after the reviewed-data replan: M0–M4 complete, M5–M6 remain.
 0125–0128 each retain four milestones and their own cutover/qualification in M3. Later assignments
 are specified after the preceding workflow proves the approach. Original planning baseline: 23
-milestones across six epics; revised baseline: 25. These are independently selected epics, not one
+milestones across six epics; revised baseline: 26. These are independently selected epics, not one
 automatic loop. Independent 0129 adds three backlog milestones and does not block 0124.
 No nested milestone suffixes extend a run.
 
@@ -128,7 +128,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0124 — Recording folders and events](2-ready/0124-Recording_Folders_and_Events.md) | None | M0–M2 complete. M3 restores normal app use on IMG_0662, including event edit/select and detector result reopen. M4 retained rollout; M5 removes replaced paths and qualifies. No job-consolidation prerequisite. |
+| [0124 — Recording folders and events](2-ready/0124-Recording_Folders_and_Events.md) | None | M0–M4 complete. M4 rehearsed reviewed alternatives and exact parents for three recordings. M5 rolls out and qualifies; M6 removes replaced paths and closes. No job-consolidation prerequisite. |
 
 ### In Progress
 

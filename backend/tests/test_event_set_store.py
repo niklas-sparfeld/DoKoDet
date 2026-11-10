@@ -146,6 +146,7 @@ def test_event_reviews_are_immutable_independent_and_bound_to_exact_content(tmp_
         kind="item",
         decision="accepted",
         item_id="event-1",
+        reviewed_at="2026-09-22T22:29:36.241416Z",
         **common,
     )
     coverage = store.save_review(
@@ -168,6 +169,7 @@ def test_event_reviews_are_immutable_independent_and_bound_to_exact_content(tmp_
         **common,
     )
     assert item["schema_version"] == "event-review/v1"
+    assert item["reviewed_at"] == "2026-09-22T22:29:36.241416Z"
     assert item["content_sha256"] == coverage["content_sha256"] == overall["content_sha256"]
     assert item["item_id"] == "event-1" and item["item_sha256"]
     assert len(store.list_reviews("recording-both", "reviewed", "1")) == 3

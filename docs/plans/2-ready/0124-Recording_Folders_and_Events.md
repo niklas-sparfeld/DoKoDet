@@ -65,8 +65,9 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives under one event-selection authority | Complete |
 | M2 | Review and the named exact-input consumers use event resources | Complete |
 | M3 | Normal app workflow works on one retained recording: open media, edit/select events, run detection, reopen result | Complete |
-| M4 | Extend the proved workflow to the retained recording/event corpus through rehearsed conversion | Not started |
-| M5 | Remove obsolete event runtime paths and qualify the usable app on activated data | Not started |
+| M4 | Rehearse reviewed alternatives and exact parents for three named recordings in disposable storage | Complete |
+| M5 | Roll out verified recordings and qualify representative normal app workflows | Not started |
+| M6 | Remove obsolete event runtime paths and complete closure checks | Not started |
 
 ### Next assignment after dependency closure
 
@@ -354,53 +355,83 @@ test counts alone are not success. Stop before a second storage/transaction cont
 format conversion, or a new prerequisite without a failing user action. Do not postpone this
 workflow proof into M4.
 
-### M4 assignment — extend the working flow to retained recordings
+### M4 replan — reviewed retained-data rehearsal
 
-Observable result: the normal app lists and opens the retained recording/event corpus through the
-same path proved in M3. This is a rollout of a working flow, not an architecture discovery phase.
-Specify exact schemas and finite affected paths after the pilot passes, before assignment.
+The 2026-11-10 investigation found 104 event review records on other event revisions of the
+activated `cardeventnet-IMG_0662` pilot. Its two selected source revisions have no reviews; those
+104 records remain in the old store and are not in its recording folder. The pilot proof did not
+establish that the normal folder workflow can browse that review work. The investigation found
+108 and 102 event review records on sampled revisions of `cardeventnet-IMG_0648` and
+`game-2026-08-20-01-001`, respectively. These are inventory counts, not conversion proof.
+The checked-in pilot work contains no reusable conversion adapter. Retained outputs have exact
+event-node parents in lineage records. These facts justify a small three-recording rehearsal
+before corpus activation. 0129 changes event job history and does not solve this reviewed-data
+requirement. Keep it independent. The M3 publication delay needs separate measurement; it is not
+a prerequisite or an assumed 0129 fix.
 
-Owners: M3's concrete converter, recording/event stores and their source/selection adapters.
-Read-only discovery covers retained bundle manifests, event alternatives and exact revisions,
-both event selectors, independent completed/unfinished review records, and retained outputs with
-direct event parents. Execution records are optional offline sources for unique missing parent or
-producer facts; their 281 input entries are not migration targets by default. Do not convert other
-resource formats. Use the actual retained-output dependencies to set the conversion boundary.
+The previous M4 combined discovery, adapter, corpus activation and verification. Split it into the
+bounded proof below and M5 rollout. M5 retains the promised qualification checkpoint; M6 removes
+replaced paths and completes final closure. This changes the baseline from six to seven milestones:
+M0–M3 complete, M4–M6 remain. It does not remove any original acceptance criterion. No broader
+activation is authorized by M4.
 
-Freeze named inputs and recovery evidence. Rehearse conversion in disposable storage; compare source
-bytes, usable event content, exact required versions, selection, reviews and unfinished work.
-Verify saved outputs resolve their direct event parents after restart. Resolve selector disagreement
-from evidence, never by newest timestamp. Missing dependencies remain explicit and visible. Do not
-silently discard human work or turn a missing exact input into a usable result. Activate verified
-batches only after checking the frozen sources still match; keep the working pilot available.
+### M4 assignment — rehearse reviewed alternatives
 
-Checks: replay/conflict-safe conversion, content and review comparisons, normal browser open/edit/
-select/reopen on representative generated, corrected and reviewed recordings, exact earlier input
-read after a later edit, and M3's workflow regressions. Record all corpus exceptions and which
-actually prevent use. Stop before another resource conversion or generic historical resolver.
-One focused conversion/evidence/plan commit. Job-history migration and deletion stay deferred.
+Observable result: in disposable persistence, convert the exact retained recording and event inputs
+for `cardeventnet-IMG_0662`, `cardeventnet-IMG_0648`, and `game-2026-08-20-01-001`. In the normal
+browser open a reviewed unselected alternative, inspect its retained decisions, select and edit an
+event set, restart, and reopen both the reviewed alternative and a saved output's exact earlier
+event parent. Preserve the current pilot and all retained input files. Use recorded media and a
+stubbed detector where required. This is a rehearsal, not activation of the three recordings.
 
-### M5 assignment — remove replaced paths and close
+Finite owners: a concrete offline conversion adapter under `backend/src/dokodetector_backend`,
+`recording_folder_store.py`, `event_set_store.py`, the event review adapter in
+`pipeline_node_reviews.py`, and only the event-specific workspace/editor clients required to browse
+the converted review and exact parent. Read existing `repository-bundle/v1`, `source-record/v1`,
+`pipeline-node/v1`, `pipeline-node-revision/v1`, `pipeline-node-selection/v1`, existing legacy
+selection records, and `pipeline-review/v1` through their concrete owners. Read retained output
+metadata and lineage only offline to map actual direct parents. Save recording, event and review
+resources using their existing contracts. Do not add a runtime store, authority, transaction,
+generic resolver, job migration or unrelated format conversion. Never mutate an existing saved
+output or event version to make the rehearsal pass.
 
-Observable result: the app keeps the M3/M4 workflows working on activated data, and the replaced
-event runtime path is removed. No new storage or transaction contract. Freeze exact removal owners
-from the pilot and rollout receipts before assignment; use the original finite event owners and
-concrete clients, not a broad repository cleanup.
+Freeze input paths and digests, source bytes, selection references, exact event versions, review
+records and unfinished work, and named retained outputs with direct event parents. Record recovery
+location. Reconcile both selectors from evidence without newest-by-time inference. Map old exact
+node/revision/content digests to saved set/version/content digests. Preserve independent item,
+coverage and overall decisions with identity, facts and provenance; expose missing or ambiguous
+facts explicitly. Compare every in-scope review and version in each named recording, including the
+pilot's unselected reviewed revisions. Preserve existing pilot manual edits and selections. Prove
+at least one existing retained output's exact earlier event parent after restart without changing
+that output. If this needs a new contract or unrelated output conversion, stop and report the exact
+failed user action and smallest alternative.
 
-Remove duplicate event publication, selection and content reads now served by recording/event
-resources. Keep unrelated resource authorities and operational job adapters. Archived old files
-may remain as recovery/history evidence without a runtime compatibility path. Do not migrate or
-remove jobs just to make the architecture look complete. Describe the final ownership and actual
-removed runtime paths in the report; a new abstraction layered over all old ones is not closure.
+Checks: deterministic replay and conflict rejection; source and exact content digests; compare all
+in-scope decisions and unfinished work; generated and reference selection including an absent
+selection; exact output parent after selection change; persisted normal-browser review, edit, select
+and restart on disposable data; M0–M3 affected regressions including active-job priority, stale
+selection and 0123 list growth; affected static, API, web and local Markdown link checks. Record
+input snapshot, discrepancies and limitations. One focused adapter, evidence and plan commit.
 
-Qualify source import, normal event production and human editing under the same content contract,
-two alternatives, selection/review, detector launch and saved result, exact older input after edit,
-backend restart and unselected browse through the normal browser. Old event-node reads/writes must
-be disabled for this workflow. Test interrupted version save, interrupted HEAD replacement, stale
-version, separate concurrent readers/writers, active-job status and 0123 list growth. Run affected
-backend/web/static/generated/link checks against named code/data revisions. Verify the activated
-pilot still works with the available real detector and retain recovery evidence. Close 0124 only
-when these checks pass; move the epic, repair links, and commit implementation and evidence together.
+### M5 assignment — rollout and qualification
+
+Specify the finite corpus and activation batch from M4 evidence before assignment. Extend the proved
+rehearsal to the retained corpus. Freeze input and recovery evidence, rehearse and compare all exact
+versions, selections, reviews, unfinished work and required output parents. Activate verified
+batches only after frozen inputs still match. Keep the pilot and user edits intact. Qualify normal
+browser open/edit/select/restart and exact earlier parent on representative generated, corrected
+and reviewed recordings. Record corpus exceptions. Stop before generic historical resolution or
+another resource conversion. Job-history migration and deletion remain deferred.
+
+### M6 assignment — remove replaced paths and close
+
+Freeze exact removal owners from the pilot and rollout receipts before assignment. Remove duplicate
+event publication, selection and content reads now served by recording/event resources. Keep
+unrelated resource authorities and operational job adapters. Archived old files may remain as
+recovery evidence without a runtime compatibility path. Complete the original closure checks,
+including real browser producer/editor workflow, exact earlier input, restart, old event-node reads
+and writes disabled, crash and concurrency boundaries, active-job priority, list growth, static,
+API, web and link checks, real detector evidence and recovery. Close only when all pass.
 
 ## M0 recording-root contract
 
@@ -438,17 +469,27 @@ owns that follow-up; it does not block M0.
 
 ## Execution handoff
 
+Current run: requested 1 milestone, completed 1, remaining 0. M4 family re-plans 1/5; run
+re-plans 1/10; corrections 0/2. Original baseline four milestones; user-selected baseline six;
+current baseline seven. M0–M4 are complete; M5–M6 remain. M4 separates retained-data rehearsal from
+rollout; M5 keeps qualification and M6 retains removal and closure. The existing recording and
+event stores remain the authorities. One concrete offline converter was added because no reusable
+pilot converter existed. It adds no persistent contract. The first pilot workflow passed in M3;
+M4 now proves its previously unselected reviewed versions through the normal app. 0129 and the
+separate publication performance investigation remain independent. No activation occurred.
+
 Original outcome: import a recording, create/select/edit alternative event sets, and reopen them
 from a simple recording folder. Non-goals remain other resource conversions, scheduler work, and
-cross-store transactions. Final closure check is the normal app workflow, retained rollout and removal of replaced event paths in M5.
+cross-store transactions. Final closure check is the normal app workflow, retained rollout and removal of replaced event paths in M6.
 
 Original baseline: four milestones. Original M3 stopped before implementation; no retained data
-changed. User-selected baseline on 2026-11-10: six milestones, M0–M2 complete, M3–M5 not started.
-The original loop ended at its scope gate after three accepted milestones. This request authorizes
-planning only; a later implementation command selects the next run and its limit. First recording
-workflow was proved in M0 and event workflow in M1. M2 proves review and exact consumer inputs.
-M3 proves normal-app use on the retained pilot, including bounded activation and the configured real
-detector smoke. M4 rolls out that working flow; M5 completes removal and qualification.
+changed. The user-selected baseline on 2026-11-10 had six milestones. The reviewed-data replan
+increased it to seven: M0–M4 are now complete, M5–M6 remain. The original loop ended at its scope
+gate after three accepted milestones. First recording workflow was proved in M0 and event workflow
+in M1. M2 proved review and exact consumer inputs. M3 proved normal-app use on the retained pilot,
+including bounded activation and the configured real detector smoke. M4 rehearsed the retained
+reviewed alternatives and exact parents for three recordings without activation. M5 rolls out and
+qualifies; M6 removes replaced paths and completes closure.
 
 Correction history: M0 1/2; M1 2/2 and one replan; M2 2/2 and zero replans. Those exhausted
 allowances remain exhausted. Original M3 family: zero implementation attempts, replan 2/5. Previous
@@ -505,8 +546,8 @@ After restart, the normal app reopened that exact result and the exact unselecte
 remained `retained-generated@1`. M3's normal-app pilot workflow passed. The configured local provider
 smoke is limited to this retained recording and MPS provider. Publication took about eight minutes,
 then the saved result was durable and inspectable after restart. This does not claim production
-qualification. No transaction, authority, or resolver was added. M4 rolls out the proved flow; M5
-still owns removal and qualification.
+qualification. No transaction, authority, or resolver was added. M4 rehearsed reviewed retained
+alternatives; M5 owns rollout and qualification.
 
 Final checks: focused backend event-set, recording-folder, visible-card and list-growth tests passed
 (57 tests); Ruff check and format passed; recording-folder E2E passed (3 tests); `npm run check`
@@ -515,6 +556,53 @@ the existing 500 kB chunk-size warning.
 
 See [the M3 pilot report](../../reports/0124-M3_Pilot_Workflow.md) for the provider setup, exact
 job data, sample location, and acceptance gap.
+
+### M4 rehearsal report
+
+Detailed input, conversion, browser, and check evidence is in the
+[M4 rehearsal report](../../reports/0124-M4_Reviewed_Alternative_Rehearsal.md).
+
+M4 used the bounded offline adapter in
+`backend/src/dokodetector_backend/event_conversion_rehearsal.py`. It reads only event nodes, their
+exact revisions and reviews, and both event selectors for the three named recordings. The
+disposable output uses the existing recording and event-set stores. No persistent contract,
+transaction, or authority was added. The adapter preserves review time in the existing
+`event-review/v1` field and keeps the original policy and evidence fields. It reads exact review
+records for unpublished source revisions because the normal user-facing review listing only
+returns published revisions.
+
+The frozen-input manifest is
+`/var/folders/gv/yr_91p3x2_vctbq99586hjm80000gn/T/0124-m4-final-39juxq3w/frozen-input-manifest.json`
+with SHA-256 `a806ca35d95f2424adfa9c14a063f0d33aeadaff2dcc41af25b9ef32b014f03f`. It records 14
+source event nodes, 314 review records, both selectors for each recording, the source bundles and
+the retained output parent. All 373 compared input files matched their frozen copies. Source video
+digests are `2372698c009dedd0a3c19ffbecf55d6eb2fa2768c01b787604f747f46a035be7` for 0662,
+`6ae4bba4c7901ec016d9684661c01ac5fa18932f3da1e79502b43ba2ff2fb33c` for 0648, and
+`2464d0e65547b2db31ea5ca49f4d57cefcb999e34cbacec7e7cca8ee9d549faa` for the game recording.
+All conversion and browser writes stayed in the disposable root. The retained folders, selectors,
+old event nodes, reviews, and saved output stayed unchanged.
+
+The replay converted 17 event versions: six for 0662, five for 0648, and six for the game
+recording. Every canonical event digest matched. It preserved 104, 108, and 102 reviews, including
+identity, decision, timestamp, item digest, policy, evidence, and source provenance. It compared
+pending item IDs per exact version. The legacy and node selectors agreed by exact node/revision
+and legacy revision metadata. The 0648 and game roots use those exact choices. The 0662 rehearsal
+preserved the pilot's existing HEAD while recording the old selector mapping. Replay did not
+overwrite versions or reviews.
+
+The normal browser opened reviewed, unselected versions on all three recordings and showed 52,
+54, and 51 decisions for the chosen exact versions. On disposable 0662 data, it edited and saved an
+alternative, selected it, restarted the backend, and reopened the reviewed alternative and the
+saved output's exact event parent. Output `7111edd7-9f72-4fdc-9c10-a90d94db172f` still references
+`manual-efadbf34-2c3c-4fa6-888f-2b9b46128ffe@1`, with content digest
+`a3c284533668d7b316f65142718262424f62769e85bd19d0f67e177fb6b84c78`. Its output content digest
+is `905ecbb65fc9137a15187f9bd0465e8f7923d120bbaff1b7840411250c582e23`. No saved output was
+rewritten. M4 authorizes no activation; M5 must define and rehearse the rollout batch.
+
+Checks: the named backend regressions passed (53 tests); Ruff check and format passed;
+`npm run check` passed (244 tests, type, lint, format and generated API); the recording-folder
+Playwright suite passed (3 tests); the retained-data browser rehearsal passed for all three
+recordings through restart. Next: M5 rollout and qualification.
 
 M2 contract detail: store `event-review/v1` under
 `event-sets/<set-id>/reviews/<review-id>.json`. Each immutable record identifies `set_id`,
@@ -538,4 +626,5 @@ backend tests (61 tests); Ruff check/format; `npm run verify:api`; `npm run type
 lint`, `npm run format`; `npm test -- --run` (244 tests); `npm run build`; and
 `npx playwright test --config playwright.recording-folder.config.ts` (2 tests). The backend workflow
 reads the event set selected from workspace HEAD, disables event-node reads, and confirms exact
-digest retention. M4 owns retained rehearsal; M5 owns activation and qualification under the user-selected replan.
+digest retention. M4 rehearsed retained data; M5 owns rollout and qualification; M6 owns runtime
+removal and closure.
