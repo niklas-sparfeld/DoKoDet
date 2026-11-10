@@ -1,5 +1,28 @@
 # Epic 0117 M6b1a: ordered queue authority
 
+## Final correction — child completion and cancellation
+
+Date: 2026-11-10
+
+The job transition observer now calls `_child_is_complete` before it records a succeeded pipeline
+stage as complete. If the child job succeeded but its underlying analysis or pipeline result is not
+complete, the stage and run fail with the existing failure path. This prevents a crash before the
+parent resumes from leaving a false complete stage. The observer now handles cancelled children,
+stores cancelled stage and run status, and retains the resolved input revision IDs. The restart
+regression confirms that status and lineage remain durable.
+
+Checks:
+
+- `cd backend && uv run pytest -q tests/test_job_*.py tests/test_jobs_api.py tests/test_automated_pipeline_jobs.py` — passed, 81 tests.
+- `cd backend && uv run pytest -q tests/test_job_projection_authority.py` — passed, 23 tests.
+- Ruff check and format check passed for the changed backend module and tests.
+- `git diff --check` — passed.
+
+The fixture restart uses the persistent run-store fixture and a reopened job manager. No API or
+browser contract changed. The existing Starlette/httpx deprecation warning remains. M6b1a is complete;
+the new five-milestone run has 1 complete and 4 remaining, with 0/10 run re-plannings and 0/5 for
+M6b1a. Next is M6b1b. M6b1b still owns bounded acceptance-key, sequence, and parent-step authority.
+
 Date: 2026-11-09
 
 ## Current result

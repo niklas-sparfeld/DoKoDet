@@ -414,6 +414,70 @@ def test_parent_cancel_waits_for_owned_child_to_stop(tmp_path: Path) -> None:
         assert manager.get(parent.id).state == "cancelled"
 
 
+def test_succeeded_child_without_complete_result_does_not_complete_stage(tmp_path: Path) -> None:
+    run_id = str(uuid4())
+    document, _service, participant = _participant(run_id)
+    participant._child_is_complete = lambda _child: False
+    with _manager(tmp_path, participant) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "recording-1"},
+                "request": {"run_id": run_id},
+            },
+        )
+        manager.transition(parent.id, "running")
+        participant.handle(
+            manager.get(parent.id),
+            Claims(),
+            type("Token", (), {"check": lambda _self: None})(),
+            manager,
+        )
+        child = next(job for job in manager.list_jobs() if job.parent_id == parent.id)
+        manager.transition(child.id, "running")
+        manager.transition(child.id, "succeeded")
+        assert document["stages"][0]["status"] == "failed"
+        assert document["stages"][0]["child_job_id"] == child.id
+
+
+def test_cancelled_child_stage_keeps_lineage_after_restart(tmp_path: Path) -> None:
+    run_id = str(uuid4())
+    document, _service, participant = _participant(run_id)
+    participant._resolve_inputs = lambda *_args: ("input-revision",)
+    with _manager(tmp_path, participant) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "recording-1"},
+                "request": {"run_id": run_id},
+            },
+        )
+        manager.transition(parent.id, "running")
+        participant.handle(
+            manager.get(parent.id),
+            Claims(),
+            type("Token", (), {"check": lambda _self: None})(),
+            manager,
+        )
+        child = next(job for job in manager.list_jobs() if job.parent_id == parent.id)
+        participant._set_stage(
+            run_id, child.parent_step_id, "running", child.id, ("input-revision",)
+        )
+        manager.transition(child.id, "running")
+        manager.cancel(parent.id)
+        manager.transition(child.id, "cancelled")
+        assert document["stages"][0]["status"] == "cancelled"
+        assert document["stages"][0]["input_revision_ids"] == ["input-revision"]
+
+    with _manager(tmp_path, participant) as manager:
+        manager.participant.reconcile(manager)
+        assert document["status"] == "cancelled"
+        assert document["stages"][0]["status"] == "cancelled"
+        assert document["stages"][0]["input_revision_ids"] == ["input-revision"]
+
+
 def test_parent_retry_reuses_verified_completed_stage_and_keeps_failed_history(
     tmp_path: Path,
 ) -> None:

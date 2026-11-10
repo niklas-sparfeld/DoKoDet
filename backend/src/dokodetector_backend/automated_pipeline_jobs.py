@@ -107,7 +107,7 @@ class AutomatedPipelineJobParticipant:
         if (
             parent.type != "automated_pipeline"
             or parent.phase != child.parent_step_id
-            or parent.state not in {"waiting", "queued", "running"}
+            or parent.state not in {"waiting", "queued", "running", "cancelling"}
         ):
             return
         run_id = str(parent.request["run_id"])
@@ -122,9 +122,14 @@ class AutomatedPipelineJobParticipant:
         if child.state in {"queued", "running"}:
             self._set_stage(run_id, definition.name, child.state, child.id, inputs)
         elif child.state == "succeeded":
-            self._copy_child_status(run_id, definition.name, child, inputs)
+            if self._child_is_complete(child):
+                self._copy_child_status(run_id, definition.name, child, inputs)
+            else:
+                self._fail_run(run_id, definition.name, child, inputs)
         elif child.state in {"failed", "interrupted"}:
             self._fail_run(run_id, definition.name, child, inputs)
+        elif child.state == "cancelled":
+            self._cancel_stage(run_id, definition.name, child.id, inputs)
 
     def handle(self, job: Job, _claims: Claims, token: Any, manager: JobManager) -> None:
         token.check()
@@ -403,6 +408,23 @@ class AutomatedPipelineJobParticipant:
                     "status": "failed",
                     "child_job_id": child.id,
                     "run_id": child.id,
+                    "input_revision_ids": list(inputs),
+                }
+            )
+
+        self.service.store.update(run_id, update)
+
+    def _cancel_stage(
+        self, run_id: str, stage: str, child_id: str, inputs: tuple[str, ...]
+    ) -> None:
+        def update(current: dict[str, Any]) -> None:
+            current["status"] = "cancelled"
+            row = next(item for item in current["stages"] if item["name"] == stage)
+            row.update(
+                {
+                    "status": "cancelled",
+                    "run_id": child_id,
+                    "child_job_id": child_id,
                     "input_revision_ids": list(inputs),
                 }
             )
