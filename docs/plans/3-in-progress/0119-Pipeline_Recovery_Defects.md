@@ -78,11 +78,12 @@ the selective rollback requirements in the exit decision; do not create an endle
 - Change: cancelled-stage reconciliation now finds the unique child for the exact current phase
   when recovery records it as either `cancelled` or `interrupted`. Multiple matches remain
   ambiguous and are rejected.
-- Regressions: linked interrupted child; unlinked interrupted child with restart and repeated
-  reconciliation; cancelled child persisted before observer notification. The distinct crash
-  cases remain separate.
+- Regressions: linked interrupted child; unlinked interrupted child with restart, repeated
+  reconciliation, another reopen, and a one-child count; cancelled child persisted before observer
+  notification. Persisted same-phase competitors in queued, failed, and succeeded states are all
+  rejected. Earlier-phase isolation remains covered. The distinct crash cases remain separate.
 - Checks: `uv run --project backend pytest backend/tests/test_automated_pipeline_jobs.py
-  backend/tests/test_job_recovery.py -q` passed (29 tests); affected Ruff check and format check
+  backend/tests/test_job_recovery.py -q` passed (32 tests); affected Ruff check and format check
   passed. Evidence: [M0 recovery report](../../reports/0119-M0_Pipeline_Recovery.md).
 - Limits: stage recovery has persisted local-store coverage. Full real service workflow and the
   finite status/input matrix remain for M1.
@@ -90,7 +91,10 @@ the selective rollback requirements in the exit decision; do not create an endle
 ### Run and scope history
 
 - Current run: requested 2 milestones, completed 1, remaining 1.
-- Re-planning: M0 0/5; run 0/10. Correction turns used: 0. No inherited 0117 correction budget.
+- Re-planning: M0 0/5; run 0/10. Correction turns used: 1/2. Review found that filtering out
+  queued and other non-cancelled outcomes before counting could hide a conflicting same-phase
+  child. The lookup now counts every child for the exact parent phase before selecting one.
+  No inherited 0117 correction budget.
 - Scope decision: keep the bounded local fix in existing authority. No new storage, transaction,
   processor contract, source owner, or stronger guarantee was added.
 - Next: M1 finite recovery matrix and real service closeout. Stop if the matrix exposes an

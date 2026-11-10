@@ -112,7 +112,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0119 — Pipeline recovery defects](3-in-progress/0119-Pipeline_Recovery_Defects.md) | Integrated job/pipeline code; 0117 closed | M0 complete; M1 not started. Exact current-phase recovery handles unlinked interrupted children; linked interrupted and cancelled-before-observer regressions remain separate. See the [M0 report](../reports/0119-M0_Pipeline_Recovery.md). No queue or acceptance optimization. |
+| [0119 — Pipeline recovery defects](3-in-progress/0119-Pipeline_Recovery_Defects.md) | Integrated job/pipeline code; 0117 closed | M0 complete; M1 not started. Exact current-phase recovery restores unlinked interrupted children and rejects persisted same-phase conflicts across queued, failed, and succeeded states. Crash regressions remain separate. See the [M0 report](../reports/0119-M0_Pipeline_Recovery.md). No queue or acceptance optimization. |
 
 
 ### In Progress

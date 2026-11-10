@@ -570,6 +570,19 @@ def test_unlinked_interrupted_child_recovers_exact_stage_and_inputs_after_restar
         manager.participant.reconcile(manager)
         assert run_store.get(run_id)["stages"][0]["child_job_id"] == child.id
 
+    with _manager(tmp_path, participant) as manager:
+        manager.participant.reconcile(manager)
+        recovered = run_store.get(run_id)
+        current_children = [
+            job
+            for job in manager.list_jobs()
+            if job.parent_id == parent.id and job.parent_step_id == "event_proposals"
+        ]
+        assert len(current_children) == 1
+        assert current_children[0].id == child.id
+        assert recovered["stages"][0]["child_job_id"] == child.id
+        assert recovered["stages"][0]["input_revision_ids"] == ["input-revision"]
+
 
 def test_cancelled_child_persisted_before_observer_recovers_after_restart(
     tmp_path: Path,
@@ -676,6 +689,108 @@ def test_cancelled_stage_reconciliation_rejects_earlier_or_ambiguous_children(
     )
     participant._reconcile_cancelled_stage(document, parent, {first.id: first, second.id: second})
     assert document["stages"][0] == before
+
+
+@pytest.mark.parametrize("competing_state", ["queued", "failed", "succeeded"])
+def test_persisted_cancelled_stage_rejects_any_same_phase_competing_child(
+    tmp_path: Path, competing_state: str
+) -> None:
+    run_id = str(uuid4())
+    run_store = AutomatedPipelineRunStore(tmp_path / "pipeline-runs")
+    run_store.create(_document(run_id))
+
+    class _PersistedService:
+        store = run_store
+
+        def read(self, requested_run_id: str) -> dict:
+            return self.store.get(requested_run_id)
+
+    participant = AutomatedPipelineJobParticipant(_PersistedService(), object())
+    participant._child_request = lambda _parent, definition, _inputs: {
+        "type": "fake",
+        "context": {"recording_id": "recording-1"},
+        "request": {"input": f"stage:{definition.name}"},
+    }
+    participant._stage_plan = lambda _document: (
+        StageDefinition("event_proposals", {}, ("input-revision",)),
+    )
+    with _manager(tmp_path, participant) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "recording-1"},
+                "request": {"run_id": run_id},
+            },
+        )
+        manager.transition(parent.id, "running")
+        participant.handle(
+            manager.get(parent.id),
+            Claims(),
+            type("Token", (), {"check": lambda _self: None})(),
+            manager,
+        )
+        current_child = next(job for job in manager.list_jobs() if job.parent_id == parent.id)
+        competing_child = manager.accept(
+            str(uuid4()),
+            {
+                "type": "fake",
+                "context": {"recording_id": "recording-1"},
+                "request": {"input": "competing-child"},
+                "parent_id": parent.id,
+                "parent_step_id": "other_stage",
+            },
+        )
+        competing_child.parent_step_id = "event_proposals"
+        manager._write_job(competing_child)
+        participant.job_transitioned = lambda _job, _manager: None
+        manager.transition(parent.id, "cancelling")
+        manager.transition(current_child.id, "cancelled")
+        if competing_state != "queued":
+            competing_record = Job.model_validate(
+                {
+                    **competing_child.model_dump(),
+                    "state": competing_state,
+                    "finished_at": "2026-11-10T00:00:00+00:00",
+                    "revision": competing_child.revision + 1,
+                }
+            )
+            manager._write_job(competing_record)
+        cancelled_parent = manager.get(parent.id)
+        cancelled_parent.steps[0].child_job_id = None
+        manager._write_job(cancelled_parent)
+        manager.transition(parent.id, "cancelled")
+        run_store.update(
+            run_id,
+            lambda current: current.update(
+                {
+                    "status": "accepted",
+                    "stages": [
+                        {
+                            **current["stages"][0],
+                            "status": "pending",
+                            "child_job_id": None,
+                            "input_revision_ids": [],
+                        }
+                    ],
+                }
+            ),
+        )
+
+    for _ in range(2):
+        with _manager(tmp_path, participant) as manager:
+            manager.participant.reconcile(manager)
+            recovered = run_store.get(run_id)
+            current_children = [
+                job
+                for job in manager.list_jobs()
+                if job.parent_id == parent.id and job.parent_step_id == "event_proposals"
+            ]
+            assert len(current_children) == 2
+            assert recovered["status"] == "cancelled"
+            assert recovered["stages"][0]["status"] == "pending"
+            assert recovered["stages"][0]["child_job_id"] is None
+            assert recovered["stages"][0]["input_revision_ids"] == []
 
 
 def test_parent_retry_reuses_verified_completed_stage_and_keeps_failed_history(
