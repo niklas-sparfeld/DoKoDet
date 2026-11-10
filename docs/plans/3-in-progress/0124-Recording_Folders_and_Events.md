@@ -1,6 +1,6 @@
 # Recording folders and events
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** None. Epic 0123 is closed, which stabilizes the list API before its source layout changes.
 - **Outcome:** Use the normal app to open a retained recording, inspect/edit/select events, run visible-card detection, and reopen the saved result from simple recording resources.
 - **Origin:** [Recording data storage](../../RecordingDataStorage.md).
@@ -66,7 +66,7 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | M2 | Review and the named exact-input consumers use event resources | Complete |
 | M3 | Normal app workflow works on one retained recording: open media, edit/select events, run detection, reopen result | Complete |
 | M4 | Rehearse reviewed alternatives and exact parents for three named recordings in disposable storage | Complete |
-| M5 | Roll out verified recordings and qualify representative normal app workflows | Not started |
+| M5 | Roll out verified recordings and qualify representative normal app workflows | In Progress |
 | M6 | Remove obsolete event runtime paths and complete closure checks | Not started |
 
 ### Next assignment after dependency closure
@@ -415,13 +415,57 @@ input snapshot, discrepancies and limitations. One focused adapter, evidence and
 
 ### M5 assignment — rollout and qualification
 
-Specify the finite corpus and activation batch from M4 evidence before assignment. Extend the proved
-rehearsal to the retained corpus. Freeze input and recovery evidence, rehearse and compare all exact
-versions, selections, reviews, unfinished work and required output parents. Activate verified
-batches only after frozen inputs still match. Keep the pilot and user edits intact. Qualify normal
-browser open/edit/select/restart and exact earlier parent on representative generated, corrected
-and reviewed recordings. Record corpus exceptions. Stop before generic historical resolution or
-another resource conversion. Job-history migration and deletion remain deferred.
+Observable result: activate the verified retained recording/event corpus for normal app use, and
+qualify reviewed alternatives and direct earlier event parents through the normal browser. Freeze
+the finite corpus from existing `data/intake/recordings/*/manifest.json` and its matching event
+nodes, selectors and reviews; record every recording with no usable inputs as an explicit exception.
+The initial discovery is the current 58 retained bundles; do not assume that each has a usable
+selection. Rehearse the entire selected snapshot in disposable storage before activating verified
+batches. The activated 0662 pilot, its manual alternatives and current HEAD must remain intact.
+
+M4 proved an offline mapping but the app cannot discover the old parent from a saved output. The
+old visible-card output's `coverage.event_revision_id` names its legacy event revision. M4 saved
+the old event node/revision and `source_metadata.legacy_revision_id` in each converted event-set's
+existing provenance, with the same canonical content digest. Use these existing saved facts for a
+recording-local exact match in the visible-card output/inspector path: validate recording, unique
+legacy revision identity and content digest against the converted event set; expose an explicit
+missing or ambiguous result and never select by time or run history. Open that exact set/version
+from the normal output view. Prefer direct event-set refs already present on newer outputs. Do not
+mutate any saved output or event version, introduce a new persistent mapping authority, generic
+history resolver, or depend on processor-run/lineage records at runtime. Offline lineage may discover
+and verify inputs during conversion. If the stated fields cannot establish a unique and trustworthy
+match for a saved output, record it as an explicit exception; do not silently claim it is usable.
+
+Finite owners: `event_conversion_rehearsal.py` and a bounded activation entry point; existing
+`recording_folder_store.py`, `event_set_store.py`, `event_sets_api.py`, the exact visible-card
+revision response and `pipeline_workspace_service.py` where needed to expose its direct parent;
+`RecordingWorkspaceInspector.tsx`, `RecordingPipelineWorkspace.tsx`, `RecordingEventSetEditor.tsx`
+and their concrete clients for opening the exact parent. Existing recording HEAD and event-set files
+remain authorities. Event conversion provenance already records source revision metadata; no new
+persistent contract or output format is planned. Inspect the actual output and callers before each
+change. Do not convert other resource formats, rewrite the scheduler, or migrate jobs. If a new
+contract or unrelated owner becomes necessary, stop and present the failed action and dependency.
+
+Freeze the named source manifests, media digests, event node versions, both selectors, reviews,
+unfinished work and actual direct parents of retained outputs; retain a durable recovery snapshot.
+Rehearse replay/conflict checks, compare every exact content digest, decision and unfinished item,
+and preserve all immutable original inputs. Resolve selector disagreements from evidence, never by
+newest time. Activate only after verifying the live sources still match their frozen snapshots;
+keep pre-existing roots and user edits. Record successes, exception identities and recovery steps.
+No absent or ambiguous parent becomes a usable result by inference.
+
+Required checks: on disposable real persisted data use normal browser to open the pre-M3 visible-card
+output `8bfa825d-94af-5ac6-877d-a1381e662d65@d9c461ee-c7f9-5a2c-be60-36da3ea9a169`, navigate from
+it to the converted exact event parent, change event selection, restart, reopen the output and parent,
+and compare digests with output bytes unchanged. Disable processor-run and lineage reads for this
+parent lookup; test missing and duplicate provenance fail visibly. Qualify generated, corrected and
+reviewed examples through normal browser open/edit/select/restart, and the M3 real-provider pilot
+without a new detector run if its saved result still opens. Verify replay, conflicts, exact media,
+reviews and source snapshots, durable restart, M0–M4 regression boundaries, active-job priority,
+stale selection, 0123 list-growth, affected backend/static/generated API/web/browser/link checks.
+Record exact corpus, activated batches, exceptions, observed behavior and limits. One focused M5
+implementation, activation evidence, plan and board commit. M6 retains runtime removal and final
+closure. No changes to 0129 or unrelated publication performance work.
 
 ### M6 assignment — remove replaced paths and close
 
@@ -468,6 +512,24 @@ and the recording-folder Playwright test. A broader `test_app.py` run also repro
 owns that follow-up; it does not block M0.
 
 ## Execution handoff
+
+Current run: requested 1 milestone, completed 0, remaining 1. M5 is in progress. M5 family
+re-plans 1/5, run re-plans 1/10, corrections 0/2. Original baseline four, then six, current
+baseline seven: M0–M4 complete, M5–M6 remain. M3 normal pilot and M4 three-recording rehearsal
+passed, but M4's old output parent was mapped offline only. This attempt adds a recording-local
+inspector link that matches the selected visible-card output's legacy event revision to one saved
+event-set provenance record and checks its content digest. Missing or duplicate provenance fails
+closed. A normal browser can open a supplied exact event-set reference and reopen it after restart.
+This does not yet prove the required output-to-parent browser action, disabled run/lineage reads,
+selection change and restart, or retained corpus rollout. No recording or saved output was changed.
+M5 activation and qualification remain. No new persistent contract or authority was added. Next:
+prove the exact pre-M3 output path against disposable persisted data, then freeze and rehearse the
+58-bundle corpus before any activation. Stop for unresolved ambiguity, a new persistent contract,
+or unsafe activation. 0129 and unrelated publication performance remain independent.
+
+See [M5 rollout and qualification report](../../reports/0124-M5_Rollout_Qualification.md) for
+implemented changes, checks, evidence limits, and remaining acceptance criteria. Historical run
+counts below are not this run's counts.
 
 Current run: requested 1 milestone, completed 1, remaining 0. M4 family re-plans 1/5; run
 re-plans 1/10; M4 corrections 1/2. Original baseline four milestones; user-selected baseline six;

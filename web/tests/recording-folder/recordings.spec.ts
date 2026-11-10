@@ -151,6 +151,27 @@ test("recording folder saves, selects, edits and reopens two event-set alternati
   expect(legacyEventReads).toEqual([]);
 });
 
+test("event-set workspace opens an exact parent from a saved link after restart", async ({
+  page,
+}) => {
+  await page.goto(
+    "/recordings/recording-both/event-sets?set=retained-reference&version=1",
+  );
+  await expect(page.getByLabel("Start (µs)")).toHaveValue("500000");
+  await expect(page.getByRole("status")).toContainText(
+    "Opened retained-reference version 1",
+  );
+  const restarted = await page.request.post(
+    "http://127.0.0.1:8767/__test/restart",
+  );
+  expect(restarted.status()).toBe(200);
+  await page.reload();
+  await expect(page.getByLabel("Start (µs)")).toHaveValue("500000");
+  await expect(page.getByRole("status")).toContainText(
+    "Opened retained-reference version 1",
+  );
+});
+
 test("normal recording workflow edits an event, runs detection and reopens its exact input", async ({
   page,
 }) => {

@@ -30,6 +30,7 @@ import {
   decodeLineageSelection,
   type LineageStageKey,
 } from "./pipelineLineageSelection";
+import { LegacyEventParentLink } from "./LegacyEventParentLink";
 
 export type RecordingWorkspaceInspectorProps = {
   recordingId: string;
@@ -321,6 +322,9 @@ export function RecordingWorkspaceInspector({
             </>
           ) : null}
         </div>
+        {!compare && stage.key === "visible_cards" ? (
+          <LegacyEventParentLink recordingId={recordingId} stage={stage} />
+        ) : null}
         {compare ? (
           <>
             <div data-comparison-inspector-status />

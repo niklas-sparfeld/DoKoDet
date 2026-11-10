@@ -140,7 +140,7 @@ consolidation; it does not block recording/event cutover.
 Git history supplies additional recovery and change evidence. Runtime resources still need explicit
 version references and readable provenance in the checked-out data. Verify actual recovery inputs
 rather than assuming every source byte or ignored path is in Git. The revised
-[0124](plans/2-ready/0124-Recording_Folders_and_Events.md) delivers normal app use on a retained recording in M3, extends it to retained recordings in M4,
+[0124](plans/3-in-progress/0124-Recording_Folders_and_Events.md) delivers normal app use on a retained recording in M3, extends it to retained recordings in M4,
 and removes replaced paths and qualifies in M5. Provenance changes serve that workflow; universal
 execution-history independence and job consolidation are deferred. The next proof must work in
 the normal app on an activated pilot, not only on an isolated editor or test backend.
@@ -187,7 +187,7 @@ a qualification gate, not a claim based on this planning inspection.
 ## Delivery and non-goals
 
 [0123](plans/5-closed/0123-Simple_Recording_List.md) delivers the list in three milestones without
-new persistent state. [0124](plans/2-ready/0124-Recording_Folders_and_Events.md) proves recording
+new persistent state. [0124](plans/3-in-progress/0124-Recording_Folders_and_Events.md) proves recording
 folders and event editing. [0125](plans/4-blocked/0125-Recording_Visual_Detections.md),
 [0126](plans/4-blocked/0126-Recording_Virtual_Scenes.md),
 [0127](plans/4-blocked/0127-Recording_Classifications.md), and

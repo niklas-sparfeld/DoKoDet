@@ -48,34 +48,53 @@ export function RecordingEventSetEditor({
     return result;
   }, [recordingId]);
 
+  const open = useCallback(
+    async (reference: { set_id: string; version: string }) => {
+      const response = await fetch(
+        `/api/recordings/${encodeURIComponent(recordingId)}/event-sets/${encodeURIComponent(reference.set_id)}/versions/${encodeURIComponent(reference.version)}`,
+      );
+      if (!response.ok)
+        throw new Error("The selected event set could not be opened.");
+      const saved = (await response.json()) as {
+        content: { events: EventRecord[] };
+      };
+      setSelected({ set_id: reference.set_id, version: reference.version });
+      setEvents(saved.content.events);
+      const reviewsResponse = await fetch(
+        `/api/recordings/${encodeURIComponent(recordingId)}/event-sets/${encodeURIComponent(reference.set_id)}/versions/${encodeURIComponent(reference.version)}/reviews`,
+      );
+      if (!reviewsResponse.ok)
+        throw new Error("Event reviews could not be loaded.");
+      const savedReviews = (await reviewsResponse.json()) as {
+        reviews: EventReview[];
+      };
+      setReviews(savedReviews.reviews);
+      setNotice(`Opened ${reference.set_id} version ${reference.version}.`);
+    },
+    [recordingId],
+  );
+
   useEffect(() => {
     void load()
-      .then(setData)
+      .then((result) => {
+        setData(result);
+        const query = new URLSearchParams(window.location.search);
+        const setId = query.get("set");
+        const version = query.get("version");
+        if (
+          setId !== null &&
+          version !== null &&
+          result.event_sets.some(
+            (item) => item.set_id === setId && item.version === version,
+          )
+        ) {
+          void open({ set_id: setId, version }).catch(() =>
+            setNotice("The exact event parent could not be opened."),
+          );
+        }
+      })
       .catch(() => setNotice("Event sets could not be loaded."));
-  }, [load]);
-
-  const open = async (reference: { set_id: string; version: string }) => {
-    const response = await fetch(
-      `/api/recordings/${encodeURIComponent(recordingId)}/event-sets/${encodeURIComponent(reference.set_id)}/versions/${encodeURIComponent(reference.version)}`,
-    );
-    if (!response.ok)
-      throw new Error("The selected event set could not be opened.");
-    const saved = (await response.json()) as {
-      content: { events: EventRecord[] };
-    };
-    setSelected({ set_id: reference.set_id, version: reference.version });
-    setEvents(saved.content.events);
-    const reviewsResponse = await fetch(
-      `/api/recordings/${encodeURIComponent(recordingId)}/event-sets/${encodeURIComponent(reference.set_id)}/versions/${encodeURIComponent(reference.version)}/reviews`,
-    );
-    if (!reviewsResponse.ok)
-      throw new Error("Event reviews could not be loaded.");
-    const savedReviews = (await reviewsResponse.json()) as {
-      reviews: EventReview[];
-    };
-    setReviews(savedReviews.reviews);
-    setNotice(`Opened ${reference.set_id} version ${reference.version}.`);
-  };
+  }, [load, open]);
 
   const save = async (newAlternative: boolean) => {
     if (data === null) return;
