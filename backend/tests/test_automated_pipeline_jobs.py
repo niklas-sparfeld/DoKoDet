@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -508,6 +509,173 @@ def test_interrupted_child_stage_of_cancelled_parent_recovers_status_and_lineage
         assert recovered["stages"][0]["status"] == "interrupted"
         assert recovered["stages"][0]["child_job_id"] == child.id
         assert recovered["stages"][0]["input_revision_ids"] == ["input-revision"]
+
+
+def test_unlinked_interrupted_child_recovers_exact_stage_and_inputs_after_restart(
+    tmp_path: Path,
+) -> None:
+    run_id = str(uuid4())
+    run_store = AutomatedPipelineRunStore(tmp_path / "pipeline-runs")
+    run_store.create(_document(run_id))
+
+    class _PersistedService:
+        store = run_store
+
+        def read(self, requested_run_id: str) -> dict:
+            return self.store.get(requested_run_id)
+
+    participant = AutomatedPipelineJobParticipant(_PersistedService(), object())
+    participant._child_request = lambda _parent, definition, _inputs: {
+        "type": "fake",
+        "context": {"recording_id": "recording-1"},
+        "request": {"input": f"stage:{definition.name}"},
+    }
+    participant._stage_plan = lambda _document: (
+        StageDefinition("event_proposals", {}, ("input-revision",)),
+    )
+    with _manager(tmp_path, participant) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "recording-1"},
+                "request": {"run_id": run_id},
+            },
+        )
+        manager.transition(parent.id, "running")
+        participant.handle(
+            manager.get(parent.id),
+            Claims(),
+            type("Token", (), {"check": lambda _self: None})(),
+            manager,
+        )
+        child = next(job for job in manager.list_jobs() if job.parent_id == parent.id)
+        manager.transition(child.id, "running")
+        manager.cancel(parent.id)
+        cancelling_parent = manager.get(parent.id)
+        assert cancelling_parent.phase == "event_proposals"
+        cancelling_parent.steps[0].child_job_id = None
+        manager._write_job(cancelling_parent)
+
+    with _manager(tmp_path, participant) as manager:
+        child = manager.get(child.id)
+        assert child.state == "interrupted"
+        manager.participant.reconcile(manager)
+        recovered = run_store.get(run_id)
+        assert manager.get(parent.id).state == "cancelled"
+        assert recovered["status"] == "cancelled"
+        assert recovered["stages"][0]["status"] == "interrupted"
+        assert recovered["stages"][0]["child_job_id"] == child.id
+        assert recovered["stages"][0]["input_revision_ids"] == ["input-revision"]
+        manager.participant.reconcile(manager)
+        assert run_store.get(run_id)["stages"][0]["child_job_id"] == child.id
+
+
+def test_cancelled_child_persisted_before_observer_recovers_after_restart(
+    tmp_path: Path,
+) -> None:
+    run_id = str(uuid4())
+    run_store = AutomatedPipelineRunStore(tmp_path / "pipeline-runs")
+    run_store.create(_document(run_id))
+
+    class _PersistedService:
+        store = run_store
+
+        def read(self, requested_run_id: str) -> dict:
+            return self.store.get(requested_run_id)
+
+    participant = AutomatedPipelineJobParticipant(_PersistedService(), object())
+    participant._child_request = lambda _parent, definition, _inputs: {
+        "type": "fake",
+        "context": {"recording_id": "recording-1"},
+        "request": {"input": f"stage:{definition.name}"},
+    }
+    participant._stage_plan = lambda _document: (
+        StageDefinition("event_proposals", {}, ("input-revision",)),
+    )
+    with _manager(tmp_path, participant) as manager:
+        parent = manager.accept(
+            str(uuid4()),
+            {
+                "type": "automated_pipeline",
+                "context": {"recording_id": "recording-1"},
+                "request": {"run_id": run_id},
+            },
+        )
+        manager.transition(parent.id, "running")
+        participant.handle(
+            manager.get(parent.id),
+            Claims(),
+            type("Token", (), {"check": lambda _self: None})(),
+            manager,
+        )
+        child = next(job for job in manager.list_jobs() if job.parent_id == parent.id)
+        manager.transition(child.id, "running")
+        run_store.update(
+            run_id,
+            lambda current: current["stages"][0].update(
+                {
+                    "status": "running",
+                    "child_job_id": child.id,
+                    "input_revision_ids": ["input-revision"],
+                }
+            ),
+        )
+        manager.cancel(parent.id)
+        participant.job_transitioned = lambda _job, _manager: (_ for _ in ()).throw(
+            RuntimeError("crash after cancelled child persistence")
+        )
+        with pytest.raises(RuntimeError, match="crash after cancelled child persistence"):
+            manager.transition(child.id, "cancelled")
+
+    with _manager(tmp_path, participant) as manager:
+        manager.participant.reconcile(manager)
+        recovered = run_store.get(run_id)
+        assert manager.get(parent.id).state == "cancelled"
+        assert recovered["status"] == "cancelled"
+        assert recovered["stages"][0]["status"] == "cancelled"
+        assert recovered["stages"][0]["child_job_id"] == child.id
+        assert recovered["stages"][0]["input_revision_ids"] == ["input-revision"]
+
+
+def test_cancelled_stage_reconciliation_rejects_earlier_or_ambiguous_children(
+    tmp_path: Path,
+) -> None:
+    run_id = str(uuid4())
+    document, _service, participant = _participant(run_id)
+    participant._stage_plan = lambda _document: (
+        StageDefinition("event_proposals", {}, ("input-revision",)),
+    )
+    parent = SimpleNamespace(
+        id="parent",
+        phase="event_proposals",
+        steps=[SimpleNamespace(id="event_proposals", child_job_id=None)],
+        request={"run_id": run_id},
+    )
+    earlier = SimpleNamespace(
+        id="earlier",
+        parent_id=parent.id,
+        parent_step_id="previous_stage",
+        state="cancelled",
+    )
+    before = document["stages"][0].copy()
+    participant._reconcile_cancelled_stage(document, parent, {earlier.id: earlier})
+    assert document["stages"][0] == before
+
+    first = SimpleNamespace(
+        id="first",
+        parent_id=parent.id,
+        parent_step_id="event_proposals",
+        state="cancelled",
+    )
+    second = SimpleNamespace(
+        id="second",
+        parent_id=parent.id,
+        parent_step_id="event_proposals",
+        state="interrupted",
+    )
+    participant._reconcile_cancelled_stage(document, parent, {first.id: first, second.id: second})
+    assert document["stages"][0] == before
 
 
 def test_parent_retry_reuses_verified_completed_stage_and_keeps_failed_history(

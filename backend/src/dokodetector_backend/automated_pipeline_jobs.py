@@ -119,7 +119,7 @@ class AutomatedPipelineJobParticipant:
                 for item in jobs_by_id.values()
                 if item.parent_id == parent.id
                 and item.parent_step_id == parent.phase
-                and item.state == "cancelled"
+                and item.state in {"cancelled", "interrupted"}
             ]
             child = matches[0] if len(matches) == 1 else None
         if child is None or child.state not in {"cancelled", "interrupted"}:

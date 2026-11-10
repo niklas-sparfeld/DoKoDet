@@ -1,6 +1,6 @@
 # Pipeline recovery defects
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** Integrated job and pipeline implementation at `99b79d59`; 0117 is closed.
 - **Outcome:** Recover the current pipeline stage, child identity, and exact input lineage after
   cancellation and interrupted child acceptance. Retain all distinct crash regressions.
@@ -24,7 +24,7 @@ reproducer proves a local repair cannot satisfy them.
 
 | Milestone | Result | Status |
 | --- | --- | --- |
-| M0 | Exact current-child cancellation recovery and additive persisted regressions | Not started |
+| M0 | Exact current-child cancellation recovery and additive persisted regressions | Complete |
 | M1 | Finite recovery matrix and real service closeout | Not started |
 
 ## M0 — Repair the current-child lookup
@@ -62,4 +62,37 @@ the selective rollback requirements in the exit decision; do not create an endle
 
 ## Execution handoff
 
-Planning only. No implementation started. Next: M0. No inherited 0117 run or correction budget.
+### Goal and progress
+
+- Original outcome: recover the current pipeline stage, child identity, and exact input lineage
+  after cancellation and interrupted child acceptance. Retain all distinct crash regressions.
+- Non-goals: queue performance, acceptance redesign, and storage format changes.
+- Final closure check: M1 recovery matrix and real service closeout pass with all retained crash
+  regressions.
+- First complete workflow: persisted cancellation and restart. M0 proves the local recovery path;
+  M1 is scheduled to prove the full Job Manager and run-store workflow.
+- Initial plan: 2 milestones. Current: 1 of 2 complete, 1 remains. No new owners or contracts.
+
+### M0 result
+
+- Change: cancelled-stage reconciliation now finds the unique child for the exact current phase
+  when recovery records it as either `cancelled` or `interrupted`. Multiple matches remain
+  ambiguous and are rejected.
+- Regressions: linked interrupted child; unlinked interrupted child with restart and repeated
+  reconciliation; cancelled child persisted before observer notification. The distinct crash
+  cases remain separate.
+- Checks: `uv run --project backend pytest backend/tests/test_automated_pipeline_jobs.py
+  backend/tests/test_job_recovery.py -q` passed (29 tests); affected Ruff check and format check
+  passed. Evidence: [M0 recovery report](../../reports/0119-M0_Pipeline_Recovery.md).
+- Limits: stage recovery has persisted local-store coverage. Full real service workflow and the
+  finite status/input matrix remain for M1.
+
+### Run and scope history
+
+- Current run: requested 2 milestones, completed 1, remaining 1.
+- Re-planning: M0 0/5; run 0/10. Correction turns used: 0. No inherited 0117 correction budget.
+- Scope decision: keep the bounded local fix in existing authority. No new storage, transaction,
+  processor contract, source owner, or stronger guarantee was added.
+- Next: M1 finite recovery matrix and real service closeout. Stop if the matrix exposes an
+  authority-design defect; use the rollback assessment in the 0117 exit decision rather than
+  expanding local recovery scope.

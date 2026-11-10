@@ -1,7 +1,7 @@
 # Recording catalog performance
 
 - **Status:** Blocked
-- **Depends on:** [0119](../2-ready/0119-Pipeline_Recovery_Defects.md) M1 complete before execution.
+- **Depends on:** [0119](../3-in-progress/0119-Pipeline_Recovery_Defects.md) M1 complete before execution.
   0114/0115 are closed; 0117 retained measurements and source inventories are available.
 - **Outcome:** Open `/recordings` through compact metadata reads whose cost does not increase
   with retained pipeline, processor-run, or analysis history.
