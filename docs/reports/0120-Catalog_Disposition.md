@@ -45,7 +45,7 @@ file was removed by this change.
 
 The follow-up source-authority list improvement and any history-independent summary remain
 unimplemented and require new authorization. The proposed stop decision and cumulative
-history are in the [active epic](../plans/3-in-progress/0120-Recording_Catalog_Performance.md).
+history are in the [active epic](../plans/5-closed/0120-Recording_Catalog_Performance.md).
 
 Checks on the disposition change: the targeted selection, coordinated transaction,
 processor-run store, lineage, growth-contract, round-analysis API and retired-outbox tests

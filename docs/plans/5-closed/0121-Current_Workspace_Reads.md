@@ -1,11 +1,21 @@
 # Current workspace reads
 
-- **Status:** Backlog
+- **Status:** Closed
+- **Closure reason:** Superseded
 - **Depends on:** Completed exact-read and history foundations from closed 0117. No implementation
   dependency on the new catalog index. Schedule after 0120 to keep performance measurements isolated.
 - **Outcome:** Open the current workspace and a selected stage without enumerating retained
   history. Keep explicit historical browsing and independent review switching usable.
 - **Origin:** [0117 exit decision](../../reports/0117-Supersession_and_Exit.md).
+
+## Supersession — 2026-11-10
+
+The [storage decision](../../RecordingDataStorage.md) replaces this node/history-oriented workspace
+plan with concrete recording resources. [0124](../4-blocked/0124-Recording_Folders_and_Events.md)
+through [0128](../4-blocked/0128-Recording_Table_Observations.md) own their explicit current reads,
+editing, historical alternatives, and consumer cutovers. No M0–M4 implementation was started in
+0121. Do not run this plan in parallel with those conversions. Closing as Superseded does not
+remove code or retained human work. The sections below preserve the original plan.
 
 ## Boundary
 

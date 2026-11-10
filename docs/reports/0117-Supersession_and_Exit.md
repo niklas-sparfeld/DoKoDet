@@ -24,10 +24,10 @@ state. Job mutation cost remains visible in qualification, but is not a new opti
 
 1. [0119 — Pipeline recovery defects](../plans/5-closed/0119-Pipeline_Recovery_Defects.md): two
    milestones to close the known cancellation/link gaps and retain the restart regressions.
-2. [0120 — Recording catalog performance](../plans/3-in-progress/0120-Recording_Catalog_Performance.md):
+2. [0120 — Recording catalog performance](../plans/5-closed/0120-Recording_Catalog_Performance.md):
    bounded metadata reads and one real `/recordings` cutover. No recording HEAD adoption, job
    scheduler rewrite, processor-input migration, or startup optimization.
-3. [0121 — Current workspace reads](../plans/1-backlog/0121-Current_Workspace_Reads.md): deferred
+3. [0121 — Current workspace reads](../plans/5-closed/0121-Current_Workspace_Reads.md): deferred
    workspace delivery. Use existing exact selections; separate explicit history loading. Audit
    the unused aggregate recording HEAD before deciding its disposition. Do not make a full
    selection-authority migration a condition of faster reads.

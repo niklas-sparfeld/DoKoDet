@@ -1,11 +1,22 @@
 # Recording catalog performance
 
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Superseded
 - **Depends on:** [0119](../5-closed/0119-Pipeline_Recovery_Defects.md) M1 complete.
   0114/0115 are closed; 0117 retained measurements and source inventories are available.
 - **Outcome:** Open `/recordings` through compact metadata reads whose cost does not increase
   with retained pipeline, processor-run, or analysis history.
 - **Origin:** [0117 exit decision](../../reports/0117-Supersession_and_Exit.md).
+
+## Supersession — 2026-11-10
+
+The user selected simple domain resources, conventions instead of a resource framework, and a
+recording list that reads root/current metadata. The [storage decision](../../RecordingDataStorage.md)
+and [0123](../2-ready/0123-Simple_Recording_List.md) replace this delivery plan. M9's proposed
+publication ledger and adapters are cancelled. Do not resume the old loop or reset its counters.
+M0–M2 and M8 remain historical evidence; M3 was unaccepted with corrections exhausted at 2/2.
+The production latency outcome was not achieved. Closing as Superseded claims no speedup and
+changes no runtime or retained data. The sections below preserve the earlier plans and handoffs.
 
 ## Current disposition — recording root and HEAD
 

@@ -261,6 +261,47 @@ anchor. A point card-state change has equal start and end times.
 A possible event reported by a person or model before review. An event proposal is not ground
 truth.
 
+### Event set
+
+One alternative collection of events for a recording. Human and processor content use the same
+event contract. Origin and review decisions are separate metadata. A saved version identifies
+the exact events used by downstream resources.
+
+### Visual detection
+
+One proposed visible object in one exact source frame. It has an object identity within its
+detection set and visible geometry. A visual detection does not establish a persistent physical
+object identity across frames.
+
+### Visual detection set
+
+One alternative collection of visual detections for declared source frames and, where applicable,
+events. It records exact source references and examined coverage. It is separate from a virtual
+scene and from visual classifications.
+
+### Segment
+
+One polygon or mask component of a visual detection's visible region. Several disconnected
+segments can belong to the same occluded object. A segment is spatial geometry; use video snippet
+for a temporal media excerpt.
+
+### Virtual-scene set
+
+One alternative collection of virtual scenes for declared source frames. Each scene identifies
+its exact calibration and supporting evidence. Origin and review decisions are separate metadata.
+
+### Classification set
+
+One alternative collection of visual classifications for exact detected or virtual objects and
+their visible evidence. It records candidate scores or explicit unknown or unusable evidence.
+Classifications do not establish unique physical-card identity.
+
+### Table observation stream
+
+An ordered collection of table observations for a recording with exact source and input references.
+Several alternative streams can coexist. Selecting a stream does not make its observations true
+table states or reviewed gameplay.
+
 ### Reviewed event
 
 An event that a person has confirmed through the review process.

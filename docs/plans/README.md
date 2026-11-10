@@ -26,12 +26,22 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 
 ## Current delivery order
 
-Performance delivery was reset on 2026-11-10. **0117 is closed as Superseded.**
-[0122 node-publication test discrepancy](5-closed/0122-Node_Publication_Test_Discrepancy.md) and
-[0119 recovery repairs](5-closed/0119-Pipeline_Recovery_Defects.md) are complete. [0120 catalog
-delivery](3-in-progress/0120-Recording_Catalog_Performance.md) is In Progress. The
-[0121 workspace follow-up](1-backlog/0121-Current_Workspace_Reads.md) stays in Backlog.
-No old 0117 loop continues. See the [scope and revert decision](../reports/0117-Supersession_and_Exit.md).
+The user selected [simple recording data storage](../RecordingDataStorage.md) on 2026-11-10.
+Shared conventions do not authorize a generic resource implementation. **0120 and 0121 are closed
+as Superseded.** Their original work and correction counts remain historical; no old loop resumes.
+0117 remains Superseded; 0119 and 0122 recovery/publication checks remain complete.
+
+Start with **[0123 — Simple recording list](2-ready/0123-Simple_Recording_List.md)**. It has three
+milestones and no storage-migration dependency. It intentionally replaces aggregate list process
+status with root metadata and exact selected-data indicators. Live progress, history, and readiness
+remain explicit detail/job operations. No new ledger, index, outbox, or producer protocol.
+
+Then select each resource epic separately: **0124 recording folders/events → 0125 detections →
+0126 virtual scenes → 0127 classifications → 0128 table observations**. Each has four milestones,
+a real API workflow by M1, browser proof by M2, and its own retained-data cutover/qualification in
+M3. Later assignments are specified after the preceding workflow proves the approach. These are
+23 finite milestones across six independently selected epics, not one automatic 23-phase loop.
+This planning change starts no implementation. No nested milestone suffixes extend a run.
 
 Active epics: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)** and **[0106 — iOS end-to-end proof of concept](3-in-progress/0106-iOS_End_to_End_PoC.md)**. Epic 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) handoff reported all 165 targets unavailable in its checkout. The 0100 M5 checks resolved all exact detector targets and reproduced their frame identities. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md) and [0100 M0 inventory](../reports/0100-M0_Compatibility_Inventory.md).
 
@@ -106,30 +116,37 @@ The shared target architecture is
 
 | Epic                                                                                                              | Depends on                    | Outcome                                                                                                                                                                            |
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [0121 — Current workspace reads](1-backlog/0121-Current_Workspace_Reads.md) | Completed exact-read/history foundations from 0117; scheduled after catalog delivery | M0–M4 not started. Exact current selections, on-demand stage content and explicit paged history. Deferred; audit/remove unused recording-state runtime without losing retained human work. |
 | [0044 — Productive local identity model operations](1-backlog/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. Defer campaign UI, promotion, and rollback until current corpus and model work have been exercised. 0088 found no quality-qualified candidate; no promotion recommendation or new training belongs here. |
 
 ### Ready
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0123 — Simple recording list](2-ready/0123-Simple_Recording_List.md) | None | M0–M2 not started. Metadata and selected-data indicators from fixed root reads; real browser/restart proof in M0, sub-second local qualification in M1, scoped removal/closure in M2. No new persistent contract. |
 
 ### In Progress
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0–M2 remain accepted; M3 is unaccepted after correction 2/2 and M4–M7 are superseded. M8 proves an opt-in HEAD list workflow. M9 is specified for one list-specific publication contract covering status and blocker sources; it is not started. The production speed outcome remains unmet. |
 | [0106 — iOS end-to-end proof of concept](3-in-progress/0106-iOS_End_to_End_PoC.md) | 0105 M0–M2; 0103 and 0104 model artifacts. 0105 M4 is required for the final comparison. | M0–M12 complete; M13 remains. M6 selects from the exact M2 visible-card revision. M7 calculates immutable calibration previews from revision-bound anchors and preserves the base calibration. M8 initializes per-frame card scenes and keeps uncertain order evidence unresolved. M9 adds bounded overlapping-scene fitting with edge refinement and preserves ambiguous results. M10 runs frozen DINOv3 and assembles revision-bound table observations. M11 reconstructs Doko V1 plays from saved observations and retains per-run results. M12 adds ordered local processing, progress, failure detail, restart inspection, diagnostic ZIP export, and explicit cleanup. See the [M12 result](../reports/0106-M12_Minimal_Controls_and_Diagnostics.md), [M11 result](../reports/0106-M11_Round_Reconstruction.md), [M10 result](../reports/0106-M10_Visual_Identity_and_Observations.md), [M9 result](../reports/0106-M9_Joint_Card_Scene_Fitting.md), [M8 result](../reports/0106-M8_Proposed_Card_Scene_Initialization.md), [M7 result](../reports/0106-M7_Calibration_Refinement.md), [M6 result](../reports/0106-M6_Calibration_Selection_Progress.md), [device contract](../reports/0106-M0_Device_Execution_Contract.md), [M1 result](../reports/0106-M1_Live_Capture.md), [M2 result](../reports/0106-M2_Visible_Cards.md), [M3 result](../reports/0106-M3_Table_Plane_Geometry.md), [M4 result](../reports/0106-M4_Calibration_Seed.md), and [M5 result](../reports/0106-M5_Robust_Table_Plane_Fit.md). |
 | [0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md) | 0083, 0092 M4, 0073, and 0050 complete | M0–M3 complete. The M3 evaluation scored 870 exact-frame outcomes. Outside the 0092 M4 refit-training sources, precision is 0.897 and recall is 0.925 at polygon IoU `>= 0.5`. Four M2 calibration failures and one M1 dependency failure remain explicit. The M4 review queue is frozen at 165 frames across 33 recordings; one M1 failure has no corrected output to inspect. Human review is pending. See the [M4 queue](../reports/0096-M4_Human_Review_Queue.md) and [M3 result](../reports/0096-M3_Exact_Reference_Evaluation.md). |
 
 ### Blocked
 
-None.
+| Epic | Depends on | Outcome |
+| --- | --- | --- |
+| [0124 — Recording folders and events](4-blocked/0124-Recording_Folders_and_Events.md) | 0123 closure | M0–M3 not started. Concrete recording root and alternative event sets; import/edit/select/restart, retained conversion and event-only cutover. |
+| [0125 — Recording visual detections](4-blocked/0125-Recording_Visual_Detections.md) | 0124 closure | M0–M3 not started. Objects, segments, exact frame/event evidence and review in recording folders; existing detector and downstream consumers. |
+| [0126 — Recording virtual scenes](4-blocked/0126-Recording_Virtual_Scenes.md) | 0125 closure | M0–M3 not started. Concrete calibration then virtual-scene contracts, existing fitting/editor/crop workflow, retained cutover. |
+| [0127 — Recording classifications](4-blocked/0127-Recording_Classifications.md) | 0126 closure | M0–M3 not started. Shared concrete human/model classification content for detected or virtual objects; exact crop evidence, review and retained cutover. |
+| [0128 — Recording table observations](4-blocked/0128-Recording_Table_Observations.md) | 0127 closure | M0–M3 not started. Ordered uncertain streams, explicit current workspace reads, existing reconstruction input and verified scoped removal. |
 
 ### Closed
 
 | Epic                                                                                                                                             | Closure reason     | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [0120 — Recording catalog performance](5-closed/0120-Recording_Catalog_Performance.md) | Superseded | Production speed outcome unmet. Historical M0–M2/M8 retained; M3 unaccepted after 2/2 corrections. M9 ledger cancelled. 0123 replaces the list contract and avoids source-publication adapters. |
+| [0121 — Current workspace reads](5-closed/0121-Current_Workspace_Reads.md) | Superseded | M0–M4 never started. Current resource reads, editing/history and retained-data checks move to the finite 0124–0128 resource epics. No runtime/data deletion. |
 | [0119 — Pipeline recovery defects](5-closed/0119-Pipeline_Recovery_Defects.md) | Complete | M0–M1 complete. Persisted cancellation and restart workflow, finite recovery matrix, required backend job/API/pipeline suite, and authority/queue checks pass. See the [M1 evidence report](../reports/0119-M1_Recovery_Matrix.md). |
 | [0117 — Recording HEAD and bounded pipeline reads](5-closed/0117-Workspace_and_Startup_Performance.md) | Superseded | No qualified catalog/workspace speedup. Execution loop cancelled; M6b1a remains incomplete. 0119 owns recovery defects, 0120 catalog delivery, and 0121 deferred workspace reads. See the [exit decision](../reports/0117-Supersession_and_Exit.md). |
 | [0122 — Node-publication test discrepancy](5-closed/0122-Node_Publication_Test_Discrepancy.md) | Complete | M0 resolved the two failed-save tests by injecting failure at the intended HEAD replacement. The unpublished revision remains unauthorized after reopen; exact reads reject it, and edit cleanup preserves dependent records. No production storage or authority behavior changed. See the [M0 evidence report](../reports/0122-M0_Node_Publication_Behavior.md). |
