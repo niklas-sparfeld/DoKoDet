@@ -145,7 +145,13 @@ successively expanding its assignment.
 For an unbounded-count invocation, record the number of remaining planned milestones as this
 run's limit. Do not add milestones to extend the run. Use this loop:
 
-1. Assign one milestone to one fresh Luna worker. Use `fork_turns="none"` where supported.
+1. Assign one milestone at a time to a Luna worker. Reuse an available worker across related
+   milestones while its context remains useful and it can follow the current assignment. Start a
+   fresh worker when the context becomes crowded or stale, the work changes substantially, or the
+   worker has trouble following the assignment. Use context usage when the tools expose it; do not
+   invent a percentage or rely on a fixed turn count. When usage is unavailable, use the worker's
+   results and the amount of accumulated work to decide. Use `fork_turns="none"` for a fresh worker
+   where supported. Each milestone still needs its own assignment, review, checks, and commit.
    Supply a compact assignment with the repository path, milestone, authoritative file paths,
    acceptance criteria, original user outcome/non-goals, reason this milestone is needed, first
    workflow checkpoint, relevant handoff, family/run counts, and the worker rules below. Do not copy
