@@ -140,10 +140,11 @@ merging its decisions. It does not contain the full revision history or grant re
 
 ### Recording HEAD
 
-The single durable pointer to a recording's current recording state snapshot. An explicit state
-change replaces this pointer with a concurrency check. Recording HEAD is separate from a pipeline
-data node's latest saved revision and from the lineage selection currently inspected by one
-operator. Historical snapshots and data revisions remain addressable when HEAD changes.
+The inline current-selection object in `recording.json`. A selection names an exact saved resource
+and version. A write checks the expected recording version. For event sets, `head.events` keeps
+generated and reference choices separate. Other resource types keep their current selection
+authority until their own cutover. Recording HEAD is not a pipeline progress record or an operator's
+lineage selection.
 
 ### Recording catalog projection
 

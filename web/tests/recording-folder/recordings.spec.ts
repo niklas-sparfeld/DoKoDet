@@ -52,3 +52,62 @@ test("recording folder appears in the browser list and opens after reload", asyn
     .poll(() => player.evaluate((video: HTMLVideoElement) => video.duration))
     .toBeGreaterThan(1);
 });
+
+test("recording folder saves, selects, edits and reopens two event-set alternatives", async ({
+  page,
+}) => {
+  const legacyEventReads: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.url().includes("/api/pipeline/nodes/") ||
+      request.url().includes("/api/recordings/recording-both/pipeline")
+    ) {
+      legacyEventReads.push(request.url());
+    }
+  });
+  await page.goto("/recordings/recording-both/event-sets");
+  await expect(
+    page.getByRole("region", { name: "Event sets" }).getByRole("heading", {
+      name: "Event sets",
+    }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Add event" }).click();
+  await page.getByLabel("Start (µs)").fill("100");
+  await page.getByLabel("End (µs)").fill("200");
+  await page.getByRole("button", { name: "Save event set" }).click();
+  await expect(page.getByRole("status")).toContainText("Saved manual-");
+  await page.getByRole("button", { name: "Select reference" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Selected this event set",
+  );
+
+  await page.getByLabel("End (µs)").fill("300");
+  await page.getByRole("button", { name: "Save as alternative" }).click();
+  await expect(page.getByRole("status")).toContainText("Saved manual-");
+  const alternatives = page.getByRole("list", {
+    name: "Saved event-set versions",
+  });
+  await expect(alternatives.getByRole("listitem")).toHaveCount(2);
+  await page.getByRole("button", { name: "Select generated" }).click();
+  await page.reload();
+  await expect(
+    page.getByRole("region", { name: "Event sets" }).getByRole("heading", {
+      name: "Event sets",
+    }),
+  ).toBeVisible();
+  await expect(alternatives.getByText("generated")).toHaveCount(1);
+
+  const savedButtons = page
+    .getByRole("list", { name: "Saved event-set versions" })
+    .getByRole("button");
+  await savedButtons.first().click();
+  await page.getByLabel("Start (µs)").fill("150");
+  await page.getByRole("button", { name: "Save event set" }).click();
+  await expect(page.getByRole("status")).toContainText("version 2");
+  await page.reload();
+  await expect(page.getByRole("button", { name: /version 2/ })).toBeVisible();
+  await page.getByRole("button", { name: /version 2/ }).click();
+  await expect(page.getByLabel("Start (µs)")).toHaveValue("150");
+  expect(legacyEventReads).toEqual([]);
+});

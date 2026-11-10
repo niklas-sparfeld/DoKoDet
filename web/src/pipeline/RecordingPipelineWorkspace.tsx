@@ -425,7 +425,6 @@ export function RecordingPipelineWorkspace({
           urlState={urlState}
           presentation={presentation}
           onNavigate={navigateTo}
-          onEventRailItemsChange={workspaceRail.handleEventRailItemsChange}
           onComparisonRailItemsChange={
             workspaceRail.handleComparisonRailItemsChange
           }
@@ -439,7 +438,6 @@ export function RecordingPipelineWorkspace({
               }),
             )
           }
-          onNotice={setNotice}
           lineageGraph={lineageGraph}
         />
         <RecordingWorkspaceInspector

@@ -62,7 +62,7 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | Milestone | Observable result and commit boundary | State |
 | --- | --- | --- |
 | M0 | Concrete recording-root contract; import/list/media-open/restart from one new recording folder | Complete |
-| M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives | Not started |
+| M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives | Complete |
 | M2 | Existing event producer, review, and the named exact-input consumers use event resources | Not started |
 | M3 | Retained-data rehearsal, default cutover, event-only old-path removal, and qualification | Not started |
 
@@ -80,9 +80,59 @@ Required checks: focused intake/recording/media tests, real persisted API/browse
 root replacement/conflict tests, affected static/API checks, and 0123 list-growth protection.
 Commit: root implementation, finite adapters, tests, evidence, and plan/board updates.
 
-Specify M1's event/review layout and exact editor call sites after M0; specify M2/M3 after the event
-workflow passes. Each assignment must name the result, exact source owners, checks, and one focused
-commit. M2 must not defer review or downstream exact-input failures to M3 cleanup.
+M1's event layout and exact editor call sites follow. Specify M2/M3 after the event workflow
+passes. Each assignment must name the result, exact source owners, checks, and one focused commit.
+M2 must not defer review or downstream exact-input failures to M3 cleanup.
+
+## M1 event-set contract and workflow
+
+Store each saved version under
+`event-sets/<set-id>/versions/<version>/event-set.json`. Store each member at
+`events/<event-id>/event.json`. The set document uses `event-set/v1` and records recording, set,
+and version identity; ordered event membership and relative paths; exact source and provenance;
+creation time; and origin. Each event file uses `event/v1` and contains the existing typed event
+identity, type, start/end times, and model scores when present. The event set keeps the existing
+`event-data/v1` fields when an API caller opens it. A version is complete before its staged directory
+is renamed into place. Existing versions cannot be replaced. An edit saves another version; it does
+not change the earlier files.
+
+`recording.json` owns `head.events.generated` and `head.events.reference`. Each is null or an exact
+`set_id` and `version` reference. Selection validates the referenced files, checks the expected
+recording version, and atomically replaces the root under its existing recording-local lock. Saving
+does not select the version. The editor reads and writes only event-set resources through
+`/api/recordings/{recording_id}/event-sets`; its dedicated browser route does not load the pipeline
+workspace or event nodes. The event-stage inspector links to this route. This keeps the first human
+event workflow independent of legacy event-node reads. It does not convert producer or downstream
+consumer reads; those remain in M2. Review files stay out of scope for M1.
+
+M1 verification: `test_event_set_store.py` covers separate alternatives, immutable versions,
+versioned edits, exact open, selection, stale root conflicts, API persistence and restart. The
+recording-folder Playwright test creates two alternatives, selects each choice, edits a saved set,
+reopens version 2 after reload, and asserts that the workflow makes no legacy pipeline or node API
+requests. `test_recording_folder_store.py` and `test_recording_catalog_growth_contract.py` retain
+the M0 restart and 0123 list-growth regression boundaries. API generation verification, web build,
+and the browser test pass.
+
+### M2 assignment after the first workflow
+
+Observable result: one event producer, event review, and the named exact-input consumers read and
+write the same event-set files and root HEAD. Disable their old event-node reads and selection writes
+in the integration workflow. Keep the existing behavior for all other resource types.
+
+Source owners: `event_pipeline_service.py` and the event branch in `pipeline_stage_api.py` for
+production; `pipeline_node_reviews.py` for event review records beside the saved event-set version;
+event branches in `pipeline_workspace_service.py`; event reads in
+`visible_card_pipeline_service.py`, `observation_pipeline_service.py`, and
+`round_analysis_service.py`; and event selection/editor API clients used by the event-set page.
+Do not convert other node types, the scheduler, or general lineage/review infrastructure. Reuse the
+event set's typed event content. Specify a small event-review record layout as part of M2 before
+implementation; do not introduce a generic review store.
+
+Required checks: API and editor save/select/restart tests; independent review persistence and reopen;
+exact event inputs for visible-card, observation, and round-analysis reads; an integration test that
+forbids legacy event-node reads and selection writes; affected generated API and web checks; and the
+M0/M1 plus 0123 list-growth regressions. Commit the finite adapter conversion, tests, layout, and plan
+update together. Specify M3 retained-data rehearsal and qualification after M2 passes.
 
 ## M0 recording-root contract
 
@@ -125,12 +175,23 @@ from a simple recording folder. Non-goals remain other resource conversions, sch
 cross-store transactions. Final closure check remains the disposable retained-data rehearsal and
 event-only old-path cutover in M3.
 
-Baseline: 4 milestones; 3 remain. M0 proves the recording-folder import/list/media-open/restart
-workflow, including root-backed detail and workspace reads. Event editing browser proof remains
-scheduled for M1; qualification remains in M3. The run limit is 4 milestones; 1 is complete and 3
-remain available. M0 used 0 replans and 1 correction of 2; the run used 0 replans. No new source
-owners or persistent contracts were added beyond the planned
-recording root. Next: specify the event-set contract and exact event editor/read/write call sites
-for M1 before assignment. Last scope decision: keep the four planned milestones; M0 removed no
-event or qualification work. Stop if the event workflow needs a second persistent contract,
-another resource conversion, cross-store transaction, or the scheduled proof/qualification moves.
+Baseline: 4 milestones; 2 remain. M0 proves the recording-folder import/list/media-open/restart
+workflow, including root-backed detail and workspace reads. M1 proves event-set save/select/edit and
+reopen in the dedicated browser route with legacy pipeline/node API reads absent. Qualification
+remains in M3. The run limit is 4 milestones; 2 are complete and 2 remain. M0 used 0 replans and 1
+correction of 2; M1 used 0 corrections and 0 replans; the run used 0 replans. M1 added the concrete
+event-set store/API and dedicated browser page within the planned event-set contract. No other
+persistent contract or resource owner was added. M2 owns the remaining producer, review, and exact
+input consumers. Last scope decision: retain the four milestones; M1's dedicated route proves the
+human event workflow without reading legacy event nodes. Stop if M2 requires a second selection
+authority, another resource conversion, cross-store transaction, or moves M3 qualification.
+
+M1 changes include backend immutable set/event files and endpoints, explicit event HEAD selection
+through the recording version check, a dedicated event-set browser page, and generated API types.
+Checks passed: `pytest backend/tests/test_event_set_store.py
+backend/tests/test_recording_folder_store.py backend/tests/test_recording_catalog_growth_contract.py
+-q`; Ruff on changed backend files; `npm run verify:api`; `npm run build`; and
+`npx playwright test --config playwright.recording-folder.config.ts`. The existing pipeline event
+node routes remain for M2 conversion, but the M1 browser acceptance workflow does not request them.
+Next: implement the specified M2 producer, review, and exact-input consumer conversion with the
+same event-set content contract, then specify M3 retained-data rehearsal and qualification.

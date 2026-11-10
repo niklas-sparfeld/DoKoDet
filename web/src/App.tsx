@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { RecordingDetailView, RecordingListView } from "./recordings";
 import { FrameReviewQueueView } from "./frameReview/FrameReviewQueueView";
+import { RecordingEventSetPage } from "./pipeline/RecordingEventSetPage";
 import { readRecordingPipelineRoute } from "./pipeline/recordingPipelineUrl";
 import { JobStateProvider } from "./jobs/JobState";
 import { JobDetailView } from "./jobs/JobDetailView";
@@ -20,6 +21,9 @@ export function App() {
 function AppRoutes() {
   const location = useAppLocation();
   const jobRoute = location.pathname.match(/^\/jobs\/([^/]+)\/?$/);
+  const eventSetRoute = location.pathname.match(
+    /^\/recordings\/([^/]+)\/event-sets\/?$/,
+  );
   let page: React.ReactNode;
   if (jobRoute) {
     page = (
@@ -32,6 +36,12 @@ function AppRoutes() {
     page = <JobListView />;
   } else if (location.pathname === "/frame-reviews/0096-M4") {
     page = <FrameReviewQueueView />;
+  } else if (eventSetRoute) {
+    page = (
+      <RecordingEventSetPage
+        recordingId={decodeURIComponent(eventSetRoute[1])}
+      />
+    );
   } else {
     const pipelineRoute = readRecordingPipelineRoute(location.pathname);
     const recordingId =

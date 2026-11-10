@@ -357,6 +357,11 @@ export function RecordingWorkspaceInspector({
             </select>
           </label>
         )}
+        {stage.key === "events" && !compare ? (
+          <a href={`/recordings/${encodeURIComponent(recordingId)}/event-sets`}>
+            Open event-set workspace
+          </a>
+        ) : null}
         {usesEditorInspector ? (
           <div
             data-event-inspector-slot="selection"

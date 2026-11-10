@@ -5,8 +5,6 @@ import type {
   PipelineWorkspace,
   PipelineWorkspaceStage,
 } from "../api/pipelineContracts";
-import type { PipelineCardEventRailItem } from "../cardEvents/PipelineCardEventRailItem";
-import { PipelineNodeEventEditor } from "../cardEvents/PipelineNodeEventEditor";
 import { PipelineNodeVisibleCardEditor } from "../visibleCards/PipelineNodeVisibleCardEditor";
 import { PipelineNodeVirtualSceneEditor } from "../visibleCards/PipelineNodeVirtualSceneEditor";
 import { PipelineNodeVisualIdentityEditor } from "../visualIdentities/PipelineNodeVisualIdentityEditor";
@@ -60,12 +58,10 @@ export type RecordingWorkspaceTaskSurfaceProps = {
   urlState: PipelineUrlState;
   presentation: RecordingWorkspacePresentation;
   onNavigate: (path: string) => void;
-  onEventRailItemsChange: (items: PipelineCardEventRailItem[]) => void;
   onComparisonRailItemsChange: (items: RecordingTimelineRailItem[]) => void;
   onComparisonChange: (comparison: PipelineComparisonResponse) => void;
   onTimeChange: (timeUs: number) => void;
   onAnalysisChange?: (analysisId: string) => void;
-  onNotice?: (message: string) => void;
   lineageGraph?: PipelineLineageGraph | null;
 };
 
@@ -289,18 +285,12 @@ export function RecordingWorkspaceTaskSurface({
   urlState,
   presentation,
   onNavigate,
-  onEventRailItemsChange,
   onComparisonRailItemsChange,
   onComparisonChange,
   onTimeChange,
   onAnalysisChange,
-  onNotice,
   lineageGraph = null,
 }: RecordingWorkspaceTaskSurfaceProps) {
-  const selectedEventNode =
-    urlState.lineage === null
-      ? undefined
-      : decodeLineageSelection(urlState.lineage)?.selected.events;
   const selectedVisibleCardNode =
     urlState.lineage === null
       ? undefined
@@ -379,75 +369,6 @@ export function RecordingWorkspaceTaskSurface({
             onTimeChange={onTimeChange}
             onAnalysisChange={onAnalysisChange}
           />
-        ) : null}
-        {stage.key === "events" &&
-        !compare &&
-        selectedEventNode !== undefined ? (
-          <PipelineNodeEventEditor
-            key={`${selectedEventNode.node_id}:${selectedEventNode.revision_id}`}
-            recordingId={recordingId}
-            nodeId={selectedEventNode.node_id}
-            revisionId={selectedEventNode.revision_id}
-            durationUs={workspace.video.duration_us}
-            sourceSha256={workspace.video.video_sha256}
-            portalToInspector
-            selectionItemId={presentation.surface.selectedItemId ?? null}
-            selectionTimeUs={presentation.inspector.selection?.timeUs ?? null}
-            onRailItemsChange={onEventRailItemsChange}
-            onNotice={onNotice}
-            onPositionChange={(itemId, timeUs) =>
-              onNavigate(
-                recordingPipelineNavigationPath(recordingId, stage.key, {
-                  ...urlState,
-                  item: itemId,
-                  tUs: timeUs,
-                }),
-              )
-            }
-            onRevisionChange={(
-              sourceNodeId,
-              sourceRevisionId,
-              nodeId,
-              revisionId,
-              itemId,
-              timeUs,
-            ) => {
-              const currentUrlState = readPipelineUrlState(
-                window.location.search,
-              );
-              const currentLineage =
-                currentUrlState.lineage === null
-                  ? null
-                  : decodeLineageSelection(currentUrlState.lineage);
-              const currentEventNode = currentLineage?.selected.events;
-              if (
-                currentEventNode?.node_id !== sourceNodeId ||
-                currentEventNode.revision_id !== sourceRevisionId
-              )
-                return;
-              const lineage = decodeLineageSelection(urlState.lineage ?? "");
-              if (lineage === null) return;
-              onNavigate(
-                recordingPipelineNavigationPath(recordingId, stage.key, {
-                  ...urlState,
-                  lineage: JSON.stringify({
-                    ...lineage,
-                    selected: {
-                      ...lineage.selected,
-                      events: { node_id: nodeId, revision_id: revisionId },
-                    },
-                  }),
-                  item: itemId,
-                  tUs: timeUs,
-                }),
-              );
-            }}
-          />
-        ) : null}
-        {stage.key === "events" &&
-        !compare &&
-        selectedEventNode === undefined ? (
-          <div aria-hidden="true" />
         ) : null}
         {navigationStep === "visible_cards" &&
         stage.key === "visible_cards" &&
