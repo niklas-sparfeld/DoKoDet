@@ -123,6 +123,26 @@ one authority. Untouched resource types keep their existing authority until thei
 Temporary, explicit call-site conversions are allowed; dual writes and a permanent legacy resolver
 are not. No resource epic must migrate the scheduler, training campaigns, or unrelated data types.
 
+## Data provenance and execution history
+
+Decision update: 2026-11-10. Each saved pipeline data set version owns its exact direct parents,
+source identity/digests, and producer implementation, model and content-affecting configuration.
+Human edits name their exact base version. A job/run ID can provide a diagnostic link; it cannot
+be the only owner of these facts. Opening saved data must not require execution-history records.
+
+Jobs own execution state, attempts, logs, cancellation and recovery. Historical attempts are not
+permanent domain data by default. Preserve unique parent/producer facts on retained outputs during
+conversion; do not migrate every failed or completed run merely because it exists. No execution
+record deletion is authorized by this decision. Explicit experiment/diagnostic retention remains
+possible. [0129](plans/1-backlog/0129-Execution_History_in_Jobs.md) plans the independent job-history
+consolidation; it does not block recording/event cutover.
+
+Git history supplies additional recovery and change evidence. Runtime resources still need explicit
+version references and readable provenance in the checked-out data. Verify actual recovery inputs
+rather than assuming every source byte or ignored path is in Git. The revised
+[0124](plans/2-ready/0124-Recording_Folders_and_Events.md) separates output provenance, retained
+rehearsal, and activation/qualification into M3–M5. This replaces its historical-run migration gate.
+
 ## Recordings list contract
 
 Deliver the fast list before any storage conversion. Initially use existing authoritative recording
@@ -165,7 +185,7 @@ a qualification gate, not a claim based on this planning inspection.
 ## Delivery and non-goals
 
 [0123](plans/5-closed/0123-Simple_Recording_List.md) delivers the list in three milestones without
-new persistent state. [0124](plans/4-blocked/0124-Recording_Folders_and_Events.md) proves recording
+new persistent state. [0124](plans/2-ready/0124-Recording_Folders_and_Events.md) proves recording
 folders and event editing. [0125](plans/4-blocked/0125-Recording_Visual_Detections.md),
 [0126](plans/4-blocked/0126-Recording_Virtual_Scenes.md),
 [0127](plans/4-blocked/0127-Recording_Classifications.md), and

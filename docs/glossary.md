@@ -108,7 +108,8 @@ records or represents source material. It is not the real-world recording or act
 A bounded collection of one concrete content type for a recording or synthetic fixture. Examples
 are events, visible-card detections, visual card identities, and table observations. Human and
 processor versions use the same content contract. Origin and review state are separate metadata.
-A pipeline data set is not a training or evaluation dataset.
+A pipeline data set is not a training or evaluation dataset. Each saved version owns its exact direct
+parent references and producer facts. Data provenance does not require retaining execution history.
 
 ### Pipeline data node
 
@@ -176,7 +177,10 @@ algorithm. Input and output describe a data revision's role in an execution, not
 
 One execution of a processor against exact source and input revisions with a recorded implementation,
 model, configuration, and extraction policies. A completed run references its output data revisions.
-A run can consume unreviewed inputs. Review and dataset eligibility are separate decisions.
+A run can consume unreviewed inputs. Review and dataset eligibility are separate decisions. A processor run is an
+execution concept. The target uses backend jobs for operational history; a separately retained run
+resource is not required for saved data provenance. Existing processor-run stores remain until the
+owning execution path converts.
 
 ### Backend job
 

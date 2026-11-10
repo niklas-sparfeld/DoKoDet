@@ -40,10 +40,11 @@ workspace UI browser failures reproduce on baseline `adfca187`; the follow-up is
 epic. No new ledger, index, outbox, or producer protocol.
 
 Then select each resource epic separately: **0124 recording folders/events → 0125 detections →
-0126 virtual scenes → 0127 classifications → 0128 table observations**. Each has four milestones,
-a real API workflow by M1, browser proof by M2, and its own retained-data cutover/qualification in
-M3. Later assignments are specified after the preceding workflow proves the approach. These are
-23 finite milestones across six independently selected epics, not one automatic 23-phase loop.
+0126 virtual scenes → 0127 classifications → 0128 table observations**. 0124 now has six milestones after the user-selected provenance replan: M0–M2 complete, M3–M5 remain.
+0125–0128 each retain four milestones and their own cutover/qualification in M3. Later assignments
+are specified after the preceding workflow proves the approach. Original planning baseline: 23
+milestones across six epics; revised baseline: 25. These are independently selected epics, not one
+automatic loop. Independent 0129 adds three backlog milestones and does not block 0124.
 No nested milestone suffixes extend a run.
 
 Active epics: **[0096 — Segmentation and virtual-card batch review](3-in-progress/0096-Segmentation_and_Virtual_Card_Batch_Review.md)**, **[0106 — iOS end-to-end proof of concept](3-in-progress/0106-iOS_End_to_End_PoC.md)**. Epic 0096 M0–M3 are complete. M3 scored 870 exact-frame reference outcomes. Outside the 0092 M4 refit-training sources, polygon-IoU precision is 0.897 and recall is 0.925. M4 has a frozen queue of 165 frames across 33 reviewable recordings and awaits human review. The [0097 frame review mode](5-closed/0097-Frame_Review_Mode.md) handoff reported all 165 targets unavailable in its checkout. The 0100 M5 checks resolved all exact detector targets and reproduced their frame identities. See the [M3 handoff](../reports/0097-M3_Frame_Review_Handoff.md) and [0100 M0 inventory](../reports/0100-M0_Compatibility_Inventory.md).
@@ -121,10 +122,13 @@ The shared target architecture is
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [0044 — Productive local identity model operations](1-backlog/0044-Productive_Local_Identity_Model_Operations.md) | 0043, 0048, and 0049 complete | M0–M3 not started. Defer campaign UI, promotion, and rollback until current corpus and model work have been exercised. 0088 found no quality-qualified candidate; no promotion recommendation or new training belongs here. |
 
+| [0129 — Execution history in jobs](1-backlog/0129-Execution_History_in_Jobs.md) | Event output provenance proof before removing duplicate execution records; not a dependency of 0124 | Event execution through existing job history, recovery and result links; no blanket historical-run migration or deletion. M0–M2 not started. |
+
 ### Ready
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0124 — Recording folders and events](2-ready/0124-Recording_Folders_and_Events.md) | None | M0–M2 complete. Replanned M3 output-owned provenance, M4 retained rehearsal, M5 activation and qualification. Historical runs are not migration targets by default. |
 
 ### In Progress
 
@@ -137,7 +141,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0124 — Recording folders and events](4-blocked/0124-Recording_Folders_and_Events.md) | None | M0–M2 complete. M3 retained rehearsal and event-only cutover are blocked by 281 exact event-node inputs in 599 retained lineage records. Scope choice is pending; no retained data changed. |
 | [0125 — Recording visual detections](4-blocked/0125-Recording_Visual_Detections.md) | 0124 closure | M0–M3 not started. Objects, segments, exact frame/event evidence and review in recording folders; existing detector and downstream consumers. |
 | [0126 — Recording virtual scenes](4-blocked/0126-Recording_Virtual_Scenes.md) | 0125 closure | M0–M3 not started. Concrete calibration then virtual-scene contracts, existing fitting/editor/crop workflow, retained cutover. |
 | [0127 — Recording classifications](4-blocked/0127-Recording_Classifications.md) | 0126 closure | M0–M3 not started. Shared concrete human/model classification content for detected or virtual objects; exact crop evidence, review and retained cutover. |
