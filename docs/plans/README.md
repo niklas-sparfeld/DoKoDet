@@ -125,7 +125,6 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0124 — Recording folders and events](3-in-progress/0124-Recording_Folders_and_Events.md) | None | M0–M1 complete; M2–M3 remain. Root-backed import/list/media and two event-set alternatives save/select/edit/reopen through one HEAD selection authority; review/downstream cutover and retained-data qualification remain. |
 
 ### In Progress
 
@@ -138,6 +137,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
+| [0124 — Recording folders and events](4-blocked/0124-Recording_Folders_and_Events.md) | None | M0–M2 complete. M3 retained rehearsal and event-only cutover are blocked by 281 exact event-node inputs in 599 retained lineage records. Scope choice is pending; no retained data changed. |
 | [0125 — Recording visual detections](4-blocked/0125-Recording_Visual_Detections.md) | 0124 closure | M0–M3 not started. Objects, segments, exact frame/event evidence and review in recording folders; existing detector and downstream consumers. |
 | [0126 — Recording virtual scenes](4-blocked/0126-Recording_Virtual_Scenes.md) | 0125 closure | M0–M3 not started. Concrete calibration then virtual-scene contracts, existing fitting/editor/crop workflow, retained cutover. |
 | [0127 — Recording classifications](4-blocked/0127-Recording_Classifications.md) | 0126 closure | M0–M3 not started. Shared concrete human/model classification content for detected or virtual objects; exact crop evidence, review and retained cutover. |

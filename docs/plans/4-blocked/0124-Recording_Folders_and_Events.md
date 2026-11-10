@@ -1,6 +1,6 @@
 # Recording folders and events
 
-- **Status:** In Progress
+- **Status:** Blocked
 - **Depends on:** None. Epic 0123 is closed, which stabilizes the list API before its source layout changes.
 - **Outcome:** Import a recording, create/select/edit alternative event sets, and reopen them from a simple recording folder.
 - **Origin:** [Recording data storage](../../RecordingDataStorage.md).
@@ -64,7 +64,7 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | M0 | Concrete recording-root contract; import/list/media-open/restart from one new recording folder | Complete |
 | M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives under one event-selection authority | Complete |
 | M2 | Review and the named exact-input consumers use event resources | Complete |
-| M3 | Retained-data rehearsal, default cutover, event-only old-path removal, and qualification | Not started |
+| M3 | Retained-data rehearsal, default cutover, event-only old-path removal, and qualification | Blocked — exact historical event inputs |
 
 ### Next assignment after dependency closure
 
@@ -232,6 +232,73 @@ coverage selects an existing event set, changes its processor-run projection to 
 and verifies that workspace reports `active-run`; the same test verifies `data-available` after the
 run completes.
 
+### Scope review after M2 correction exhaustion
+
+M2 used both correction turns. Its independent review and exact-input workflows now pass. The
+corrections removed event-node history reads for folder recordings and kept active runs ahead of
+saved-data state. Both changes stayed within the named M2 owners and added no prerequisite or
+storage contract. Disposition for M2: keep the approach. M3 is paused at its scope gate because
+retained lineage still depends on exact event-node revisions.
+
+Read-only retained-data evidence: the main worktree has 58 source bundles, 1,006 node manifests,
+234 event nodes, and 58 exact node event selections. The older pipeline selector also has 58 event
+selections. Both selectors have valid targets. Where both select a completed reference, 46 event
+contents match; the other 12 have no completed choice. The `.lineage-runs` directory has 599
+`pipeline-lineage-run/v1` records. Of these, 281 input entries reference event nodes across the 234
+event nodes. They include succeeded and failed runs. Example:
+`data/operations/pipeline-nodes/.lineage-runs/e8731b9b-74f1-525c-abde-b1a585724629.json` records
+an event node/revision input for `cardeventnet-IMG_0662`.
+
+The original closure requires exact historical inputs to remain usable after event-node reads are
+disabled. The 281 retained lineage entries still name old node and revision IDs. A cutover must
+resolve each exact old reference to an exact event-set version. Rewriting lineage records would
+convert another resource and change its persisted contract. Keeping a legacy node read path would
+fail the event-only cutover check. No retained data or runtime code changed during this review.
+
+Possible bounded choices for the next scope decision:
+
+1. Keep lineage records immutable and add an event-only resolver that maps their exact old refs
+   through provenance stored in the new event-set records. Prove that history and exact input reads
+   use only event-set files, with old node reads disabled.
+2. Add a separate lineage migration and qualification scope that rewrites the 281 inputs to exact
+   event-set refs. This expands the resource boundary and persistent contract, so it needs explicit
+   authorization and a revised milestone/run plan.
+3. Defer event-only cutover and keep the current legacy event read path. This leaves 0124 open and
+   does not satisfy its original closure criteria.
+
+### M3 assignment — retained event cutover and qualification
+
+Observable result: pending the scope decision above, rehearse the retained conversion in disposable
+storage; then convert the named recording bundles, event alternatives, selected generated/reference
+values, and event reviews to recording folders. Verify the activation snapshot and recovery copy.
+Remove event-node reads and selection writes from runtime event paths. Keep unrelated node types on
+their current authority.
+
+Finite owners: `recording_folder_store.py`, `event_set_store.py`, the new concrete retained-event
+migration adapter, event paths in `event_pipeline_service.py`, `pipeline_stage_api.py`,
+`pipeline_node_edits.py`, `pipeline_node_edit_api.py`, `pipeline_node_reviews.py`,
+`pipeline_node_selection_store.py`, `pipeline_lineage_writer.py`,
+`pipeline_workspace_service.py`, `visible_card_pipeline_service.py`,
+`observation_pipeline_service.py`, `round_analysis_service.py`, and the event selection/editor
+clients listed above. Do not expand this set to other resource types.
+
+Required proof: freeze representative bundle, node-event, pipeline-event, selection, and review
+inputs with exact refs and hashes. In disposable storage, compare source bytes, usable event
+content, coverage, review decisions, unfinished work, and selection. Run import, two alternatives,
+select/edit/review, exact earlier stubbed detector input, restart/reopen, and unselected alternative
+browse through real APIs/services. Verify normal producer and human editor content. Run browser
+workflow with legacy event reads disabled. Check interrupted version save, interrupted HEAD
+replacement, stale version, independent overlapping readers/writers, and 0123 list growth. After
+rehearsal, activate from the frozen snapshot, retain the recovery copy, verify no saved input
+version changed, and qualify browser/API/static/generated/link checks against the activated data.
+
+Stop before activation if source schemas, review facts, exact downstream inputs, or selection
+conflicts require another resource conversion, a cross-store transaction, a second persistent
+contract, an unbounded owner set, or movement of qualification. The current 281 lineage inputs
+meet this stop condition. M3 is not complete. Its original closure checks remain open: retained
+rehearsal and activation, event-only runtime reads, durable exact historical inputs, interruption
+and concurrency checks, 0123 list growth, and backend/web/generated/link/browser qualification.
+
 ## M0 recording-root contract
 
 `Settings.recordings_root` resolves to `data/recordings/`. With `DOKO_STORAGE_ROOT`, it resolves
@@ -286,8 +353,10 @@ correction of 2; M1 used 1 replan and 2 corrections of 2; the run used 1 replan.
 transferred only the event producer and event selection adapters from M2 to M1. No new storage or
 transaction contract was added. M2 introduced one event-review storage contract and evolved the
 existing request, lineage, and observation source contracts. M3 owns retained-data rehearsal and
-qualification. Stop if M3 needs another resource conversion, a cross-store transaction, or a second
-event-selection authority. M2 used 2 corrections of 2 and 0 replans; the run replan count remains 1.
+qualification. Its scope gate found 281 exact historical event inputs in 599 lineage records. M3
+has 0 implementation attempts and remains blocked pending a choice between an event-set provenance
+resolver, a separately authorized lineage migration, or deferring cutover. M2 used 2 corrections of
+2 and 0 replans; the run replan count remains 1/10.
 
 M2 contract detail: store `event-review/v1` under
 `event-sets/<set-id>/reviews/<review-id>.json`. Each immutable record identifies `set_id`,
