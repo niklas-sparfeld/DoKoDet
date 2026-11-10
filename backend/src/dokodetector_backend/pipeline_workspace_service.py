@@ -561,6 +561,13 @@ class RecordingPipelineWorkspaceService:
             "selected_event_set_reference": (
                 selection.selected_event_set_reference if is_event_set_selection else None
             ),
+            "event_selection_authority": (
+                "recording-head"
+                if is_event_set_selection
+                else "pipeline-node"
+                if definition.key == "events"
+                else None
+            ),
             "runs": [
                 self._run_summary(
                     run,
@@ -607,7 +614,14 @@ class RecordingPipelineWorkspaceService:
                     }
                 )
             if selection is None:
-                return None
+                root = self.recording_folder_store.get(recording_id)
+                if root is None:
+                    return None
+                return _EventSetSelection(
+                    revision=root.version,
+                    selected_event_set_generated=None,
+                    selected_event_set_reference=None,
+                )
             return _EventSetSelection(
                 revision=selection["recording_version"],
                 selected_event_set_generated=selection["generated"],

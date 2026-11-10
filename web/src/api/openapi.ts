@@ -3295,6 +3295,8 @@ export interface components {
             comparable_run_ids: string[];
             /** Compatible Input Sets */
             compatible_input_sets: components["schemas"]["PipelineWorkspaceCompatibleInputSetResponse"][];
+            /** Event Selection Authority */
+            event_selection_authority?: ("recording-head" | "pipeline-node") | null;
             /** Input Options */
             input_options: components["schemas"]["PipelineWorkspaceInputOptionResponse"][];
             /**

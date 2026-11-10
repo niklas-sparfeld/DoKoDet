@@ -176,6 +176,7 @@ class PipelineWorkspaceStageResponse(ContractModel):
     selection_revision: int | None = Field(default=None, ge=0)
     selected_generated: PipelineWorkspaceNodeReferenceResponse | None = None
     selected_completed_reference: PipelineWorkspaceNodeReferenceResponse | None = None
+    event_selection_authority: Literal["recording-head", "pipeline-node"] | None = None
     selected_event_set_generated: PipelineWorkspaceEventSetReferenceResponse | None = None
     selected_event_set_reference: PipelineWorkspaceEventSetReferenceResponse | None = None
     runs: list[PipelineWorkspaceRunResponse]

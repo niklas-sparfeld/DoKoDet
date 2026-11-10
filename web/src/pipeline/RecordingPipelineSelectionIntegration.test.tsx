@@ -24,6 +24,7 @@ function stage(
     processor_key: `${key}-processor`,
     processor_type: `${key}-processor`,
     output_content_type: key,
+    event_selection_authority: key === "events" ? "pipeline-node" : null,
     state: "video-only",
     input_options: [],
     selection_revision: null,

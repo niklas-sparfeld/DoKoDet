@@ -590,6 +590,7 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
         assert workspace.status_code == 200
         body = workspace.json()
         events = body["stages"][0]
+        assert events["event_selection_authority"] == "recording-head"
         selected = events["selected_event_set_generated"]
         assert selected is None
         assert events["state"] == "data-available"
@@ -834,6 +835,47 @@ def test_recording_pipeline_workspace_ignores_legacy_event_selection_pointer(
             for diagnostic in response.json()["diagnostics"]
             if diagnostic["content_type"] == "events"
         }
+
+
+def test_legacy_event_workspace_reports_pipeline_node_selection_authority(
+    tmp_path: Path,
+) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+    source = app.state.event_pipeline_service.get_recording_source(RECORDING_ID).to_mapping()
+    app.state.pipeline_selection_store.node_store.create(
+        "legacy-event-node",
+        "Legacy events",
+        "events",
+        source,
+        {"schema_version": "event-data/v1", "events": []},
+        {},
+        revision_id="legacy-event-revision",
+    )
+    app.state.pipeline_selection_store.update_exact(
+        RECORDING_ID,
+        "events",
+        expected_revision=0,
+        selected_generated={
+            "node_id": "legacy-event-node",
+            "revision_id": "legacy-event-revision",
+        },
+        selected_completed_reference=None,
+    )
+    app.state.pipeline_workspace_service.recording_folder_store = SimpleNamespace(
+        get=lambda _recording_id: None
+    )
+
+    with TestClient(app) as client:
+        response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline?stage=events")
+
+    assert response.status_code == 200, response.text
+    events = response.json()["stages"][0]
+    assert events["event_selection_authority"] == "pipeline-node"
+    assert events["selected_generated"] == {
+        "node_id": "legacy-event-node",
+        "revision_id": "legacy-event-revision",
+    }
 
 
 def test_pipeline_workspace_does_not_read_evidence_package_media_or_manifests(

@@ -29,6 +29,7 @@ function stage(
     processor_key: `${key}-processor`,
     processor_type: `${key}-processor`,
     output_content_type: key,
+    event_selection_authority: key === "events" ? "pipeline-node" : null,
     state: "video-only",
     input_options: [],
     selection_revision: null,
@@ -667,5 +668,44 @@ describe("recording pipeline workspace", () => {
     expect(
       within(inspector).getByText("Video Unavailable"),
     ).toBeInTheDocument();
+  });
+
+  it("hides the event-node selector when recording HEAD owns event selection", async () => {
+    const body = workspace({
+      event_selection_authority: "recording-head",
+      selected_event_set_generated: null,
+      selected_event_set_reference: null,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      ),
+    );
+
+    render(
+      <RecordingPipelineWorkspace
+        recordingId={RECORDING_ID}
+        stageKey="events"
+        compare={false}
+      />,
+    );
+
+    const inspector = await screen.findByRole("complementary", {
+      name: "Workspace inspector",
+    });
+    expect(
+      within(inspector).queryByRole("combobox", {
+        name: "Default generated revision",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(inspector).getByRole("link", { name: "Open event-set workspace" }),
+    ).toBeVisible();
   });
 });

@@ -111,7 +111,9 @@ M1 verification: `test_event_set_store.py` covers separate alternatives, immutab
 versioned edits, exact open, selection, stale root conflicts, and persisted API reopen. The pipeline
 API test proves a processor output is saved as an unselected alternative and exact selection updates
 HEAD. Root-backed stage, workspace, and list tests prove those readers use the same references and
-ignore legacy event selection state. The recording-folder Playwright test saves two alternatives,
+ignore legacy event selection state. The workspace response marks event selection authority as
+`recording-head` or `pipeline-node`; the inspector hides the node selector only for `recording-head`.
+The recording-folder Playwright test saves two alternatives,
 selects both choices, edits version 2, recreates the backend against the same files, then reopens and
 checks both alternatives and their HEAD choices. The test forbids legacy event selection reads and
 writes and checks that the browser makes no legacy pipeline or node requests. The M0 store/restart
@@ -144,6 +146,20 @@ this workflow, and the browser confirms it makes no legacy pipeline or node requ
 regressions remain M0 restart and 0123 list growth. Stop and report if producer publication needs a
 second persistent contract/transaction or if downstream exact-input conversion is required before
 the event editor can satisfy this proof.
+
+### M1 correction 2: preserve the legacy event selector
+
+The first selector fix hid the event-node selector when the event-set reference field existed.
+However, the workspace response includes that nullable field for all recordings, including retained
+non-folder recordings whose event selection still uses pipeline-node references until M3. The fix
+adds the explicit `event_selection_authority` field to workspace stages. Root-backed event stages report
+`recording-head`, including an invalid or empty HEAD; legacy event stages report `pipeline-node`.
+The inspector hides the node selector only for `recording-head` and keeps it for `pipeline-node`.
+
+Coverage: API response asserts both root-backed and legacy authority; the workspace UI test asserts
+that a legacy `pipeline-node` event stage keeps its selector and that a `recording-head` stage hides
+it. Re-run the previous M1 event workflow, restart, stale/conflict, and M0/0123 regressions. This is
+a response discriminator and UI condition only; it adds no persistent contract or selection writer.
 
 ### M2 assignment after the first workflow
 
@@ -212,17 +228,19 @@ two alternatives, with processor output, stage selection, workspace choices, and
 using exact event-set references from recording HEAD. The browser test recreates the backend against
 the same persisted files and forbids legacy event-selection reads and writes. Qualification remains
 in M3. The run limit is 4 milestones; 2 are complete and 2 remain. M0 used 0 replans and 1
-correction of 2; M1 used 1 replan and 1 correction of 2; the run used 1 replan. The bounded replan
+correction of 2; M1 used 1 replan and 2 corrections of 2; the run used 1 replan. The bounded replan
 transferred only the event producer and event selection adapters from M2 to M1. No new storage or
 transaction contract was added. M2 owns review and named downstream exact-input conversion. M3 owns
 retained-data rehearsal and qualification. Stop if M2 needs another resource conversion, a
 cross-store transaction, or a second event-selection authority.
 
-M1 first submission commit: `7238a483`. M1 correction 1/2: one root-backed event selection
-authority across producer, stage API, workspace, and list. M1 re-plans: 1/5; run re-plans: 1/10.
+M1 first submission commit: `7238a483`. M1 corrections 2/2: correction 1 unified root-backed event
+selection across producer, stage API, workspace, and list; correction 2 made the workspace authority
+explicit so legacy event-node selectors remain available until M3. M1 re-plans: 1/5; run re-plans:
+1/10.
 Checks passed: focused event-set, pipeline, recording-folder, and list-growth backend tests; Ruff
-check/format; `npm run verify:api`; `npm run lint`; `npm run format`; `npm test -- --run` (242
+check/format; `npm run verify:api`; `npm run lint`; `npm run format`; `npm test -- --run` (243
 tests); `npm run build`; and `npx playwright test --config playwright.recording-folder.config.ts`
-(2 tests). M1 correction commit: recorded in the execution history after integration. M2 starts
+(2 tests). Both M1 correction commits are recorded in the execution history after integration. M2 starts
 with review and downstream exact-input conversion. M3 remains the retained-data rehearsal and
 qualification milestone.
