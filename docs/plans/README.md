@@ -29,7 +29,7 @@ Closed epics use a `Closure reason` such as `Complete`, `Won't Do`, `Superseded`
 Performance delivery was reset on 2026-11-10. **0117 is closed as Superseded.**
 [0122 node-publication test discrepancy](5-closed/0122-Node_Publication_Test_Discrepancy.md) and
 [0119 recovery repairs](5-closed/0119-Pipeline_Recovery_Defects.md) are complete. [0120 catalog
-delivery](2-ready/0120-Recording_Catalog_Performance.md) is Ready. The
+delivery](3-in-progress/0120-Recording_Catalog_Performance.md) is In Progress. The
 [0121 workspace follow-up](1-backlog/0121-Current_Workspace_Reads.md) stays in Backlog.
 No old 0117 loop continues. See the [scope and revert decision](../reports/0117-Supersession_and_Exit.md).
 
@@ -113,7 +113,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0120 — Recording catalog performance](2-ready/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0–M7 not started. Replace catalog history reconstruction with compact metadata and deliver a measured API/web cutover. No recording HEAD adoption or Job Manager redesign. |
+| [0120 — Recording catalog performance](3-in-progress/0120-Recording_Catalog_Performance.md) | 0119 M1 complete | M0 complete; M1–M7 remain. Freeze list contract and source map; next prove one metadata write/read/restart. No recording HEAD adoption or Job Manager redesign. |
 
 ### In Progress
 

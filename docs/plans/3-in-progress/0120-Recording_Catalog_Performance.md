@@ -1,6 +1,6 @@
 # Recording catalog performance
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** [0119](../5-closed/0119-Pipeline_Recovery_Defects.md) M1 complete.
   0114/0115 are closed; 0117 retained measurements and source inventories are available.
 - **Outcome:** Open `/recordings` through compact metadata reads whose cost does not increase
@@ -49,7 +49,7 @@ or index-only API stub as a complete workflow. No queue, acceptance-key or sched
 
 | Milestone | Observable result and commit boundary | Status |
 | --- | --- | --- |
-| M0 | Frozen list contract, consumer/writer matrix and failing growth assertions | Not started |
+| M0 | Frozen list contract, consumer/writer matrix and failing growth assertions | Complete |
 | M1 | Catalog metadata index, common publication outbox and explicit rebuild contract | Not started |
 | M2 | Node and selection publication through one real catalog workflow | Not started |
 | M3 | Processor-run status publication | Not started |
@@ -148,5 +148,27 @@ redesign to this epic. Commit: qualification, board and closure move.
 
 ## Execution handoff
 
-Planning only. Ready after 0119 M1 completion. Next: M0. No inherited loop or correction count.
-The [exit decision](../../reports/0117-Supersession_and_Exit.md#execution-control) governs scope stops.
+Original outcome: make `/recordings` metadata reads independent of retained pipeline, processor-run,
+and analysis history. Non-goals: recording HEAD selection authority, queue/scheduler/workspace
+redesign, startup optimization, and global write optimization. Closure requires M7 structural and
+latency gates, source-writer correctness after restart, and retained-data qualification.
+
+First complete workflow: M1 proves one source write, catalog metadata read, and restart; M2 proves a
+real `/v1/recordings` route with old discovery disabled and restart. The checkpoint remains M2 and
+has not been reached. M0 confirms existing exact node publication authority and selection cannot
+supply catalog summaries; the common publication protocol remains a single contract prerequisite.
+No new source owners or contracts were added. The initial plan has eight milestones; seven remain.
+
+Current run requested 8 milestones, completed 1 (M0), and has 7 remaining. Run re-plannings: 0/10.
+M0 corrections: 0/5; no inherited loop or correction count. Scope decision: keep the bounded catalog
+index approach. M0 exposed the current history scans and fixed the list response shape without
+adding storage or transaction work. Next proof: M1's disposable write/read/restart workflow using
+one deterministic source adapter. Stop if that proof requires a second persistent contract, a new
+authority, or expansion beyond the named adapters; review the 0117 exit decision before changing
+scope.
+
+M0 changes: frozen contract, source schema and writer map, one catalog-only capture, and one
+strict expected-failure 10x response-size fixture. M0 does not claim implementation completion.
+See [M0 contract and source map](../../reports/0120-M0_Recording_Catalog_Contract.md).
+The [0117 exit decision](../../reports/0117-Supersession_and_Exit.md#execution-control) governs
+scope stops.

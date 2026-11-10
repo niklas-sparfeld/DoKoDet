@@ -7,7 +7,7 @@
   did not deliver or qualify faster catalog or current-workspace reads. Its execution loop is
   cancelled. Do not resume its handoff, correction budgets, or remaining milestones.
 - **Replacement:** [0119](0119-Pipeline_Recovery_Defects.md) repairs the known integrated
-  recovery defects. [0120](../2-ready/0120-Recording_Catalog_Performance.md) delivers catalog
+  recovery defects. [0120](../3-in-progress/0120-Recording_Catalog_Performance.md) delivers catalog
   performance. [0121](../1-backlog/0121-Current_Workspace_Reads.md) owns the deferred workspace
   boundary and disposition of unused recording-state infrastructure.
 - **Decision record:** [0117 exit decision](../../reports/0117-Supersession_and_Exit.md).

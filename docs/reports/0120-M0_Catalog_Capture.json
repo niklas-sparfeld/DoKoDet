@@ -1,0 +1,34 @@
+{
+  "schema_version": "0120-m0-catalog-capture/v1",
+  "captured_at": "2026-11-10",
+  "source_commit": "cc450e8349f9e76f2cf4c088a49334ff29353a64",
+  "hard_fixture_manifest": "backend/fixtures/interactive-ui-performance/v1/manifest.json",
+  "hard_fixture_manifest_sha256": "e3d19c1295535c22e547b72f3d6a9bef1cdbc40deb8a2f93f9be3e03d1973294",
+  "route": "GET /v1/recordings",
+  "disposable_root": true,
+  "capture_scope": "one catalog request using the 0117 read counters; no startup or workspace requests",
+  "status_code": 200,
+  "duration_ns": 18070031417,
+  "response_bytes": 3212,
+  "response_sha256": "3d3ee1b06e159ceec748dbbb8acd2121d19fcf93645419a43436829493e57d5d",
+  "read_opens": 119,
+  "unique_read_paths": 55,
+  "json_loads": 737,
+  "domain_parsers": {
+    "parse_event_data_bytes": 1,
+    "parse_visible_card_data_bytes": 10,
+    "parse_visual_identity_data_bytes": 3
+  },
+  "node_list_calls": 1,
+  "nodes_enumerated": 12,
+  "history_calls": 11,
+  "history_revision_records": 14,
+  "revision_payload_reads": 14,
+  "revision_payload_bytes": 70117888,
+  "revision_validations": 14,
+  "node_manifest_validations": 23,
+  "limitations": [
+    "The disposable hard corpus had no analysis, package, or processor-run roots, so those roots were logged unavailable.",
+    "This single instrumented request is drift evidence, not a latency sample or comparison against the 0117 three-session reference."
+  ]
+}
