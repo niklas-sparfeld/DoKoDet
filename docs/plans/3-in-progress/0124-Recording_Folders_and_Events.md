@@ -1,6 +1,6 @@
 # Recording folders and events
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** None. Epic 0123 is closed, which stabilizes the list API before its source layout changes.
 - **Outcome:** Import a recording, create/select/edit alternative event sets, and reopen them from a simple recording folder.
 - **Origin:** [Recording data storage](../../RecordingDataStorage.md).
@@ -61,7 +61,7 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 
 | Milestone | Observable result and commit boundary | State |
 | --- | --- | --- |
-| M0 | Concrete recording-root contract; import/list/media-open/restart from one new recording folder | Not started |
+| M0 | Concrete recording-root contract; import/list/media-open/restart from one new recording folder | Complete |
 | M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives | Not started |
 | M2 | Existing event producer, review, and the named exact-input consumers use event resources | Not started |
 | M3 | Retained-data rehearsal, default cutover, event-only old-path removal, and qualification | Not started |
@@ -84,9 +84,50 @@ Specify M1's event/review layout and exact editor call sites after M0; specify M
 workflow passes. Each assignment must name the result, exact source owners, checks, and one focused
 commit. M2 must not defer review or downstream exact-input failures to M3 cleanup.
 
+## M0 recording-root contract
+
+`Settings.recordings_root` resolves to `data/recordings/`. With `DOKO_STORAGE_ROOT`, it resolves
+to `<storage-root>/data/recordings/`. Each folder has `recording.json`, `source/`, and
+`proposal-inputs/`.
+
+`recording.json` uses `recording/v1`. It has an optimistic integer `version`, recording, source,
+video, and session IDs, UTC `received_at`, the validated `source-record/v1` facts in `source`, the
+validated `task-enrollment/v1` document in `task_enrollment`, and a `media` object with safe
+`source/<original-filename>` path, SHA-256, byte length, media type, and filename. `media_facts` is
+null when the accepted intake has no measured facts. It also has `proposal_generator_runs`, with
+each `proposal-generator-run/v1` ID, saved path, digest, and length, and an initially empty `head`.
+The `repository-bundle/v1` manifest is transport input. Its validated proposal inputs are copied
+to `proposal-inputs/`; the bundle is not retained as a second recording authority.
+
+The store stages a complete folder under `data/recordings/` and renames it into place. A duplicate
+import is accepted only when its source, task enrollment, media digest, and proposal inputs match.
+Root replacement holds a recording-local file lock, checks the expected version, rejects changes
+to source facts, writes and syncs a temporary JSON file, then atomically replaces `recording.json`.
+Source media bytes stay under `source/`. The list reads this root and exact existing selection
+files; it does not call the old recording catalog.
+
+M0 evidence: `test_recording_folder_store.py` covers root publication, source/intake facts, version
+replacement, stale-version conflict, persisted list/media API reads after app restart, and exact
+source bytes. `test_operator_corpus_import.py` verifies import without changing the operator source.
+`test_recording_catalog_growth_contract.py` retains the 0123 history-growth and concurrent-read
+regressions. The recording-folder Playwright proof checks list navigation and media access in a real
+browser. Checks passed with Python focused tests and Ruff, web build, and the recording-folder
+Playwright test. A broader `test_app.py` run also reproduced the known unrelated
+`test_factory_converts_interrupted_round_analysis_to_failed` failure. The round-analysis lifecycle
+owns that follow-up; it does not block M0.
+
 ## Execution handoff
 
-Planning only. Baseline: 4 milestones; 4 remain. First recording workflow: M0; event browser: M1;
-qualification: M3. At most one new persistent contract per milestone. No run authorized.
-At most two correction turns per milestone family; use the existing scope review without suffix
-milestones. Stop before expanding to another resource type or adding cross-store transactions.
+Original outcome: import a recording, create/select/edit alternative event sets, and reopen them
+from a simple recording folder. Non-goals remain other resource conversions, scheduler work, and
+cross-store transactions. Final closure check remains the disposable retained-data rehearsal and
+event-only old-path cutover in M3.
+
+Baseline: 4 milestones; 3 remain. M0 proves the recording-folder import/list/media-open/restart
+workflow. Event browser proof remains scheduled for M1; qualification remains in M3. The run limit
+is 4 milestones; 1 is complete and 3 remain available. M0 used 0 replans and 0 corrections; the
+run used 0 replans. No new source owners or persistent contracts were added beyond the planned
+recording root. Next: specify the event-set contract and exact event editor/read/write call sites
+for M1 before assignment. Last scope decision: keep the four planned milestones; M0 removed no
+event or qualification work. Stop if the event workflow needs a second persistent contract,
+another resource conversion, cross-store transaction, or the scheduled proof/qualification moves.

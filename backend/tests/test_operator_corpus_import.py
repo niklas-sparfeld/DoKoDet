@@ -1,4 +1,5 @@
 import hashlib
+import json
 import shutil
 from pathlib import Path
 
@@ -38,14 +39,20 @@ def test_operator_bundle_is_copied_with_exact_identity_without_source_changes(
     assert receipt[0].created is True
     assert receipt[0].file_count == len(source_before) == 5
     assert receipt[0].bundle_fingerprint
-    assert _manifest(copied) == source_before
+    root = json.loads((copied / "recording.json").read_text())
+    assert root["schema_version"] == "recording/v1"
+    assert root["version"] == 1
+    assert root["source"]["source_permission"] == "training_and_evaluation"
+    assert root["source"]["allowed_uses"] == ["train", "validation", "evaluation"]
+    assert root["task_enrollment"]["schema_version"] == "task-enrollment/v1"
+    assert root["proposal_generator_runs"][0]["proposal_generator_run_id"] == "proposal-both"
+    assert (copied / "source/video-both.mov").read_bytes() == (
+        source / "videos/video-both.mov"
+    ).read_bytes()
     assert _manifest(source) == source_before
-    assert RecordingBundleStore(RepositoryBundleStorage(target_root)).get("recording-both")
-    for relative_path in source_before:
-        source_file = source / relative_path
-        target_file = copied / relative_path
-        assert not source_file.samefile(target_file)
-        assert target_file.stat().st_nlink == 1
+    assert not (copied / "manifest.json").exists()
+    assert RecordingBundleStore(RepositoryBundleStorage(corpus_root)).get("recording-both")
+    assert (copied / "source/video-both.mov").stat().st_nlink == 1
 
     replay = import_recordings(corpus_root, target_root, ("recording-both",))
     assert replay[0].created is False

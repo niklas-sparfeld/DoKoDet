@@ -1,7 +1,7 @@
 # Recording visual detections
 
 - **Status:** Blocked
-- **Depends on:** [0124](../2-ready/0124-Recording_Folders_and_Events.md) closure and stable recording/event references.
+- **Depends on:** [0124](../3-in-progress/0124-Recording_Folders_and_Events.md) closure and stable recording/event references.
 - **Outcome:** Generate or annotate alternative visual detection sets, edit their segments, and reopen them from the recording folder.
 - **Origin:** [Recording data storage](../../RecordingDataStorage.md).
 

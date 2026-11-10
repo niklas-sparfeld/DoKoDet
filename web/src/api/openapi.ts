@@ -1211,7 +1211,7 @@ export interface paths {
         };
         /**
          * Get Repository Bundle
-         * @description Return validated canonical metadata and current member hashes.
+         * @description Return recording-root metadata at the import API boundary.
          */
         get: operations["get_repository_bundle_v1_repository_bundles__recording_id__get"];
         /**

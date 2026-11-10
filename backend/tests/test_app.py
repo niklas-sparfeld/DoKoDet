@@ -221,6 +221,7 @@ def test_storage_root_isolates_all_mutable_roots(tmp_path: Path, monkeypatch) ->
     assert settings.evidence_root == storage_root / "runtime"
     assert settings.operations_root == storage_root / "data" / "operations"
     assert settings.repository_intake_root == (storage_root / "data" / "intake" / "recordings")
+    assert settings.recordings_root == storage_root / "data" / "recordings"
     assert settings.evidence_package_intake_root == (
         storage_root / "data" / "intake" / "evidence-packages"
     )

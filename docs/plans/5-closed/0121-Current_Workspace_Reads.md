@@ -11,7 +11,7 @@
 ## Supersession — 2026-11-10
 
 The [storage decision](../../RecordingDataStorage.md) replaces this node/history-oriented workspace
-plan with concrete recording resources. [0124](../2-ready/0124-Recording_Folders_and_Events.md)
+plan with concrete recording resources. [0124](../3-in-progress/0124-Recording_Folders_and_Events.md)
 through [0128](../4-blocked/0128-Recording_Table_Observations.md) own their explicit current reads,
 editing, historical alternatives, and consumer cutovers. No M0–M4 implementation was started in
 0121. Do not run this plan in parallel with those conversions. Closing as Superseded does not

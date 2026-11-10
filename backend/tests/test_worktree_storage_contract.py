@@ -31,8 +31,8 @@ def test_worktree_root_pipeline_edit_survives_restart_and_keeps_fixture_identity
         for path in sorted(source_bundle.rglob("*"))
         if path.is_file()
     }
-    import_recordings(corpus_root, settings.repository_intake_root, ("recording-both",))
-    imported_video = settings.repository_intake_root / "recording-both/videos/video-both.mov"
+    import_recordings(corpus_root, settings.recordings_root, ("recording-both",))
+    imported_video = settings.recordings_root / "recording-both/source/video-both.mov"
     video_bytes = imported_video.read_bytes()
     video_digest = hashlib.sha256(video_bytes).hexdigest()
     fixture_bytes = FIXTURE.read_bytes()

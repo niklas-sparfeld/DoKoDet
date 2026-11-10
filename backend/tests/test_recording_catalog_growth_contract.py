@@ -11,6 +11,7 @@ from app_factory import create_test_app
 from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 from dokodetector_backend.recordings_api import (
     RecordingListResponse,
     RecordingSelectionSummary,
@@ -74,9 +75,10 @@ def test_list_reads_do_not_grow_with_independent_history_family(
     repository_root = Path(__file__).parents[2]
     recording_id = "recording-both"
     recording_root = tmp_path / "recordings"
-    shutil.copytree(
-        repository_root / "fixtures/repository-bundle/v1/both",
-        recording_root / recording_id,
+    recording_transport = tmp_path / "transport" / recording_id
+    shutil.copytree(repository_root / "fixtures/repository-bundle/v1/both", recording_transport)
+    RecordingFolderStore(recording_root).publish_bundle(
+        recording_transport, recording_id=recording_id
     )
     settings = Settings(
         _env_file=None,
@@ -84,6 +86,7 @@ def test_list_reads_do_not_grow_with_independent_history_family(
         evidence_root=tmp_path / "runtime",
         operations_root=tmp_path / "operations",
         repository_intake_root=recording_root,
+        recordings_root=recording_root,
         evidence_package_intake_root=tmp_path / "packages",
         pending_video_root=tmp_path / "incoming",
         frontend_dist=tmp_path / "frontend",
@@ -112,7 +115,7 @@ def test_list_reads_do_not_grow_with_independent_history_family(
         "runs": tmp_path / "operations/pipeline/runs",
         "analyses": tmp_path / "operations/round-analyses",
         "packages": tmp_path / "packages",
-        "proposals": recording_bundle / "predictions",
+        "proposals": recording_bundle / "proposal-inputs",
     }[history_family]
     history_root.mkdir(parents=True, exist_ok=True)
 
@@ -197,12 +200,9 @@ def test_list_reads_do_not_grow_with_independent_history_family(
 
     assert high_counts == low_counts
     assert high_response == low_response
-    assert low_counts["opens"] == 10
+    assert low_counts["opens"] == 8
     assert low_counts["directory_visits"] == 1
-    assert low_counts["bytes"] == sum(
-        (recording_bundle / name).stat().st_size
-        for name in ("manifest.json", "source-record.json", "initial-task-enrollment.json")
-    )
+    assert low_counts["bytes"] == (recording_bundle / "recording.json").stat().st_size
     assert len(high_response) < 20_000
 
 
@@ -210,9 +210,10 @@ def test_list_reads_during_concurrent_selection_updates_are_atomic(tmp_path: Pat
     repository_root = Path(__file__).parents[2]
     recording_id = "recording-both"
     recording_root = tmp_path / "recordings"
-    shutil.copytree(
-        repository_root / "fixtures/repository-bundle/v1/both",
-        recording_root / recording_id,
+    recording_transport = tmp_path / "transport" / recording_id
+    shutil.copytree(repository_root / "fixtures/repository-bundle/v1/both", recording_transport)
+    RecordingFolderStore(recording_root).publish_bundle(
+        recording_transport, recording_id=recording_id
     )
     app = create_test_app(
         Settings(
@@ -221,6 +222,7 @@ def test_list_reads_during_concurrent_selection_updates_are_atomic(tmp_path: Pat
             evidence_root=tmp_path / "runtime",
             operations_root=tmp_path / "operations",
             repository_intake_root=recording_root,
+            recordings_root=recording_root,
             evidence_package_intake_root=tmp_path / "packages",
             pending_video_root=tmp_path / "incoming",
             frontend_dist=tmp_path / "frontend",

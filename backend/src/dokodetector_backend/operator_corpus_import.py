@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.intake_contract import parse_repository_bundle
 from dokodetector_backend.recording_bundle_store import (
     RecordingBundleStore,
-    RecordingBundleStoreError,
 )
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 
 
@@ -38,8 +39,7 @@ def import_recordings(
 
     source_storage = RepositoryBundleStorage(Path(operator_corpus_root).expanduser().resolve())
     source_store = RecordingBundleStore(source_storage)
-    target_storage = RepositoryBundleStorage(Path(target_root).expanduser().resolve())
-    target_store = RecordingBundleStore(target_storage)
+    target_store = RecordingFolderStore(Path(target_root).expanduser().resolve())
     imported: list[ImportedBundle] = []
 
     if not recording_ids:
@@ -60,39 +60,40 @@ def import_recordings(
             )
         source_files = source_storage.file_digests(recording_id)
         byte_length = sum(item.byte_length for item in source_files.values())
+        created = target_store.get(recording_id) is None
         try:
-            with target_storage.start_bundle(recording_id) as staged:
-                staged_files = {}
-                for relative_path in sorted(source_files):
-                    source_file = source_path / relative_path
-                    with source_file.open("rb") as handle:
-                        staged_files[relative_path] = staged.write_part(relative_path, handle)
-                if staged_files != source_files:
-                    raise OperatorCorpusImportError(
-                        f"Copied file identity differs from source bundle: {recording_id}."
-                    )
-                stored, created = target_store.publish(staged, staged_files=staged_files)
-        except (OSError, ValueError, RecordingBundleStoreError) as error:
-            if isinstance(error, OperatorCorpusImportError):
-                raise
+            target_store.publish_bundle(source_path, recording_id=recording_id)
+        except (OSError, ValueError, RuntimeError) as error:
             raise OperatorCorpusImportError(
                 f"Could not copy operator corpus bundle {recording_id}: {error}"
             ) from error
-        if stored.bundle_fingerprint != source.bundle_fingerprint:
+        # The target is a recording folder, not a second copy of the intake transport bundle.
+        target_recording = target_store.get(recording_id)
+        if (
+            target_recording is None
+            or target_recording.source.get("sha256") != source.source_sha256
+        ):
             raise OperatorCorpusImportError(
-                f"Imported bundle identity differs from the source: {recording_id}."
+                f"Imported recording differs from the source: {recording_id}."
             )
-        for relative_path in source_files:
-            source_file = source_path / relative_path
-            target_file = target_storage.bundle_path(recording_id) / relative_path
-            if source_file.samefile(target_file) or target_file.stat().st_nlink != 1:
+        target_path = target_store.recording_path(recording_id)
+        copied_media = target_path / target_recording.media["relative_path"]
+        manifest = parse_repository_bundle((source_path / "manifest.json").read_bytes())
+        source_media = source_path / manifest.files.video.relative_path
+        if source_media.samefile(copied_media) or copied_media.stat().st_nlink != 1:
+            raise OperatorCorpusImportError(
+                f"Imported media is linked to shared content: {recording_id}."
+            )
+        for proposal in target_recording.proposal_generator_runs:
+            copied_proposal = target_path / proposal["relative_path"]
+            if copied_proposal.stat().st_nlink != 1:
                 raise OperatorCorpusImportError(
-                    f"Imported file is linked to shared content: {recording_id}/{relative_path}."
+                    f"Imported proposal input is linked to shared content: {recording_id}."
                 )
         imported.append(
             ImportedBundle(
                 recording_id=recording_id,
-                bundle_fingerprint=stored.bundle_fingerprint,
+                bundle_fingerprint=source.bundle_fingerprint,
                 file_count=len(source_files),
                 byte_length=byte_length,
                 created=created,
@@ -114,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         imported = import_recordings(
             args.operator_corpus_root,
-            settings.repository_intake_root,
+            settings.recordings_root,
             tuple(args.recording_id),
         )
     except (OSError, ValueError, OperatorCorpusImportError) as error:

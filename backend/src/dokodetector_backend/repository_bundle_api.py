@@ -22,14 +22,10 @@ from dokodetector_backend.intake_contract import (
     RepositoryBundle,
     SourceRecord,
     TaskEnrollmentDocument,
-    parse_repository_bundle,
     validate_repository_bundle,
 )
 from dokodetector_backend.logging_config import get_or_create_request_id, log_event
-from dokodetector_backend.recording_bundle_store import (
-    RecordingBundleConflict,
-    RecordingBundleStoreError,
-)
+from dokodetector_backend.recording_folder_store import RecordingFolderError
 from dokodetector_backend.recording_thumbnail import (
     RecordingThumbnailError,
     thumbnail_etag,
@@ -140,22 +136,18 @@ async def upload_repository_bundle(
                     proposal_count=len(proposal_runs),
                     file_count=len(staged_files),
                 )
+                folder_store = request.app.state.recording_folder_store
+                created = folder_store.get(requested_id) is None
                 try:
-                    stored, created = request.app.state.recording_bundle_store.publish(
-                        staged,
-                        staged_files=staged_files,
+                    stored = folder_store.publish_bundle(
+                        staged.temporary_path, recording_id=requested_id
                     )
-                except RecordingBundleConflict as error:
+                except (RecordingFolderError, OSError, ValueError) as error:
+                    existing = folder_store.get(requested_id)
                     raise ContractError(
-                        "recording_conflict",
-                        "The recording ID is already stored with different content.",
-                        status_code=409,
-                    ) from error
-                except RecordingBundleStoreError as error:
-                    raise ContractError(
-                        "internal_error",
-                        "The repository bundle could not be stored.",
-                        status_code=500,
+                        "recording_conflict" if existing else "repository_bundle_invalid",
+                        str(error),
+                        status_code=409 if existing else 422,
                     ) from error
 
                 log_event(
@@ -172,9 +164,9 @@ async def upload_repository_bundle(
                     response.status_code = 200
                 try:
                     request.app.state.recording_thumbnail_cache.ensure(
-                        stored.source_sha256,
-                        storage.bundle_path(stored.recording_id)
-                        / PurePosixPath(bundle.files.video.relative_path),
+                        stored.media["sha256"],
+                        folder_store.recording_path(stored.recording_id)
+                        / PurePosixPath(stored.media["relative_path"]),
                     )
                 except (RecordingThumbnailError, OSError) as error:
                     log_event(
@@ -193,11 +185,11 @@ async def upload_repository_bundle(
                     upload_id=request.headers.get("x-dokodetector-upload-id") or "-",
                     recording_id=stored.recording_id,
                     created=created,
-                    proposal_count=len(stored.proposal_run_ids),
+                    proposal_count=len(stored.proposal_generator_runs),
                 )
                 return RepositoryBundleUploadResponse(
                     recording_id=stored.recording_id,
-                    state=stored.state,
+                    state="complete",
                     created=created,
                     received_at=stored.received_at,
                 )
@@ -240,10 +232,10 @@ async def upload_repository_bundle(
     response_model=RepositoryBundleMetadataResponse,
 )
 def get_repository_bundle(recording_id: str, request: Request) -> RepositoryBundleMetadataResponse:
-    """Return validated canonical metadata and current member hashes."""
+    """Return recording-root metadata at the import API boundary."""
 
     requested_id = _parse_recording_id(recording_id)
-    stored = request.app.state.recording_bundle_store.get(requested_id)
+    stored = request.app.state.recording_folder_store.get(requested_id)
     if stored is None:
         raise ContractError(
             "repository_bundle_not_found",
@@ -251,7 +243,27 @@ def get_repository_bundle(recording_id: str, request: Request) -> RepositoryBund
             status_code=404,
         )
     try:
-        files = request.app.state.repository_bundle_storage.file_digests(requested_id)
+        recording_path = request.app.state.recording_folder_store.recording_path(requested_id)
+        root_bytes = (recording_path / "recording.json").read_bytes()
+        files = {
+            "recording.json": RepositoryBundleFileResponse(
+                byte_length=len(root_bytes),
+                sha256=hashlib.sha256(root_bytes).hexdigest(),
+            ),
+            stored.media["relative_path"]: RepositoryBundleFileResponse(
+                byte_length=stored.media["byte_length"],
+                sha256=stored.media["sha256"],
+            ),
+        }
+        files.update(
+            {
+                proposal["relative_path"]: RepositoryBundleFileResponse(
+                    byte_length=proposal["byte_length"],
+                    sha256=proposal["sha256"],
+                )
+                for proposal in stored.proposal_generator_runs
+            }
+        )
     except OSError as error:
         raise ContractError(
             "internal_error",
@@ -263,8 +275,8 @@ def get_repository_bundle(recording_id: str, request: Request) -> RepositoryBund
         source_asset_id=stored.source_asset_id,
         video_id=stored.video_id,
         session_id=stored.session_id,
-        state=stored.state,
-        source_sha256=stored.source_sha256,
+        state="complete",
+        source_sha256=stored.media["sha256"],
         received_at=stored.received_at,
         files={
             relative_path: RepositoryBundleFileResponse(
@@ -284,7 +296,7 @@ def get_repository_bundle_thumbnail(recording_id: str, request: Request) -> Resp
     """Return one cached JPEG frame for an accepted source recording."""
 
     requested_id = _parse_recording_id(recording_id)
-    stored = request.app.state.recording_bundle_store.get_metadata(requested_id)
+    stored = request.app.state.recording_folder_store.get(requested_id)
     if stored is None:
         raise ContractError(
             "repository_bundle_not_found",
@@ -293,18 +305,12 @@ def get_repository_bundle_thumbnail(recording_id: str, request: Request) -> Resp
         )
 
     thumbnail_cache = request.app.state.recording_thumbnail_cache
-    thumbnail = thumbnail_cache.read(stored.source_sha256)
+    thumbnail = thumbnail_cache.read(stored.media["sha256"])
     if thumbnail is None:
-        bundle_path = request.app.state.repository_bundle_storage.bundle_path(requested_id)
+        recording_path = request.app.state.recording_folder_store.recording_path(requested_id)
         try:
-            manifest = parse_repository_bundle((bundle_path / "manifest.json").read_bytes())
-            if (
-                manifest.recording_id != requested_id
-                or manifest.source_sha256 != stored.source_sha256
-            ):
-                raise RecordingThumbnailError("stored recording metadata is inconsistent")
-            video_path = bundle_path / PurePosixPath(manifest.files.video.relative_path)
-            thumbnail = thumbnail_cache.ensure(stored.source_sha256, video_path)
+            video_path = recording_path / PurePosixPath(stored.media["relative_path"])
+            thumbnail = thumbnail_cache.ensure(stored.media["sha256"], video_path)
         except (OSError, TypeError, ValueError, RecordingThumbnailError) as error:
             raise ContractError(
                 "recording_thumbnail_unavailable",
@@ -330,29 +336,15 @@ def get_repository_bundle_video(recording_id: str, request: Request) -> FileResp
     """Stream the complete source recording from one accepted bundle."""
 
     requested_id = _parse_recording_id(recording_id)
-    stored = request.app.state.recording_bundle_store.get(requested_id)
+    stored = request.app.state.recording_folder_store.get(requested_id)
     if stored is None:
         raise ContractError(
             "repository_bundle_not_found",
             "The repository bundle was not found.",
             status_code=404,
         )
-    bundle_path = request.app.state.repository_bundle_storage.bundle_path(requested_id)
-    try:
-        manifest = parse_repository_bundle((bundle_path / "manifest.json").read_bytes())
-    except (OSError, TypeError, ValueError) as error:
-        raise ContractError(
-            "internal_error",
-            "The recording manifest could not be read.",
-            status_code=500,
-        ) from error
-    if manifest.recording_id != requested_id or manifest.source_sha256 != stored.source_sha256:
-        raise ContractError(
-            "internal_error",
-            "The stored recording metadata is inconsistent.",
-            status_code=500,
-        )
-    video_path = bundle_path / PurePosixPath(manifest.files.video.relative_path)
+    recording_path = request.app.state.recording_folder_store.recording_path(requested_id)
+    video_path = recording_path / PurePosixPath(stored.media["relative_path"])
     if not video_path.is_file():
         raise ContractError(
             "internal_error",
@@ -362,7 +354,7 @@ def get_repository_bundle_video(recording_id: str, request: Request) -> FileResp
     return FileResponse(
         video_path,
         media_type=VIDEO_MEDIA_TYPE,
-        headers={"ETag": f'"{manifest.files.video.sha256}"'},
+        headers={"ETag": f'"{stored.media["sha256"]}"'},
     )
 
 

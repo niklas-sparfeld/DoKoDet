@@ -18,7 +18,6 @@ from dokodetector_backend.intake_contract import (
     Disposition,
     LifecycleState,
     TaskEnrollment,
-    parse_repository_bundle,
     parse_source_record,
     parse_task_enrollment,
 )
@@ -102,8 +101,12 @@ class RecordingAnalysisSummary(BaseModel):
 
 SelectionState = Literal["selected", "not-selected", "unavailable"]
 SelectionType = Literal[
-    "events", "visible_cards", "virtual_scenes", "card_scene_proposals",
-    "visual_identities", "table_observations",
+    "events",
+    "visible_cards",
+    "virtual_scenes",
+    "card_scene_proposals",
+    "visual_identities",
+    "table_observations",
 ]
 
 
@@ -223,8 +226,7 @@ class RecordingDetailResponse(BaseModel):
 @router.get("/v1/recordings", response_model=RecordingListResponse)
 def list_recordings(request: Request) -> RecordingListResponse:
     """List recording identity and exact selections without opening referenced content."""
-    storage = request.app.state.repository_bundle_storage
-    root = storage.root
+    root = request.app.state.recording_folder_store.root
     try:
         directories = sorted(
             (
@@ -240,56 +242,52 @@ def list_recordings(request: Request) -> RecordingListResponse:
     locator = node_store.root / ".coordinated-transactions" / ".locator" / "pending.json"
     locator_pending = _selection_locator_pending(locator)
     rows = []
-    for bundle_path in directories:
-        recording_id = bundle_path.name
+    for recording_path in directories:
+        recording_id = recording_path.name
         try:
-            manifest = parse_repository_bundle(
-                _bounded_bytes(bundle_path / "manifest.json", 1_000_000)
-            )
-            source = parse_source_record(
-                _bounded_bytes(bundle_path / "source-record.json", 1_000_000)
-            )
-            enrollment = parse_task_enrollment(
-                _bounded_bytes(bundle_path / "initial-task-enrollment.json", 1_000_000)
-            )
-            valid = (
-                manifest.recording_id == recording_id
-                and source.recording_id == recording_id
-                and manifest.source_asset_id == source.source_asset_id
-                and manifest.video_id == source.video_id
-                and manifest.session_id == source.session_id
-                and manifest.source_sha256 == source.sha256
-                and enrollment.source_asset_id == source.source_asset_id
-            )
-            received = min(item.created_at_utc for item in enrollment.enrollments)
-            received_at = datetime.fromisoformat(received.replace("Z", "+00:00"))
-            metadata_state = "available" if valid else "unavailable"
+            recording = request.app.state.recording_folder_store.get(recording_id)
+            if recording is None:
+                raise ValueError("recording root is invalid")
+            source = recording.source
+            source_asset_id = recording.source_asset_id
+            video_id = recording.video_id
+            session_id = recording.session_id
+            received_at = recording.received_at
+            display_name = source.get("original_filename", recording_id)
+            metadata_state = "available"
         except (OSError, ValueError, TypeError, KeyError, IndexError):
-            manifest, source = {}, {}
+            source_asset_id = video_id = session_id = None
             received_at = None
+            display_name = recording_id
             metadata_state = "unavailable"
         selections = _recording_selections(node_store.root, recording_id, locator_pending)
-        rows.append(RecordingSummary(
-            recording_id=recording_id,
-            source_asset_id=getattr(source, "source_asset_id", None),
-            video_id=getattr(manifest, "video_id", None),
-            session_id=getattr(source, "session_id", None),
-            display_name=getattr(source, "original_filename", recording_id),
-            received_at=received_at,
-            thumbnail_url=(
-                f"/v1/repository-bundles/{recording_id}/thumbnail"
-                if metadata_state == "available"
-                else None
-            ),
-            metadata_state=metadata_state,
-            selections=selections,
-        ))
+        rows.append(
+            RecordingSummary(
+                recording_id=recording_id,
+                source_asset_id=source_asset_id,
+                video_id=video_id,
+                session_id=session_id,
+                display_name=display_name,
+                received_at=received_at,
+                thumbnail_url=(
+                    f"/v1/repository-bundles/{recording_id}/thumbnail"
+                    if metadata_state == "available"
+                    else None
+                ),
+                metadata_state=metadata_state,
+                selections=selections,
+            )
+        )
     return RecordingListResponse(recordings=rows)
 
 
 _LIST_SELECTION_TYPES: tuple[SelectionType, ...] = (
-    "events", "visible_cards", "virtual_scenes", "card_scene_proposals",
-    "visual_identities", "table_observations",
+    "events",
+    "visible_cards",
+    "virtual_scenes",
+    "card_scene_proposals",
+    "visual_identities",
+    "table_observations",
 )
 
 
@@ -336,35 +334,44 @@ def _recording_selections(
             path = root / ".pipeline-node-selections" / recording_id / f"{content_type}.json"
             try:
                 raw = _bounded_json(path, 64_000)
-                if (raw.get("schema_version") != "pipeline-node-selection/v1"
+                if (
+                    raw.get("schema_version") != "pipeline-node-selection/v1"
                     or raw.get("recording_id") != recording_id
                     or raw.get("content_type") != content_type
                     or not isinstance(raw.get("revision"), int)
-                    or isinstance(raw.get("revision"), bool)):
+                    or isinstance(raw.get("revision"), bool)
+                ):
                     raise ValueError("selection identity is invalid")
                 if raw["revision"] < 1:
                     raise ValueError("selection revision must be positive")
                 generated = _list_pointer(raw.get("selected_generated"))
                 completed = _list_pointer(raw.get("selected_completed_reference"))
                 state = (
-                    "selected"
-                    if generated is not None or completed is not None
-                    else "not-selected"
+                    "selected" if generated is not None or completed is not None else "not-selected"
                 )
             except FileNotFoundError:
                 pass
             except (OSError, ValueError, TypeError, KeyError):
                 state = "unavailable"
-        rows.append(RecordingSelectionSummary(content_type=content_type, state=state,
-            selected_generated=generated, selected_completed_reference=completed))
+        rows.append(
+            RecordingSelectionSummary(
+                content_type=content_type,
+                state=state,
+                selected_generated=generated,
+                selected_completed_reference=completed,
+            )
+        )
     return rows
 
 
 def _list_pointer(value: object) -> dict[str, str] | None:
     if value is None:
         return None
-    if (not isinstance(value, dict) or set(value) != {"node_id", "revision_id"}
-        or not all(isinstance(value[key], str) and value[key] for key in value)):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"node_id", "revision_id"}
+        or not all(isinstance(value[key], str) and value[key] for key in value)
+    ):
         raise ValueError("selection pointer shape is invalid")
     return value
 

@@ -52,6 +52,7 @@ from dokodetector_backend.pipeline_composition import (
 from dokodetector_backend.pipeline_run_preflight import validate_local_stage_providers
 from dokodetector_backend.proposed_card_scene_jobs import ProposedCardSceneJobParticipant
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 from dokodetector_backend.recording_history_store import RecordingHistoryStore
 from dokodetector_backend.recording_state_api import router as recording_state_router
 from dokodetector_backend.recording_state_store import RecordingStateSnapshotStore
@@ -154,6 +155,7 @@ def create_app(
         app_settings.repository_intake_root
     )
     app.state.recording_bundle_store = RecordingBundleStore(app.state.repository_bundle_storage)
+    app.state.recording_folder_store = RecordingFolderStore(app_settings.recordings_root)
     app.state.recording_thumbnail_cache = RecordingThumbnailCache(
         app_settings.evidence_root / "recording-thumbnails"
     )

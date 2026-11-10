@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     operations_root: Path = Path("data/operations")
     frontend_dist: Path = Path("web/dist")
     repository_intake_root: Path = Path("data/intake/recordings")
+    recordings_root: Path = Path("data/recordings")
     evidence_package_intake_root: Path = Path("data/intake/evidence-packages")
     pending_video_root: Path = Path("data/incoming/videos")
     card_event_checkpoint_path: Path | None = Field(
@@ -186,6 +187,7 @@ class Settings(BaseSettings):
             self.evidence_root = self.storage_root / "runtime"
             self.operations_root = self.storage_root / "data" / "operations"
             self.repository_intake_root = self.storage_root / "data" / "intake" / "recordings"
+            self.recordings_root = self.storage_root / "data" / "recordings"
             self.evidence_package_intake_root = (
                 self.storage_root / "data" / "intake" / "evidence-packages"
             )
@@ -200,6 +202,7 @@ class Settings(BaseSettings):
                 else _resolve_path(self.operations_root, root)
             )
             self.repository_intake_root = _resolve_path(self.repository_intake_root, root)
+            self.recordings_root = _resolve_path(self.recordings_root, root)
             self.evidence_package_intake_root = _resolve_path(
                 self.evidence_package_intake_root, root
             )

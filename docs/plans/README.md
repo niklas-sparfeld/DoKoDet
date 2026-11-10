@@ -125,7 +125,7 @@ The shared target architecture is
 
 | Epic | Depends on | Outcome |
 | --- | --- | --- |
-| [0124 — Recording folders and events](2-ready/0124-Recording_Folders_and_Events.md) | None | M0–M3 not started. Concrete recording root and alternative event sets; import/edit/select/restart, retained conversion and event-only cutover. |
+| [0124 — Recording folders and events](3-in-progress/0124-Recording_Folders_and_Events.md) | None | M0 complete; M1–M3 remain. Recording-root import/list/media/restart is proven; event sets, retained conversion and event-only cutover remain. |
 
 ### In Progress
 
