@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import fcntl
+import hashlib
 import json
 import os
 import re
@@ -13,7 +15,7 @@ from typing import Any
 
 from doko_operations.pipeline_data import EventData
 
-from dokodetector_backend.filesystem import contained_path
+from dokodetector_backend.filesystem import atomic_write_json, contained_path
 from dokodetector_backend.recording_folder_store import (
     RecordingFolderStore,
 )
@@ -155,7 +157,15 @@ class EventSetStore:
                     {key: value for key, value in event.items() if key != "schema_version"}
                 )
             content = EventData.from_mapping({"schema_version": "event-data/v1", "events": events})
-            return {**raw, "content": content.to_mapping()}
+            content_mapping = content.to_mapping()
+            content_bytes = json.dumps(
+                content_mapping, sort_keys=True, separators=(",", ":"), allow_nan=False
+            ).encode()
+            return {
+                **raw,
+                "content": content_mapping,
+                "content_sha256": hashlib.sha256(content_bytes).hexdigest(),
+            }
         except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
             return None
 
@@ -217,6 +227,184 @@ class EventSetStore:
             "generated": result["generated"],
             "reference": result["reference"],
         }
+
+    def save_review(
+        self,
+        recording_id: str,
+        set_id: str,
+        version: str,
+        *,
+        review_id: str,
+        kind: str,
+        question: str,
+        decision: str | None,
+        reviewer: dict[str, Any],
+        evidence: dict[str, Any],
+        item_id: str | None = None,
+        coverage: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Save one immutable review beside an exact event-set version."""
+        _safe_identifier(review_id, "review ID")
+        event_set = self.get(recording_id, set_id, version)
+        if event_set is None:
+            raise EventSetError("reviewed event-set version is unavailable")
+        if kind not in {"item", "coverage", "overall"}:
+            raise EventSetError("event review kind is invalid")
+        if not isinstance(question, str) or not question.strip():
+            raise EventSetError("review question must not be empty")
+        if kind == "coverage":
+            if (
+                decision is not None
+                or item_id is not None
+                or not isinstance(coverage, dict)
+                or not coverage
+            ):
+                raise EventSetError("coverage review needs a non-empty scope and no decision")
+            details = {"coverage": coverage}
+        else:
+            if not isinstance(decision, str) or not decision.strip():
+                raise EventSetError("event review decision must not be empty")
+            if kind == "item":
+                if not isinstance(item_id, str) or coverage is not None:
+                    raise EventSetError("item review needs one event ID and no coverage scope")
+                event = next(
+                    (row for row in event_set["content"]["events"] if row["event_id"] == item_id),
+                    None,
+                )
+                if event is None:
+                    raise EventSetError("reviewed event is not present in the event set")
+                item_bytes = json.dumps(
+                    event, sort_keys=True, separators=(",", ":"), allow_nan=False
+                ).encode()
+                details = {
+                    "item_id": item_id,
+                    "item_sha256": hashlib.sha256(item_bytes).hexdigest(),
+                }
+            else:
+                if item_id is not None or coverage is not None:
+                    raise EventSetError("overall review cannot include item or coverage details")
+                details = {}
+        if (
+            not isinstance(reviewer, dict)
+            or not reviewer
+            or not isinstance(evidence, dict)
+            or not evidence
+        ):
+            raise EventSetError("reviewer and evidence must be non-empty objects")
+        content_bytes = json.dumps(
+            event_set["content"], sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode()
+        record = {
+            "schema_version": "event-review/v1",
+            "review_id": review_id,
+            "set_id": set_id,
+            "version": version,
+            "content_sha256": hashlib.sha256(content_bytes).hexdigest(),
+            "kind": kind,
+            "question": question,
+            "decision": decision,
+            "reviewer": reviewer,
+            "evidence": evidence,
+            **details,
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        directory = contained_path(
+            self.recordings.recording_path(recording_id) / "event-sets",
+            f"{set_id}/reviews",
+        )
+        directory.mkdir(parents=True, exist_ok=True)
+        path = contained_path(directory, f"{review_id}.json")
+        lock_path = self.recordings.recording_path(recording_id) / ".recording.lock"
+        with lock_path.open("a+b") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            if path.exists() or path.is_symlink():
+                previous = json.loads(path.read_text(encoding="utf-8"))
+                if {key: value for key, value in previous.items() if key != "reviewed_at"} != {
+                    key: value for key, value in record.items() if key != "reviewed_at"
+                }:
+                    raise EventSetError("review ID is already used by another decision")
+                return previous
+            atomic_write_json(path, record)
+        return record
+
+    def list_reviews(self, recording_id: str, set_id: str, version: str) -> list[dict[str, Any]]:
+        event_set = self.get(recording_id, set_id, version)
+        if event_set is None:
+            raise EventSetError("event-set version is unavailable")
+        directory = self.recordings.recording_path(recording_id) / "event-sets" / set_id / "reviews"
+        if not directory.is_dir() or directory.is_symlink():
+            return []
+        result = []
+        for path in sorted(directory.glob("*.json")):
+            if path.is_symlink():
+                continue
+            record = json.loads(path.read_text(encoding="utf-8"))
+            if record.get("set_id") != set_id or record.get("version") != version:
+                continue
+            kind = record.get("kind")
+            expected = {
+                "schema_version",
+                "review_id",
+                "set_id",
+                "version",
+                "content_sha256",
+                "kind",
+                "question",
+                "decision",
+                "reviewer",
+                "evidence",
+                "reviewed_at",
+            }
+            if kind == "item":
+                expected.update({"item_id", "item_sha256"})
+            elif kind == "coverage":
+                expected.add("coverage")
+            elif kind != "overall":
+                raise EventSetError("event review kind is invalid")
+            if (
+                set(record) != expected
+                or record.get("schema_version") != "event-review/v1"
+                or record.get("review_id") != path.stem
+                or record.get("content_sha256") != event_set["content_sha256"]
+                or not isinstance(record.get("question"), str)
+                or not record["question"].strip()
+                or not isinstance(record.get("reviewer"), dict)
+                or not record["reviewer"]
+                or not isinstance(record.get("evidence"), dict)
+                or not record["evidence"]
+                or (
+                    kind == "coverage"
+                    and (record.get("decision") is not None or not record.get("coverage"))
+                )
+                or (
+                    kind != "coverage"
+                    and (
+                        not isinstance(record.get("decision"), str)
+                        or not record["decision"].strip()
+                    )
+                )
+            ):
+                raise EventSetError("event review record is invalid")
+            if kind == "item":
+                item = next(
+                    (
+                        row
+                        for row in event_set["content"]["events"]
+                        if row["event_id"] == record["item_id"]
+                    ),
+                    None,
+                )
+                if item is None:
+                    raise EventSetError("event review item is not in its exact event set")
+                digest = hashlib.sha256(
+                    json.dumps(
+                        item, sort_keys=True, separators=(",", ":"), allow_nan=False
+                    ).encode()
+                ).hexdigest()
+                if record["item_sha256"] != digest:
+                    raise EventSetError("event review item digest does not match")
+            result.append(record)
+        return result
 
 
 def _safe_identifier(value: str, field: str) -> str:

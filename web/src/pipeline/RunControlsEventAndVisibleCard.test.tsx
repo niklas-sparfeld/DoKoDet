@@ -367,7 +367,7 @@ describe("RunControls event and visible-card launches", () => {
       screen.getByRole("button", { name: "Detect visible cards…" }),
     );
     await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Exact event revision" }),
+      screen.getByRole("combobox", { name: "Exact event input" }),
       "node-revision-events-old",
     );
     await userEvent.click(
@@ -397,6 +397,71 @@ describe("RunControls event and visible-card launches", () => {
       await screen.findByRole("link", { name: /View job visible-run-1/ }),
     ).toHaveAttribute("href", "/jobs/visible-run-1");
   });
+  it("launches visible-card processing from the selected event set and computed digest", async () => {
+    const fetchMock = vi.fn<typeof fetch>((input) => {
+      if (String(input).includes("/event-sets/set-selected/versions/2")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ content_sha256: "d".repeat(64) }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(jobResponse("visible-from-event-set")), {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const events = stage("events", {
+      selected_event_set_generated: { set_id: "set-selected", version: "2" },
+    });
+    const visible = stage("visible_cards");
+    render(
+      <RunControls
+        recordingId="recording-run-controls"
+        stage={visible}
+        stages={[events, visible]}
+        onRefresh={async () => undefined}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Detect visible cards…" }),
+    );
+    expect(
+      screen.getByText("Event set set-selected@2 · generated"),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start detect visible cards" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.find(([, init]) => init?.method === "POST"),
+      ).toBeDefined(),
+    );
+    const postCall = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+      type: "visible_card_detection",
+      request: {
+        request: {
+          input_event_set_ref: {
+            set_id: "set-selected",
+            version: "2",
+            content_sha256: "d".repeat(64),
+          },
+        },
+      },
+    });
+    expect(JSON.parse(String(postCall?.[1]?.body))).not.toHaveProperty(
+      "request.request.input_node_ref",
+    );
+  });
   it("keeps visible-card launch available and blocks missing or incompatible inputs", async () => {
     const visible = stage("visible_cards", {
       can_run: false,
@@ -420,7 +485,7 @@ describe("RunControls event and visible-card launches", () => {
     expect(action).toBeInTheDocument();
     await userEvent.click(action);
     expect(
-      screen.getByRole("combobox", { name: "Exact event revision" }),
+      screen.getByRole("combobox", { name: "Exact event input" }),
     ).toHaveValue("");
     expect(
       screen.getByText("No compatible event revision is available."),

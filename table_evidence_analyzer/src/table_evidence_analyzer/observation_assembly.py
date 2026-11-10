@@ -36,6 +36,7 @@ def assemble_table_observations(
     video_sha256: str,
     assembly_run_id: str,
     input_revision_ids: Sequence[str] | None = None,
+    event_set_ref: dict[str, str] | None = None,
     event_revision_id: str | None = None,
     visible_card_revision_id: str | None = None,
     visual_identity_revision_id: str | None = None,
@@ -55,6 +56,7 @@ def assemble_table_observations(
         event_revision_id,
         visible_card_revision_id,
         visual_identity_revision_id,
+        event_set_ref=event_set_ref,
     )
     if not recording_id or not video_sha256 or not assembly_run_id:
         raise ObservationAssemblyError("recording, video, and assembly identities are required")
@@ -63,6 +65,7 @@ def assemble_table_observations(
         video_sha256=video_sha256,
         assembly_run_id=assembly_run_id,
         input_revision_ids=list(revision_ids),
+        event_set_ref=event_set_ref,
     )
     event_ids = {event.event_id for event in events.events}
     visible_by_event = {outcome.event_id: outcome for outcome in visible_cards.outcomes}
@@ -191,7 +194,7 @@ def assemble_table_observations(
                 "visible_card_status": visible_outcome.status,
                 "identity_statuses": identity_statuses,
                 "identity_details": identity_details,
-                "visual_identity_revision_id": revision_ids[2],
+                "visual_identity_revision_id": revision_ids[-1],
                 "retained_card_count": len(cards),
                 "usable_identity_count": sum(
                     card.identity_status == "classified" for card in cards
@@ -256,18 +259,21 @@ def _input_revision_ids(
     event_revision_id: str | None,
     visible_card_revision_id: str | None,
     visual_identity_revision_id: str | None,
-) -> tuple[str, str, str]:
+    *,
+    event_set_ref: dict[str, str] | None = None,
+) -> tuple[str, ...]:
     explicit = (event_revision_id, visible_card_revision_id, visual_identity_revision_id)
     if input_revision_ids is not None and any(value is not None for value in explicit):
         raise ObservationAssemblyError("use input_revision_ids or named revision IDs, not both")
     values = tuple(input_revision_ids) if input_revision_ids is not None else explicit
-    if len(values) != 3 or any(not isinstance(value, str) or not value for value in values):
-        raise ObservationAssemblyError(
-            "assembly needs ordered event, visible-card, and identity revision IDs"
-        )
-    if len(set(values)) != 3:
+    expected_count = 2 if event_set_ref is not None else 3
+    if len(values) != expected_count or any(
+        not isinstance(value, str) or not value for value in values
+    ):
+        raise ObservationAssemblyError(f"assembly needs {expected_count} exact input revision IDs")
+    if len(set(values)) != expected_count:
         raise ObservationAssemblyError("assembly input revision IDs must be unique")
-    return values  # type: ignore[return-value]
+    return values
 
 
 def _identity_candidates(candidates: Sequence[Any]) -> list[IdentityCandidate]:

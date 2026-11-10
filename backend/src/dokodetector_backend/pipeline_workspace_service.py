@@ -506,7 +506,12 @@ class RecordingPipelineWorkspaceService:
             else []
         )
         compatible_input_sets = (
-            self._compatible_input_sets(recording_id, source, full_revisions)
+            self._compatible_input_sets(
+                recording_id,
+                source,
+                full_revisions,
+                event_selection=selections.get("events"),
+            )
             if definition.key == "table_observations"
             else []
         )
@@ -779,8 +784,8 @@ class RecordingPipelineWorkspaceService:
                     selection.selected_event_set_generated is not None
                     or selection.selected_event_set_reference is not None
                 ):
-                    return ["Event-set inputs are not connected to this stage yet."]
-                return ["Select a complete events revision first."]
+                    return []
+                return ["Select a complete event set first."]
             if selection is None or not (
                 selection.selected_completed_reference or selection.selected_generated
             ):
@@ -788,29 +793,23 @@ class RecordingPipelineWorkspaceService:
             return []
         if definition.key == "table_observations":
             event_selection = selections["events"]
-            if isinstance(event_selection, _EventSetSelection):
-                if (
-                    event_selection.selected_event_set_generated is not None
-                    or event_selection.selected_event_set_reference is not None
-                ):
-                    return ["Event-set inputs are not connected to this stage yet."]
-                return ["Select a complete events revision first."]
             if not compatible_input_sets:
                 return [
-                    "No compatible event, visible-card, and visual-identity revision set "
-                    "is available."
+                    "No compatible event, visible-card, and visual-identity input set is available."
                 ]
             missing = [
                 content_type.replace("_", " ")
-                for content_type in ("events", "visible_cards", "visual_identities")
+                for content_type in (
+                    ("visible_cards", "visual_identities")
+                    if isinstance(event_selection, _EventSetSelection)
+                    else ("events", "visible_cards", "visual_identities")
+                )
                 if selections[content_type] is None
                 or not (
                     selections[content_type].selected_completed_reference
                     or selections[content_type].selected_generated
                 )
             ]
-            if isinstance(selections["events"], _EventSetSelection):
-                return ["Event-set inputs are not connected to this stage yet."]
             return (
                 ["Select complete event, visible-card, and visual-identity revisions first."]
                 if missing
@@ -828,8 +827,10 @@ class RecordingPipelineWorkspaceService:
         recording_id: str,
         source: RecordingVideoSource,
         revisions: tuple[Any, ...],
+        *,
+        event_selection: Any = None,
     ) -> list[dict[str, Any]]:
-        """Return exact revision triples that pass the shared assembly checks."""
+        """Return exact resource inputs that pass the shared assembly checks."""
 
         event_revisions = tuple(
             revision
@@ -862,6 +863,84 @@ class RecordingPipelineWorkspaceService:
             for revision in (*event_revisions, *visible_revisions, *identity_revisions)
         }
         compatible: list[dict[str, Any]] = []
+        if isinstance(event_selection, _EventSetSelection) and self.event_set_store is not None:
+            for choice, reference in (
+                ("generated", event_selection.selected_event_set_generated),
+                ("reference", event_selection.selected_event_set_reference),
+            ):
+                if reference is None:
+                    continue
+                event_set = self.event_set_store.get(
+                    recording_id, reference["set_id"], reference["version"]
+                )
+                if event_set is None:
+                    continue
+                event_ref = {
+                    "set_id": reference["set_id"],
+                    "version": reference["version"],
+                    "content_sha256": event_set["content_sha256"],
+                }
+                event_data = parse_event_data_bytes(canonical_json_bytes(event_set["content"]))
+                event_visible_revisions = tuple(
+                    revision
+                    for revision in revisions
+                    if revision.manifest.content_type == "visible_cards"
+                    and revision.manifest.recording_id == recording_id
+                    and revision.manifest.source.video_sha256 == source.video_sha256
+                    and isinstance(revision.content, VisibleCardData)
+                )
+                event_identity_revisions = tuple(
+                    revision
+                    for revision in revisions
+                    if revision.manifest.content_type == "visual_identities"
+                    and revision.manifest.recording_id == recording_id
+                    and revision.manifest.source.video_sha256 == source.video_sha256
+                    and isinstance(revision.content, VisualIdentityData)
+                )
+                for visible_revision in event_visible_revisions:
+                    for identity_revision in event_identity_revisions:
+                        input_revision_ids = [
+                            visible_revision.manifest.revision_id,
+                            identity_revision.manifest.revision_id,
+                        ]
+                        try:
+                            assemble_table_observations(
+                                event_data,
+                                visible_revision.content,
+                                identity_revision.content,
+                                recording_id=recording_id,
+                                video_sha256=source.video_sha256,
+                                assembly_run_id="compatibility-check",
+                                input_revision_ids=input_revision_ids,
+                                event_set_ref=event_ref,
+                            )
+                        except (ObservationAssemblyError, TypeError, ValueError):
+                            continue
+                        input_node_refs = [
+                            {
+                                "node_id": revision.node_id,
+                                "revision_id": revision.node_revision_id,
+                                "revision_policy": "historical",
+                            }
+                            for revision in (visible_revision, identity_revision)
+                        ]
+                        visible_label = self._revision_option(visible_revision, "visible_cards")[
+                            "display_label"
+                        ]
+                        identity_label = self._revision_option(
+                            identity_revision, "visual_identities"
+                        )["display_label"]
+                        compatible.append(
+                            {
+                                "input_event_set_ref": event_ref,
+                                "event_choice": choice,
+                                "input_node_refs": input_node_refs,
+                                "display_label": (
+                                    f"{reference['set_id']}@{reference['version']} ({choice}) + "
+                                    f"{visible_label} + {identity_label}"
+                                ),
+                            }
+                        )
         for event_revision in event_revisions:
             for visible_revision in visible_revisions:
                 for identity_revision in identity_revisions:
@@ -903,8 +982,10 @@ class RecordingPipelineWorkspaceService:
                         }
                     )
         compatible.sort(
-            key=lambda item: tuple(
-                (ref["node_id"], ref["revision_id"]) for ref in item["input_node_refs"]
+            key=lambda item: (
+                item.get("input_event_set_ref", {}).get("set_id", ""),
+                item.get("input_event_set_ref", {}).get("version", ""),
+                tuple((ref["node_id"], ref["revision_id"]) for ref in item["input_node_refs"]),
             )
         )
         return compatible

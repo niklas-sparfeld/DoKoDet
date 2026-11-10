@@ -66,6 +66,15 @@ class ObservationJobParticipant:
                     "digest": revision.manifest.content_sha256,
                 }
             )
+        event_ref = processor.get("input_event_set_ref")
+        if event_ref is not None:
+            inputs.append(
+                {
+                    "kind": "artifact",
+                    "id": f"event-set/{event_ref['set_id']}/versions/{event_ref['version']}",
+                    "digest": event_ref["content_sha256"],
+                }
+            )
         return {
             "label": "Assemble table observations",
             "inputs": inputs,

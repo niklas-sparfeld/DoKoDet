@@ -3,6 +3,7 @@ import {
   type PipelineRun,
   type PipelineRunResponse,
   type PipelineRunStartRequest,
+  type PipelineCompatibleInputSet,
   type PipelineWorkspaceProcessorInputReference,
 } from "../api/pipelineContracts";
 
@@ -22,11 +23,13 @@ export function buildObservationRequest(
   runId: string,
   inputNodeRefs: PipelineWorkspaceProcessorInputReference[],
   latestRun: PipelineRun | null,
+  inputEventSetRef?: PipelineCompatibleInputSet["input_event_set_ref"],
 ): PipelineRunStartRequest {
   return {
     request: {
       run_id: runId,
       input_node_refs: inputNodeRefs,
+      ...(inputEventSetRef ? { input_event_set_ref: inputEventSetRef } : {}),
       implementation: latestRun?.implementation ?? {
         name: "observation-assembler",
         version: "v1",

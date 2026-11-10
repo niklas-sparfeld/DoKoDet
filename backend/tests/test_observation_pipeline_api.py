@@ -26,10 +26,12 @@ from test_visible_card_pipeline_api import (
     _run_event_job,
     _selected_node_input,
     _settings,
+    _wait,
 )
 from test_visual_identity_pipeline_api import _IdentityProvider
 
 import dokodetector_backend.observation_pipeline_service as observation_service_module
+from dokodetector_backend.operator_corpus_import import import_recordings
 
 
 def _exact_input_refs(app: Any, revision_ids: list[str]) -> list[dict[str, str]]:
@@ -425,6 +427,148 @@ def _wait_observation(client: TestClient, run_id: str) -> dict[str, Any]:
             ).json()
         time.sleep(0.01)
     return body
+
+
+def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    session_id = "session-event-set-observation"
+    _make_analysis_metadata(tmp_path, session_id=session_id)
+    recordings_root = tmp_path / "data" / "recordings"
+    import_recordings(tmp_path / "recordings", recordings_root, (RECORDING_ID,))
+    app = create_test_app(
+        _settings(tmp_path, recordings_root=recordings_root),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=_IdentityProvider(),
+        run_round_analysis_synchronously=True,
+    )
+    with TestClient(app) as client:
+        event_revision_id = _run_event_job(client, "events-event-set-observation")
+        event_sets = client.get(f"/api/recordings/{RECORDING_ID}/event-sets").json()["event_sets"]
+        event_set = event_sets[0]
+        event_set_content = client.get(
+            f"/api/recordings/{RECORDING_ID}/event-sets/{event_set['set_id']}/versions/{event_set['version']}"
+        ).json()
+        listing = client.get(f"/api/recordings/{RECORDING_ID}/event-sets").json()
+        selected = client.put(
+            f"/api/recordings/{RECORDING_ID}/event-sets/selection",
+            json={
+                "choice": "generated",
+                "reference": {"set_id": event_set["set_id"], "version": event_set["version"]},
+                "expected_recording_version": listing["recording_version"],
+            },
+        )
+        assert selected.status_code == 200, selected.text
+        visible = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "visible-event-set-observation",
+                "input_event_set_ref": {
+                    "set_id": event_set["set_id"],
+                    "version": event_set["version"],
+                    "content_sha256": event_set_content["content_sha256"],
+                },
+            },
+        )
+        assert visible.status_code == 202, visible.text
+        visible_id = visible.json()["run_id"]
+        assert _wait(client, visible_id)["state"]["status"] == "complete"
+        visible_revision_id = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_id}/result"
+        ).json()["state"]["output_revision_ids"][0]
+        identity_revision_id = _run_pipeline(
+            client,
+            "identity-event-set-observation",
+            "visual-identities",
+            input_revision_ids=[visible_revision_id],
+        )
+        input_refs = _exact_input_refs(app, [visible_revision_id, identity_revision_id])
+        assert visible_revision_id != identity_revision_id
+        observation_stage = client.get(f"/api/recordings/{RECORDING_ID}/pipeline").json()["stages"][
+            3
+        ]
+        workspace_candidate = next(
+            candidate
+            for candidate in observation_stage["compatible_input_sets"]
+            if candidate.get("input_event_set_ref", {}).get("set_id") == event_set["set_id"]
+            and {reference["revision_id"] for reference in candidate["input_node_refs"]}
+            == {visible_revision_id, identity_revision_id}
+        )
+        assert workspace_candidate["input_event_set_ref"] == {
+            "set_id": event_set["set_id"],
+            "version": event_set["version"],
+            "content_sha256": event_set_content["content_sha256"],
+        }
+        input_refs = workspace_candidate["input_node_refs"]
+        node_store = app.state.pipeline_selection_store.node_store
+        original_read = node_store.read_revision
+
+        def forbid_event_node_read(node_id: str, revision_id: str):
+            if node_store.get(node_id).content_type == "events":
+                raise AssertionError("observation assembly read a legacy event node")
+            return original_read(node_id, revision_id)
+
+        node_store.read_revision = forbid_event_node_read
+        response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/observations",
+            json={
+                "run_id": "observations-event-set-input",
+                "input_event_set_ref": workspace_candidate["input_event_set_ref"],
+                "input_node_refs": input_refs,
+            },
+        )
+        assert response.status_code == 202, response.text
+        observation_id = response.json()["run_id"]
+        result = _wait_observation(client, observation_id)
+        assert result["state"]["status"] == "complete", result
+        run = app.state.observation_pipeline_service.run_store.require(observation_id)
+        assert run.request.input_event_set_ref["set_id"] == event_set["set_id"]
+        assert run.request.input_revision_ids == (visible_revision_id, identity_revision_id)
+        lineage = json.loads(
+            (node_store.root / ".lineage-runs" / f"{observation_id}.json").read_text()
+        )
+        assert lineage["inputs"][0] == {
+            "kind": "artifact",
+            "artifact_id": f"event-set/{event_set['set_id']}/versions/{event_set['version']}",
+            "sha256": event_set_content["content_sha256"],
+            "role": "events",
+        }
+        observation_ref = app.state.pipeline_selection_store.get_exact(
+            RECORDING_ID, "table_observations"
+        ).selected_generated
+        assert observation_ref is not None
+        analysis = client.post(
+            "/v1/round-analyses",
+            json={
+                "analysis_id": "550e8400-e29b-41d4-a716-446655440092",
+                "recording_id": RECORDING_ID,
+                "round_id": "round-event-set",
+                "session_id": session_id,
+                "table_observation_node_ref": observation_ref,
+                "round_context": {
+                    "game_id": "game-event-set",
+                    "round_id": "round-event-set",
+                    "active_players": ["north", "east", "south", "west"],
+                    "dealer": "east",
+                    "first_trick_leader": "south",
+                },
+                "rules_version": "v1",
+                "search": {
+                    "max_missing_plays": 1,
+                    "max_hypotheses": 8,
+                    "max_search_nodes": 1000,
+                },
+            },
+        )
+        assert analysis.status_code == 202, analysis.text
+        assert analysis.json()["state"] == "complete"
+        stored_analysis = app.state.round_analysis_store.get(analysis.json()["analysis_id"])
+        assert stored_analysis is not None
+        stored_request = json.loads(stored_analysis.request_json)
+        assert stored_request["table_observation_node_ref"] == observation_ref
+        assert event_revision_id
+        assert event_revision_id
 
 
 @pytest.mark.parametrize(

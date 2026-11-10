@@ -68,13 +68,33 @@ class PipelineWorkspaceProcessorInputReferenceResponse(ContractModel):
     revision_policy: Literal["current_head", "historical"]
 
 
+class PipelineWorkspaceEventSetInputReferenceResponse(ContractModel):
+    """One selected event-set version with its computed content digest."""
+
+    set_id: str
+    version: str
+    content_sha256: Sha256
+
+
 class PipelineWorkspaceCompatibleInputSetResponse(ContractModel):
-    """One exact revision set accepted by observation assembly."""
+    """One exact resource set accepted by observation assembly."""
 
     input_node_refs: list[PipelineWorkspaceProcessorInputReferenceResponse] = Field(
         min_length=3, max_length=3
     )
     display_label: str
+
+
+class PipelineWorkspaceEventSetCompatibleInputSetResponse(
+    PipelineWorkspaceCompatibleInputSetResponse
+):
+    """One compatible set with an exact event-set input."""
+
+    input_node_refs: list[PipelineWorkspaceProcessorInputReferenceResponse] = Field(
+        min_length=2, max_length=2
+    )
+    input_event_set_ref: PipelineWorkspaceEventSetInputReferenceResponse
+    event_choice: Literal["generated", "reference"]
 
 
 class PipelineWorkspaceImplementationResponse(ContractModel):
@@ -172,7 +192,10 @@ class PipelineWorkspaceStageResponse(ContractModel):
         "complete",
     ]
     input_options: list[PipelineWorkspaceInputOptionResponse]
-    compatible_input_sets: list[PipelineWorkspaceCompatibleInputSetResponse]
+    compatible_input_sets: list[
+        PipelineWorkspaceEventSetCompatibleInputSetResponse
+        | PipelineWorkspaceCompatibleInputSetResponse
+    ]
     selection_revision: int | None = Field(default=None, ge=0)
     selected_generated: PipelineWorkspaceNodeReferenceResponse | None = None
     selected_completed_reference: PipelineWorkspaceNodeReferenceResponse | None = None

@@ -29,6 +29,19 @@ class EventSetSelectionRequest(ContractModel):
     expected_recording_version: int = Field(ge=1)
 
 
+class EventSetReviewRequest(ContractModel):
+    review_id: str = Field(min_length=1)
+    set_id: str = Field(min_length=1)
+    version: str = Field(min_length=1)
+    kind: str
+    question: str = Field(min_length=1)
+    decision: str | None = None
+    reviewer: dict[str, Any]
+    evidence: dict[str, Any]
+    item_id: str | None = None
+    coverage: dict[str, Any] | None = None
+
+
 @router.get("")
 def list_event_sets(recording_id: str, request: Request):
     store = request.app.state.event_set_store
@@ -109,3 +122,44 @@ def select_event_set(recording_id: str, body: EventSetSelectionRequest, request:
         raise ContractError("event_set_selection_conflict", str(error), status_code=409) from error
     except (EventSetError, ValueError, OSError) as error:
         raise ContractError("event_set_selection_invalid", str(error), status_code=422) from error
+
+
+@router.post("/{set_id}/reviews")
+def save_event_set_review(
+    recording_id: str, set_id: str, body: EventSetReviewRequest, request: Request
+):
+    if body.set_id != set_id:
+        raise ContractError(
+            "event_review_invalid", "The event-set ID does not match.", status_code=422
+        )
+    try:
+        return request.app.state.event_set_store.save_review(
+            recording_id,
+            set_id,
+            body.version,
+            review_id=body.review_id,
+            kind=body.kind,
+            question=body.question,
+            decision=body.decision,
+            reviewer=body.reviewer,
+            evidence=body.evidence,
+            item_id=body.item_id,
+            coverage=body.coverage,
+        )
+    except (EventSetError, ValueError, OSError) as error:
+        raise ContractError("event_review_invalid", str(error), status_code=422) from error
+
+
+@router.get("/{set_id}/versions/{version}/reviews")
+def list_event_set_reviews(recording_id: str, set_id: str, version: str, request: Request):
+    try:
+        return {
+            "recording_id": recording_id,
+            "set_id": set_id,
+            "version": version,
+            "reviews": request.app.state.event_set_store.list_reviews(
+                recording_id, set_id, version
+            ),
+        }
+    except (EventSetError, ValueError, OSError) as error:
+        raise ContractError("event_review_unavailable", str(error), status_code=404) from error

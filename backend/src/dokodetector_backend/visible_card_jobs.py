@@ -55,16 +55,27 @@ class VisibleCardJobParticipant:
     def job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
         frozen = request["request"]["processor_request"]
         source = frozen["source"]
+        inputs = [
+            {
+                "kind": "recording_video",
+                "id": source["recording_id"],
+                "digest": source["video_sha256"],
+            }
+        ]
+        if frozen.get("input_event_set_ref") is not None:
+            event_ref = frozen["input_event_set_ref"]
+            inputs.append(
+                {
+                    "kind": "artifact",
+                    "id": f"event-set/{event_ref['set_id']}/versions/{event_ref['version']}",
+                    "digest": event_ref["content_sha256"],
+                }
+            )
+        else:
+            inputs.append({"kind": "pipeline_revision", "id": frozen["input_revision_ids"][0]})
         return {
             "label": "Detect visible cards",
-            "inputs": [
-                {
-                    "kind": "recording_video",
-                    "id": source["recording_id"],
-                    "digest": source["video_sha256"],
-                },
-                {"kind": "pipeline_revision", "id": frozen["input_revision_ids"][0]},
-            ],
+            "inputs": inputs,
             "implementation": {
                 "implementation": frozen["implementation"],
                 "model": frozen.get("model"),

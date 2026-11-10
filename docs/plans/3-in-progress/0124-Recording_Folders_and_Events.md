@@ -63,7 +63,7 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | --- | --- | --- |
 | M0 | Concrete recording-root contract; import/list/media-open/restart from one new recording folder | Complete |
 | M1 | Concrete event-set contract; real API and browser save/select/edit/reopen of two alternatives under one event-selection authority | Complete |
-| M2 | Review and the named exact-input consumers use event resources | Not started |
+| M2 | Review and the named exact-input consumers use event resources | Complete |
 | M3 | Retained-data rehearsal, default cutover, event-only old-path removal, and qualification | Not started |
 
 ### Next assignment after dependency closure
@@ -163,22 +163,49 @@ a response discriminator and UI condition only; it adds no persistent contract o
 
 ### M2 assignment after the first workflow
 
+#### Scope review after M1 correction exhaustion
+
+M1 used both correction turns. The first complete recording-folder event workflow now passes,
+including processor publication, exact selection, edit, restart, and a legacy-read/write guard.
+The remaining M2 work is independently planned review persistence and exact-input consumption.
+The observed M1 defects were local authority mismatch and a nullable response discriminator; the
+bounded fixes removed them without a new prerequisite or storage contract. Disposition: keep the
+approach and proceed with the separately planned M2 work. M2 has its own bounded implementation
+scope; it does not reopen M1 correction allowance.
+
+Proof: save and reopen independent item, coverage, and overall reviews beside an immutable
+event-set version. The event editor saves and reloads reviews after backend restart. The visible-card
+UI uses the selected event-set reference and fetches its content digest before launch. The
+observation workspace lists compatible event-set plus visible-card and visual-identity inputs with
+the exact digest. API workflows launch both consumers while event-node reads are disabled; exact
+set/version/digest references remain in requests and lineage. Round analysis consumes the resulting
+observation with its exact event-set source. M0/M1 and 0123 list-growth regressions, generated API,
+web tests/build, browser workflow, and Ruff checks pass.
+
 Observable result: event review and the named exact-input consumers read and write the same event-set
 files and root HEAD. Disable their old event-node reads and selection writes in the integration
 workflow. Keep the existing behavior for all other resource types.
 
-Source owners: `pipeline_node_reviews.py` for event review records beside the saved event-set version;
-event branches in `pipeline_workspace_service.py`; event reads in
-`visible_card_pipeline_service.py`, `observation_pipeline_service.py`, and
-`round_analysis_service.py`; and event selection/editor API clients used by the event-set page.
-Do not convert other node types, the scheduler, or general lineage/review infrastructure. Reuse the
-event set's typed event content. Specify a small event-review record layout as part of M2 before
-implementation; do not introduce a generic review store.
+Source owners: `event_set_store.py` and `event_sets_api.py` for exact review records and endpoints;
+`RecordingEventSetEditor.tsx` for review save and reopen; event branches in
+`pipeline_workspace_service.py`; the visible-card launch UI and event client for selected-set digest
+lookup; event reads in `visible_card_pipeline_service.py`, `observation_pipeline_service.py`, and
+`round_analysis_service.py`; and their finite request/job adapters.
+
+Contract changes: carry `input_event_set_ref` (`set_id`, `version`, `content_sha256`) through the
+existing `ProcessorRunRequest`, lineage artifact inputs, and observation source. Observation
+assembly keeps the two node references for visible cards and visual identities. These changes are
+required because the current visible-card and observation requests name events only by pipeline-node
+revision, and a recording-folder event set is not a pipeline node. The existing observation source
+also requires three pipeline revision IDs, so it now records the exact event-set reference and the
+two node revision IDs. Do not convert other node types, the scheduler, or general lineage/review
+infrastructure. Do not introduce a generic review store.
 
 Required checks: API and editor save/select/restart tests; independent review persistence and reopen;
-exact event inputs for visible-card, observation, and round-analysis reads; an integration test that
-forbids legacy event-node reads and selection writes; affected generated API and web checks; and the
-M0/M1 plus 0123 list-growth regressions. Commit the finite adapter conversion, tests, layout, and plan
+visible-card UI launch from selected event set; observation compatible-input selection; exact event
+inputs for visible-card, observation, and round-analysis reads; an integration test that forbids
+legacy event-node reads and selection writes; affected generated API and web checks; and the M0/M1
+plus 0123 list-growth regressions. Commit the finite adapter conversion, tests, layout, and plan
 update together. Specify M3 retained-data rehearsal and qualification after M2 passes.
 
 ## M0 recording-root contract
@@ -222,25 +249,42 @@ from a simple recording folder. Non-goals remain other resource conversions, sch
 cross-store transactions. Final closure check remains the disposable retained-data rehearsal and
 event-only old-path cutover in M3.
 
-Baseline: 4 milestones; 2 remain. M0 proves the recording-folder import/list/media-open/restart
-workflow, including root-backed detail and workspace reads. M1 proves save/select/edit/reopen for
-two alternatives, with processor output, stage selection, workspace choices, and list summaries all
-using exact event-set references from recording HEAD. The browser test recreates the backend against
-the same persisted files and forbids legacy event-selection reads and writes. Qualification remains
-in M3. The run limit is 4 milestones; 2 are complete and 2 remain. M0 used 0 replans and 1
+Baseline: 4 milestones; M0, M1, and M2 are complete; 1 remains. M0 proves the recording-folder
+import/list/media-open/restart workflow, including root-backed detail and workspace reads. M1 proves
+save/select/edit/reopen for two alternatives, with processor output, stage selection, workspace
+choices, and list summaries all using exact event-set references from recording HEAD. M2 proves
+independent review persistence and normal exact-input launch for visible-card detection and
+observation assembly; round analysis uses the exact observation derived from that event set. The
+browser test recreates the backend against the same persisted files and forbids legacy event-selection
+reads and writes. Qualification remains in M3. The run limit is 4 milestones; 3 are complete and 1
+remains. M0 used 0 replans and 1
 correction of 2; M1 used 1 replan and 2 corrections of 2; the run used 1 replan. The bounded replan
 transferred only the event producer and event selection adapters from M2 to M1. No new storage or
-transaction contract was added. M2 owns review and named downstream exact-input conversion. M3 owns
-retained-data rehearsal and qualification. Stop if M2 needs another resource conversion, a
-cross-store transaction, or a second event-selection authority.
+transaction contract was added. M2 introduced one event-review storage contract and evolved the
+existing request, lineage, and observation source contracts. M3 owns retained-data rehearsal and
+qualification. Stop if M3 needs another resource conversion, a cross-store transaction, or a second
+event-selection authority. M2 used no corrections or replans; the run replan count remains 1.
+
+M2 contract detail: store `event-review/v1` under
+`event-sets/<set-id>/reviews/<review-id>.json`. Each immutable record identifies `set_id`,
+`version`, the digest of canonical `event-data/v1` content, `kind` (`item`, `coverage`, or
+`overall`), `question`, `decision` (null only for coverage), `reviewer`, `evidence`, and review
+time. Item records also identify `item_id` and the event content digest; coverage records identify
+their scope. Reviews are siblings of saved versions so unfinished and completed reviews remain
+independent of later edits. M2 evolved the existing persisted `ProcessorRunRequest` and lineage input
+fields to carry the exact event-set/version/content digest for event inputs. It kept existing node
+references for other inputs. The existing observation source contract now also carries that exact
+event-set reference and the two actual node revision IDs. This is required because visible-card and
+observation consumers previously required event node references; no second store or transaction was
+added.
 
 M1 first submission commit: `7238a483`. M1 corrections 2/2: correction 1 unified root-backed event
 selection across producer, stage API, workspace, and list; correction 2 made the workspace authority
 explicit so legacy event-node selectors remain available until M3. M1 re-plans: 1/5; run re-plans:
 1/10.
-Checks passed: focused event-set, pipeline, recording-folder, and list-growth backend tests; Ruff
-check/format; `npm run verify:api`; `npm run lint`; `npm run format`; `npm test -- --run` (243
-tests); `npm run build`; and `npx playwright test --config playwright.recording-folder.config.ts`
-(2 tests). Both M1 correction commits are recorded in the execution history after integration. M2 starts
-with review and downstream exact-input conversion. M3 remains the retained-data rehearsal and
-qualification milestone.
+Checks passed: event-set, pipeline, recording-folder, list-growth, visible-card, and observation
+backend tests (61 tests); Ruff check/format; `npm run verify:api`; `npm run typecheck`, `npm run
+lint`, `npm run format`; `npm test -- --run` (244 tests); `npm run build`; and
+`npx playwright test --config playwright.recording-folder.config.ts` (2 tests). The backend workflow
+reads the event set selected from workspace HEAD, disables event-node reads, and confirms exact
+digest retention. M3 remains the retained-data rehearsal and qualification milestone.

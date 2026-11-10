@@ -79,6 +79,7 @@ class ObservationSource(ContractModel):
     video_sha256: Digest | None = None
     assembly_run_id: Identifier | None = None
     input_revision_ids: list[Identifier] | None = None
+    event_set_ref: dict[str, str] | None = None
 
     @field_validator("video_sha256")
     @classmethod
@@ -104,8 +105,16 @@ class ObservationSource(ContractModel):
         if self.snippet_part_name is not None:
             raise ValueError("pipeline observation sources cannot contain a snippet part.")
         assert self.input_revision_ids is not None
-        if len(self.input_revision_ids) != 3:
-            raise ValueError("pipeline observation sources need three input revisions.")
+        if self.event_set_ref is not None:
+            if set(self.event_set_ref) != {"set_id", "version", "content_sha256"}:
+                raise ValueError("pipeline observation event-set reference is invalid.")
+            if re.fullmatch(r"[0-9a-f]{64}", self.event_set_ref["content_sha256"]) is None:
+                raise ValueError("pipeline observation event-set digest is invalid.")
+            expected_count = 2
+        else:
+            expected_count = 3
+        if len(self.input_revision_ids) != expected_count:
+            raise ValueError(f"pipeline observation sources need {expected_count} input revisions.")
         if len(set(self.input_revision_ids)) != len(self.input_revision_ids):
             raise ValueError("pipeline observation input revisions must be unique.")
         return self

@@ -595,6 +595,17 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
             expected_inputs = request.input_revision_ids
             if manifest.input_revision_ids != expected_inputs:
                 raise PipelineStateError("run output revision has different input lineage")
+            if request.input_event_set_ref is not None:
+                if request.processor_type == "visible-card-detection":
+                    if manifest.coverage.get("event_set_ref") != request.input_event_set_ref:
+                        raise PipelineStateError(
+                            "visible-card output lost its exact event-set input"
+                        )
+                elif request.processor_type == "observation-assembly" and any(
+                    observation.source.event_set_ref != request.input_event_set_ref
+                    for observation in revision.content.observations
+                ):
+                    raise PipelineStateError("observation output lost its exact event-set input")
 
     def _get_output_revision(
         self,

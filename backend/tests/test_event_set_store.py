@@ -123,6 +123,87 @@ def test_selection_is_exact_and_recording_version_checked(tmp_path: Path):
         )
 
 
+def test_event_reviews_are_immutable_independent_and_bound_to_exact_content(tmp_path: Path):
+    store, _root = _store(tmp_path)
+    store.save(
+        "recording-both",
+        set_id="reviewed",
+        version="1",
+        content=_content(10),
+        origin="manual",
+        provenance={},
+    )
+    common = {
+        "question": "Is the event annotation correct?",
+        "reviewer": {"id": "reviewer-1"},
+        "evidence": {"policy": "event-review/v1", "source": "frame-12"},
+    }
+    item = store.save_review(
+        "recording-both",
+        "reviewed",
+        "1",
+        review_id="item-1",
+        kind="item",
+        decision="accepted",
+        item_id="event-1",
+        **common,
+    )
+    coverage = store.save_review(
+        "recording-both",
+        "reviewed",
+        "1",
+        review_id="coverage-1",
+        kind="coverage",
+        decision=None,
+        coverage={"from_us": 0, "to_us": 1000},
+        **common,
+    )
+    overall = store.save_review(
+        "recording-both",
+        "reviewed",
+        "1",
+        review_id="overall-1",
+        kind="overall",
+        decision="accepted",
+        **common,
+    )
+    assert item["schema_version"] == "event-review/v1"
+    assert item["content_sha256"] == coverage["content_sha256"] == overall["content_sha256"]
+    assert item["item_id"] == "event-1" and item["item_sha256"]
+    assert len(store.list_reviews("recording-both", "reviewed", "1")) == 3
+    with pytest.raises(EventSetError, match="already used"):
+        store.save_review(
+            "recording-both",
+            "reviewed",
+            "1",
+            review_id="item-1",
+            kind="item",
+            decision="rejected",
+            item_id="event-1",
+            **common,
+        )
+    with pytest.raises(EventSetError, match="not present"):
+        store.save_review(
+            "recording-both",
+            "reviewed",
+            "1",
+            review_id="missing",
+            kind="item",
+            decision="accepted",
+            item_id="missing-event",
+            **common,
+        )
+    store.save(
+        "recording-both",
+        set_id="reviewed",
+        version="2",
+        content=_content(20),
+        origin="corrected",
+        provenance={},
+    )
+    assert len(store.list_reviews("recording-both", "reviewed", "2")) == 0
+
+
 def test_event_set_api_saves_selects_edits_and_reopens_after_restart(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -173,6 +254,21 @@ def test_event_set_api_saves_selects_edits_and_reopens_after_restart(
                 },
             )
             assert saved.status_code == 200, saved.text
+        review_response = client.post(
+            "/api/recordings/recording-both/event-sets/second/reviews",
+            json={
+                "review_id": "review-second",
+                "set_id": "second",
+                "version": "1",
+                "kind": "item",
+                "question": "Is the event correct?",
+                "decision": "accepted",
+                "reviewer": {"id": "reviewer-1"},
+                "evidence": {"policy": "event-review/v1", "source": "browser"},
+                "item_id": "event-1",
+            },
+        )
+        assert review_response.status_code == 200, review_response.text
         selected = client.put(
             "/api/recordings/recording-both/event-sets/selection",
             json={
@@ -229,9 +325,12 @@ def test_event_set_api_saves_selects_edits_and_reopens_after_restart(
     with TestClient(create_test_app(settings)) as client:
         listing = client.get("/api/recordings/recording-both/event-sets")
         reopened = client.get("/api/recordings/recording-both/event-sets/second/versions/1")
+        reviews = client.get("/api/recordings/recording-both/event-sets/second/versions/1/reviews")
     assert listing.status_code == 200
     assert len(listing.json()["event_sets"]) == 2
     assert listing.json()["head"]["reference"] == {"set_id": "second", "version": "1"}
     assert listing.json()["head"]["generated"] == {"set_id": "first", "version": "1"}
     assert reopened.status_code == 200
     assert reopened.json()["content"] == _content(20)
+    assert reviews.status_code == 200
+    assert reviews.json()["reviews"][0]["item_id"] == "event-1"

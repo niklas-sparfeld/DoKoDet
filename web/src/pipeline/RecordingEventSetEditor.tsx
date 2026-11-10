@@ -17,6 +17,12 @@ type EventSetList = {
   head: Record<string, { set_id: string; version: string } | null>;
   event_sets: EventSet[];
 };
+type EventReview = {
+  review_id: string;
+  kind: string;
+  decision: string | null;
+  question: string;
+};
 
 export function RecordingEventSetEditor({
   recordingId,
@@ -29,6 +35,7 @@ export function RecordingEventSetEditor({
     version: string;
   } | null>(null);
   const [events, setEvents] = useState<EventRecord[]>([]);
+  const [reviews, setReviews] = useState<EventReview[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -58,6 +65,15 @@ export function RecordingEventSetEditor({
     };
     setSelected(reference);
     setEvents(saved.content.events);
+    const reviewsResponse = await fetch(
+      `/api/recordings/${encodeURIComponent(recordingId)}/event-sets/${encodeURIComponent(reference.set_id)}/versions/${encodeURIComponent(reference.version)}/reviews`,
+    );
+    if (!reviewsResponse.ok)
+      throw new Error("Event reviews could not be loaded.");
+    const savedReviews = (await reviewsResponse.json()) as {
+      reviews: EventReview[];
+    };
+    setReviews(savedReviews.reviews);
     setNotice(`Opened ${reference.set_id} version ${reference.version}.`);
   };
 
@@ -91,12 +107,44 @@ export function RecordingEventSetEditor({
       if (!response.ok) throw new Error("The event set could not be saved.");
       setSelected({ set_id: setId, version });
       setData(await load());
+      setReviews([]);
       setNotice(`Saved ${setId} version ${version}.`);
     } catch {
       setNotice("The event set could not be saved.");
     } finally {
       setBusy(false);
     }
+  };
+
+  const review = async (decision: "accepted" | "rejected") => {
+    if (selected === null) return;
+    const reviewId = `review-${crypto.randomUUID()}`;
+    const response = await fetch(
+      `/api/recordings/${encodeURIComponent(recordingId)}/event-sets/${encodeURIComponent(selected.set_id)}/reviews`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          review_id: reviewId,
+          set_id: selected.set_id,
+          version: selected.version,
+          kind: "overall",
+          question: "Is this event set correct?",
+          decision,
+          reviewer: { id: "operator" },
+          evidence: { policy: "event-review/v1", source: "event-set-editor" },
+        }),
+      },
+    );
+    if (!response.ok) {
+      setNotice("The event-set review could not be saved.");
+      return;
+    }
+    const review = (await response.json()) as EventReview;
+    setReviews((items) => [...items, review]);
+    setNotice(
+      `Saved ${decision} review for ${selected.set_id} version ${selected.version}.`,
+    );
   };
 
   const select = async (choice: "generated" | "reference") => {
@@ -243,6 +291,27 @@ export function RecordingEventSetEditor({
       >
         Select reference
       </button>
+      <button
+        type="button"
+        disabled={selected === null}
+        onClick={() => void review("accepted")}
+      >
+        Review as accepted
+      </button>
+      <button
+        type="button"
+        disabled={selected === null}
+        onClick={() => void review("rejected")}
+      >
+        Review as rejected
+      </button>
+      <ul aria-label="Saved event-set reviews">
+        {reviews.map((item) => (
+          <li key={item.review_id}>
+            {item.kind}: {item.decision ?? "coverage"} · {item.question}
+          </li>
+        ))}
+      </ul>
       {notice ? <p role="status">{notice}</p> : null}
     </section>
   );

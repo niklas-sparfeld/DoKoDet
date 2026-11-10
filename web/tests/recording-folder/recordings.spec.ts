@@ -105,6 +105,8 @@ test("recording folder saves, selects, edits and reopens two event-set alternati
   await page.getByLabel("Start (µs)").fill("150");
   await page.getByRole("button", { name: "Save event set" }).click();
   await expect(page.getByRole("status")).toContainText("version 2");
+  await page.getByRole("button", { name: "Review as accepted" }).click();
+  await expect(page.getByRole("status")).toContainText("Saved accepted review");
   const editedResponse = await page.request.get(
     `http://127.0.0.1:8767/api/recordings/recording-both/event-sets/${firstSetId}/versions/2`,
   );
@@ -138,6 +140,9 @@ test("recording folder saves, selects, edits and reopens two event-set alternati
     .getByRole("button", { name: `Open ${firstSetId} version 2` })
     .click();
   await expect(page.getByLabel("Start (µs)")).toHaveValue("150");
+  await expect(
+    page.getByRole("list", { name: "Saved event-set reviews" }),
+  ).toContainText("overall: accepted");
   await page
     .getByRole("button", { name: `Open ${secondSetId} version 1` })
     .click();

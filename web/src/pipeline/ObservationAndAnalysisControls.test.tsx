@@ -191,11 +191,16 @@ describe("observation and round-analysis launch modals", () => {
         revision_id: `revision-${role}-${suffix}`,
         revision_policy: "historical",
       }));
+    const branchA = {
+      input_node_refs: makeRefs("a"),
+      display_label: "Branch A",
+    };
+    const branchB = {
+      input_node_refs: makeRefs("b"),
+      display_label: "Branch B",
+    };
     const observations = stage("table_observations", {
-      compatible_input_sets: [
-        { input_node_refs: makeRefs("a"), display_label: "Branch A" },
-        { input_node_refs: makeRefs("b"), display_label: "Branch B" },
-      ],
+      compatible_input_sets: [branchA, branchB],
     });
     render(
       <ObservationRunControls
@@ -219,7 +224,7 @@ describe("observation and round-analysis launch modals", () => {
     ).toBeDisabled();
     await userEvent.selectOptions(
       within(dialog).getByLabelText("Compatible input set"),
-      JSON.stringify(makeRefs("b")),
+      JSON.stringify(branchB),
     );
     expect(
       within(dialog).getByRole("button", {

@@ -12,7 +12,14 @@ export type PipelineWorkspace = JsonResponse<
 export type PipelineWorkspaceStage = PipelineWorkspace["stages"][number];
 export type PipelineRun = PipelineWorkspaceStage["runs"][number];
 export type PipelineCompatibleInputSet =
-  PipelineWorkspaceStage["compatible_input_sets"][number];
+  PipelineWorkspaceStage["compatible_input_sets"][number] & {
+    input_event_set_ref?: {
+      set_id: string;
+      version: string;
+      content_sha256: string;
+    } | null;
+    event_choice?: "generated" | "reference" | null;
+  };
 export type PipelineWorkspaceProcessorInputReference =
   PipelineCompatibleInputSet["input_node_refs"][number];
 export type PipelineStageKey = PipelineWorkspaceStage["key"];
@@ -44,6 +51,11 @@ export type PipelineRunStartRequest = {
       node_id: string;
       revision_id: string;
       revision_policy: "current_head" | "historical";
+    };
+    input_event_set_ref?: {
+      set_id: string;
+      version: string;
+      content_sha256: string;
     };
     crop_input_kind?:
       | "gemini_polygon"

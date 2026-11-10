@@ -27,6 +27,7 @@ function formatValue(value: unknown): string {
 export function buildVisibleCardLaunchFields({
   historicalOptions,
   selectedEventOption,
+  selectedEventSet,
   generatedRevisionId,
   reviewedRevisionId,
   setHistoricalRevisionId,
@@ -39,6 +40,7 @@ export function buildVisibleCardLaunchFields({
 }: {
   historicalOptions: PipelineWorkspaceStage["input_options"];
   selectedEventOption: PipelineWorkspaceStage["input_options"][number] | null;
+  selectedEventSet: { set_id: string; version: string; choice: string } | null;
   generatedRevisionId: string | null;
   reviewedRevisionId: string | null;
   setHistoricalRevisionId: (value: string) => void;
@@ -62,9 +64,9 @@ export function buildVisibleCardLaunchFields({
         content: (
           <>
             <label className={styles.pipelineRunSelector}>
-              <span>Exact event revision</span>
+              <span>Exact event input</span>
               <select
-                aria-label="Exact event revision"
+                aria-label="Exact event input"
                 value={selectedEventOption?.node_revision_id ?? ""}
                 disabled={historicalOptions.length === 0}
                 onChange={(event) => {
@@ -103,11 +105,17 @@ export function buildVisibleCardLaunchFields({
                 {selectedEventOption.node_id} · revision{" "}
                 {selectedEventOption.node_revision_id}
               </p>
-            ) : (
+            ) : selectedEventSet === null ? (
               <p className={styles.pipelineRunInputValue}>
-                No compatible event revision is selected.
+                No compatible event revision or event set is selected.
               </p>
-            )}
+            ) : null}
+            {selectedEventSet ? (
+              <p className={styles.pipelineRunInputValue}>
+                Event set {selectedEventSet.set_id}@{selectedEventSet.version} ·{" "}
+                {selectedEventSet.choice}
+              </p>
+            ) : null}
             {visibleCardBlockers.map((blocker) => (
               <p className={styles.detailBlocker} key={blocker} role="alert">
                 {blocker}

@@ -2,7 +2,10 @@ import { useCallback, useMemo, useState } from "react";
 
 import { createJobsClient } from "../api/jobsClient";
 import type { EnqueueJobBody } from "../api/jobsContracts";
-import type { PipelineWorkspaceStage } from "../api/pipelineContracts";
+import type {
+  PipelineCompatibleInputSet,
+  PipelineWorkspaceStage,
+} from "../api/pipelineContracts";
 import styles from "../App.module.css";
 import { JobStartActions } from "../jobs/JobStartActions";
 import { AcceptedJobReceipt, useJobSubmission } from "../jobs/useJobSubmission";
@@ -27,7 +30,8 @@ export function ObservationRunControls({
   onRefresh,
 }: ObservationRunControlsProps) {
   const client = useMemo(() => createJobsClient(), []);
-  const compatibleSets = stage.compatible_input_sets ?? [];
+  const compatibleSets = (stage.compatible_input_sets ??
+    []) as PipelineCompatibleInputSet[];
   const selectedDefaults = INPUT_ROLES.map((key) => {
     const upstream = stages.find((candidate) => candidate.key === key);
     return (
@@ -36,13 +40,30 @@ export function ObservationRunControls({
       null
     );
   });
-  const matchingDefaults = compatibleSets.filter((candidate) =>
-    candidate.input_node_refs.every(
+  const eventStage = stages.find((candidate) => candidate.key === "events");
+  const selectedEventSet = eventStage?.selected_event_set_generated ?? null;
+  const selectedEventReference =
+    eventStage?.selected_event_set_reference ?? null;
+  const matchingDefaults = compatibleSets.filter((candidate) => {
+    if (candidate.input_event_set_ref != null) {
+      const selected = selectedEventSet ?? selectedEventReference;
+      return (
+        selected !== null &&
+        candidate.input_event_set_ref.set_id === selected.set_id &&
+        candidate.input_event_set_ref.version === selected.version &&
+        candidate.input_node_refs.every(
+          (reference, index) =>
+            reference.node_id === selectedDefaults[index + 1]?.node_id &&
+            reference.revision_id === selectedDefaults[index + 1]?.revision_id,
+        )
+      );
+    }
+    return candidate.input_node_refs.every(
       (reference, index) =>
         reference.node_id === selectedDefaults[index]?.node_id &&
         reference.revision_id === selectedDefaults[index]?.revision_id,
-    ),
-  );
+    );
+  });
   const defaultSet =
     matchingDefaults.length === 1
       ? matchingDefaults[0]
@@ -55,15 +76,16 @@ export function ObservationRunControls({
   );
   const selectedSet = selectedSetKey
     ? (compatibleSets.find(
-        (candidate) =>
-          JSON.stringify(candidate.input_node_refs) === selectedSetKey,
+        (candidate) => JSON.stringify(candidate) === selectedSetKey,
       ) ?? null)
     : defaultSet;
   const validSet =
     selectedSet !== null &&
-    selectedSet.input_node_refs.length === INPUT_ROLES.length &&
+    (selectedSet.input_event_set_ref != null
+      ? selectedSet.input_node_refs.length === 2
+      : selectedSet.input_node_refs.length === INPUT_ROLES.length) &&
     new Set(selectedSet.input_node_refs.map((reference) => reference.node_id))
-      .size === INPUT_ROLES.length &&
+      .size === selectedSet.input_node_refs.length &&
     new Set(
       selectedSet.input_node_refs.map((reference) => reference.revision_id),
     ).size === INPUT_ROLES.length;
@@ -91,17 +113,15 @@ export function ObservationRunControls({
               <span>Compatible input set</span>
               <select
                 aria-label="Compatible input set"
-                value={
-                  selectedSet ? JSON.stringify(selectedSet.input_node_refs) : ""
-                }
+                value={selectedSet ? JSON.stringify(selectedSet) : ""}
                 disabled={uncertain}
                 onChange={(event) => setSelectedSetKey(event.target.value)}
               >
                 <option value="">Select a compatible input set</option>
                 {compatibleSets.map((candidate) => (
                   <option
-                    key={JSON.stringify(candidate.input_node_refs)}
-                    value={JSON.stringify(candidate.input_node_refs)}
+                    key={JSON.stringify(candidate)}
+                    value={JSON.stringify(candidate)}
                   >
                     {candidate.display_label}
                   </option>
@@ -110,9 +130,27 @@ export function ObservationRunControls({
             </label>
             {selectedSet ? (
               <dl>
+                {selectedSet.input_event_set_ref != null ? (
+                  <div key="events">
+                    <dt>events</dt>
+                    <dd>
+                      {selectedSet.input_event_set_ref.set_id}@
+                      {selectedSet.input_event_set_ref.version} · SHA-256{" "}
+                      {selectedSet.input_event_set_ref.content_sha256.slice(
+                        0,
+                        12,
+                      )}
+                    </dd>
+                  </div>
+                ) : null}
                 {selectedSet.input_node_refs.map((reference, index) => (
                   <div key={`${reference.node_id}:${reference.revision_id}`}>
-                    <dt>{INPUT_ROLES[index] ?? `Input ${index + 1}`}</dt>
+                    <dt>
+                      {INPUT_ROLES[
+                        index +
+                          (selectedSet.input_event_set_ref != null ? 1 : 0)
+                      ] ?? `Input ${index + 1}`}
+                    </dt>
                     <dd>
                       {reference.node_id}@{reference.revision_id} ·{" "}
                       {reference.revision_policy}
@@ -121,7 +159,10 @@ export function ObservationRunControls({
                 ))}
               </dl>
             ) : (
-              <p>No compatible three-role input set is available.</p>
+              <p>
+                No compatible event, visible-card, and visual-identity input set
+                is available.
+              </p>
             )}
           </>
         ),
@@ -196,6 +237,7 @@ export function ObservationRunControls({
               createId(),
               selectedSet.input_node_refs,
               latestRun,
+              selectedSet.input_event_set_ref,
             ).request as Record<string, unknown>,
           };
           setPendingRequest(request);

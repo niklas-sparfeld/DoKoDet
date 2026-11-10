@@ -39,6 +39,7 @@ from table_evidence_analyzer.visible_cards import (
 )
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.operator_corpus_import import import_recordings
 
 FIXTURE_ROOT = Path(__file__).parents[2] / "fixtures" / "repository-bundle" / "v1" / "both"
 RECORDING_ID = "recording-both"
@@ -515,6 +516,81 @@ def test_visible_card_run_accepts_exact_node_event_revision_without_legacy_input
             },
         )
         assert conflicting_input.status_code == 422
+
+
+def test_visible_card_run_uses_exact_event_set_without_event_node_reads(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    recordings_root = tmp_path / "data" / "recordings"
+    import_recordings(tmp_path / "recordings", recordings_root, (RECORDING_ID,))
+    app = create_test_app(
+        _settings(tmp_path, recordings_root=recordings_root),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+    )
+    with TestClient(app) as client:
+        event_response = _enqueue_event(client, {"run_id": "events-exact-set"})
+        assert event_response.status_code == 202
+        event_run_id = event_response.json()["id"]
+        _wait_event(client, event_run_id)
+        event_sets = client.get(f"/api/recordings/{RECORDING_ID}/event-sets").json()["event_sets"]
+        event_set = event_sets[0]
+        event_set_content = client.get(
+            f"/api/recordings/{RECORDING_ID}/event-sets/{event_set['set_id']}/versions/{event_set['version']}"
+        ).json()
+        listing = client.get(f"/api/recordings/{RECORDING_ID}/event-sets").json()
+        selected = client.put(
+            f"/api/recordings/{RECORDING_ID}/event-sets/selection",
+            json={
+                "choice": "generated",
+                "reference": {"set_id": event_set["set_id"], "version": event_set["version"]},
+                "expected_recording_version": listing["recording_version"],
+            },
+        )
+        assert selected.status_code == 200, selected.text
+        workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline").json()
+        selected_from_workspace = workspace["stages"][0]["selected_event_set_generated"]
+        assert selected_from_workspace == {
+            "set_id": event_set["set_id"],
+            "version": event_set["version"],
+        }
+        node_store = app.state.visible_card_pipeline_service.node_store
+        original_read = node_store.read_revision
+
+        def forbid_event_node_read(node_id: str, revision_id: str):
+            node = node_store.get(node_id)
+            if node.content_type == "events":
+                raise AssertionError("visible-card consumer read a legacy event node")
+            return original_read(node_id, revision_id)
+
+        node_store.read_revision = forbid_event_node_read
+        response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "visible-exact-event-set",
+                "input_event_set_ref": {
+                    **selected_from_workspace,
+                    "content_sha256": event_set_content["content_sha256"],
+                },
+            },
+        )
+        assert response.status_code == 202, response.text
+        run_id = response.json()["run_id"]
+        assert _wait(client, run_id)["state"]["status"] == "complete"
+        run = app.state.visible_card_pipeline_service.run_store.require(run_id)
+        assert run.request.input_event_set_ref == {
+            "set_id": event_set["set_id"],
+            "version": event_set["version"],
+            "content_sha256": event_set_content["content_sha256"],
+        }
+        assert run.request.input_revision_ids == ()
+        lineage = _read_json(node_store.root / ".lineage-runs" / f"{run_id}.json")
+        assert lineage["inputs"][0] == {
+            "kind": "artifact",
+            "artifact_id": f"event-set/{event_set['set_id']}/versions/{event_set['version']}",
+            "sha256": event_set_content["content_sha256"],
+            "role": "events",
+        }
 
 
 def test_migrated_event_draft_is_selectable_as_exact_visible_card_input(tmp_path: Path) -> None:

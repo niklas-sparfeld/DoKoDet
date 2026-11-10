@@ -56,6 +56,7 @@ from dokodetector_backend.derived_view_cache import (
     DERIVED_VIEW_CACHE_LOCK,
     runtime_derived_view_cache,
 )
+from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.job_models import Job, JobCancelled
 from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import (
@@ -77,6 +78,15 @@ from dokodetector_backend.repository_bundle_storage import RepositoryBundleStora
 
 LOGGER = logging.getLogger(__name__)
 _SAFE_COMPONENT = re.compile(r"[^A-Za-z0-9._:-]+")
+
+
+def _event_input_id(request: ProcessorRunRequest) -> str:
+    if request.input_event_set_ref is not None:
+        return (
+            f"event-set:{request.input_event_set_ref['set_id']}:"
+            f"{request.input_event_set_ref['version']}"
+        )
+    return request.input_revision_ids[0]
 
 
 class VisibleCardPipelineError(RuntimeError):
@@ -112,6 +122,7 @@ class VisibleCardPipelineService:
         run_store: ProcessorRunStore,
         selection_store: PipelineNodeSelectionStore,
         node_store: PipelineNodeStore,
+        event_set_store: EventSetStore | None = None,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
@@ -124,6 +135,7 @@ class VisibleCardPipelineService:
         self.run_store = run_store
         self.selection_store = selection_store
         self.node_store = node_store
+        self.event_set_store = event_set_store
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
         if isinstance(self.max_concurrent_requests, bool) or self.max_concurrent_requests < 1:
@@ -256,11 +268,42 @@ class VisibleCardPipelineService:
             raise VisibleCardPipelineInputError("request must be an object.")
         _, source = self._accepted_source(recording_id)
         node_ref = raw.get("input_node_ref")
+        event_set_ref = raw.get("input_event_set_ref")
         if raw.get("input_revision_ids") is not None or raw.get("event_revision_id") is not None:
             raise VisibleCardPipelineInputError(
                 "use input_node_ref instead of revision-ID input fields"
             )
-        if not isinstance(node_ref, Mapping) or set(node_ref) != {
+        if event_set_ref is not None:
+            if (
+                not isinstance(event_set_ref, Mapping)
+                or set(event_set_ref) != {"set_id", "version", "content_sha256"}
+                or self.event_set_store is None
+            ):
+                raise VisibleCardPipelineInputError("input_event_set_ref is invalid.")
+            set_id, version = event_set_ref.get("set_id"), event_set_ref.get("version")
+            if not isinstance(set_id, str) or not isinstance(version, str):
+                raise VisibleCardPipelineInputError("input_event_set_ref is invalid.")
+            event_set = self.event_set_store.get(recording_id, set_id, version)
+            if event_set is None or event_set["content_sha256"] != event_set_ref["content_sha256"]:
+                raise VisibleCardPipelineInputError(
+                    "The selected event-set version is unavailable."
+                )
+            selection = self.event_set_store.get_selection(recording_id)
+            if selection is None or not any(
+                selection[choice] == {"set_id": set_id, "version": version}
+                for choice in ("generated", "reference")
+            ):
+                raise VisibleCardPipelineInputError(
+                    "Select this exact event-set version in recording HEAD first."
+                )
+            events = parse_event_data_bytes(canonical_json_bytes(event_set["content"]))
+            if not isinstance(events, EventData):
+                raise VisibleCardPipelineInputError(
+                    "The selected event set has invalid event data."
+                )
+            event_revision_id = f"event-set:{set_id}:{version}"
+            node_ref = None
+        elif not isinstance(node_ref, Mapping) or set(node_ref) != {
             "node_id",
             "revision_id",
             "revision_policy",
@@ -309,7 +352,7 @@ class VisibleCardPipelineService:
                     "The selected node revision has invalid event data."
                 )
             event_revision_id = node_revision_id
-        else:
+        elif event_set_ref is None:
             raise VisibleCardPipelineInputError("input_node_ref is required.")
         requested_provider = configuration_provider(raw.get("configuration"))
         provider = self._provider_for_selection(requested_provider)
@@ -328,8 +371,12 @@ class VisibleCardPipelineService:
             raise VisibleCardPipelineInputError("run_id is required.")
         values.setdefault("processor_type", "visible-card-detection")
         values.setdefault("source", source.to_mapping())
-        values["input_revision_ids"] = [event_revision_id]
-        values["input_node_ref"] = dict(node_ref)
+        values["input_revision_ids"] = [] if event_set_ref is not None else [event_revision_id]
+        values.pop("input_node_ref", None)
+        if event_set_ref is not None:
+            values["input_event_set_ref"] = dict(event_set_ref)
+        else:
+            values["input_node_ref"] = dict(node_ref)
         values.setdefault(
             "implementation",
             {"name": "visible-card-detector-adapter", "version": "v1"},
@@ -406,12 +453,29 @@ class VisibleCardPipelineService:
         _, source = self._accepted_source(recording_id)
         if request.source != source or request.source.recording_id != recording_id:
             raise VisibleCardPipelineInputError("The frozen visible-card source changed.")
-        if (
-            request.processor_type != "visible-card-detection"
-            or len(request.input_revision_ids) != 1
-        ):
+        if request.processor_type != "visible-card-detection" or len(
+            request.input_revision_ids
+        ) != (0 if request.input_event_set_ref else 1):
             raise VisibleCardPipelineInputError("The frozen visible-card inputs are invalid.")
-        if request.input_node_ref is not None:
+        if request.input_event_set_ref is not None:
+            event_set = (
+                self.event_set_store.get(
+                    recording_id,
+                    request.input_event_set_ref["set_id"],
+                    request.input_event_set_ref["version"],
+                )
+                if self.event_set_store is not None
+                else None
+            )
+            if (
+                event_set is None
+                or event_set["content_sha256"] != request.input_event_set_ref["content_sha256"]
+                or not isinstance(
+                    parse_event_data_bytes(canonical_json_bytes(event_set["content"])), EventData
+                )
+            ):
+                raise VisibleCardPipelineInputError("The frozen event-set version is unavailable.")
+        elif request.input_node_ref is not None:
             ref = request.input_node_ref
             try:
                 node = self.node_store.get(ref["node_id"])
@@ -452,8 +516,9 @@ class VisibleCardPipelineService:
             "schema_version": "visible-card-job-accepted-use/v1",
             "job_id": job_id,
             "recording_id": recording_id,
-            "event_revision_id": processor_request.input_revision_ids[0],
+            "event_revision_id": _event_input_id(processor_request),
             "event_node_ref": processor_request.input_node_ref,
+            "event_set_ref": processor_request.input_event_set_ref,
             "video_sha256": processor_request.source.video_sha256,
         }
         path = self._job_use_path(job_id)
@@ -480,8 +545,9 @@ class VisibleCardPipelineService:
             return (
                 run.request.to_mapping() == ProcessorRunRequest.from_mapping(expected).to_mapping()
                 and use.get("job_id") == job_id
-                and use.get("event_revision_id") == run.request.input_revision_ids[0]
+                and use.get("event_revision_id") == _event_input_id(run.request)
                 and use.get("event_node_ref") == run.request.input_node_ref
+                and use.get("event_set_ref") == run.request.input_event_set_ref
                 and use.get("video_sha256") == run.request.source.video_sha256
             )
         except (OSError, KeyError, TypeError, ValueError, PipelineStateError, PipelineNotFound):
@@ -533,7 +599,21 @@ class VisibleCardPipelineService:
         run_id = job.id
         run = self.run_store.start(run_id)
         try:
-            if run.request.input_node_ref is not None:
+            if run.request.input_event_set_ref is not None:
+                ref = run.request.input_event_set_ref
+                event_set = (
+                    self.event_set_store.get(
+                        run.request.source.recording_id, ref["set_id"], ref["version"]
+                    )
+                    if self.event_set_store is not None
+                    else None
+                )
+                if event_set is None:
+                    raise VisibleCardPipelineInputError(
+                        "The accepted visible-card run has no exact event-set input."
+                    )
+                event_content = parse_event_data_bytes(canonical_json_bytes(event_set["content"]))
+            elif run.request.input_node_ref is not None:
                 ref = run.request.input_node_ref
                 node_revision = self.node_store.read_revision(ref["node_id"], ref["revision_id"])
                 event_content = parse_event_data_bytes(canonical_json_bytes(node_revision.content))
@@ -911,7 +991,11 @@ class VisibleCardPipelineService:
             producer=producer,
             coverage={
                 "kind": "requested-event-frames",
-                "event_revision_id": run.request.input_revision_ids[0],
+                **(
+                    {"event_set_ref": run.request.input_event_set_ref}
+                    if run.request.input_event_set_ref is not None
+                    else {"event_revision_id": run.request.input_revision_ids[0]}
+                ),
                 "event_ids": [outcome.event_id for outcome in content.outcomes],
                 "policy_id": run.request.extraction_policy["policy_id"],
             },

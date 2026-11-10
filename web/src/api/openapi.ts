@@ -370,6 +370,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/event-sets/{set_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Event Set Review */
+        post: operations["save_event_set_review_api_recordings__recording_id__event_sets__set_id__reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/event-sets/{set_id}/versions/{version}": {
         parameters: {
             query?: never;
@@ -379,6 +396,23 @@ export interface paths {
         };
         /** Get Event Set */
         get: operations["get_event_set_api_recordings__recording_id__event_sets__set_id__versions__version__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/event-sets/{set_id}/versions/{version}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Event Set Reviews */
+        get: operations["list_event_set_reviews_api_recordings__recording_id__event_sets__set_id__versions__version__reviews_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1723,6 +1757,35 @@ export interface components {
             /** Evidence Complete */
             evidence_complete: boolean;
         };
+        /** EventSetReviewRequest */
+        EventSetReviewRequest: {
+            /** Coverage */
+            coverage?: {
+                [key: string]: unknown;
+            } | null;
+            /** Decision */
+            decision?: string | null;
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            };
+            /** Item Id */
+            item_id?: string | null;
+            /** Kind */
+            kind: string;
+            /** Question */
+            question: string;
+            /** Review Id */
+            review_id: string;
+            /** Reviewer */
+            reviewer: {
+                [key: string]: unknown;
+            };
+            /** Set Id */
+            set_id: string;
+            /** Version */
+            version: string;
+        };
         /** EventSetSaveRequest */
         EventSetSaveRequest: {
             /** Content */
@@ -2095,6 +2158,10 @@ export interface components {
         ObservationSource: {
             /** Assembly Run Id */
             assembly_run_id?: string | null;
+            /** Event Set Ref */
+            event_set_ref?: {
+                [key: string]: string;
+            } | null;
             /** Input Revision Ids */
             input_revision_ids?: string[] | null;
             /** Package Id */
@@ -3074,7 +3141,7 @@ export interface components {
         };
         /**
          * PipelineWorkspaceCompatibleInputSetResponse
-         * @description One exact revision set accepted by observation assembly.
+         * @description One exact resource set accepted by observation assembly.
          */
         PipelineWorkspaceCompatibleInputSetResponse: {
             /** Display Label */
@@ -3095,6 +3162,34 @@ export interface components {
             message: string;
             /** Revision Id */
             revision_id?: string | null;
+        };
+        /**
+         * PipelineWorkspaceEventSetCompatibleInputSetResponse
+         * @description One compatible set with an exact event-set input.
+         */
+        PipelineWorkspaceEventSetCompatibleInputSetResponse: {
+            /** Display Label */
+            display_label: string;
+            /**
+             * Event Choice
+             * @enum {string}
+             */
+            event_choice: "generated" | "reference";
+            input_event_set_ref: components["schemas"]["PipelineWorkspaceEventSetInputReferenceResponse"];
+            /** Input Node Refs */
+            input_node_refs: components["schemas"]["PipelineWorkspaceProcessorInputReferenceResponse"][];
+        };
+        /**
+         * PipelineWorkspaceEventSetInputReferenceResponse
+         * @description One selected event-set version with its computed content digest.
+         */
+        PipelineWorkspaceEventSetInputReferenceResponse: {
+            /** Content Sha256 */
+            content_sha256: string;
+            /** Set Id */
+            set_id: string;
+            /** Version */
+            version: string;
         };
         /**
          * PipelineWorkspaceEventSetReferenceResponse
@@ -3294,7 +3389,7 @@ export interface components {
             /** Comparable Run Ids */
             comparable_run_ids: string[];
             /** Compatible Input Sets */
-            compatible_input_sets: components["schemas"]["PipelineWorkspaceCompatibleInputSetResponse"][];
+            compatible_input_sets: (components["schemas"]["PipelineWorkspaceEventSetCompatibleInputSetResponse"] | components["schemas"]["PipelineWorkspaceCompatibleInputSetResponse"])[];
             /** Event Selection Authority */
             event_selection_authority?: ("recording-head" | "pipeline-node") | null;
             /** Input Options */
@@ -5212,7 +5307,76 @@ export interface operations {
             };
         };
     };
+    save_event_set_review_api_recordings__recording_id__event_sets__set_id__reviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventSetReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_event_set_api_recordings__recording_id__event_sets__set_id__versions__version__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                set_id: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_event_set_reviews_api_recordings__recording_id__event_sets__set_id__versions__version__reviews_get: {
         parameters: {
             query?: never;
             header?: never;

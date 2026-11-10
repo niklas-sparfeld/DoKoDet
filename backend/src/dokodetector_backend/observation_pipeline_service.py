@@ -33,6 +33,7 @@ from table_evidence_analyzer import (
     parse_visual_identity_data_bytes,
 )
 
+from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.job_models import Job, JobCancelled
 from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import (
@@ -74,10 +75,12 @@ class ObservationPipelineService:
         runtime_root: Any,
         operations_root: Any,
         node_store: PipelineNodeStore | None = None,
+        event_set_store: EventSetStore | None = None,
     ) -> None:
         self.run_store = run_store
         self.selection_store = selection_store
         self.node_store = node_store
+        self.event_set_store = event_set_store
         self.recording_store = recording_store
         self.storage = PipelineRuntimeStorage(runtime_root, operations_root)
         self.job_manager_provider: Any | None = None
@@ -150,17 +153,38 @@ class ObservationPipelineService:
             frozen.get("schema") != "table-observation-job-request/v1"
             or request.source.recording_id != recording_id
             or request.processor_type != "observation-assembly"
-            or len(request.input_revision_ids) != 3
+            or len(request.input_revision_ids) != (2 if request.input_event_set_ref else 3)
         ):
             raise ObservationPipelineInputError("the frozen observation inputs are invalid")
+        if request.input_event_set_ref is not None:
+            event_set = (
+                self.event_set_store.get(
+                    recording_id,
+                    request.input_event_set_ref["set_id"],
+                    request.input_event_set_ref["version"],
+                )
+                if self.event_set_store is not None
+                else None
+            )
+            if (
+                event_set is None
+                or event_set["content_sha256"] != request.input_event_set_ref["content_sha256"]
+            ):
+                raise ObservationPipelineInputError("the frozen event-set input is unavailable")
         self._validate_frozen_inputs(recording_id, request)
 
     def _validate_frozen_inputs(self, recording_id: str, request: ProcessorRunRequest) -> None:
         if request.input_node_refs is None or self.node_store is None:
             raise ObservationPipelineInputError("frozen canonical input references are required")
+        if request.input_event_set_ref is not None:
+            revision_ids = request.input_revision_ids
+            content_types = ("visible_cards", "visual_identities")
+        else:
+            revision_ids = request.input_revision_ids
+            content_types = ("events", "visible_cards", "visual_identities")
         for revision_id, content_type, node_ref in zip(
-            request.input_revision_ids,
-            ("events", "visible_cards", "visual_identities"),
+            revision_ids,
+            content_types,
             request.input_node_refs,
             strict=True,
         ):
@@ -271,6 +295,7 @@ class ObservationPipelineService:
                 video_sha256=run.request.source.video_sha256,
                 assembly_run_id=run_id,
                 input_revision_ids=run.request.input_revision_ids,
+                event_set_ref=run.request.input_event_set_ref,
                 session_id=_optional_text(configuration.get("session_id")),
                 calibration=_calibration(configuration.get("calibration")),
                 analyzer_name=_optional_text(configuration.get("analyzer_name"))
@@ -347,23 +372,67 @@ class ObservationPipelineService:
         raw = payload.get("request", payload)
         if not isinstance(raw, Mapping):
             raise ObservationPipelineInputError("request must be an object.")
-        input_refs = self._input_node_refs(recording_id, raw)
-        input_ids = tuple(ref["revision_id"] for ref in input_refs)
-        event_revision, visible_revision, identity_revision = tuple(
-            self.selection_store.read_node_revision(ref["node_id"], ref["revision_id"])
-            for ref in input_refs
-        )
-        if event_revision.manifest.content_type != "events" or not isinstance(
-            event_revision.content, EventData
-        ):
-            raise ObservationPipelineInputError("the first input is not event node content")
-        if not isinstance(event_revision.manifest.source, RecordingVideoSource):
-            raise ObservationPipelineInputError(
-                "observation assembly needs a recording video source"
+        event_set_ref = raw.get("input_event_set_ref")
+        if event_set_ref is not None and (
+            not isinstance(event_set_ref, Mapping)
+            or set(event_set_ref) != {"set_id", "version", "content_sha256"}
+            or not all(
+                isinstance(event_set_ref.get(key), str)
+                for key in ("set_id", "version", "content_sha256")
             )
-        source = event_revision.manifest.source
-        if event_revision.manifest.source.recording_id != recording_id:
-            raise ObservationPipelineInputError("the input revisions belong to another recording")
+        ):
+            raise ObservationPipelineInputError("the exact event-set reference is invalid")
+        input_refs = self._input_node_refs(recording_id, raw, event_set=event_set_ref is not None)
+        input_ids = tuple(ref["revision_id"] for ref in input_refs)
+        event_revision = None
+        if event_set_ref is not None:
+            event_set = (
+                self.event_set_store.get(
+                    recording_id, event_set_ref["set_id"], event_set_ref["version"]
+                )
+                if self.event_set_store is not None
+                else None
+            )
+            if event_set is None or event_set["content_sha256"] != event_set_ref["content_sha256"]:
+                raise ObservationPipelineInputError("the exact event-set input is unavailable")
+            selection = self.event_set_store.get_selection(recording_id)
+            if selection is None or not any(
+                selection[choice]
+                == {"set_id": event_set_ref["set_id"], "version": event_set_ref["version"]}
+                for choice in ("generated", "reference")
+            ):
+                raise ObservationPipelineInputError(
+                    "select this exact event-set version in recording HEAD first"
+                )
+            event_content = parse_event_data_bytes(canonical_json_bytes(event_set["content"]))
+            visible_revision, identity_revision = tuple(
+                self.selection_store.read_node_revision(ref["node_id"], ref["revision_id"])
+                for ref in input_refs
+            )
+            source = visible_revision.manifest.source
+            if not isinstance(source, RecordingVideoSource) or source.recording_id != recording_id:
+                raise ObservationPipelineInputError(
+                    "the selected inputs do not match the recording"
+                )
+        else:
+            event_revision, visible_revision, identity_revision = tuple(
+                self.selection_store.read_node_revision(ref["node_id"], ref["revision_id"])
+                for ref in input_refs
+            )
+            if event_revision.manifest.content_type != "events" or not isinstance(
+                event_revision.content, EventData
+            ):
+                raise ObservationPipelineInputError("the first input is not event node content")
+            if not isinstance(event_revision.manifest.source, RecordingVideoSource):
+                raise ObservationPipelineInputError(
+                    "observation assembly needs a recording video source"
+                )
+            source = event_revision.manifest.source
+            if source.recording_id != recording_id:
+                raise ObservationPipelineInputError(
+                    "the input revisions belong to another recording"
+                )
+            event_content = event_revision.content
         if visible_revision.manifest.content_type != "visible_cards" or not isinstance(
             visible_revision.content, VisibleCardData
         ):
@@ -379,7 +448,6 @@ class ObservationPipelineService:
             raise ObservationPipelineInputError(
                 "all input revisions must use the same recording video source"
             )
-        source = event_revision.manifest.source
         values = dict(raw)
         recording = self.recording_store.get_metadata(recording_id)
         if recording is None or not recording.session_id:
@@ -404,22 +472,25 @@ class ObservationPipelineService:
             values.pop(field, None)
         values["input_revision_ids"] = list(input_ids)
         values["input_node_refs"] = list(input_refs)
+        if event_set_ref is not None:
+            values["input_event_set_ref"] = dict(event_set_ref)
         values.setdefault("schema_version", "processor-run-request/v1")
         run_id = raw.get("run_id") or payload.get("run_id")
         if not isinstance(run_id, str) or not run_id:
             raise ObservationPipelineInputError("run_id is required.")
-        assert isinstance(event_revision.content, EventData)
+        assert isinstance(event_content, EventData)
         assert isinstance(visible_revision.content, VisibleCardData)
         assert isinstance(identity_revision.content, VisualIdentityData)
         try:
             assemble_table_observations(
-                event_revision.content,
+                event_content,
                 visible_revision.content,
                 identity_revision.content,
                 recording_id=recording_id,
                 video_sha256=source.video_sha256,
                 assembly_run_id=run_id,
                 input_revision_ids=input_ids,
+                event_set_ref=event_set_ref,
             )
         except (ObservationAssemblyError, TypeError, ValueError) as error:
             raise ObservationPipelineInputError(
@@ -450,9 +521,13 @@ class ObservationPipelineService:
         return request
 
     def _input_node_refs(
-        self, recording_id: str, raw: Mapping[str, Any]
+        self, recording_id: str, raw: Mapping[str, Any], *, event_set: bool = False
     ) -> tuple[dict[str, str], ...]:
-        expected_types = ("events", "visible_cards", "visual_identities")
+        expected_types = (
+            ("visible_cards", "visual_identities")
+            if event_set
+            else ("events", "visible_cards", "visual_identities")
+        )
         provided = raw.get("input_node_refs")
         if any(
             raw.get(field) is not None
@@ -466,9 +541,9 @@ class ObservationPipelineService:
             raise ObservationPipelineInputError(
                 "use exact input_node_refs instead of revision-ID input fields"
             )
-        if not isinstance(provided, list) or len(provided) != 3:
+        if not isinstance(provided, list) or len(provided) != len(expected_types):
             raise ObservationPipelineInputError(
-                "assembly needs ordered event, visible-card, and identity node references"
+                "assembly needs exact references for each non-event input"
             )
         refs = []
         for ref, content_type in zip(provided, expected_types, strict=True):
@@ -518,13 +593,37 @@ class ObservationPipelineService:
             self.node_store.read_revision(ref["node_id"], ref["revision_id"])
             for ref in request.input_node_refs
         ]
-        event_content = parse_event_data_bytes(
-            canonical_json_bytes(revisions[0].content), duration_us=request.source.duration_us
-        )
-        visible_content = parse_visible_card_data_bytes(canonical_json_bytes(revisions[1].content))
-        identity_content = parse_visual_identity_data_bytes(
-            canonical_json_bytes(revisions[2].content)
-        )
+        if request.input_event_set_ref is not None:
+            if self.event_set_store is None:
+                raise ObservationPipelineInputError("the event-set store is unavailable")
+            event_set = self.event_set_store.get(
+                request.source.recording_id,
+                request.input_event_set_ref["set_id"],
+                request.input_event_set_ref["version"],
+            )
+            if event_set is None:
+                raise ObservationPipelineInputError("the exact event-set input is unavailable")
+            if event_set["content_sha256"] != request.input_event_set_ref["content_sha256"]:
+                raise ObservationPipelineInputError("the exact event-set content changed")
+            event_content = parse_event_data_bytes(
+                canonical_json_bytes(event_set["content"]), duration_us=request.source.duration_us
+            )
+            visible_content = parse_visible_card_data_bytes(
+                canonical_json_bytes(revisions[0].content)
+            )
+            identity_content = parse_visual_identity_data_bytes(
+                canonical_json_bytes(revisions[1].content)
+            )
+        else:
+            event_content = parse_event_data_bytes(
+                canonical_json_bytes(revisions[0].content), duration_us=request.source.duration_us
+            )
+            visible_content = parse_visible_card_data_bytes(
+                canonical_json_bytes(revisions[1].content)
+            )
+            identity_content = parse_visual_identity_data_bytes(
+                canonical_json_bytes(revisions[2].content)
+            )
         return event_content, visible_content, identity_content
 
     def _publish_revision(
@@ -548,9 +647,19 @@ class ObservationPipelineService:
             ),
             coverage={
                 "kind": "assembled-events",
-                "event_revision_id": run.request.input_revision_ids[0],
-                "visible_card_revision_id": run.request.input_revision_ids[1],
-                "visual_identity_revision_id": run.request.input_revision_ids[2],
+                **(
+                    {
+                        "event_set_ref": run.request.input_event_set_ref,
+                        "visible_card_revision_id": run.request.input_revision_ids[0],
+                        "visual_identity_revision_id": run.request.input_revision_ids[1],
+                    }
+                    if run.request.input_event_set_ref is not None
+                    else {
+                        "event_revision_id": run.request.input_revision_ids[0],
+                        "visible_card_revision_id": run.request.input_revision_ids[1],
+                        "visual_identity_revision_id": run.request.input_revision_ids[2],
+                    }
+                ),
                 "observation_ids": [
                     observation.observation_id for observation in content.observations
                 ],

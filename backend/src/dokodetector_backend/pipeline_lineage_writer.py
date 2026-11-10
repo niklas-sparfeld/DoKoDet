@@ -157,9 +157,25 @@ class PipelineLineageWriter:
         node_refs = request.input_node_refs or (
             (request.input_node_ref,) if request.input_node_ref is not None else ()
         )
+        if request.input_event_set_ref is not None:
+            inputs.append(
+                {
+                    "kind": "artifact",
+                    "artifact_id": (
+                        f"event-set/{request.input_event_set_ref['set_id']}"
+                        f"/versions/{request.input_event_set_ref['version']}"
+                    ),
+                    "sha256": request.input_event_set_ref["content_sha256"],
+                    "role": "events",
+                }
+            )
         if node_refs:
             roles = {
-                "observation-assembly": ("events", "visible_cards", "visual_identities"),
+                "observation-assembly": (
+                    ("visible_cards", "visual_identities")
+                    if request.input_event_set_ref is not None
+                    else ("events", "visible_cards", "visual_identities")
+                ),
                 "visual-card-identity": ("visible_cards",),
                 "visible-card-scene-proposal": ("visible_cards",),
                 "visible-card-detection": ("events",),
@@ -183,7 +199,7 @@ class PipelineLineageWriter:
                         "role": role,
                     }
                 )
-        else:
+        elif request.input_event_set_ref is None:
             for index, revision_id in enumerate(request.input_revision_ids):
                 raise ValueError(
                     "processor execution requires exact node input references; "
@@ -286,14 +302,31 @@ class PipelineLineageWriter:
         node_refs = request.input_node_refs or (
             (request.input_node_ref,) if request.input_node_ref is not None else ()
         )
+        if request.input_event_set_ref is not None:
+            refs = [
+                {
+                    "kind": "artifact",
+                    "artifact_id": (
+                        f"event-set/{request.input_event_set_ref['set_id']}"
+                        f"/versions/{request.input_event_set_ref['version']}"
+                    ),
+                    "sha256": request.input_event_set_ref["content_sha256"],
+                    "role": "events",
+                }
+            ]
+        else:
+            refs = []
         if node_refs:
             roles = {
-                "observation-assembly": ("events", "visible_cards", "visual_identities"),
+                "observation-assembly": (
+                    ("visible_cards", "visual_identities")
+                    if request.input_event_set_ref is not None
+                    else ("events", "visible_cards", "visual_identities")
+                ),
                 "visual-card-identity": ("visible_cards",),
                 "visible-card-scene-proposal": ("visible_cards",),
                 "visible-card-detection": ("events",),
             }.get(request.processor_type, ())
-            refs = []
             for index, ref in enumerate(node_refs):
                 role = roles[index] if index < len(roles) else "input"
                 if request.processor_type == "visual-card-identity":
@@ -311,6 +344,8 @@ class PipelineLineageWriter:
                         "role": role,
                     }
                 )
+            return refs
+        if request.input_event_set_ref is not None:
             return refs
         if request.input_revision_ids:
             raise ValueError("processor execution requires exact node input references")

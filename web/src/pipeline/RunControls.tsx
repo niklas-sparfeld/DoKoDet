@@ -172,6 +172,22 @@ export function RunControls({
           (option) => option.node_revision_id === selectedRevisionId,
         ) ?? null)
       : null;
+  const selectedEventSet = (() => {
+    if (runStage !== "visible_cards" || upstreamStage === undefined)
+      return null;
+    const generated = upstreamStage.selected_event_set_generated;
+    const reference = upstreamStage.selected_event_set_reference;
+    const selected =
+      inputOrigin === "reviewed"
+        ? (reference ?? generated)
+        : (generated ?? reference);
+    return selected?.set_id === undefined || selected.version === undefined
+      ? null
+      : {
+          ...selected,
+          choice: selected === reference ? "reference" : "generated",
+        };
+  })();
   const reviewedInputListed =
     reviewedRevisionId !== null &&
     (upstreamStage?.input_options.some(
@@ -246,7 +262,7 @@ export function RunControls({
   const historicalOptions = upstreamStage?.input_options ?? [];
   const visibleCardBlockers = stage.run_blockers.filter(
     (blocker) =>
-      selectedEventOption === null ||
+      (selectedEventOption === null && selectedEventSet === null) ||
       !/^Select a complete events revision first\.$/i.test(blocker),
   );
   const canStart =
@@ -279,6 +295,7 @@ export function RunControls({
       ? "current_head"
       : "historical",
   ).request;
+  void visibleCardRunRequest;
 
   const eventAction = buildEventLaunchFields({
     recordingId,
@@ -289,6 +306,7 @@ export function RunControls({
   const visibleCardAction = buildVisibleCardLaunchFields({
     historicalOptions,
     selectedEventOption,
+    selectedEventSet,
     generatedRevisionId,
     reviewedRevisionId,
     setHistoricalRevisionId,
@@ -387,7 +405,7 @@ export function RunControls({
               submitting={visibleCardSubmission.submitting}
               validationErrors={[
                 ...visibleCardBlockers,
-                ...(selectedEventOption === null
+                ...(selectedEventOption === null && selectedEventSet === null
                   ? [
                       historicalOptions.length === 0
                         ? "No compatible event revision is available."
@@ -396,15 +414,17 @@ export function RunControls({
                   : []),
               ]}
               canSubmit={
-                visibleCardBlockers.length === 0 && selectedEventOption !== null
+                visibleCardBlockers.length === 0 &&
+                (selectedEventOption !== null || selectedEventSet !== null)
               }
               onStart={async () => {
-                if (selectedEventOption === null) return false;
+                if (selectedEventOption === null && selectedEventSet === null)
+                  return false;
                 const runId = createRunId("visible_cards");
                 const request = buildRunRequest(
                   "visible_cards",
                   runId,
-                  selectedRevisionId,
+                  selectedEventOption?.node_revision_id ?? selectedRevisionId,
                   latestRun,
                   inputOrigin,
                   processorOrigin,
@@ -412,13 +432,30 @@ export function RunControls({
                   null,
                   selectedEventOption,
                   null,
-                  selectedEventOption.node_revision_id ===
+                  selectedEventOption?.node_revision_id ===
                     generatedRevisionId &&
                     inputOrigin === "generated" &&
                     historicalRevisionId === ""
                     ? "current_head"
                     : "historical",
                 );
+                if (selectedEventSet !== null) {
+                  const response = await fetch(
+                    `/api/recordings/${encodeURIComponent(recordingId)}/event-sets/${encodeURIComponent(selectedEventSet.set_id)}/versions/${encodeURIComponent(selectedEventSet.version)}`,
+                  );
+                  if (!response.ok) {
+                    setMessage("The selected event set could not be loaded.");
+                    return false;
+                  }
+                  const saved = (await response.json()) as {
+                    content_sha256: string;
+                  };
+                  request.request.input_event_set_ref = {
+                    set_id: selectedEventSet.set_id,
+                    version: selectedEventSet.version,
+                    content_sha256: saved.content_sha256,
+                  };
+                }
                 const accepted = await visibleCardSubmission.submit({
                   type: "visible_card_detection",
                   context: { recording_id: recordingId },
