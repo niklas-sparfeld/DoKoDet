@@ -29,17 +29,20 @@ def rehearse(
     recordings_root: Path,
     pipeline_nodes_root: Path,
     legacy_pipeline_root: Path,
+    recording_ids: tuple[str, ...] = RECORDINGS,
     retained_output_runs_root: Path | None = None,
     retained_output_run_ids: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    """Convert only the three named recordings into a caller-provided disposable root."""
+    """Convert exact selected recordings into a caller-provided root."""
+    if not recording_ids or len(set(recording_ids)) != len(recording_ids):
+        raise RehearsalError("recording IDs must be non-empty and unique")
     recordings = RecordingFolderStore(recordings_root)
     event_sets = EventSetStore(recordings)
     nodes = PipelineNodeStore(pipeline_nodes_root)
     reviews = PipelineNodeReviews(nodes)
     receipt: dict[str, Any] = {"schema_version": "0124-event-rehearsal/v1", "recordings": []}
 
-    for recording_id in RECORDINGS:
+    for recording_id in recording_ids:
         if recordings.get(recording_id) is None:
             raise RehearsalError(f"disposable recording root is missing: {recording_id}")
         legacy_selection = _read_json(

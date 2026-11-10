@@ -1,0 +1,14 @@
+{
+  "activation_head_changes": [],
+  "all_frozen_input_file_digests_match": true,
+  "bundle_count": 58,
+  "event_revisions": 283,
+  "event_versions_added": 283,
+  "pre_m3_output_revision_sha256": "23d6a61ffa5c362d2e7bbf1f24c708c93a1800d684573a1fe4078961119da45c",
+  "recording_roots": 58,
+  "review_files": 4778,
+  "schema_version": "0124-event-corpus-post-activation-check/v1",
+  "selector_files": 102,
+  "snapshot_sha256": "fb60d5fcd6ed62bd55d40c9e84189578d244e7fba179de9ef611ac51f151d0a6",
+  "visible_card_outputs": 457
+}

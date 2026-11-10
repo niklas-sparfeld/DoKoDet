@@ -66,7 +66,7 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | M2 | Review and the named exact-input consumers use event resources | Complete |
 | M3 | Normal app workflow works on one retained recording: open media, edit/select events, run detection, reopen result | Complete |
 | M4 | Rehearse reviewed alternatives and exact parents for three named recordings in disposable storage | Complete |
-| M5 | Roll out verified recordings and qualify representative normal app workflows | In Progress |
+| M5 | Roll out verified recordings and qualify representative normal app workflows | Complete |
 | M6 | Remove obsolete event runtime paths and complete closure checks | Not started |
 
 ### Next assignment after dependency closure
@@ -467,6 +467,28 @@ Record exact corpus, activated batches, exceptions, observed behavior and limits
 implementation, activation evidence, plan and board commit. M6 retains runtime removal and final
 closure. No changes to 0129 or unrelated publication performance work.
 
+### M5 replan 2 — folder-backed visual-identity input
+
+The M0–M4 regression run found a failing M2 workflow. The event-set visible-card run completed, but
+the next visual-identity request returned 422: `VisualIdentityRequestBuilder.build` compared the
+selected visible-card revision with `VisualIdentityRecordingAccess.accepted_source`, which still
+read only the old bundle store. The visible-card revision used the accepted source from the
+recording folder, so the source values differed. This blocked the exact event-set → visible-card →
+visual-identity → observation workflow already required by M2.
+
+Bounded replan: add `visual_identity_recording_access.py`, its service wiring in
+`visual_identity_pipeline_service.py` and `pipeline_composition.py`, to M5's finite owners. Read the
+existing `RecordingFolderStore` for recording-root recordings; keep the old bundle path for legacy
+recordings. Resolve the same source bytes, digest, duration and path already owned by the recording
+root. Add no storage or transaction contract. The existing persisted M2 observation test is the
+required check. This owner is necessary because M2's accepted observation inputs include an exact
+visual-identity revision. It does not add another outcome or convert another resource type.
+
+A stale round-analysis list test also wrote the retired event-node selector for a recording-folder
+recording. Keep its original check for exact event selection without loading the saved event set by
+writing a missing exact pointer in `recording.json` HEAD. Keep the node-transaction pending test for
+other pipeline selections; the recording-owned event HEAD remains readable during that transaction.
+
 ### M6 assignment — remove replaced paths and close
 
 Freeze exact removal owners from the pilot and rollout receipts before assignment. Remove duplicate
@@ -513,23 +535,22 @@ owns that follow-up; it does not block M0.
 
 ## Execution handoff
 
-Current run: requested 1 milestone, completed 0, remaining 1. M5 is in progress. M5 family
-re-plans 1/5, run re-plans 1/10, corrections 0/2. Original baseline four, then six, current
-baseline seven: M0–M4 complete, M5–M6 remain. M3 normal pilot and M4 three-recording rehearsal
-passed, but M4's old output parent was mapped offline only. This attempt adds a recording-local
-inspector link that matches the selected visible-card output's legacy event revision to one saved
-event-set provenance record and checks its content digest. Missing or duplicate provenance fails
-closed. A normal browser can open a supplied exact event-set reference and reopen it after restart.
-This does not yet prove the required output-to-parent browser action, disabled run/lineage reads,
-selection change and restart, or retained corpus rollout. No recording or saved output was changed.
-M5 activation and qualification remain. No new persistent contract or authority was added. Next:
-prove the exact pre-M3 output path against disposable persisted data, then freeze and rehearse the
-58-bundle corpus before any activation. Stop for unresolved ambiguity, a new persistent contract,
-or unsafe activation. 0129 and unrelated publication performance remain independent.
+Current run: requested 1 milestone, completed 1, remaining 0. M5 is complete. M5 family re-plans
+2/5, run re-plans 2/10, corrections 0/2. The current baseline is seven: M0–M5 complete and M6
+remains. The browser opened the pre-M3 output's exact converted parent after selection change and
+backend restart with processor-run and lineage reads blocked. The saved M3 provider result also
+opened after restart without a detector run. The 58-root corpus snapshot and full disposable
+rehearsal passed. Activation added 283 versions to 58 recording roots and changed no HEAD. Recovery
+data is retained. Post-activation checks matched all frozen source digests, reviews, selectors,
+event revisions and saved output bytes. Seven recordings have no event nodes; 203 outputs have no
+saved parent facts and remain unavailable. The required persisted M2 observation regression also
+passed after the bounded visual-identity adapter began reading the existing recording-root
+authority. No new persistent contract or authority was added. See the M5 report for exact evidence
+and limits. M6 owns replaced runtime path removal and final closure; 0129 remains independent.
 
 See [M5 rollout and qualification report](../../reports/0124-M5_Rollout_Qualification.md) for
-implemented changes, checks, evidence limits, and remaining acceptance criteria. Historical run
-counts below are not this run's counts.
+implemented changes, checks, and evidence limits. The following handoff is the historical M4
+handoff and preserves its run counts.
 
 Current run: requested 1 milestone, completed 1, remaining 0. M4 family re-plans 1/5; run
 re-plans 1/10; M4 corrections 1/2. Original baseline four milestones; user-selected baseline six;

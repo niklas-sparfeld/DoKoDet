@@ -385,6 +385,7 @@ export function RecordingPipelineWorkspace({
         error={error}
         lineageGraph={lineageGraph}
         lineageGraphError={lineageGraphError}
+        onOpenLineage={refreshLineage}
         onCopyNode={copyLineageNode}
         onNavigate={navigateTo}
       />

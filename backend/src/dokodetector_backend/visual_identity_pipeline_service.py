@@ -36,6 +36,7 @@ from dokodetector_backend.pipeline_storage import (
 from dokodetector_backend.processor_run_models import StoredProcessorRun
 from dokodetector_backend.processor_run_store import ProcessorRunStore
 from dokodetector_backend.recording_bundle_store import RecordingBundleStore
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 from dokodetector_backend.repository_bundle_storage import RepositoryBundleStorage
 from dokodetector_backend.visual_identity_approval import VisualIdentityApprovalPlanner
 from dokodetector_backend.visual_identity_classification import VisualIdentityClassification
@@ -68,6 +69,7 @@ class VisualIdentityPipelineService:
         run_store: ProcessorRunStore,
         selection_store: PipelineNodeSelectionStore,
         node_store: PipelineNodeStore | None = None,
+        recording_folder_store: RecordingFolderStore | None = None,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
@@ -107,7 +109,10 @@ class VisualIdentityPipelineService:
         self._derived_view_lock = DERIVED_VIEW_CACHE_LOCK
         self._lock = RLock()
         self.recording_access = VisualIdentityRecordingAccess(
-            settings, recording_store, repository_storage
+            settings,
+            recording_store,
+            repository_storage,
+            recording_folder_store=recording_folder_store,
         )
         self.classification = VisualIdentityClassification(
             settings,

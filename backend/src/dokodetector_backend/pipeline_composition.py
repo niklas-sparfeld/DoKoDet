@@ -139,6 +139,7 @@ def build_pipeline_composition(
         run_store=run_store,
         selection_store=selection_store,
         node_store=node_store,
+        recording_folder_store=recording_folder_store,
     )
     observation_service = ObservationPipelineService(
         run_store=run_store,

@@ -70,6 +70,25 @@ describe("recording pipeline workspace data", () => {
     vi.unstubAllGlobals();
   });
 
+  it("does not read lineage when the workspace has no lineage selection", async () => {
+    const fetchSpy = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchSpy);
+    const client = {
+      getRecordingPipeline: vi
+        .fn()
+        .mockResolvedValue(workspace("recording", "fixture")),
+    } as never;
+
+    const { result } = renderHook(() =>
+      useRecordingPipelineData("recording", "visible_cards", null, client),
+    );
+
+    await waitFor(() => expect(result.current.workspace).not.toBeNull());
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.current.lineageGraph).toBeNull();
+    expect(result.current.lineageGraphError).toBeNull();
+  });
+
   it.each(["success", "failure"] as const)(
     "ignores a deferred A conflict-reload %s after B renders before its load timer",
     async (outcome) => {
@@ -297,7 +316,12 @@ describe("recording pipeline workspace data", () => {
     const client = { getRecordingPipeline } as never;
     const { result, rerender } = renderHook(
       ({ recordingId }: { recordingId: string }) =>
-        useRecordingPipelineData(recordingId, "events", null, client),
+        useRecordingPipelineData(
+          recordingId,
+          "events",
+          "saved-lineage",
+          client,
+        ),
       { initialProps: { recordingId: "first" } },
     );
     const graphResponse = (recordingId: string) =>

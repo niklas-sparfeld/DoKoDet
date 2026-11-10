@@ -328,31 +328,15 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
 ) -> None:
     client, app = _backend(backend_tmp_path)
     node_store = app.state.pipeline_selection_store.node_store
-    revision = node_store.create(
-        "event-node",
-        "Events",
-        "events",
-        {
-            "schema_version": "recording-video/v1",
-            "recording_id": RECORDING_ID,
-            "relative_path": f"data/intake/recordings/{RECORDING_ID}/video.mov",
-            "video_sha256": "a" * 64,
-            "byte_length": 100,
-            "duration_us": 10_000_000,
-        },
-        {
-            "schema_version": "event-data/v1",
-            "events": [
-                {
-                    "event_id": "event-1",
-                    "event_type": "card_state_changed",
-                    "start_us": 10,
-                    "end_us": 20,
-                }
-            ],
-        },
-        {},
+    recording_json = (
+        app.state.recording_folder_store.recording_path(RECORDING_ID) / "recording.json"
     )
+    recording = json.loads(recording_json.read_text())
+    recording.setdefault("head", {}).setdefault("events", {})["generated"] = {
+        "set_id": "missing-event-set",
+        "version": "missing-version",
+    }
+    recording_json.write_text(json.dumps(recording, separators=(",", ":")))
     node_store.create(
         "unselected-visible-node",
         "Saved but unselected visible cards",
@@ -368,18 +352,6 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
         {"schema_version": "visible-card-data/v1", "outcomes": []},
         {},
     )
-    saved = client.put(
-        f"/api/recordings/{RECORDING_ID}/pipeline/events/selection",
-        json={
-            "expected_revision": 0,
-            "selected_generated": {
-                "node_id": "event-node",
-                "revision_id": revision.revision_id,
-            },
-        },
-    )
-    assert saved.status_code == 200
-
     # Keep scene types distinct and retain a saved but unselected valid choice.
     for content_type, node_id, revision_number in (
         ("virtual_scenes", "virtual-node", 1),
@@ -424,7 +396,10 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
     row = next(item for item in before.json()["recordings"] if item["recording_id"] == RECORDING_ID)
     by_type = {item["content_type"]: item for item in row["selections"]}
     assert by_type["events"]["state"] == "selected"
-    assert by_type["events"]["selected_generated"]["revision_id"] == revision.revision_id
+    assert by_type["events"]["selected_generated"] == {
+        "set_id": "missing-event-set",
+        "version": "missing-version",
+    }
     assert by_type["visible_cards"]["state"] == "not-selected"
     assert by_type["virtual_scenes"]["state"] == "selected"
     assert by_type["card_scene_proposals"]["state"] == "selected"
@@ -471,7 +446,13 @@ def test_metadata_list_reports_exact_selection_without_validating_resources(
     )
     pending = client.get("/v1/recordings").json()["recordings"]
     pending_row = next(item for item in pending if item["recording_id"] == RECORDING_ID)
-    assert {item["state"] for item in pending_row["selections"]} == {"unavailable"}
+    pending_selections = {item["content_type"]: item for item in pending_row["selections"]}
+    assert pending_selections["events"] == by_type["events"]
+    assert {
+        item["state"]
+        for content_type, item in pending_selections.items()
+        if content_type != "events"
+    } == {"unavailable"}
     with_pending_locator.unlink()
 
     restarted = TestClient(create_test_app(app.state.settings))

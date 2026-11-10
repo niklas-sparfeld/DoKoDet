@@ -309,10 +309,17 @@ describe("App", () => {
     );
     expect(fetchMock).toHaveBeenCalled();
     expect(pipelinePaths).toEqual([
-      `/api/recordings/${recordingId}/pipeline/lineage`,
       `/api/recordings/${recordingId}/pipeline?stage=events`,
       `/v1/recordings/${recordingId}`,
     ]);
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Show lineage" }));
+    await waitFor(() =>
+      expect(pipelinePaths).toContain(
+        `/api/recordings/${recordingId}/pipeline/lineage`,
+      ),
+    );
   });
 
   it("restores stage changes through browser history", async () => {

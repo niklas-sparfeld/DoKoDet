@@ -1,0 +1,17 @@
+{
+  "conversion_receipt_matches_after_normalizing_initial_head_flag": true,
+  "converted_recordings": 51,
+  "converted_versions": 283,
+  "output_parent_exceptions": 203,
+  "output_parent_report_matches": true,
+  "output_parents_mapped": 254,
+  "recording_json_digests_unchanged": true,
+  "recording_root_heads_unchanged": true,
+  "recording_roots_after": 58,
+  "recording_roots_before": 58,
+  "reviews": 4778,
+  "schema_version": "0124-event-corpus-replay-check/v1",
+  "snapshot_sha256": "fb60d5fcd6ed62bd55d40c9e84189578d244e7fba179de9ef611ac51f151d0a6",
+  "versions_after": 290,
+  "versions_before": 290
+}

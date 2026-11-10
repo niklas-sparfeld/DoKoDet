@@ -41,6 +41,7 @@ export type RecordingWorkspaceShellProps = {
   error: string | null;
   lineageGraph: PipelineLineageGraph | null;
   lineageGraphError: string | null;
+  onOpenLineage: () => void;
   onCopyNode: (
     column: Exclude<PipelineNavigationStepKey, "round_analyses">,
     nodeId: string,
@@ -74,6 +75,7 @@ export function RecordingWorkspaceShell({
   error,
   lineageGraph,
   lineageGraphError,
+  onOpenLineage,
   onCopyNode,
   onNavigate,
 }: RecordingWorkspaceShellProps) {
@@ -213,7 +215,10 @@ export function RecordingWorkspaceShell({
               aria-controls="pipeline-lineage-drawer"
               aria-expanded={lineageOpen}
               className={shellStyles.lineageToggle}
-              onClick={() => setLineageOpen((open) => !open)}
+              onClick={() => {
+                if (!lineageOpen) onOpenLineage();
+                setLineageOpen((open) => !open);
+              }}
               type="button"
             >
               {lineageOpen ? "Hide lineage" : "Show lineage"}

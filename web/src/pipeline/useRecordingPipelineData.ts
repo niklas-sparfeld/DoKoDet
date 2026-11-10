@@ -48,6 +48,7 @@ export function useRecordingPipelineData(
     error: string;
   } | null>(null);
   const [lineageRefresh, setLineageRefresh] = useState(0);
+  const lineageRequestedRef = useRef(false);
   const workspaceRequestRef = useRef(0);
   const workspaceOwner = useMemo(
     () => ({ recordingId, stageKey: stageKey ?? "events" }),
@@ -119,6 +120,8 @@ export function useRecordingPipelineData(
   }, [loadWorkspace, loadedStageKey, recordingId, stageKey, workspace]);
 
   useEffect(() => {
+    if (lineage === null && !lineageRequestedRef.current) return;
+    lineageRequestedRef.current = false;
     const selection = lineage === null ? null : decodeLineageSelection(lineage);
     const controller = new AbortController();
     void fetch(
@@ -170,10 +173,10 @@ export function useRecordingPipelineData(
     return () => controller.abort();
   }, [lineageRefresh, recordingId, lineage]);
 
-  const refreshLineage = useCallback(
-    () => setLineageRefresh((value) => value + 1),
-    [],
-  );
+  const refreshLineage = useCallback(() => {
+    lineageRequestedRef.current = true;
+    setLineageRefresh((value) => value + 1);
+  }, []);
   const lineageValidation =
     lineageValidationState?.recordingId === recordingId
       ? {
