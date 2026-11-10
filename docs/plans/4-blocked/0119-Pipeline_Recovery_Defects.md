@@ -99,7 +99,7 @@ The persisted service proof and recovery matrix are recorded in the [M1 evidence
   queued and other non-cancelled outcomes before counting could hide a conflicting same-phase
   child. The lookup now counts every child for the exact parent phase before selecting one.
   No inherited 0117 correction budget.
-- M1 accounting: 0/5 re-plannings; no correction turns used. Its real service test and matrix evidence are committed, but the required full suite has two baseline failures. The run remains at 1/2 milestones completed.
+- M1 accounting: 0/5 re-plannings; correction turn 1/2 now checks exact input revisions in each child request, saved result and run-stage record, and checks queue publication plus dispatch order. The real service proof and matrix evidence are committed, but the required full suite has two baseline failures. The run remains at 1/2 milestones completed.
 - Scope decision: keep the bounded local fix in existing authority. No new storage, transaction,
   processor contract, or stronger guarantee was added. Record the independent node-publication
   discrepancy in 0122; it is a dependency only because the specified M1 suite includes those tests.

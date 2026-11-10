@@ -306,10 +306,10 @@ def test_real_job_manager_and_run_store_complete_and_recover_cancellation(
     completed_run = _start_real_run(service, "recording-complete")
     cancelled_run = _start_real_run(service, "recording-cancelled")
     participant = AutomatedPipelineJobParticipant(service, SimpleNamespace())
-    participant._child_request = lambda _parent, definition, _inputs: {
+    participant._child_request = lambda _parent, definition, inputs: {
         "type": "fake",
         "context": {"recording_id": "recording"},
-        "request": {"input": f"stage:{definition.name}"},
+        "request": {"input": {"stage": definition.name, "revision_ids": list(inputs)}},
     }
     stages = (
         "event_proposals",
@@ -329,55 +329,84 @@ def test_real_job_manager_and_run_store_complete_and_recover_cancellation(
                 "request": {"run_id": completed_run["run_id"]},
             },
         )
+        published_child_order: list[str] = []
+        original_accept = manager.accept
+
+        def accept_and_check_queue(*args, **kwargs):
+            accepted = original_accept(*args, **kwargs)
+            if accepted.parent_id == parent.id:
+                group = next(item for item in manager.queue().groups if item.group_id == parent.id)
+                assert group.child_job_ids == [accepted.id]
+                assert manager.dispatchable() == [accepted.id]
+                published_child_order.append(accepted.id)
+            return accepted
+
+        manager.accept = accept_and_check_queue  # type: ignore[method-assign]
+        executed_stage_order: list[str] = []
 
         def handle(job: Job, _claims: Claims, token) -> None:
             if job.type == "automated_pipeline":
                 participant.handle(job, Claims(), token, manager)
                 return
+            stage_request = job.request["input"]
+            executed_stage_order.append(stage_request["stage"])
             current = manager.get(job.id)
             current.results = [
                 {
                     "kind": "pipeline_revision",
-                    "id": f"revision:{job.request['input']}:{job.id}",
+                    "id": f"revision:{stage_request['stage']}:{job.id}",
                     "digest": "d" * 64,
                     "available": True,
+                    "input_revision_ids": stage_request["revision_ids"],
                 }
             ]
             manager._write_job(current)
 
         with JobScheduler(manager, handle, lambda _job: Claims()):
             _wait_for(lambda: manager.get(parent.id).state in {"succeeded", "failed"})
-            assert manager.get(parent.id).state == "succeeded", manager.get(parent.id).model_dump()
+            assert manager.get(parent.id).state == "succeeded", (
+                f"failure={manager.get(parent.id).failure!r}",
+                manager.diagnostics,
+            )
 
         completed = AutomatedPipelineRunStore(run_root).get(completed_run["run_id"])
         assert completed["status"] == "complete"
         completed_rows = {row["name"]: row for row in completed["stages"]}
         children = [job for job in manager.list_jobs() if job.parent_id == parent.id]
-        assert [job.parent_step_id for job in children] == list(stages)
+        assert {job.parent_step_id for job in children} == set(stages)
+        assert len(children) == len(stages)
+        assert len(published_child_order) == len(stages)
+        assert executed_stage_order == list(stages)
+        assert [manager.get(job_id).parent_step_id for job_id in published_child_order] == list(
+            stages
+        )
         output_by_stage = {
             job.parent_step_id: job.results[0]["id"]
             for job in children
             if job.parent_step_id is not None
         }
+        expected_inputs = {
+            "event_proposals": [],
+            "visible_card_and_pile_proposals": [output_by_stage["event_proposals"]],
+            "card_scene_and_calibration": [output_by_stage["visible_card_and_pile_proposals"]],
+            "visual_identity_proposals": [output_by_stage["card_scene_and_calibration"]],
+            "table_observations": [
+                output_by_stage["event_proposals"],
+                output_by_stage["visible_card_and_pile_proposals"],
+                output_by_stage["visual_identity_proposals"],
+            ],
+            "reconstruction": [output_by_stage["table_observations"]],
+        }
         assert [completed_rows[name]["status"] for name in stages] == ["complete"] * 6
-        assert completed_rows["event_proposals"]["input_revision_ids"] == []
-        assert completed_rows["visible_card_and_pile_proposals"]["input_revision_ids"] == [
-            output_by_stage["event_proposals"]
-        ]
-        assert completed_rows["card_scene_and_calibration"]["input_revision_ids"] == [
-            output_by_stage["visible_card_and_pile_proposals"]
-        ]
-        assert completed_rows["visual_identity_proposals"]["input_revision_ids"] == [
-            output_by_stage["card_scene_and_calibration"]
-        ]
-        assert completed_rows["table_observations"]["input_revision_ids"] == [
-            output_by_stage["event_proposals"],
-            output_by_stage["visible_card_and_pile_proposals"],
-            output_by_stage["visual_identity_proposals"],
-        ]
-        assert completed_rows["reconstruction"]["input_revision_ids"] == [
-            output_by_stage["table_observations"]
-        ]
+        for child in children:
+            stage = child.parent_step_id
+            assert stage is not None
+            assert child.request["input"] == {
+                "stage": stage,
+                "revision_ids": expected_inputs[stage],
+            }
+            assert child.results[0]["input_revision_ids"] == expected_inputs[stage]
+            assert completed_rows[stage]["input_revision_ids"] == expected_inputs[stage]
 
         cancel_parent = manager.accept(
             str(uuid4()),
