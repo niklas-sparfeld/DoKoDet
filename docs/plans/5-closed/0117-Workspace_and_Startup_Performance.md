@@ -1,8 +1,24 @@
 # Recording HEAD and bounded pipeline reads
 
+## Supersession — 2026-11-10
+
+- **Closure reason:** Superseded.
+- **Closure note:** The user requested a bounded exit after repeated M6b1a corrections. This epic
+  did not deliver or qualify faster catalog or current-workspace reads. Its execution loop is
+  cancelled. Do not resume its handoff, correction budgets, or remaining milestones.
+- **Replacement:** [0119](../2-ready/0119-Pipeline_Recovery_Defects.md) repairs the known integrated
+  recovery defects. [0120](../4-blocked/0120-Recording_Catalog_Performance.md) delivers catalog
+  performance. [0121](../1-backlog/0121-Current_Workspace_Reads.md) owns the deferred workspace
+  boundary and disposition of unused recording-state infrastructure.
+- **Decision record:** [0117 exit decision](../../reports/0117-Supersession_and_Exit.md).
+
+The text below is the historical plan and last execution record. Its milestone states describe
+what was accepted at supersession. They do not authorize more implementation. M6b1a remains
+incomplete. No unfinished milestone becomes complete through this closure.
+
 ## Plan status
 
-- **Status:** In Progress
+- **Status:** Closed
 - **Depends on:** 0114 complete; [0115](../5-closed/0115-Data_Cleanup.md) M15 qualification and
   final storage map complete. Stabilize any remaining changes to node
   storage, transactions, and isolated storage before implementation. The separate
