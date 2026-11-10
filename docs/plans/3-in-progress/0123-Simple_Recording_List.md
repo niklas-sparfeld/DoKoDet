@@ -77,7 +77,7 @@ inspect this finite path; do not introduce a cache or writer-publication protoco
 | Milestone | Observable result and commit boundary | State |
 | --- | --- | --- |
 | M0 | Production metadata-only route and web rows; one persisted select/list/open/restart workflow | Complete |
-| M1 | Independent history-growth, invalid-metadata, and concurrent-selection checks; local latency qualification | Not started |
+| M1 | Independent history-growth, invalid-metadata, and concurrent-selection checks; local latency qualification | Complete |
 | M2 | Remove unused list-only proof/reconstruction code, complete affected checks, and close | Not started |
 
 ### M0 — Deliver the simple list
@@ -132,6 +132,22 @@ Checks: the finite closure matrix above and affected static checks. Commit: regr
 bounded fixes, frozen qualification evidence, and progress update. Qualification stays here; do not
 move it after extra prerequisite work. Record an unmet target if this approach fails.
 
+**State: Complete.** Six independent history families each grew from 10 to 100 entries. For one
+recording, list reads stayed at ten open attempts (three root metadata files, one locator, six
+selection files), three root metadata files read, one directory visit, and identical response
+bytes. A separate concurrent test ran 20 exact-selection updates with 30 list requests and kept
+pending transaction status unavailable across all six indicators. M0 corrupt metadata and
+selection cases passed again.
+
+The local corpus in the main worktree contains 58 recordings. Its three root metadata files per
+recording and all existing exact-selection files total 310 files and 214,150 bytes. The frozen
+digest is `834c532851e12f44087044839ed7ca66c9bd2d6606d9181f7939f55d1e762ed8`. Across three
+uncontended sessions, fresh-process API medians were 20.887, 21.232, and 20.624 ms; warm API
+medians were 17.015, 17.442, and 17.341 ms; browser list medians were 204.855, 200.728, and
+211.080 ms. Each session used ten fresh API processes, 30 warm requests, and ten fresh Chromium
+contexts. Browser requests omitted thumbnails; lazy thumbnail work remains a separate measurement.
+See the [M1 local corpus qualification](../../reports/0123-M1_Local_Corpus_Qualification.md).
+
 ### M2 — Remove replaced list code and close
 
 Inventory callers of list-proof helpers and the experimental list flag. Remove only unused
@@ -143,23 +159,38 @@ scoped removal and closure evidence. Update this decision's active links when mo
 
 ## Execution handoff
 
-M0 complete. Baseline: 3 milestones, 2 remain; 1 complete. First complete API/browser workflow:
-proved in M0 with persisted selection, browser navigation, and backend restart. Qualification:
-M1, not started. New persistent contracts/source writers: zero. Source owners changed: backend
-`recordings_api.py`; web `recordings.tsx`, `recordingContracts.ts`, generated `openapi.ts`, and
-direct tests. Existing selection files and transaction locator remain the authority. The old
-history-growth fixture was replaced because it asserted the list contract that M0 removed; the
-independent history growth and latency qualification remain scheduled for M1.
+M0 and M1 complete. Baseline: 3 milestones, 1 remains; 2 complete. First complete API/browser
+workflow: proved in M0 with persisted selection, browser navigation, and backend restart. M1
+proved independent history growth, invalid metadata, concurrent selection reads, and sub-second
+fresh-process, warm, and browser list medians on the frozen 58-recording local corpus. New
+persistent contracts/source writers: zero. Source owners changed for this milestone: the growth
+contract tests and the existing browser performance runner, which now records list endpoint
+timings. Existing selection files and transaction locator remain the authority. M0's removed
+history-growth contract remains replaced by the independent six-family read-boundary check.
 
-Run 1 of 3 authorized milestones: M0 complete; 2 run slots remain; 0 re-plannings; 2 corrections of
-2 allowed. Correction 1 rejects zero and negative selection revisions, matching
+Run 2 of 3 authorized milestones: M0 and M1 complete; 1 run slot remains; 0 re-plannings; M0's
+correction family remains exhausted at 2/2; M1 corrections 0/2. Correction 1 rejects zero and
+negative selection revisions, matching
 `PipelineNodeSelectionStore`'s positive-revision rule. Correction 2 restores the valid revision-1
 saved-but-unselected case, and tests revision zero and a negative revision on separate content
 types. It retains the corrupt selection-file check. Focused backend tests and Ruff pass after this
-correction. No scope change. No performance or broad history-growth claim is made. The M0
-correction allowance is exhausted; apply scope review before any further M0 correction. Next: M1's
-independent history-growth, invalid-metadata, concurrent-selection, and local latency checks. Stop
-if those checks require a new authority, writer protocol, cache, or move of the qualification target.
+correction. No scope change. M0's correction allowance is exhausted; its scope review is recorded
+above.
+
+M1 evidence: six history families each grew 10x without changing file opens, bytes, directory
+visits, or response bytes. Invalid root and selection metadata cases passed. Concurrent list reads
+observed only current exact pointers, no selection, or unavailable while the locator was pending.
+The 58-recording local corpus passed fresh-process API, warm API, and actual browser list timing in
+three sessions. Detailed corpus digest and timings are in the linked report. M1 corrections 0/2;
+re-plannings 0; no scope change. Next: M2 removes only unused list code, reruns affected checks, and
+closes. Stop if cleanup changes an active reader or any closure check fails.
+
+Scope review after M0 correction exhaustion: the real list, navigation, and restart workflow now
+works. The failed requirement was local selection metadata validation and preservation of its
+saved-but-unselected regression. Both are fixed and reviewed. Keep the existing direct-read
+approach; no prerequisite or scope was added. M1 must prove the independent read boundary,
+concurrent selection behavior, and local latency; M2 removes only unused list code and closes.
+Stop if qualification fails or requires a new authority, writer protocol, cache, or displacement.
 
 The 0120 ledger approach is superseded, not accepted. Its M3 correction history remains exhausted
 at 2/2; M9 never started. This materially smaller approach changes the list semantics and removes

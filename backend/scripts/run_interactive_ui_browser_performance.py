@@ -323,6 +323,9 @@ def main() -> int:
         web: subprocess.Popen[bytes] | None = None
         playwright_result: subprocess.CompletedProcess[bytes] | None = None
         backend_startup_samples_ns: list[int] = []
+        recording_list_fresh_process_samples_ns: list[int] = []
+        recording_list_response_bytes: list[int] = []
+        recording_list_warm_samples_ns: list[int] = []
         with backend_log.open("wb") as backend_output, web_log.open("wb") as web_output:
             try:
                 for trial in range(STARTUP_SAMPLES):
@@ -351,14 +354,19 @@ def main() -> int:
                     ready_status, _ = _wait(f"{api_url}/health/ready", args.timeout)
                     if ready_status != 200:
                         raise RuntimeError(f"backend readiness probe returned HTTP {ready_status}")
+                    list_started = time.perf_counter_ns()
                     recordings_status, recordings_body = _wait(
                         f"{api_url}/v1/recordings", args.timeout
+                    )
+                    recording_list_fresh_process_samples_ns.append(
+                        time.perf_counter_ns() - list_started
                     )
                     if recordings_status != 200:
                         raise RuntimeError(
                             f"backend recordings probe returned HTTP {recordings_status}"
                         )
                     recordings = json.loads(recordings_body)["recordings"]
+                    recording_list_response_bytes.append(len(recordings_body))
                     if not any(row["recording_id"] == RECORDING_ID for row in recordings):
                         raise RuntimeError(
                             "the exact generated fixture is missing from the live catalog"
@@ -382,6 +390,18 @@ def main() -> int:
                 backend_startup_p90 = backend_startup_sorted[
                     max(0, int(0.9 * STARTUP_SAMPLES + 0.999999) - 1)
                 ]
+
+                for _ in range(30):
+                    list_started = time.perf_counter_ns()
+                    recordings_status, recordings_body = _wait(
+                        f"{api_url}/v1/recordings", args.timeout
+                    )
+                    if recordings_status != 200:
+                        raise RuntimeError(
+                            f"warm recordings request returned HTTP {recordings_status}"
+                        )
+                    recording_list_warm_samples_ns.append(time.perf_counter_ns() - list_started)
+                    recording_list_response_bytes.append(len(recordings_body))
 
                 web_started = time.perf_counter_ns()
                 web_environment = environment.copy()
@@ -503,6 +523,16 @@ def main() -> int:
                     ),
                     "backend_to_recordings_and_workspace_p90": backend_startup_p90,
                     "web_to_http_200": web_startup_ns,
+                },
+                "recording_list_qualification": {
+                    "fresh_process_samples_ns": recording_list_fresh_process_samples_ns,
+                    "fresh_process_median_ns": statistics.median(
+                        recording_list_fresh_process_samples_ns
+                    ),
+                    "warm_samples_ns": recording_list_warm_samples_ns,
+                    "warm_median_ns": statistics.median(recording_list_warm_samples_ns),
+                    "response_bytes": recording_list_response_bytes,
+                    "response_byte_count": len(set(recording_list_response_bytes)),
                 },
                 "process_cleanup": (
                     "SIGTERM then SIGKILL after finite wait; both process groups exited"
