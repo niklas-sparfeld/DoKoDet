@@ -84,7 +84,7 @@ checks. Retain 0123's bounded list checks. No model-quality claim is required fo
 | --- | --- | --- |
 | M0 | Concrete detection-set storage; real API save/open of exact frame/object/segment evidence | Complete |
 | M1 | Existing detector and browser segment editor/review use the same contract; restart proof | Complete |
-| M2 | Convert exact-input consumers and calibration reflow writer; preserve comparison and frame-review access | Complete |
+| M2 | Convert exact-input consumers and calibration reflow writer; preserve comparison and frame-review access | Incomplete |
 | M3 | Retained-data rehearsal, default detection cutover, replaced-path removal, and qualification | Not started |
 
 ### Assignment preparation
@@ -183,8 +183,8 @@ new persistent transaction or an unbounded set of adapters, stop for scope revie
 
 ## Execution handoff
 
-Luna loop authorized for four milestones. Baseline: 4; completed: 3; remaining: 1. This run:
-requested 4, completed 3, remaining 1. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
+Luna loop authorized for four milestones. Baseline: 4; accepted: 2; remaining: 2. This run:
+requested 4, accepted 2, remaining 2; stopped at the M2 correction limit. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
 2/2. Correction 1 added a process-exit publication test and rejected self-intersecting polygons.
 Correction 2 aligned persistence with the required frame/detection/segment folder paths and added
 path-level reopen coverage. M1 re-plans: 0/5; M1 corrections: 2/2. Correction 1 constrains each
@@ -282,7 +282,7 @@ a recording-folder adapter to the production detection-set store; the apply regr
 edited output through a new store instance. The first complete workflow remains the M1
 browser proof. M3 retains the planned migration rehearsal, selection cutover, old-path removal, and
 qualification. No new prerequisite or scope change was needed. M2 corrections: 2/2; M2 re-plans:
-0/5; run re-plans: 0/10. Next milestone: M3.
+0/5; run re-plans: 0/10. M2 remains incomplete; M3 has not started.
 
 M2 checks and evidence are recorded in the [M2 report](../../reports/0125-M2_Exact_Detection_Set_Consumers.md).
 
@@ -307,3 +307,23 @@ workflow passed after this correction.
 Backend and operations Ruff checks passed. `cd web && npm run generate:api`, `cd web && npm run
 check` (46 files, 243 tests), and `cd web && npm run test:e2e:detection-set` (one real-backend
 workflow) passed. Local links and `git diff --check` passed.
+
+## M2 scope review and run stop
+
+M2 is not accepted after two correction turns. The first review found that calibration used a
+legacy input and comparison inferred review. The first correction fixed comparison, but the next
+review found that calibration apply still calculated from the legacy input. The second correction
+made apply use the saved detection set. The final review found that the actual preview job still
+loads legacy proposal scenes: `calculation_jobs.py` calls `_frame_scenes` and the job request has
+no detection-set reference. Apply recalculates using the selected set, so the shown impact and
+preview digest can disagree with apply. The new apply test constructs the digest directly and does
+not prove the preview-job-to-apply workflow. See the [M2 report](../../reports/0125-M2_Exact_Detection_Set_Consumers.md).
+
+The M1 detector/edit/reopen workflow is proved. M2 has delivered partial exact-input adapters,
+but its calibration workflow remains unproved. M3 cutover and qualification remain outstanding.
+The smallest apparent fix is to carry the exact saved reference through the existing preview job
+and verify the real preview-to-apply path, including changed geometry, draft decisions and
+restart. This is the same unfinished approach, not a materially different approach that resets
+the correction allowance. The run therefore stops at M2 corrections 2/2. An explicit additional
+correction authorization is required before another attempt; a new run alone does not reset it.
+No new authority is justified. M2 re-plans 0/5; run re-plans 0/10.

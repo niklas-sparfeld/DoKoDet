@@ -1,5 +1,11 @@
 # 0125 M2: Exact detection-set consumers
 
+## Review status
+
+M2 is incomplete after two corrections. The actual calibration preview job still uses legacy
+proposal scenes, while apply uses the selected detection set. The direct apply test does not prove
+the real preview-job-to-apply path. See the epic execution handoff for the scope decision.
+
 ## Result
 
 M2 converts the named consumers to accept exact saved detection-set versions. Scene proposals,
