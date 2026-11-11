@@ -102,6 +102,8 @@ class PipelineNodeSelectionStore:
         selected_completed_reference: Mapping[str, str] | None,
     ) -> ExactNodeSelection:
         """Update exact graph pointers through the durable coordinated transaction journal."""
+        if content_type == "events":
+            raise ValueError("event selection is owned by recording HEAD")
         update = {
             "recording_id": recording_id,
             "content_type": content_type,

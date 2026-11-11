@@ -40,32 +40,53 @@ function stage(
     processor_type: `${key}-processor`,
     output_content_type: key,
     state: "complete",
-    input_options: [
-      {
-        node_id: "node-reference-1",
-        node_revision_id: "node-revision-reference-1",
-        is_current_head: true,
-        content_type: key === "events" ? "events" : key,
-        origin: "manual",
-        completion_state: "complete",
-        coverage_state: "complete",
-        display_label: "Reviewed reference",
-        content_sha256: "a".repeat(64),
-        input_revision_ids: [],
-        producer: {},
-        coverage: {},
-        created_at: "2026-09-06T10:00:00Z",
-      },
-    ],
+    input_options:
+      key === "events"
+        ? []
+        : [
+            {
+              node_id: "node-reference-1",
+              node_revision_id: "node-revision-reference-1",
+              is_current_head: true,
+              content_type: key,
+              origin: "manual",
+              completion_state: "complete",
+              coverage_state: "complete",
+              display_label: "Reviewed reference",
+              content_sha256: "a".repeat(64),
+              input_revision_ids: [],
+              producer: {},
+              coverage: {},
+              created_at: "2026-09-06T10:00:00Z",
+            },
+          ],
     selection_revision: 1,
     selected_generated: {
       node_id: "node-run-new-output",
       revision_id: "node-revision-run-new-output",
     },
-    selected_completed_reference: {
-      node_id: "node-reference-1",
-      revision_id: "node-revision-reference-1",
-    },
+    selected_completed_reference:
+      key === "events"
+        ? null
+        : {
+            node_id: "node-reference-1",
+            revision_id: "node-revision-reference-1",
+          },
+    selected_event_set_reference:
+      key === "events" ? { set_id: "reviewed-events", version: "1" } : null,
+    event_selection_authority: key === "events" ? "recording-head" : null,
+    event_set_options:
+      key === "events"
+        ? [
+            {
+              set_id: "reviewed-events",
+              version: "1",
+              content_sha256: "a".repeat(64),
+              origin: "manual",
+              display_label: "Reviewed events",
+            },
+          ]
+        : [],
     runs,
     analyses: [],
     compatible_input_sets: [],
@@ -131,10 +152,19 @@ function comparison(
     content_type: contentType,
     mode,
     algorithm_version: "pipeline-comparison.v2",
-    left: side("run-new", "run-new-output"),
-    right: side("run-old", "run-old-output"),
+    left: side("run-new", "run-new-output", contentType),
+    right: side("run-old", "run-old-output", contentType),
     reference: {
-      revision_id: "node-revision-reference-1",
+      revision_id:
+        contentType === "events" ? null : "node-revision-reference-1",
+      event_set_ref:
+        contentType === "events"
+          ? {
+              set_id: "reviewed-events",
+              version: "1",
+              content_sha256: "a".repeat(64),
+            }
+          : null,
       input_revision_ids: ["input-1"],
       content_sha256: "a".repeat(64),
       origin: "manual",
@@ -199,10 +229,19 @@ function comparison(
 function side(
   runId: string,
   revisionId: string,
+  contentType: PipelineComparisonResponse["content_type"],
 ): PipelineComparisonResponse["left"] {
   return {
     run_id: runId,
-    revision_id: revisionId,
+    revision_id: contentType === "events" ? null : revisionId,
+    event_set_ref:
+      contentType === "events"
+        ? {
+            set_id: `run-${runId}`,
+            version: "1",
+            content_sha256: "b".repeat(64),
+          }
+        : null,
     status: "complete",
     input_revision_ids: ["input-1"],
     content_sha256: "b".repeat(64),
@@ -468,5 +507,30 @@ describe("ComparisonView", () => {
         screen.getByRole("combobox", { name: "Left terminal run" }),
       ).toHaveValue("run-new"),
     );
+  });
+
+  it("sends an exact event-set reference for event comparison", async () => {
+    const response = comparison("events");
+    const fetchMock = vi.fn<typeof fetch>((input, init) =>
+      Promise.resolve(comparisonFetchResponse(input, init, response)),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Harness stageValue={stage("events")} />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const post = fetchMock.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(post).toBeDefined();
+    const request = JSON.parse(String(post?.[1]?.body)) as {
+      reference_revision_id: string | null;
+      reference_event_set_ref: Record<string, string> | null;
+    };
+    expect(request.reference_revision_id).toBeNull();
+    expect(request.reference_event_set_ref).toEqual({
+      set_id: "reviewed-events",
+      version: "1",
+      content_sha256: "a".repeat(64),
+    });
   });
 });

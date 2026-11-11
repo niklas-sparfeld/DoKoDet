@@ -39,6 +39,14 @@ class PipelineComparisonMatchingPolicyRequest(ContractModel):
     derived_box_policy: Literal["bounding_box"] | None = None
 
 
+class PipelineComparisonEventSetRef(ContractModel):
+    """Exact event-set identity used by event comparisons."""
+
+    set_id: str = Field(min_length=1, max_length=128)
+    version: str = Field(min_length=1, max_length=128)
+    content_sha256: Sha256
+
+
 class PipelineComparisonRequest(ContractModel):
     """The strict request for one on-demand comparison."""
 
@@ -47,7 +55,8 @@ class PipelineComparisonRequest(ContractModel):
     content_type: Literal["events", "visible_cards", "visual_identities"]
     left_run_id: str = Field(min_length=1, max_length=128)
     right_run_id: str = Field(min_length=1, max_length=128)
-    reference_revision_id: str = Field(min_length=1, max_length=128)
+    reference_revision_id: str | None = Field(default=None, min_length=1, max_length=128)
+    reference_event_set_ref: PipelineComparisonEventSetRef | None = None
     matching_policy: PipelineComparisonMatchingPolicyRequest
 
 
@@ -106,7 +115,8 @@ class PipelineComparisonSideResponse(ContractModel):
     """Exact run and output revision facts used by one comparison side."""
 
     run_id: str
-    revision_id: str
+    revision_id: str | None
+    event_set_ref: PipelineComparisonEventSetRef | None
     status: Literal["complete", "partial"]
     input_revision_ids: list[str]
     content_sha256: Sha256
@@ -120,7 +130,8 @@ class PipelineComparisonSideResponse(ContractModel):
 class PipelineComparisonReferenceResponse(ContractModel):
     """Exact completed reference revision facts used by a comparison."""
 
-    revision_id: str
+    revision_id: str | None
+    event_set_ref: PipelineComparisonEventSetRef | None
     input_revision_ids: list[str]
     content_sha256: Sha256
     origin: Literal["manual", "corrected"]

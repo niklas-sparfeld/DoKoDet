@@ -566,6 +566,10 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
         validate_lineage: bool = True,
     ) -> None:
         if not state.output_revision_ids:
+            if state.status == "complete" and request.processor_type != "event-detection":
+                raise PipelineStateError(
+                    "a complete non-event processor run requires an output revision"
+                )
             return
         for revision_id in state.output_revision_ids:
             revision = self._get_output_revision(

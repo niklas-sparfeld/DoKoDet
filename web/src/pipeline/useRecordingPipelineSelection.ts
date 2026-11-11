@@ -105,7 +105,12 @@ export function useRecordingPipelineSelection({
 
   const selectGeneratedRevision = useCallback(
     async (nextRevisionId: string | null): Promise<void> => {
-      if (stage === undefined || stage.key === "round_analyses") return;
+      if (
+        stage === undefined ||
+        stage.key === "round_analyses" ||
+        stage.key === "events"
+      )
+        return;
       const requestId = ++requestIdRef.current;
       const ownsRequest = () =>
         recordingOwnerRef.current === recordingOwner &&

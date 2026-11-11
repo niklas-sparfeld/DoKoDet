@@ -80,11 +80,25 @@ def _execute(operation):
         raise ContractError("pipeline_node_edit_failed", str(error), status_code=422) from error
 
 
+def _require_non_event_node(store, node_id: str) -> None:
+    try:
+        node = store.get(node_id)
+    except (KeyError, ValueError, OSError) as error:
+        raise ContractError("pipeline_node_not_found", str(error), status_code=404) from error
+    if node.content_type == "events":
+        raise ContractError(
+            "pipeline_node_not_found",
+            "Event content is available through event sets.",
+            status_code=404,
+        )
+
+
 @router.post("/{node_id}/edit")
 def edit_pipeline_node(
     node_id: str, body: PipelineNodeEditRequest, request: Request
 ) -> dict[str, Any]:
     """Save the first changed content, copying automatically when accepted use protects it."""
+    _require_non_event_node(request.app.state.pipeline_node_edits.store, node_id)
     result = _execute(
         lambda: request.app.state.pipeline_node_edits.edit(
             node_id,
@@ -107,6 +121,12 @@ def get_pipeline_node_revision(node_id: str, revision_id: str, request: Request)
     """Return the immutable content and metadata for one exact node revision."""
     try:
         node = request.app.state.pipeline_node_edits.store.get(node_id)
+        if node.content_type == "events":
+            raise ContractError(
+                "pipeline_node_not_found",
+                "Event content is available through event sets.",
+                status_code=404,
+            )
         revision = request.app.state.pipeline_node_edits.store.read_authorized_revision(
             node_id, revision_id
         )
@@ -130,6 +150,7 @@ def get_pipeline_node_revision(node_id: str, revision_id: str, request: Request)
 def review_pipeline_node_item(
     node_id: str, body: PipelineNodeItemReviewRequest, request: Request
 ) -> dict[str, Any]:
+    _require_non_event_node(request.app.state.pipeline_node_reviews.store, node_id)
     return _execute(
         lambda: request.app.state.pipeline_node_reviews.item(
             body.review_id,
@@ -148,6 +169,7 @@ def review_pipeline_node_item(
 def review_pipeline_node_coverage(
     node_id: str, body: PipelineNodeCoverageReviewRequest, request: Request
 ) -> dict[str, Any]:
+    _require_non_event_node(request.app.state.pipeline_node_reviews.store, node_id)
     return _execute(
         lambda: request.app.state.pipeline_node_reviews.coverage(
             body.review_id,
@@ -165,6 +187,7 @@ def review_pipeline_node_coverage(
 def review_pipeline_node_overall(
     node_id: str, body: PipelineNodeOverallReviewRequest, request: Request
 ) -> dict[str, Any]:
+    _require_non_event_node(request.app.state.pipeline_node_reviews.store, node_id)
     return _execute(
         lambda: request.app.state.pipeline_node_reviews.overall(
             body.review_id,
@@ -183,6 +206,7 @@ def list_pipeline_node_reviews(
     node_id: str, revision_id: str, request: Request
 ) -> list[dict[str, Any]]:
     try:
+        _require_non_event_node(request.app.state.pipeline_node_reviews.store, node_id)
         return list(request.app.state.pipeline_node_reviews.list_for_revision(node_id, revision_id))
     except (KeyError, ValueError, OSError) as error:
         raise ContractError(
@@ -195,6 +219,7 @@ def copy_pipeline_node(
     node_id: str, body: PipelineNodeCopyRequest, request: Request
 ) -> dict[str, Any]:
     """Create an explicitly requested copy of an exact saved revision."""
+    _require_non_event_node(request.app.state.pipeline_node_edits.store, node_id)
     result = _execute(
         lambda: request.app.state.pipeline_node_edits.copy(
             node_id,
@@ -213,6 +238,7 @@ def restore_pipeline_node(
     node_id: str, body: PipelineNodeRestoreRequest, request: Request
 ) -> dict[str, Any]:
     """Restore a historical revision through the same protected edit transaction."""
+    _require_non_event_node(request.app.state.pipeline_node_edits.store, node_id)
     return _execute(
         lambda: request.app.state.pipeline_node_edits.restore(
             node_id,

@@ -2377,6 +2377,18 @@ export interface components {
             recall: number | null;
         };
         /**
+         * PipelineComparisonEventSetRef
+         * @description Exact event-set identity used by event comparisons.
+         */
+        PipelineComparisonEventSetRef: {
+            /** Content Sha256 */
+            content_sha256: string;
+            /** Set Id */
+            set_id: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * PipelineComparisonIntervalResponse
          * @description One normalized event coverage interval.
          */
@@ -2510,6 +2522,7 @@ export interface components {
         PipelineComparisonReferenceResponse: {
             /** Content Sha256 */
             content_sha256: string;
+            event_set_ref: components["schemas"]["PipelineComparisonEventSetRef"] | null;
             /** Input Revision Ids */
             input_revision_ids: string[];
             /**
@@ -2518,7 +2531,7 @@ export interface components {
              */
             origin: "manual" | "corrected";
             /** Revision Id */
-            revision_id: string;
+            revision_id: string | null;
         };
         /**
          * PipelineComparisonRequest
@@ -2535,8 +2548,9 @@ export interface components {
             matching_policy: components["schemas"]["PipelineComparisonMatchingPolicyRequest"];
             /** Recording Id */
             recording_id: string;
+            reference_event_set_ref?: components["schemas"]["PipelineComparisonEventSetRef"] | null;
             /** Reference Revision Id */
-            reference_revision_id: string;
+            reference_revision_id?: string | null;
             /** Right Run Id */
             right_run_id: string;
             /**
@@ -2629,6 +2643,7 @@ export interface components {
             };
             /** Content Sha256 */
             content_sha256: string;
+            event_set_ref: components["schemas"]["PipelineComparisonEventSetRef"] | null;
             /** Extraction Policy */
             extraction_policy: {
                 [key: string]: unknown;
@@ -2648,7 +2663,7 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /** Revision Id */
-            revision_id: string;
+            revision_id: string | null;
             /** Run Id */
             run_id: string;
             /**
@@ -3164,6 +3179,25 @@ export interface components {
             revision_id?: string | null;
         };
         /**
+         * PipelineWorkspaceEventSetComparisonOptionResponse
+         * @description One reviewed event set that can serve as a comparison reference.
+         */
+        PipelineWorkspaceEventSetComparisonOptionResponse: {
+            /** Content Sha256 */
+            content_sha256: string;
+            /** Display Label */
+            display_label: string;
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "manual" | "corrected";
+            /** Set Id */
+            set_id: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * PipelineWorkspaceEventSetCompatibleInputSetResponse
          * @description One compatible set with an exact event-set input.
          */
@@ -3391,7 +3425,9 @@ export interface components {
             /** Compatible Input Sets */
             compatible_input_sets: (components["schemas"]["PipelineWorkspaceEventSetCompatibleInputSetResponse"] | components["schemas"]["PipelineWorkspaceCompatibleInputSetResponse"])[];
             /** Event Selection Authority */
-            event_selection_authority?: ("recording-head" | "pipeline-node") | null;
+            event_selection_authority?: "recording-head" | null;
+            /** Event Set Options */
+            event_set_options?: components["schemas"]["PipelineWorkspaceEventSetComparisonOptionResponse"][];
             /** Input Options */
             input_options: components["schemas"]["PipelineWorkspaceInputOptionResponse"][];
             /**

@@ -18,13 +18,9 @@ from typing import Any, Protocol
 
 from doko_operations.pipeline_data import (
     CARD_STATE_CHANGED_EVENT_TYPE,
-    DataRevision,
     EventData,
-    EventDataRevision,
     ImplementationIdentity,
-    ImportProducer,
     ModelIdentity,
-    ProcessorProducer,
     ProcessorRunRequest,
     RecordingVideoSource,
     RunFailure,
@@ -40,22 +36,12 @@ from dokodetector_backend.filesystem import atomic_replace_json
 from dokodetector_backend.intake_contract import parse_proposal_generator_run
 from dokodetector_backend.job_models import Job, JobCancelled
 from dokodetector_backend.job_store import JobManager
-from dokodetector_backend.pipeline_node_selection_store import (
-    ExactNodeSelection,
-    PipelineNodeSelectionStore,
-)
-from dokodetector_backend.pipeline_revision_store import StoredPipelineRevision
 from dokodetector_backend.pipeline_service_errors import (
     PipelineInputError,
     PipelineProviderError,
     PipelineServiceError,
 )
-from dokodetector_backend.pipeline_storage import (
-    PipelineNotFound,
-    PipelineRuntimeStorage,
-    PipelineSelectionConflict,
-    PipelineStateError,
-)
+from dokodetector_backend.pipeline_storage import PipelineNotFound, PipelineRuntimeStorage
 from dokodetector_backend.processor_run_models import StoredProcessorRun
 from dokodetector_backend.processor_run_store import ProcessorRunStore
 from dokodetector_backend.recording_bundle_store import (
@@ -305,7 +291,6 @@ class EventPipelineService:
         *,
         event_provider: EventProcessorProvider | None = None,
         run_store: ProcessorRunStore,
-        selection_store: PipelineNodeSelectionStore,
         recording_folder_store: RecordingFolderStore | None = None,
         event_set_store: EventSetStore | None = None,
     ) -> None:
@@ -316,11 +301,6 @@ class EventPipelineService:
         self.repository_storage = repository_storage
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.run_store = run_store
-        if run_store.lineage_writer is None:
-            raise ValueError("event pipeline requires a lineage-backed run store")
-        if selection_store.lineage_writer is not run_store.lineage_writer:
-            raise ValueError("event pipeline selection store must share the run lineage writer")
-        self.selection_store = selection_store
         self.event_provider = event_provider or CardEventFileProvider(
             settings.repository_root,
             settings.evidence_root if settings.storage_root is not None else None,
@@ -427,68 +407,39 @@ class EventPipelineService:
             run for run in self.run_store.list() if run.request.source.recording_id == recording_id
         )
 
-    def get_result(
-        self, recording_id: str, run_id: str
-    ) -> tuple[StoredProcessorRun, tuple[StoredPipelineRevision, ...]]:
-        run = self.get_run(recording_id, run_id)
-        revisions = tuple(
-            self.selection_store.require_processor_revision(item)
-            for item in run.state.output_revision_ids
-        )
-        return run, revisions
+    def get_result(self, recording_id: str, run_id: str) -> tuple[StoredProcessorRun, tuple[()]]:
+        """Return event-run status; event content is read from the event-set store."""
+        return self.get_run(recording_id, run_id), ()
 
     def select_generated(
         self,
         recording_id: str,
         payload: Mapping[str, Any],
-    ) -> ExactNodeSelection | dict[str, Any]:
-        if self._uses_event_set_selection(recording_id):
-            expected_version = payload.get("expected_recording_version")
-            selected = payload.get("selected_generated")
-            if isinstance(expected_version, bool) or not isinstance(expected_version, int):
-                raise PipelineInputError("expected_recording_version must be a positive integer.")
-            if selected is not None and not isinstance(selected, Mapping):
-                raise PipelineInputError(
-                    "selected_generated must be an event-set reference or null."
-                )
-            try:
-                updated = self.event_set_store.select(
-                    recording_id,
-                    choice="generated",
-                    reference=None if selected is None else dict(selected),
-                    expected_version=expected_version,
-                )
-                selection = self.event_set_store.get_selection(recording_id)
-                return {
-                    "schema_version": "event-set-selection/v1",
-                    "recording_id": recording_id,
-                    "revision": updated["recording_version"],
-                    "selected_generated": None if selection is None else selection["generated"],
-                    "selected_completed_reference": (
-                        None if selection is None else selection["reference"]
-                    ),
-                }
-            except ValueError as error:
-                raise PipelineInputError(str(error)) from error
-        expected_revision = payload.get("expected_revision")
+    ) -> dict[str, Any]:
+        expected_version = payload.get("expected_recording_version")
         selected = payload.get("selected_generated")
-        if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
-            raise PipelineInputError("expected_revision must be a non-negative integer.")
+        if isinstance(expected_version, bool) or not isinstance(expected_version, int):
+            raise PipelineInputError("expected_recording_version must be a positive integer.")
         if selected is not None and not isinstance(selected, Mapping):
-            raise PipelineInputError("selected_generated must be a node revision pointer or null.")
-        current = self.selection_store.get_exact(recording_id, "events")
-        completed = None if current is None else current.selected_completed_reference
+            raise PipelineInputError("selected_generated must be an event-set reference or null.")
         try:
-            return self.selection_store.update_exact(
+            updated = self.event_set_store.select(
                 recording_id,
-                "events",
-                expected_revision=expected_revision,
-                selected_generated=selected,
-                selected_completed_reference=completed,
+                choice="generated",
+                reference=None if selected is None else dict(selected),
+                expected_version=expected_version,
             )
-        except PipelineSelectionConflict:
-            raise
-        except (PipelineNotFound, PipelineStateError, ValueError, FileNotFoundError) as error:
+            selection = self.event_set_store.get_selection(recording_id)
+            return {
+                "schema_version": "event-set-selection/v1",
+                "recording_id": recording_id,
+                "revision": updated["recording_version"],
+                "selected_generated": None if selection is None else selection["generated"],
+                "selected_completed_reference": (
+                    None if selection is None else selection["reference"]
+                ),
+            }
+        except ValueError as error:
             raise PipelineInputError(str(error)) from error
 
     def _build_request(
@@ -697,17 +648,22 @@ class EventPipelineService:
 
     def verify_job_publication(self, job: Job, results: list[dict[str, Any]]) -> bool:
         try:
-            if len(results) != 1 or results[0].get("kind") != "pipeline_revision":
+            if results:
                 return False
-            revision = self.selection_store.require_processor_revision(results[0]["id"])
             use = json.loads(self._event_use_path(job.id).read_text(encoding="utf-8"))
             run = self.run_store.require(use["run_id"])
+            event_set = self.event_set_store.get(
+                run.request.source.recording_id,
+                f"run-{run.run_id}",
+                "1",
+            )
             return (
                 run.state.status == "complete"
-                and run.state.output_revision_ids == (revision.manifest.revision_id,)
-                and results[0].get("digest") == revision.manifest.content_sha256
+                and run.state.output_revision_ids == ()
+                and event_set is not None
+                and event_set["provenance"].get("source", {}).get("run_id") == run.run_id
             )
-        except (KeyError, TypeError, ValueError, PipelineServiceError):
+        except (KeyError, TypeError, ValueError, PipelineServiceError, AttributeError):
             return False
 
     def reconcile_job_states(self, jobs: Sequence[Job]) -> int:
@@ -763,60 +719,28 @@ class EventPipelineService:
             self.run_store.update_progress(run_id, progress=progress, items=items)
             manager.report_progress(
                 job_id,
-                phase="Publish event revision",
+                phase="Publish event set",
                 completed=0,
                 total=1,
-                unit="revisions",
+                unit="event sets",
             )
 
             def publish_domain_result() -> None:
-                if job.request["mode"] == "inference":
-                    revision = self._publish_processor_revision(run, content)
-                else:
-                    artifact = job.request["artifact"]
-                    producer = ImportProducer(
-                        run_id=run_id,
-                        artifact_id=artifact["id"],
-                        artifact_sha256=artifact["sha256"],
-                        source_schema="proposal-generator-run/v1",
-                        model_id=artifact["model_id"],
-                    )
-                    revision = _build_revision(
-                        run.request,
-                        content,
-                        _revision_id(run, suffix="import"),
-                        producer,
-                    )
-                    revision, _ = self.selection_store.publish_processor_revision(
-                        revision.manifest, revision.content
-                    )
-                self._save_event_set(run, revision.content)
-                self.run_store.complete(
-                    run_id,
-                    [revision.manifest.revision_id],
-                    metrics=metrics,
-                    progress=progress,
-                    items=items,
+                import_artifact = job.request.get("artifact")
+                self._save_event_set(
+                    run,
+                    content,
+                    import_artifact=(
+                        import_artifact if isinstance(import_artifact, Mapping) else None
+                    ),
                 )
-                self._advance_generated_selection(
-                    run.request.source.recording_id,
-                    revision.manifest.revision_id,
-                )
+                self.run_store.complete(run_id, [], metrics=metrics, progress=progress, items=items)
 
-            expected_revision = _revision_id(
-                run, suffix="import" if job.request["mode"] == "import" else None
-            )
-            output = {
-                "kind": "pipeline_revision",
-                "id": expected_revision,
-                "digest": self._expected_event_content_digest(result, run.request),
-                "available": True,
-            }
-            if not manager.publish(job_id, [output], publish_domain_result):
+            if not manager.publish(job_id, [], publish_domain_result):
                 raise JobCancelled("job cancellation requested before event publication")
             manager.report_progress(
                 job_id,
-                phase="Publish event revision",
+                phase="Publish event set",
                 completed=1,
                 total=1,
                 unit="revisions",
@@ -1037,71 +961,41 @@ class EventPipelineService:
             raw,
         )
 
-    def _publish_processor_revision(
+    def _save_event_set(
         self,
         run: StoredProcessorRun,
         content: EventData,
-    ) -> StoredPipelineRevision:
-        producer = ProcessorProducer(
-            run_id=run.run_id,
-            processor_type=run.request.processor_type,
-            implementation_id=_implementation_id(run.request.implementation),
-            model_id=_model_id(run.request.model),
-        )
-        revision = _build_revision(run.request, content, _revision_id(run), producer)
-        stored, _ = self.selection_store.publish_processor_revision(
-            revision.manifest, revision.content
-        )
-        return stored
-
-    def _save_event_set(self, run: StoredProcessorRun, content: EventData) -> None:
+        *,
+        import_artifact: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         recording_id = run.request.source.recording_id
-        if not self._uses_event_set_selection(recording_id):
-            return
+        if self.event_set_store is None or self.recording_folder_store is None:
+            raise PipelineInputError("event processing requires recording-folder event sets")
+        provenance: dict[str, Any] = {
+            "source": {
+                "recording_id": recording_id,
+                "video_sha256": run.request.source.video_sha256,
+                "run_id": run.run_id,
+            }
+        }
+        if import_artifact is not None:
+            provenance["import"] = {
+                "artifact_id": import_artifact["id"],
+                "artifact_sha256": import_artifact["sha256"],
+                "model_id": import_artifact["model_id"],
+            }
         self.event_set_store.save(
             recording_id,
             set_id=f"run-{run.run_id}",
             version="1",
             content=content.to_mapping(),
             origin="processor",
-            provenance={
-                "source": {
-                    "recording_id": recording_id,
-                    "video_sha256": run.request.source.video_sha256,
-                    "run_id": run.run_id,
-                }
-            },
+            provenance=provenance,
         )
-
-    def _uses_event_set_selection(self, recording_id: str) -> bool:
-        return (
-            self.event_set_store is not None
-            and self.recording_folder_store is not None
-            and self.recording_folder_store.get(recording_id) is not None
-        )
-
-    def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:
-        if self._uses_event_set_selection(recording_id):
-            return
-        current = self.selection_store.get_exact(recording_id, "events")
-        expected = 0 if current is None else current.revision
-        completed = None if current is None else current.selected_completed_reference
-        generated = self.selection_store.reference_for_processor_output(
-            revision_id, recording_id, "events"
-        )
-        try:
-            self.selection_store.update_exact(
-                recording_id,
-                "events",
-                expected_revision=expected,
-                selected_generated=generated,
-                selected_completed_reference=completed,
-            )
-        except PipelineSelectionConflict:
-            LOGGER.warning(
-                "event_pipeline_selection_advance_conflict",
-                extra={"recording_id": recording_id},
-            )
+        result = self.event_set_store.get(recording_id, f"run-{run.run_id}", "1")
+        if result is None:
+            raise PipelineInputError("the saved event set is unavailable")
+        return result
 
     def _fail_safely(self, run_id: str, code: str, message: str) -> None:
         try:
@@ -1141,33 +1035,6 @@ def _model_id(model: ModelIdentity | None) -> str | None:
 
 def _safe(value: str) -> str:
     return _SAFE_COMPONENT.sub("-", value).strip("-") or "unknown"
-
-
-def _revision_id(run: StoredProcessorRun, *, suffix: str | None = None) -> str:
-    tail = suffix or f"attempt-{run.state.attempt}"
-    return f"events-{_safe(run.run_id)}-{tail}"
-
-
-def _build_revision(
-    request: ProcessorRunRequest,
-    content: EventData,
-    revision_id: str,
-    producer: ProcessorProducer | ImportProducer,
-) -> EventDataRevision:
-    manifest = DataRevision(
-        revision_id=revision_id,
-        content_type="events",
-        content_schema="event-data/v1",
-        recording_id=request.source.recording_id,
-        source=request.source,
-        content_sha256=sha256_bytes(canonical_event_data_bytes(content)),
-        input_revision_ids=request.input_revision_ids,
-        origin="processor",
-        producer=producer,
-        coverage={"kind": "full-recording", "policy_id": request.extraction_policy["policy_id"]},
-        created_at=_now(),
-    )
-    return EventDataRevision(manifest=manifest, content=content)
 
 
 def _event_data_from_provider(

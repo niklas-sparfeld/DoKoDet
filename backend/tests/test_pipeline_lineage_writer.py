@@ -17,7 +17,11 @@ from dokodetector_backend.pipeline_lineage_writer import PipelineLineageWriter
 from dokodetector_backend.pipeline_node_store import NodeUsed, PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
 from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
-from dokodetector_backend.pipeline_storage import PipelineNotFound, PipelineRuntimeStorage
+from dokodetector_backend.pipeline_storage import (
+    PipelineNotFound,
+    PipelineRuntimeStorage,
+    PipelineStateError,
+)
 from dokodetector_backend.processor_run_store import ProcessorRunStore
 
 SOURCE = {
@@ -149,6 +153,23 @@ def test_processor_lineage_keeps_empty_results_and_protects_accepted_inputs(
     )
     assert partial["status"] == "partial"
     assert partial["result"] is None
+
+
+def test_non_event_complete_run_still_requires_a_node_output(tmp_path: Path) -> None:
+    storage = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
+    node_store = PipelineNodeStore(tmp_path / "nodes")
+    writer = PipelineNodeUses(node_store)
+    runs = ProcessorRunStore(
+        storage,
+        lineage_writer=PipelineLineageWriter(node_store, PipelineLineage(node_store), writer),
+    )
+    run, _ = runs.create(_request("visible-empty", "visible-card-detection", []))
+    runs.start(run.run_id)
+
+    with pytest.raises(PipelineStateError, match="non-event processor run requires"):
+        runs.complete(run.run_id, [])
+
+    assert runs.require(run.run_id).state.status == "running"
 
 
 def test_processor_lineage_reuses_imported_revision_nodes(tmp_path: Path) -> None:

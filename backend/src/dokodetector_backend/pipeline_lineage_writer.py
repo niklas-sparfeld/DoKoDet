@@ -13,6 +13,7 @@ from doko_operations.pipeline_data import (
     canonical_json_bytes,
 )
 
+from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.pipeline_lineage import PipelineLineage
 from dokodetector_backend.pipeline_node_store import NodeConflict, PipelineNodeStore
 from dokodetector_backend.pipeline_node_uses import PipelineNodeUses
@@ -31,10 +32,12 @@ class PipelineLineageWriter:
         node_store: PipelineNodeStore,
         lineage: PipelineLineage,
         uses: PipelineNodeUses,
+        event_set_store: EventSetStore | None = None,
     ) -> None:
         self.node_store = node_store
         self.lineage = lineage
         self.uses = uses
+        self.event_set_store = event_set_store
 
     @staticmethod
     def _run_id(run_id: str, attempt: int) -> str:
@@ -247,6 +250,7 @@ class PipelineLineageWriter:
         run_id = self._run_id(request.run_id, state.attempt)
         inputs = self._input_refs(request)
         outputs = []
+        artifact_is_empty = False
         for revision_id in state.output_revision_ids:
             revision = self.require_revision(revision_id)
             node_id = self._node_id(revision_id)
@@ -259,15 +263,45 @@ class PipelineLineageWriter:
                     "role": revision.manifest.content_type,
                 }
             )
+        if (
+            request.processor_type == "event-detection"
+            and state.status == "complete"
+            and not state.output_revision_ids
+        ):
+            if self.event_set_store is None:
+                raise PipelineNotFound("the event-set authority is unavailable")
+            event_set = self.event_set_store.get(
+                request.source.recording_id,
+                f"run-{request.run_id}",
+                "1",
+            )
+            if event_set is None:
+                raise PipelineNotFound("the event processor output event set is unavailable")
+            artifact_is_empty = not event_set["content"].get("events")
+            outputs.append(
+                {
+                    "kind": "artifact",
+                    "role": "events",
+                    "artifact_id": (
+                        f"event-set/{event_set['set_id']}/versions/{event_set['version']}"
+                    ),
+                    "sha256": event_set["content_sha256"],
+                }
+            )
         status = "succeeded" if state.status == "complete" else state.status
         result = None
         failure = None
         if status in {"succeeded", "partial"}:
-            if state.output_revision_ids:
+            if outputs:
                 result = (
                     "empty"
-                    if all(
-                        self._is_empty(self.require_revision(x)) for x in state.output_revision_ids
+                    if (
+                        artifact_is_empty
+                        if any(ref["kind"] == "artifact" for ref in outputs)
+                        else all(
+                            self._is_empty(self.require_revision(x))
+                            for x in state.output_revision_ids
+                        )
                     )
                     else "nonempty"
                 )

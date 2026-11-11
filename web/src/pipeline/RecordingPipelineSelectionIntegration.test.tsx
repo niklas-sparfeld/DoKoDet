@@ -16,7 +16,7 @@ vi.mock("./AutomatedPipelineControls", () => ({
 const RECORDING_ID = "recording-shell";
 
 function stage(
-  key: PipelineWorkspaceStage["key"] = "events",
+  key: PipelineWorkspaceStage["key"] = "visible_cards",
   overrides: Record<string, unknown> = {},
 ): PipelineWorkspaceStage {
   return {
@@ -24,7 +24,7 @@ function stage(
     processor_key: `${key}-processor`,
     processor_type: `${key}-processor`,
     output_content_type: key,
-    event_selection_authority: key === "events" ? "pipeline-node" : null,
+    event_selection_authority: null,
     state: "video-only",
     input_options: [],
     selection_revision: null,
@@ -56,7 +56,7 @@ function workspace(
       duration_us: 90_000_000,
     },
     stages: PIPELINE_STAGE_KEYS.map((key) =>
-      stage(key, key === "events" ? overrides : {}),
+      stage(key, key === "visible_cards" ? overrides : {}),
     ),
     diagnostics,
   };
@@ -74,14 +74,14 @@ describe("recording pipeline selection", () => {
       state: "data-available",
       input_options: [
         {
-          revision_id: "events-1",
-          node_id: "events-node-1",
-          node_revision_id: "events-node-r1",
-          content_type: "events",
+          revision_id: "visible-1",
+          node_id: "visible-node-1",
+          node_revision_id: "visible-node-r1",
+          content_type: "visible_cards",
           origin: "processor",
           completion_state: "complete",
           coverage_state: "full-recording",
-          display_label: "Generated events 1",
+          display_label: "Generated visible cards 1",
           content_sha256: "b".repeat(64),
           input_revision_ids: [],
           producer: {},
@@ -89,14 +89,14 @@ describe("recording pipeline selection", () => {
           created_at: "2026-09-06T00:00:00Z",
         },
         {
-          revision_id: "events-2",
-          node_id: "events-node-2",
-          node_revision_id: "events-node-r2",
-          content_type: "events",
+          revision_id: "visible-2",
+          node_id: "visible-node-2",
+          node_revision_id: "visible-node-r2",
+          content_type: "visible_cards",
           origin: "processor",
           completion_state: "complete",
           coverage_state: "full-recording",
-          display_label: "Generated events 2",
+          display_label: "Generated visible cards 2",
           content_sha256: "c".repeat(64),
           input_revision_ids: [],
           producer: {},
@@ -105,13 +105,13 @@ describe("recording pipeline selection", () => {
         },
       ],
       selection_revision: 4,
-      selected_generated_revision_id: "events-1",
+      selected_generated_revision_id: "visible-1",
       can_run: false,
     });
     const winner = workspace({
-      ...first.stages[0],
+      ...first.stages[1],
       selection_revision: 5,
-      selected_generated_revision_id: "events-2",
+      selected_generated_revision_id: "visible-2",
     });
     let workspaceCalls = 0;
     const fetchMock = vi.fn<typeof fetch>((_input, init): Promise<Response> => {
@@ -147,30 +147,30 @@ describe("recording pipeline selection", () => {
     render(
       <RecordingPipelineWorkspace
         recordingId={RECORDING_ID}
-        stageKey="events"
+        stageKey="visible_cards"
         compare={false}
       />,
     );
     const selector = await screen.findByRole("combobox", {
       name: "Default generated revision",
     });
-    await userEvent.setup().selectOptions(selector, "events-node-r2");
+    await userEvent.setup().selectOptions(selector, "visible-node-r2");
 
     expect(
       await screen.findByText(
         "The processor input changed elsewhere. The winning selection is shown.",
       ),
     ).toBeInTheDocument();
-    await waitFor(() => expect(selector).toHaveValue("events-node-r2"));
+    await waitFor(() => expect(selector).toHaveValue("visible-node-r2"));
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/recordings/recording-shell/pipeline/events/selection",
+      "/api/recordings/recording-shell/pipeline/visible-cards/selection",
       expect.objectContaining({
         method: "PUT",
         body: JSON.stringify({
           expected_revision: 4,
           selected_generated: {
-            node_id: "events-node-2",
-            revision_id: "events-node-r2",
+            node_id: "visible-node-2",
+            revision_id: "visible-node-r2",
           },
         }),
       }),

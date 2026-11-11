@@ -102,6 +102,25 @@ def _qualified(value: Any, field: str) -> str:
     return result
 
 
+def _sha256(value: Any, field: str) -> str:
+    result = _text(value, field)
+    if re.fullmatch(r"[0-9a-f]{64}", result) is None:
+        raise PipelineComparisonContractError(f"{field} must be a lowercase SHA-256 digest")
+    return result
+
+
+def _event_set_identity(value: Any, field: str) -> dict[str, str] | None:
+    if value is None:
+        return None
+    data = _mapping(value, field)
+    _strict(data, {"set_id", "version", "content_sha256"}, field)
+    return {
+        "set_id": _identifier(data["set_id"], f"{field}.set_id"),
+        "version": _identifier(data["version"], f"{field}.version"),
+        "content_sha256": _sha256(data["content_sha256"], f"{field}.content_sha256"),
+    }
+
+
 def _non_negative_int(value: Any, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise PipelineComparisonContractError(f"{field} must be a non-negative integer")
@@ -277,7 +296,8 @@ class PipelineComparisonRequest:
     content_type: Literal["events", "visible_cards", "visual_identities"]
     left_run_id: str
     right_run_id: str
-    reference_revision_id: str
+    reference_revision_id: str | None
+    reference_event_set_ref: dict[str, str] | None
     matching_policy: EventMatchingPolicy
 
     @classmethod
@@ -291,8 +311,9 @@ class PipelineComparisonRequest:
                 "content_type",
                 "left_run_id",
                 "right_run_id",
-                "reference_revision_id",
                 "matching_policy",
+                "reference_revision_id",
+                "reference_event_set_ref",
             },
             "pipeline comparison request",
         )
@@ -303,6 +324,30 @@ class PipelineComparisonRequest:
         if data["content_type"] not in {"events", "visible_cards", "visual_identities"}:
             raise PipelineComparisonContractError("pipeline comparison content_type is unsupported")
         content_type = data["content_type"]
+        revision_id = data["reference_revision_id"]
+        raw_event_set_ref = data["reference_event_set_ref"]
+        if content_type == "events":
+            if revision_id is not None or not isinstance(raw_event_set_ref, Mapping):
+                raise PipelineComparisonContractError(
+                    "event comparisons need an exact reference_event_set_ref"
+                )
+            if set(raw_event_set_ref) != {"set_id", "version", "content_sha256"}:
+                raise PipelineComparisonContractError(
+                    "reference_event_set_ref must contain set_id, version, and content_sha256"
+                )
+            event_set_ref = {
+                "set_id": _identifier(raw_event_set_ref["set_id"], "set_id"),
+                "version": _identifier(raw_event_set_ref["version"], "version"),
+                "content_sha256": _sha256(raw_event_set_ref["content_sha256"], "content_sha256"),
+            }
+            normalized_revision_id = None
+        else:
+            if raw_event_set_ref is not None or revision_id is None:
+                raise PipelineComparisonContractError(
+                    "non-event comparisons need a reference_revision_id"
+                )
+            normalized_revision_id = _identifier(revision_id, "reference_revision_id")
+            event_set_ref = None
         expected_kind = {
             "events": "event_timing",
             "visible_cards": "visible_card_geometry",
@@ -321,9 +366,8 @@ class PipelineComparisonRequest:
             content_type=content_type,  # type: ignore[arg-type]
             left_run_id=_identifier(data["left_run_id"], "left_run_id"),
             right_run_id=_identifier(data["right_run_id"], "right_run_id"),
-            reference_revision_id=_identifier(
-                data["reference_revision_id"], "reference_revision_id"
-            ),
+            reference_revision_id=normalized_revision_id,
+            reference_event_set_ref=event_set_ref,
             matching_policy=matching_policy,
         )
 
@@ -335,6 +379,7 @@ class PipelineComparisonRequest:
             "left_run_id": self.left_run_id,
             "right_run_id": self.right_run_id,
             "reference_revision_id": self.reference_revision_id,
+            "reference_event_set_ref": self.reference_event_set_ref,
             "matching_policy": self.matching_policy.to_mapping(),
         }
 
@@ -697,7 +742,8 @@ class PipelineComparisonSide:
     """Exact retained run and output revision identity."""
 
     run_id: str
-    revision_id: str
+    revision_id: str | None
+    event_set_ref: dict[str, str] | None
     status: Literal["complete", "partial"]
     input_revision_ids: tuple[str, ...]
     content_sha256: str
@@ -711,6 +757,7 @@ class PipelineComparisonSide:
         return {
             "run_id": self.run_id,
             "revision_id": self.revision_id,
+            "event_set_ref": self.event_set_ref,
             "status": self.status,
             "input_revision_ids": list(self.input_revision_ids),
             "content_sha256": self.content_sha256,
@@ -726,7 +773,8 @@ class PipelineComparisonSide:
 class PipelineComparisonReference:
     """Exact completed maintained reference identity."""
 
-    revision_id: str
+    revision_id: str | None
+    event_set_ref: dict[str, str] | None
     input_revision_ids: tuple[str, ...]
     content_sha256: str
     origin: Literal["manual", "corrected"]
@@ -734,6 +782,7 @@ class PipelineComparisonReference:
     def to_mapping(self) -> dict[str, Any]:
         return {
             "revision_id": self.revision_id,
+            "event_set_ref": self.event_set_ref,
             "input_revision_ids": list(self.input_revision_ids),
             "content_sha256": self.content_sha256,
             "origin": self.origin,
@@ -977,6 +1026,7 @@ def _side_from_mapping(raw: Any, field: str) -> PipelineComparisonSide:
         {
             "run_id",
             "revision_id",
+            "event_set_ref",
             "status",
             "input_revision_ids",
             "content_sha256",
@@ -991,9 +1041,18 @@ def _side_from_mapping(raw: Any, field: str) -> PipelineComparisonSide:
     status = data["status"]
     if status not in {"complete", "partial"}:
         raise PipelineComparisonContractError(f"{field}.status is unsupported")
+    if (data["revision_id"] is None) == (data["event_set_ref"] is None):
+        raise PipelineComparisonContractError(
+            f"{field} must identify exactly one revision or event set"
+        )
     return PipelineComparisonSide(
         run_id=_identifier(data["run_id"], f"{field}.run_id"),
-        revision_id=_identifier(data["revision_id"], f"{field}.revision_id"),
+        revision_id=(
+            None
+            if data["revision_id"] is None
+            else _identifier(data["revision_id"], f"{field}.revision_id")
+        ),
+        event_set_ref=_event_set_identity(data["event_set_ref"], f"{field}.event_set_ref"),
         status=status,  # type: ignore[arg-type]
         input_revision_ids=_identifier_list(
             data["input_revision_ids"], f"{field}.input_revision_ids"
@@ -1009,11 +1068,24 @@ def _side_from_mapping(raw: Any, field: str) -> PipelineComparisonSide:
 
 def _reference_from_mapping(raw: Any) -> PipelineComparisonReference:
     data = _mapping(raw, "reference")
-    _strict(data, {"revision_id", "input_revision_ids", "content_sha256", "origin"}, "reference")
+    _strict(
+        data,
+        {"revision_id", "event_set_ref", "input_revision_ids", "content_sha256", "origin"},
+        "reference",
+    )
     if data["origin"] not in {"manual", "corrected"}:
         raise PipelineComparisonContractError("reference.origin is unsupported")
+    if (data["revision_id"] is None) == (data["event_set_ref"] is None):
+        raise PipelineComparisonContractError(
+            "reference must identify exactly one revision or event set"
+        )
     return PipelineComparisonReference(
-        revision_id=_identifier(data["revision_id"], "reference.revision_id"),
+        revision_id=(
+            None
+            if data["revision_id"] is None
+            else _identifier(data["revision_id"], "reference.revision_id")
+        ),
+        event_set_ref=_event_set_identity(data["event_set_ref"], "reference.event_set_ref"),
         input_revision_ids=_identifier_list(
             data["input_revision_ids"], "reference.input_revision_ids"
         ),

@@ -1309,14 +1309,9 @@ class ProcessorRunState:
         ):
             raise PipelineDataContractError("running state has invalid timestamps or failure")
         if status == "complete" and (
-            started_at is None
-            or completed_at is None
-            or terminal_failure is not None
-            or not output_revision_ids
+            started_at is None or completed_at is None or terminal_failure is not None
         ):
-            raise PipelineDataContractError(
-                "complete state requires timestamps and output revisions"
-            )
+            raise PipelineDataContractError("complete state requires timestamps and no failure")
         if status == "partial" and (
             started_at is None or completed_at is None or terminal_failure is not None
         ):

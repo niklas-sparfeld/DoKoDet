@@ -29,7 +29,7 @@ function stage(
     processor_key: `${key}-processor`,
     processor_type: `${key}-processor`,
     output_content_type: key,
-    event_selection_authority: key === "events" ? "pipeline-node" : null,
+    event_selection_authority: key === "events" ? "recording-head" : null,
     state: "video-only",
     input_options: [],
     selection_revision: null,
@@ -452,10 +452,10 @@ describe("recording pipeline workspace", () => {
       within(inspector).queryByText("Reference revision"),
     ).not.toBeInTheDocument();
     expect(
-      within(inspector).getByRole("combobox", {
+      within(inspector).queryByRole("combobox", {
         name: "Default generated revision",
       }),
-    ).toHaveValue(generated.node_revision_id);
+    ).not.toBeInTheDocument();
     expect(
       within(inspector).getByRole("button", { name: "Detect events…" }),
     ).toBeInTheDocument();
@@ -482,8 +482,8 @@ describe("recording pipeline workspace", () => {
     ).not.toBeInTheDocument();
     expect(screen.getAllByText("No data set selected")).toHaveLength(7);
     expect(
-      screen.getByRole("combobox", { name: "Default generated revision" }),
-    ).toHaveValue(generated.node_revision_id);
+      screen.queryByRole("combobox", { name: "Default generated revision" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Review" })).toBeNull();
 
     await userEvent

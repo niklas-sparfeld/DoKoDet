@@ -271,19 +271,17 @@ def get_generated_selection(recording_id: str, request: Request) -> dict[str, An
 
     validate_recording_id(recording_id)
     selection = request.app.state.event_set_store.get_selection(recording_id)
-    if selection is not None:
-        return {
-            "recording_id": recording_id,
-            "selection": {
+    return {
+        "recording_id": recording_id,
+        "selection": (
+            None
+            if selection is None
+            else {
                 "revision": selection["recording_version"],
                 "selected_generated": selection["generated"],
                 "selected_completed_reference": selection["reference"],
-            },
-        }
-    selection = _event_service(request).selection_store.get_exact(recording_id, "events")
-    return {
-        "recording_id": recording_id,
-        "selection": None if selection is None else selection.to_mapping(),
+            }
+        ),
     }
 
 

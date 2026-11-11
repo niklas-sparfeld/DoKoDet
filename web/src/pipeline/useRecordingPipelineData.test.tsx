@@ -110,17 +110,17 @@ describe("recording pipeline workspace data", () => {
         ({ recordingId }: { recordingId: string }) => {
           const data = useRecordingPipelineData(
             recordingId,
-            "events",
+            "visible_cards",
             null,
             client,
           );
           const selection = useRecordingPipelineSelection({
             recordingId,
-            stageKey: "events",
+            stageKey: "visible_cards",
             compare: false,
-            backendStageKey: "events",
+            backendStageKey: "visible_cards",
             stage: {
-              key: "events",
+              key: "visible_cards",
               selection_revision: 1,
               input_options: [],
             } as never,

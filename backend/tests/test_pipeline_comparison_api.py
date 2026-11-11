@@ -1,45 +1,46 @@
 from __future__ import annotations
 
-import hashlib
+import shutil
 from pathlib import Path
 from typing import Any
 
 from app_factory import create_test_app
 from doko_operations.pipeline_data import (
-    DataRevision,
     EventData,
-    HumanProducer,
-    ProcessorProducer,
     ProcessorRunRequest,
     RecordingVideoSource,
     RunProgress,
-    canonical_event_data_bytes,
-    sha256_bytes,
 )
 from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
-from dokodetector_backend.pipeline_node_store import PipelineNodeStore
-from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
 from dokodetector_backend.processor_run_store import ProcessorRunStore
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 
-RECORDING_ID = "recording-1"
-VIDEO_DIGEST = "a" * 64
+RECORDING_ID = "recording-both"
+VIDEO_DIGEST = "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8"
 SOURCE = RecordingVideoSource(
     recording_id=RECORDING_ID,
-    relative_path="recordings/recording-1/video.mov",
+    relative_path="recordings/recording-both/video.mov",
     video_sha256=VIDEO_DIGEST,
-    byte_length=100,
+    byte_length=55,
     duration_us=2_000_000,
 )
 
 
 def _settings(tmp_path: Path) -> Settings:
+    bundle = Path(__file__).parents[2] / "fixtures/repository-bundle/v1/both"
+    transport = tmp_path / "transport" / RECORDING_ID
+    shutil.copytree(bundle, transport)
+    RecordingFolderStore(tmp_path / "recordings").publish_bundle(
+        transport, recording_id=RECORDING_ID
+    )
     return Settings(
         _env_file=None,
         repository_root=tmp_path,
         evidence_root=tmp_path / "runtime",
         repository_intake_root=tmp_path / "recordings",
+        recordings_root=tmp_path / "recordings",
         evidence_package_intake_root=tmp_path / "evidence-packages",
         pending_video_root=tmp_path / "pending-videos",
     )
@@ -50,7 +51,7 @@ def _content(events: list[dict[str, Any]]) -> EventData:
 
 
 def _publish_revision(
-    revisions: PipelineRevisionStore,
+    app: Any,
     *,
     revision_id: str,
     content: EventData,
@@ -58,50 +59,37 @@ def _publish_revision(
     run_id: str | None = None,
     input_revision_ids: list[str] | None = None,
     coverage: dict[str, Any] | None = None,
-) -> None:
-    producer: Any = (
-        ProcessorProducer(
-            run_id=run_id or "fixture-import",
-            processor_type="event-detection",
-            implementation_id="fixture.v1",
-        )
-        if origin == "processor"
-        else HumanProducer(review_id="review-1", operator_id="operator-1")
-    )
-    manifest = DataRevision(
-        revision_id=revision_id,
-        content_type="events",
-        content_schema="event-data/v1",
-        recording_id=RECORDING_ID,
-        source=SOURCE,
-        content_sha256=sha256_bytes(canonical_event_data_bytes(content)),
-        input_revision_ids=tuple(input_revision_ids or ()),
+):
+    set_id = f"run-{revision_id}" if origin == "processor" else revision_id
+    stored = app.state.event_set_store.save(
+        RECORDING_ID,
+        set_id=set_id,
+        version="1",
+        content=content.to_mapping(),
         origin=origin,
-        producer=producer,
-        coverage=coverage or {"kind": "full-recording"},
-        created_at="2026-09-06T10:00:00Z",
+        provenance={"source": {"recording_id": RECORDING_ID, "video_sha256": VIDEO_DIGEST}},
     )
-    node_id = "data-" + hashlib.sha256(revision_id.encode("utf-8")).hexdigest()[:32]
-    PipelineNodeStore(revisions.storage.operations_root / "pipeline-nodes").create(
-        node_id,
-        f"Events {revision_id[:8]}",
-        manifest.content_type,
-        manifest.source.to_mapping(),
-        content.to_mapping(),
-        {
-            "origin": manifest.origin,
-            "input_revision_ids": list(manifest.input_revision_ids),
-            "producer": manifest.producer.to_mapping(),
-            "coverage": manifest.coverage,
-            "data_revision": manifest.to_mapping(),
-        },
-        revision_id=revision_id,
-    )
+    stored = app.state.event_set_store.get(RECORDING_ID, set_id, "1")
+    assert stored is not None
+    if coverage is not None:
+        app.state.event_set_store.save_review(
+            RECORDING_ID,
+            set_id,
+            "1",
+            review_id=f"coverage-{revision_id}",
+            kind="coverage",
+            question="Which interval was reviewed?",
+            decision=None,
+            reviewer={"operator_id": "operator-1"},
+            evidence={"source": "comparison fixture"},
+            coverage=coverage,
+        )
+    return stored
 
 
 def _create_complete_run(
     runs: ProcessorRunStore,
-    revisions: PipelineRevisionStore,
+    app: Any,
     *,
     run_id: str,
     revision_id: str,
@@ -124,20 +112,13 @@ def _create_complete_run(
     )
     runs.create(request, created_at="2026-09-06T10:00:00Z")
     runs.start(run_id, started_at="2026-09-06T10:00:01Z")
-    _publish_revision(
-        revisions,
-        revision_id=revision_id,
-        content=content,
-        origin="processor",
-        run_id=run_id,
-        input_revision_ids=input_revision_ids,
-    )
-    runs.complete(run_id, [revision_id], completed_at="2026-09-06T10:00:02Z")
+    _publish_revision(app, revision_id=run_id, content=content, origin="processor", run_id=run_id)
+    runs.complete(run_id, [], completed_at="2026-09-06T10:00:02Z")
 
 
 def _create_partial_run(
     runs: ProcessorRunStore,
-    revisions: PipelineRevisionStore,
+    app: Any,
     *,
     run_id: str,
     revision_id: str,
@@ -158,30 +139,25 @@ def _create_partial_run(
     )
     runs.create(request, created_at="2026-09-06T10:00:00Z")
     runs.start(run_id, started_at="2026-09-06T10:00:01Z")
-    _publish_revision(
-        revisions,
-        revision_id=revision_id,
-        content=content,
-        origin="processor",
-        run_id=run_id,
-    )
+    _publish_revision(app, revision_id=run_id, content=content, origin="processor", run_id=run_id)
     runs.partial(
         run_id,
         progress=RunProgress(completed=0, total=1),
         items=(),
-        output_revision_ids=[revision_id],
+        output_revision_ids=[],
         completed_at="2026-09-06T10:00:02Z",
     )
 
 
-def _request(left: str, right: str, reference: str) -> dict[str, Any]:
+def _request(left: str, right: str, reference: dict[str, str]) -> dict[str, Any]:
     return {
         "schema_version": "pipeline-comparison-request/v1",
         "recording_id": RECORDING_ID,
         "content_type": "events",
         "left_run_id": left,
         "right_run_id": right,
-        "reference_revision_id": reference,
+        "reference_revision_id": None,
+        "reference_event_set_ref": reference,
         "matching_policy": {
             "policy_id": "event-timing/v1",
             "anchor": "start_us",
@@ -190,10 +166,17 @@ def _request(left: str, right: str, reference: str) -> dict[str, Any]:
     }
 
 
+def _event_set_ref(event_set: dict[str, Any]) -> dict[str, str]:
+    return {
+        "set_id": event_set["set_id"],
+        "version": event_set["version"],
+        "content_sha256": event_set["content_sha256"],
+    }
+
+
 def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     app = create_test_app(settings)
-    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     reference_content = _content(
         [
@@ -211,8 +194,8 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
             },
         ]
     )
-    _publish_revision(
-        revisions,
+    reference_set = _publish_revision(
+        app,
         revision_id="reference-1",
         content=reference_content,
         origin="manual",
@@ -220,7 +203,7 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
     )
     _create_complete_run(
         runs,
-        revisions,
+        app,
         run_id="left-run",
         revision_id="left-output",
         content=_content(
@@ -248,7 +231,7 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
     )
     _create_complete_run(
         runs,
-        revisions,
+        app,
         run_id="right-run",
         revision_id="right-output",
         content=_content(
@@ -264,7 +247,8 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
     )
 
     direct = app.state.pipeline_comparison_service.compare(
-        RECORDING_ID, _request("left-run", "right-run", "reference-1")
+        RECORDING_ID,
+        _request("left-run", "right-run", _event_set_ref(reference_set)),
     )
     assert direct.recording_id == RECORDING_ID
     assert direct.content_type == "events"
@@ -272,11 +256,11 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
     with TestClient(app) as client:
         first = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/comparisons",
-            json=_request("left-run", "right-run", "reference-1"),
+            json=_request("left-run", "right-run", _event_set_ref(reference_set)),
         )
         second = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/comparisons",
-            json=_request("left-run", "right-run", "reference-1"),
+            json=_request("left-run", "right-run", _event_set_ref(reference_set)),
         )
 
     assert first.status_code == 200
@@ -284,6 +268,12 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
     assert first.content == second.content
     body = first.json()
     assert body["mode"] == "paired_processor"
+    assert body["left"]["revision_id"] is None
+    assert body["left"]["event_set_ref"] == _event_set_ref(
+        app.state.event_set_store.get(RECORDING_ID, "run-left-run", "1")
+    )
+    assert body["reference"]["revision_id"] is None
+    assert body["reference"]["event_set_ref"] == _event_set_ref(reference_set)
     assert body["paired_delta"] is not None
     assert body["scope"]["reviewed"] == [{"start_us": 0, "end_us": 1_000_000}]
     assert body["counts"]["left"] == {
@@ -302,10 +292,28 @@ def test_event_comparison_is_deterministic_and_reports_review_scope(tmp_path: Pa
     }
     assert {item["outcome"] for item in body["items"]} == {"match", "extra", "not_reviewed"}
 
+    invalid = _request("left-run", "right-run", _event_set_ref(reference_set))
+    invalid["reference_event_set_ref"]["content_sha256"] = "0" * 64
+    with TestClient(app) as client:
+        assert (
+            client.post(
+                f"/api/recordings/{RECORDING_ID}/pipeline/comparisons", json=invalid
+            ).status_code
+            == 422
+        )
+
+    reopened = create_test_app(settings)
+    with TestClient(reopened) as client:
+        after_restart = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/comparisons",
+            json=_request("left-run", "right-run", _event_set_ref(reference_set)),
+        )
+    assert after_restart.status_code == 200
+    assert after_restart.content == first.content
+
 
 def test_changed_upstream_input_has_no_paired_delta(tmp_path: Path) -> None:
     app = create_test_app(_settings(tmp_path))
-    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     reference = _content(
         [
@@ -317,17 +325,19 @@ def test_changed_upstream_input_has_no_paired_delta(tmp_path: Path) -> None:
             }
         ]
     )
-    _publish_revision(revisions, revision_id="reference-1", content=reference, origin="manual")
+    reference_set = _publish_revision(
+        app, revision_id="reference-1", content=reference, origin="manual"
+    )
     _create_complete_run(
         runs,
-        revisions,
+        app,
         run_id="left-run",
         revision_id="left-output",
         content=reference,
     )
     _create_complete_run(
         runs,
-        revisions,
+        app,
         run_id="right-run",
         revision_id="right-output",
         content=reference,
@@ -337,7 +347,7 @@ def test_changed_upstream_input_has_no_paired_delta(tmp_path: Path) -> None:
     with TestClient(app) as client:
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/comparisons",
-            json=_request("left-run", "right-run", "reference-1"),
+            json=_request("left-run", "right-run", _event_set_ref(reference_set)),
         )
 
     assert response.status_code == 200
@@ -347,7 +357,6 @@ def test_changed_upstream_input_has_no_paired_delta(tmp_path: Path) -> None:
 
 def test_partial_run_with_valid_output_is_comparable(tmp_path: Path) -> None:
     app = create_test_app(_settings(tmp_path))
-    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     reference = _content(
         [
@@ -359,17 +368,19 @@ def test_partial_run_with_valid_output_is_comparable(tmp_path: Path) -> None:
             }
         ]
     )
-    _publish_revision(revisions, revision_id="reference-1", content=reference, origin="manual")
+    reference_set = _publish_revision(
+        app, revision_id="reference-1", content=reference, origin="manual"
+    )
     _create_partial_run(
         runs,
-        revisions,
+        app,
         run_id="partial-run",
         revision_id="partial-output",
         content=reference,
     )
     _create_complete_run(
         runs,
-        revisions,
+        app,
         run_id="complete-run",
         revision_id="complete-output",
         content=reference,
@@ -378,7 +389,7 @@ def test_partial_run_with_valid_output_is_comparable(tmp_path: Path) -> None:
     with TestClient(app) as client:
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/comparisons",
-            json=_request("partial-run", "complete-run", "reference-1"),
+            json=_request("partial-run", "complete-run", _event_set_ref(reference_set)),
         )
 
     assert response.status_code == 200
@@ -408,7 +419,11 @@ def test_failed_run_is_not_selectable_for_comparison(tmp_path: Path) -> None:
     with TestClient(app) as client:
         response = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/comparisons",
-            json=_request("failed-run", "other-run", "reference-1"),
+            json=_request(
+                "failed-run",
+                "other-run",
+                {"set_id": "reference-1", "version": "1", "content_sha256": "0" * 64},
+            ),
         )
 
     assert response.status_code == 404 or response.status_code == 422

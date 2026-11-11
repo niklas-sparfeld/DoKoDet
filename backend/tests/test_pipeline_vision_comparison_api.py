@@ -266,6 +266,7 @@ def test_visible_card_comparison_route_uses_exact_frame_and_geometry_policy(tmp_
         "left_run_id": "left-vision",
         "right_run_id": "right-vision",
         "reference_revision_id": "reference-vision",
+        "reference_event_set_ref": None,
         "matching_policy": {
             "policy_id": "visible-card-geometry/v1",
             "kind": "visible_card_geometry",
@@ -372,6 +373,7 @@ def test_visible_card_comparison_pairs_request_time_only_differences(
         "left_run_id": "left-request-time",
         "right_run_id": "right-request-time",
         "reference_revision_id": "reference-request-time",
+        "reference_event_set_ref": None,
         "matching_policy": {
             "policy_id": "visible-card-geometry/v1",
             "kind": "visible_card_geometry",
@@ -440,6 +442,7 @@ def test_visible_card_comparison_rejects_other_frame_identity_changes(
         "left_run_id": "left-identity-change",
         "right_run_id": "right-identity-change",
         "reference_revision_id": "reference-identity-change",
+        "reference_event_set_ref": None,
         "matching_policy": {
             "policy_id": "visible-card-geometry/v1",
             "kind": "visible_card_geometry",
@@ -556,6 +559,7 @@ def test_visual_identity_comparison_route_reports_upstream_experiment(tmp_path: 
         "left_run_id": "identity-left",
         "right_run_id": "identity-right",
         "reference_revision_id": "identity-reference",
+        "reference_event_set_ref": None,
         "matching_policy": {
             "policy_id": "identity-geometry/v1",
             "kind": "visual_identity_geometry",

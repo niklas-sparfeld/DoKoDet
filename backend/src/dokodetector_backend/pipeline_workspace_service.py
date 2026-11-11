@@ -12,7 +12,6 @@ from typing import Any
 from doko_operations.pipeline_data import (
     DATA_REVISION_SCHEMA_VERSION,
     DataRevision,
-    EventData,
     RecordingVideoSource,
     canonical_json_bytes,
     parse_event_data_bytes,
@@ -150,15 +149,11 @@ class RecordingPipelineWorkspaceService:
                 "table_observations",
             )
         }
-        folder_event_recordings = (
-            {recording_id} if isinstance(selections["events"], _EventSetSelection) else set()
-        )
         revision_cache: dict[str, Any] = {}
         include_revision_content = stage_key in {None, "table_observations"}
         revisions = self._node_revisions_for_recording(
             recording_id,
             include_content=include_revision_content,
-            event_set_authority_recordings=folder_event_recordings,
         )
         runs = self.run_store.list_for_recording(
             recording_id,
@@ -212,11 +207,7 @@ class RecordingPipelineWorkspaceService:
             return {}
 
         revisions_by_recording: dict[str, set[str]] = {}
-        folder_event_recordings = self._recordings_with_event_set_authority(requested_ids)
-        for revision in self._node_revisions_for_recordings(
-            requested_ids,
-            event_set_authority_recordings=folder_event_recordings,
-        ):
+        for revision in self._node_revisions_for_recordings(requested_ids):
             manifest = self._manifest(revision)
             if manifest.recording_id in requested_ids:
                 revisions_by_recording.setdefault(manifest.recording_id, set()).add(
@@ -263,14 +254,11 @@ class RecordingPipelineWorkspaceService:
         recording_ids: Collection[str],
         *,
         include_content: bool = False,
-        event_set_authority_recordings: Collection[str] = (),
     ) -> tuple[Any, ...]:
         """Build workspace revision records from immutable node revisions."""
         requested = set(recording_ids)
-        folder_event_recordings = set(event_set_authority_recordings)
         revisions = []
         parsers = {
-            "events": parse_event_data_bytes,
             "visible_cards": parse_visible_card_data_bytes,
             "visual_identities": parse_visual_identity_data_bytes,
             "table_observations": parse_table_observation_data_bytes,
@@ -278,11 +266,7 @@ class RecordingPipelineWorkspaceService:
         nodes = [
             node
             for node in self.node_store.list_nodes()
-            if node.source.get("recording_id") in requested
-            and not (
-                node.content_type == "events"
-                and node.source.get("recording_id") in folder_event_recordings
-            )
+            if node.source.get("recording_id") in requested and node.content_type != "events"
         ]
         target_node_ids = {node.node_id for node in nodes}
         graph_inputs: dict[tuple[str, str], list[str]] = {}
@@ -377,22 +361,11 @@ class RecordingPipelineWorkspaceService:
         recording_id: str,
         *,
         include_content: bool = False,
-        event_set_authority_recordings: Collection[str] = (),
     ) -> tuple[Any, ...]:
         return self._node_revisions_for_recordings(
             (recording_id,),
             include_content=include_content,
-            event_set_authority_recordings=event_set_authority_recordings,
         )
-
-    def _recordings_with_event_set_authority(self, recording_ids: Collection[str]) -> set[str]:
-        if self.recording_folder_store is None or self.event_set_store is None:
-            return set()
-        return {
-            recording_id
-            for recording_id in recording_ids
-            if self.recording_folder_store.get(recording_id) is not None
-        }
 
     def _lineage_runs_by_output(
         self, revisions: tuple[_WorkspaceNodeRevision, ...]
@@ -551,6 +524,11 @@ class RecordingPipelineWorkspaceService:
             else []
         )
         is_event_set_selection = isinstance(selection, _EventSetSelection)
+        event_set_options = (
+            self._event_set_comparison_options(recording_id)
+            if definition.key == "events" and is_event_set_selection
+            else []
+        )
         selection_revision = None if selection is None else selection.revision
         selected_generated = (
             None if selection is None or is_event_set_selection else selection.selected_generated
@@ -568,7 +546,8 @@ class RecordingPipelineWorkspaceService:
                 (
                     definition.key == "events"
                     and is_event_set_selection
-                    and bool(run.state.output_revision_ids)
+                    and self.event_set_store is not None
+                    and self.event_set_store.get(recording_id, f"run-{run.run_id}", "1") is not None
                 )
                 or any(
                     (revision := revision_by_id.get(revision_id)) is not None
@@ -615,6 +594,7 @@ class RecordingPipelineWorkspaceService:
             for run_summary in run_summaries:
                 run_summary["input_revision_ids"] = []
                 run_summary["request"]["input_revision_ids"] = []
+                run_summary["output_revision_ids"] = []
         return {
             "key": definition.key,
             "processor_key": definition.processor_key,
@@ -632,13 +612,8 @@ class RecordingPipelineWorkspaceService:
             "selected_event_set_reference": (
                 selection.selected_event_set_reference if is_event_set_selection else None
             ),
-            "event_selection_authority": (
-                "recording-head"
-                if is_event_set_selection
-                else "pipeline-node"
-                if definition.key == "events"
-                else None
-            ),
+            "event_set_options": event_set_options,
+            "event_selection_authority": ("recording-head" if definition.key == "events" else None),
             "runs": run_summaries,
             "analyses": analyses,
             "can_run": not run_blockers,
@@ -646,18 +621,57 @@ class RecordingPipelineWorkspaceService:
             "comparable_run_ids": comparable_run_ids,
         }
 
+    def _event_set_comparison_options(self, recording_id: str) -> list[dict[str, Any]]:
+        if self.event_set_store is None or self.recording_folder_store is None:
+            return []
+        root = self.recording_folder_store.recording_path(recording_id) / "event-sets"
+        if not root.is_dir() or root.is_symlink():
+            return []
+        options = []
+        for set_path in sorted(root.iterdir(), key=lambda item: item.name):
+            versions = set_path / "versions"
+            if set_path.is_symlink() or not versions.is_dir() or versions.is_symlink():
+                continue
+            for version_path in sorted(versions.iterdir(), key=lambda item: item.name):
+                if version_path.is_symlink() or not version_path.is_dir():
+                    continue
+                event_set = self.event_set_store.get(recording_id, set_path.name, version_path.name)
+                if event_set is None or event_set.get("origin") not in {"manual", "corrected"}:
+                    continue
+                options.append(
+                    {
+                        "set_id": event_set["set_id"],
+                        "version": event_set["version"],
+                        "content_sha256": event_set["content_sha256"],
+                        "origin": event_set["origin"],
+                        "display_label": (
+                            f"{event_set['origin'].capitalize()} events "
+                            f"{event_set['set_id']} · {event_set['version']}"
+                        ),
+                    }
+                )
+        return options
+
     def _selection(
         self,
         recording_id: str,
         content_type: str,
         diagnostics: list[dict[str, Any]],
     ) -> Any:
-        if (
-            content_type == "events"
-            and self.event_set_store is not None
-            and self.recording_folder_store is not None
-            and self.recording_folder_store.get(recording_id) is not None
-        ):
+        if content_type == "events":
+            if self.event_set_store is None or self.recording_folder_store is None:
+                diagnostics.append(
+                    {
+                        "code": "event_set_unavailable",
+                        "message": "Event sets are not available for this recording.",
+                        "content_type": "events",
+                        "revision_id": None,
+                    }
+                )
+                return None
+            root = self.recording_folder_store.get(recording_id)
+            if root is None:
+                return None
             try:
                 selection = self.event_set_store.get_selection(recording_id)
             except (EventSetError, OSError, TypeError, ValueError):
@@ -671,9 +685,6 @@ class RecordingPipelineWorkspaceService:
                     }
                 )
             if selection is None:
-                root = self.recording_folder_store.get(recording_id)
-                if root is None:
-                    return None
                 return _EventSetSelection(
                     revision=root.version,
                     selected_event_set_generated=None,
@@ -844,18 +855,14 @@ class RecordingPipelineWorkspaceService:
                 return [f"Select a complete {upstream.replace('_', ' ')} revision first."]
             return []
         if definition.key == "table_observations":
-            event_selection = selections["events"]
             if not compatible_input_sets:
                 return [
-                    "No compatible event, visible-card, and visual-identity input set is available."
+                    "No compatible event-set, visible-card, and visual-identity "
+                    "input set is available."
                 ]
             missing = [
                 content_type.replace("_", " ")
-                for content_type in (
-                    ("visible_cards", "visual_identities")
-                    if isinstance(event_selection, _EventSetSelection)
-                    else ("events", "visible_cards", "visual_identities")
-                )
+                for content_type in ("visible_cards", "visual_identities")
                 if selections[content_type] is None
                 or not (
                     selections[content_type].selected_completed_reference
@@ -863,7 +870,10 @@ class RecordingPipelineWorkspaceService:
                 )
             ]
             return (
-                ["Select complete event, visible-card, and visual-identity revisions first."]
+                [
+                    "Select an event set and complete visible-card and "
+                    "visual-identity revisions first."
+                ]
                 if missing
                 else []
             )
@@ -884,36 +894,6 @@ class RecordingPipelineWorkspaceService:
     ) -> list[dict[str, Any]]:
         """Return exact resource inputs that pass the shared assembly checks."""
 
-        event_revisions = tuple(
-            revision
-            for revision in revisions
-            if revision.manifest.content_type == "events"
-            and revision.manifest.recording_id == recording_id
-            and revision.manifest.source == source
-            and isinstance(revision.content, EventData)
-        )
-        visible_revisions = tuple(
-            revision
-            for revision in revisions
-            if revision.manifest.content_type == "visible_cards"
-            and revision.manifest.recording_id == recording_id
-            and revision.manifest.source == source
-            and isinstance(revision.content, VisibleCardData)
-        )
-        identity_revisions = tuple(
-            revision
-            for revision in revisions
-            if revision.manifest.content_type == "visual_identities"
-            and revision.manifest.recording_id == recording_id
-            and revision.manifest.source == source
-            and isinstance(revision.content, VisualIdentityData)
-        )
-        labels = {
-            revision.manifest.revision_id: self._revision_option(
-                revision, revision.manifest.content_type
-            )["display_label"]
-            for revision in (*event_revisions, *visible_revisions, *identity_revisions)
-        }
         compatible: list[dict[str, Any]] = []
         if isinstance(event_selection, _EventSetSelection) and self.event_set_store is not None:
             for choice, reference in (
@@ -993,46 +973,6 @@ class RecordingPipelineWorkspaceService:
                                 ),
                             }
                         )
-        for event_revision in event_revisions:
-            for visible_revision in visible_revisions:
-                for identity_revision in identity_revisions:
-                    input_revision_ids = [
-                        event_revision.manifest.revision_id,
-                        visible_revision.manifest.revision_id,
-                        identity_revision.manifest.revision_id,
-                    ]
-                    input_node_refs = [
-                        {
-                            "node_id": revision.node_id,
-                            "revision_id": revision.node_revision_id,
-                            "revision_policy": "historical",
-                        }
-                        for revision in (
-                            event_revision,
-                            visible_revision,
-                            identity_revision,
-                        )
-                    ]
-                    try:
-                        assemble_table_observations(
-                            event_revision.content,
-                            visible_revision.content,
-                            identity_revision.content,
-                            recording_id=recording_id,
-                            video_sha256=source.video_sha256,
-                            assembly_run_id="compatibility-check",
-                            input_revision_ids=input_revision_ids,
-                        )
-                    except (ObservationAssemblyError, TypeError, ValueError):
-                        continue
-                    compatible.append(
-                        {
-                            "input_node_refs": input_node_refs,
-                            "display_label": " + ".join(
-                                labels[revision_id] for revision_id in input_revision_ids
-                            ),
-                        }
-                    )
         compatible.sort(
             key=lambda item: (
                 item.get("input_event_set_ref", {}).get("set_id", ""),

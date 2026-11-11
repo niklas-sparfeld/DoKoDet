@@ -1,6 +1,8 @@
 # Recording folders and events
 
-- **Status:** In Progress
+- **Status:** Closed
+- **Closure reason:** Complete
+- **Closure note:** M0–M6 delivered the recording-folder workflow, retained-data rollout and qualification, and removal of replaced event-node runtime paths. See the M6 report for checks and evidence limits.
 - **Depends on:** None. Epic 0123 is closed, which stabilizes the list API before its source layout changes.
 - **Outcome:** Use the normal app to open a retained recording, inspect/edit/select events, run visible-card detection, and reopen the saved result from simple recording resources.
 - **Origin:** [Recording data storage](../../RecordingDataStorage.md).
@@ -67,7 +69,7 @@ referenced saved version may change. Keep 0123's no-history-growth list regressi
 | M3 | Normal app workflow works on one retained recording: open media, edit/select events, run detection, reopen result | Complete |
 | M4 | Rehearse reviewed alternatives and exact parents for three named recordings in disposable storage | Complete |
 | M5 | Roll out verified recordings and qualify representative normal app workflows | Complete |
-| M6 | Remove obsolete event runtime paths and complete closure checks | Not started |
+| M6 | Remove obsolete event runtime paths and complete closure checks | Complete |
 
 ### Next assignment after dependency closure
 
@@ -491,13 +493,98 @@ other pipeline selections; the recording-owned event HEAD remains readable durin
 
 ### M6 assignment — remove replaced paths and close
 
-Freeze exact removal owners from the pilot and rollout receipts before assignment. Remove duplicate
-event publication, selection and content reads now served by recording/event resources. Keep
-unrelated resource authorities and operational job adapters. Archived old files may remain as
-recovery evidence without a runtime compatibility path. Complete the original closure checks,
-including real browser producer/editor workflow, exact earlier input, restart, old event-node reads
-and writes disabled, crash and concurrency boundaries, active-job priority, list growth, static,
-API, web and link checks, real detector evidence and recovery. Close only when all pass.
+**Observable result:** the normal recording-folder workflow has no event-node runtime path. Event
+processing publishes event sets; event selection and edits use the event-set store and
+`recording.json` HEAD; downstream consumers use the exact selected event-set version. Generic
+pipeline-node support remains for non-event resource types.
+
+**Existing authority:** `recording.json` HEAD and the event-set store. Do not infer parent references.
+Retain converted event sets, source artifacts/history, M4/M5 evidence, recovery data, and any
+conversion-only rehearsal or rollout tools.
+
+**Finite owners confirmed from current call sites:** backend `event_pipeline_service.py` (duplicate
+event-node publication and selection fallback), `visible_card_pipeline_service.py` and
+`observation_pipeline_service.py` (event-node input readers), `pipeline_workspace_service.py` and
+`pipeline_workspace_api.py` (event-node workspace exposure), `pipeline_stage_api.py` (event run
+outputs), `pipeline_node_selection_store.py`, `pipeline_node_edit_api.py`, and
+`pipeline_lineage_writer.py`. Keep generic node edit and review services for other content types;
+the API rejects event-node reads, edits, and reviews. The existing `ProcessorRunState` invariant in
+`operations/src/doko_operations/pipeline_data.py` and `processor_run_store.py` allows no node output
+only for event-detection requests. `pipeline_lineage_writer.py` records the exact event-set
+artifact ID and digest, using the existing `EventSetStore` passed by `pipeline_composition.py`.
+`pipeline_revision_store.py` and the event handler in `pipeline_reference_handlers.py` remain for
+offline conversion and migration readers. They have no normal-workflow callers. Web owners are the
+orphaned `cardEvents/PipelineNodeEventEditor.tsx` and its tests, plus event-node branches in
+`RecordingWorkspaceInspector.tsx`, `RecordingPipelineWorkspace.tsx`, and concrete event clients.
+Change only event-specific branches. Retain generic node APIs and adapters for other content types.
+
+The M6 comparison owners are also finite: `pipeline_comparison_api.py`,
+`pipeline_comparison_service.py`, the event comparison tests, and the concrete web comparison
+request, response, client, and `ComparisonView.tsx` paths. Event comparison uses exact event-set
+references and content digests from the existing event-set store. Keep visible-card and visual
+identity comparison behavior unchanged.
+
+### M6 replan 1 — event-set-only processor output
+
+The event job currently publishes the same content as a pipeline-node revision and an event set.
+The run-status API and workspace expose the node revision, but the web `getEventResult` client has
+no call sites. Keep the existing processor-run and job lifecycle. Complete event runs with no node
+revision IDs, and verify their deterministic `run-<run-id>/1` event set through the existing event
+set store. Keep event content available through the event-set and workspace APIs. Do not add a job
+result kind or another stored mapping. Switch the exact downstream inputs and tests to existing
+event-set references. This replan exposed a processor-state invariant that currently requires node
+outputs for every complete run; record and resolve that separately below.
+
+### M6 replan 2 — permit event-set-owned complete runs
+
+`EventPipelineService.execute_job` saves `run-<id>/1`, then `ProcessorRunStore` rejects completion
+without a node revision and `PipelineLineageWriter` resolves each output through node storage.
+Permit a complete event run to have no `output_revision_ids` when its existing event set is the
+domain result. Keep non-event processors' output requirement enforced in the run store using the
+processor request context. Let the existing lineage writer terminalize a run with no node outputs.
+This changes one invariant of the existing `ProcessorRunState`; it adds no field, store,
+transaction, or job-result kind. Add regressions for event-set-only completion and unchanged
+non-event output validation/publication. Required proof is a usable event-set producer output through
+the current APIs/workspace, with job restart and failure behavior intact. M6 family re-plans: 2/5;
+this run: 2/10; M6 corrections: 0/2.
+
+### M6 replan 3 — terminalize event runs with an exact artifact output
+
+After the event-only state is accepted, `PipelineLineageWriter.update_processor` still cannot
+finish because `PipelineLineage.finish` requires an explicit result and output for every successful
+run. That existing lineage API already accepts exact artifact outputs. When an event-detection run
+has no node revision IDs, resolve `run-<run-id>/1` through the existing `EventSetStore` and emit its
+exact artifact ID, role, and content digest in the lineage output. Derive `empty` or `nonempty` from
+the saved event content. Keep the `pipeline-lineage-run/v1` contract and success invariant unchanged.
+The composition already receives `EventSetStore`; pass that authority to the lineage writer. Do not
+create an artifact store or a job result kind. Keep other processors' node output path unchanged.
+M6 family re-plans: 3/5; this run: 3/10; M6 corrections: 0/2.
+
+### M6 replan 4 — preserve event comparison through event sets
+
+`ComparisonView.tsx` still offers event comparison from the event stage. It sends run IDs and a
+reference revision ID to `PipelineComparisonService._resolve_run`, which requires one node revision
+for each event run. Event runs now have no node outputs, so this in-scope workspace consumer fails.
+Add the finite comparison API, service, test, and web owners listed in the M6 assignment. Replace
+the event reference revision input with an exact event-set reference and digest. Resolve both run
+outputs through deterministic saved event sets. Keep current event review decisions and comparison
+coverage behavior by reading reviews from the existing event-set store. Keep comparison for other
+resource types unchanged. Add exact-set and restart coverage. This changes only the comparison API
+contract and its in-memory response; it adds no stored comparison state or event storage authority.
+M6 family re-plans: 4/5; this run: 4/10; M6 corrections: 0/2.
+
+**Required checks:** focused backend event-set, node, visible-card, observation, workspace and
+selection regressions; assertions that converted recordings do not read or write event nodes;
+0123 no-history-growth regression; generated API/type/lint/format/build checks as affected; the
+persisted recording-folder browser workflow; M5 frozen output/parent payload digest proof; closure
+link check. Re-run the final persisted producer/editor/select/reopen workflow with event-node reads
+disabled, and preserve exact earlier inputs, restart behavior, active-job priority, crash/recovery,
+and concurrent reader/writer boundaries. Use recorded detector evidence; do not claim human review
+or qualify unrelated resources.
+
+**Commit boundary:** one focused M6 implementation, regression/evidence, epic/board update, and
+closure move. Close only when each original closure criterion has passing evidence and all changed
+links resolve.
 
 ## M0 recording-root contract
 
@@ -534,6 +621,24 @@ and the recording-folder Playwright test. A broader `test_app.py` run also repro
 owns that follow-up; it does not block M0.
 
 ## Execution handoff
+
+Current run: requested 1 milestone, completed 1, remaining 0. M6 family re-plans: 4/5; run
+re-plans: 4/10; M6 corrections: 0/2. The final seven-milestone baseline has M0–M6 complete.
+The original outcome and first complete workflow are unchanged: the retained recording browser
+workflow passed M3 and M5 qualified frozen output and parent bytes after restart.
+M5 limits remain: seven recordings have no event nodes and 203 outputs have no saved parent facts,
+so those outputs remain unavailable. M6 scope is the finite owner list in the assignment above;
+the event-set-only processor output, its event-only run-completion invariant, exact artifact
+lineage, and event comparison are bounded replans using existing authorities and contracts. Event
+comparison remains available through exact event-set inputs; visible-card and visual-identity
+comparison paths remain unchanged. See the [M6 runtime-removal report](../../reports/0124-M6_Runtime_Removal.md)
+for the active-reader audit, test mapping, checks, and remaining evidence limits.
+The browser and backend regressions passed with event-node reads disabled in the converted
+workflow. Event comparison reopened from exact event-set references after backend restart. No
+parent links were inferred. Existing migration readers remain offline; generic node support remains
+for other types. The retained M5 snapshot, recovery data, seven recordings without event nodes, and
+203 unavailable outputs are unchanged. No user review or unrelated resource qualification is
+claimed.
 
 Current run: requested 1 milestone, completed 1, remaining 0. M5 is complete. M5 family re-plans
 2/5, run re-plans 2/10, corrections 2/2. The current baseline is seven: M0–M5 complete and M6

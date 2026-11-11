@@ -17,10 +17,10 @@ function deferred<T>() {
 
 function stage(recordingId: string): PipelineWorkspaceStage {
   return {
-    key: "events",
+    key: "visible_cards",
     processor_key: "events-processor",
     processor_type: "events-processor",
-    output_content_type: "events",
+    output_content_type: "visible_cards",
     state: "data-available",
     input_options: [
       {
@@ -28,7 +28,7 @@ function stage(recordingId: string): PipelineWorkspaceStage {
         node_id: `${recordingId}-node`,
         node_revision_id: `${recordingId}-node-revision`,
         is_current_head: true,
-        content_type: "events",
+        content_type: "visible_cards",
         origin: "processor",
         completion_state: "complete",
         coverage_state: "full-recording",
@@ -84,9 +84,9 @@ describe("recording pipeline selection request ownership", () => {
         ({ recordingId, stage: selectedStage }) =>
           useRecordingPipelineSelection({
             recordingId,
-            stageKey: "events",
+            stageKey: "visible_cards",
             compare: false,
-            backendStageKey: "events",
+            backendStageKey: "visible_cards",
             stage: selectedStage,
             setWorkspace,
             loadWorkspace,
@@ -138,13 +138,17 @@ describe("recording pipeline selection request ownership", () => {
       await act(async () => {
         await result.current.selectGeneratedRevision("B-node-revision");
       });
-      expect(updatePipelineSelection).toHaveBeenLastCalledWith("B", "events", {
-        expected_revision: 1,
-        selected_generated: {
-          node_id: "B-node",
-          revision_id: "B-node-revision",
+      expect(updatePipelineSelection).toHaveBeenLastCalledWith(
+        "B",
+        "visible_cards",
+        {
+          expected_revision: 1,
+          selected_generated: {
+            node_id: "B-node",
+            revision_id: "B-node-revision",
+          },
         },
-      });
+      );
       expect(setNotice).toHaveBeenLastCalledWith(
         "Processor input revision selected.",
       );

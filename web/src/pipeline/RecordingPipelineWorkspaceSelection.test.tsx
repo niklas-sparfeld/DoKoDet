@@ -414,43 +414,37 @@ describe("recording pipeline workspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("uses the shared source surface, inspector, and rail for comparisons", async () => {
+  it("keeps event comparison in the recording workspace", async () => {
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:comparison-frame");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
     window.history.pushState(
       {},
       "",
-      "/recordings/recording-shell/pipeline/events/compare?left=run-left&right=run-right&reference=node-revision-reference-compare-1",
+      "/recordings/recording-shell/pipeline/events/compare?left=run-left&right=run-right&reference=reviewed-events::1",
     );
     const body = workspace();
     body.stages[0] = stage("events", {
       state: "complete",
       can_run: false,
       comparable_run_ids: ["run-left", "run-right"],
-      selected_completed_reference_revision_id: "reference-compare-1",
-      input_options: [
+      selected_event_set_reference: { set_id: "reviewed-events", version: "1" },
+      selected_completed_reference_revision_id: null,
+      input_options: [],
+      event_set_options: [
         {
-          revision_id: "reference-compare-1",
-          node_id: "node-reference-compare-1",
-          node_revision_id: "node-revision-reference-compare-1",
-          content_type: "events",
-          origin: "manual",
-          completion_state: "complete",
-          coverage_state: "full-recording",
-          display_label: "Reviewed events",
+          set_id: "reviewed-events",
+          version: "1",
           content_sha256: "b".repeat(64),
-          input_revision_ids: [],
-          producer: {},
-          coverage: {},
-          created_at: "2026-09-06T00:00:00Z",
+          origin: "manual",
+          display_label: "Reviewed events",
         },
       ],
       runs: ["run-left", "run-right"].map((run_id) => ({
         run_id,
         status: "complete",
         created_at: "2026-09-06T00:00:00Z",
-        input_revision_ids: ["events-input-1"],
-        output_revision_ids: [`${run_id}-output`],
+        input_revision_ids: [],
+        output_revision_ids: [],
         implementation: { name: "event-detector", version: "v1" },
         progress: { completed: 1, total: 1 },
         failure: null,
@@ -466,7 +460,12 @@ describe("recording pipeline workspace", () => {
       algorithm_version: "pipeline-comparison.v2",
       left: {
         run_id: "run-left",
-        revision_id: "run-left-output",
+        revision_id: null,
+        event_set_ref: {
+          set_id: "run-run-left",
+          version: "1",
+          content_sha256: "c".repeat(64),
+        },
         status: "complete",
         input_revision_ids: ["events-input-1"],
         content_sha256: "c".repeat(64),
@@ -478,7 +477,12 @@ describe("recording pipeline workspace", () => {
       },
       right: {
         run_id: "run-right",
-        revision_id: "run-right-output",
+        revision_id: null,
+        event_set_ref: {
+          set_id: "run-run-right",
+          version: "1",
+          content_sha256: "d".repeat(64),
+        },
         status: "complete",
         input_revision_ids: ["events-input-1"],
         content_sha256: "d".repeat(64),
@@ -489,7 +493,12 @@ describe("recording pipeline workspace", () => {
         failure: null,
       },
       reference: {
-        revision_id: "node-revision-reference-compare-1",
+        revision_id: null,
+        event_set_ref: {
+          set_id: "reviewed-events",
+          version: "1",
+          content_sha256: "b".repeat(64),
+        },
         input_revision_ids: [],
         content_sha256: "b".repeat(64),
         origin: "manual",
@@ -612,19 +621,14 @@ describe("recording pipeline workspace", () => {
     expect(
       screen.queryByText("Source-ordered outcomes"),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      await screen.findByRole("button", { name: /miss.*0:12.*miss/i }),
-    );
-    expect(window.location.search).toContain("item=comparison-outcome-1");
-    expect(window.location.search).toContain("t_us=12000000");
-    expect(
-      await screen.findAllByLabelText("Spatial evidence surface"),
-    ).toHaveLength(2);
-    expect(
-      screen.queryByLabelText(`Comparison source video ${RECORDING_ID}`),
-    ).not.toBeInTheDocument();
     expect(
       within(inspector).getByText(/Matching policy: event-timing/),
+    ).toBeInTheDocument();
+    expect(
+      await within(inspector).findByText(/run-run-left\/1/),
+    ).toBeInTheDocument();
+    expect(
+      await within(inspector).findByText(/reviewed-events\/1/),
     ).toBeInTheDocument();
   });
 

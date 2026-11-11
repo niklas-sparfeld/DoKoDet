@@ -281,6 +281,14 @@ test("pre-M3 visible-card output reopens its exact event parent after selection 
 test("normal recording workflow edits an event, runs detection and reopens its exact input", async ({
   page,
 }) => {
+  const blockedLegacyEventRequests: string[] = [];
+  await page.route(
+    /\/api\/(?:pipeline\/nodes\/|recordings\/recording-both\/pipeline\/events(?:\/|$))/,
+    async (route) => {
+      blockedLegacyEventRequests.push(route.request().url());
+      await route.abort();
+    },
+  );
   await page.goto("/recordings");
   await page.getByRole("link", { name: "Open video-both.mov" }).click();
   await expect(page).toHaveURL(/\/recordings\/recording-both$/);
@@ -415,4 +423,5 @@ test("normal recording workflow edits an event, runs detection and reopens its e
   await expect(
     page.getByRole("heading", { name: "Recording pipeline" }),
   ).toBeVisible();
+  expect(blockedLegacyEventRequests).toEqual([]);
 });

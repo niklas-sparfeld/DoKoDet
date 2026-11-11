@@ -336,9 +336,7 @@ export function RecordingWorkspaceInspector({
               comparison={comparison}
             />
           </>
-        ) : stage.key === "round_analyses" ||
-          (stage.key === "events" &&
-            stage.event_selection_authority === "recording-head") ? null : (
+        ) : stage.key === "round_analyses" || stage.key === "events" ? null : (
           <label className={styles.pipelineSelector}>
             <span>Default generated revision</span>
             <select

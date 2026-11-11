@@ -76,6 +76,16 @@ class PipelineWorkspaceEventSetInputReferenceResponse(ContractModel):
     content_sha256: Sha256
 
 
+class PipelineWorkspaceEventSetComparisonOptionResponse(ContractModel):
+    """One reviewed event set that can serve as a comparison reference."""
+
+    set_id: str
+    version: str
+    content_sha256: Sha256
+    origin: Literal["manual", "corrected"]
+    display_label: str
+
+
 class PipelineWorkspaceCompatibleInputSetResponse(ContractModel):
     """One exact resource set accepted by observation assembly."""
 
@@ -199,9 +209,12 @@ class PipelineWorkspaceStageResponse(ContractModel):
     selection_revision: int | None = Field(default=None, ge=0)
     selected_generated: PipelineWorkspaceNodeReferenceResponse | None = None
     selected_completed_reference: PipelineWorkspaceNodeReferenceResponse | None = None
-    event_selection_authority: Literal["recording-head", "pipeline-node"] | None = None
+    event_selection_authority: Literal["recording-head"] | None = None
     selected_event_set_generated: PipelineWorkspaceEventSetReferenceResponse | None = None
     selected_event_set_reference: PipelineWorkspaceEventSetReferenceResponse | None = None
+    event_set_options: list[PipelineWorkspaceEventSetComparisonOptionResponse] = Field(
+        default_factory=list
+    )
     runs: list[PipelineWorkspaceRunResponse]
     analyses: list[PipelineWorkspaceAnalysisResponse]
     can_run: bool

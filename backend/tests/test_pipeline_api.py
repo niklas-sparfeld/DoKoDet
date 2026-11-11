@@ -85,7 +85,8 @@ def test_pipeline_composition_reuses_shared_stores_across_services(tmp_path: Pat
         assert all(not hasattr(service, "revision_store") for service in services)
         assert run_store.lineage_writer is app.state.pipeline_lineage_writer
         assert all(service.run_store is run_store for service in services)
-        assert all(service.selection_store is selection_store for service in services)
+        assert all(service.selection_store is selection_store for service in services[1:])
+        assert not hasattr(app.state.event_pipeline_service, "selection_store")
         assert (
             app.state.calibration_refinement_service.store.workspace_root
             == _settings(tmp_path).operations_root / "calibration-refinement-drafts"
@@ -373,11 +374,15 @@ def test_generated_events_are_stored_and_selected_from_video_only(tmp_path: Path
         assert body["state"]["progress"] == {"completed": 1, "total": 1}
         assert body["state"]["items"][0]["item_id"] == "event-000000"
         assert body["state"]["items"][0]["result"]["event_type"] == (CARD_STATE_CHANGED_EVENT_TYPE)
-        assert body["revisions"][0]["content"]["events"][0]["start_us"] == 500_000
-        assert body["revisions"][0]["content"]["events"][0]["event_type"] == (
-            CARD_STATE_CHANGED_EVENT_TYPE
+        assert body["revisions"] == []
+        event_set = app.state.event_set_store.get(RECORDING_ID, f"run-{run_id}", "1")
+        assert event_set["content"]["events"][0]["start_us"] == 500_000
+        assert event_set["content"]["events"][0]["event_type"] == (CARD_STATE_CHANGED_EVENT_TYPE)
+        assert event_set["provenance"]["source"]["run_id"] == run_id
+        assert not any(
+            node.content_type == "events"
+            for node in app.state.pipeline_lineage_writer.node_store.list_nodes()
         )
-        assert body["revisions"][0]["manifest"]["producer"]["kind"] == "processor"
         selection = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/selection")
         assert selection.json()["selection"]["selected_generated"] is None
         exact_selection = selection.json()["selection"]
@@ -603,11 +608,25 @@ def test_recording_pipeline_workspace_aggregates_persisted_stage_state(
             "version": "v1",
         }
         assert events["runs"][0]["state"]["items"] == []
-        assert events["runs"][0]["output_revision_ids"]
+        assert events["runs"][0]["output_revision_ids"] == []
         assert events["selected_generated"] is None
 
-        # Processor results have one canonical node write and no revision-store copy.
+        # Event results have one event-set write and no generic node or revision write.
         assert not hasattr(app.state, "pipeline_revision_store")
+        lineage_run = next(
+            run
+            for run in app.state.pipeline_lineage_service.snapshot(RECORDING_ID)["runs"]
+            if run["run_id"] == created.json()["id"]
+        )
+        event_set = app.state.event_set_store.get(RECORDING_ID, f"run-{created.json()['id']}", "1")
+        assert lineage_run["outputs"] == [
+            {
+                "kind": "artifact",
+                "role": "events",
+                "artifact_id": (f"event-set/run-{created.json()['id']}/versions/1"),
+                "sha256": event_set["content_sha256"],
+            }
+        ]
 
         catalog = client.get("/v1/recordings")
         assert catalog.status_code == 200
@@ -724,45 +743,88 @@ def test_workspace_run_summary_omits_frozen_crop_items() -> None:
     assert request_mapping["crop_input"]["items"] is crop_items
 
 
-def test_workspace_run_summary_uses_exact_graph_inputs(tmp_path: Path) -> None:
+def test_event_run_summary_uses_event_set_output_not_event_node_revisions(tmp_path: Path) -> None:
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
-    # This test verifies the retained pipeline-node event authority.
-    app.state.pipeline_workspace_service.recording_folder_store = None
-    app.state.pipeline_workspace_service.event_set_store = None
-    run_store = app.state.pipeline_run_store
-    original_list = run_store.list_for_recording
-
-    def stale_inputs(recording_id: str, **kwargs):
-        stored_runs = original_list(recording_id, **kwargs)
-        return tuple(
-            replace(run, request=replace(run.request, input_revision_ids=("stale-input",)))
-            for run in stored_runs
-        )
 
     with TestClient(app) as client:
         created = _enqueue_event_job(client, RECORDING_ID, _request("graph-input-check"))
         assert created.status_code == 202
         _wait_for_status(client, created.json()["id"], "complete")
-        run_store.list_for_recording = stale_inputs
-
-        workspace = app.state.pipeline_workspace_service.get_workspace(RECORDING_ID)
+        workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline").json()
 
     event_run = workspace["stages"][0]["runs"][0]
     assert event_run["input_revision_ids"] == []
-    assert event_run["output_revision_ids"]
+    assert event_run["output_revision_ids"] == []
+    lineage_run = next(
+        item
+        for item in app.state.pipeline_lineage_service.snapshot(RECORDING_ID)["runs"]
+        if item["run_id"] == created.json()["id"]
+    )
+    assert lineage_run["outputs"][0]["kind"] == "artifact"
 
 
-def test_compatible_observation_inputs_return_exact_node_references(tmp_path: Path) -> None:
+def test_completed_event_set_run_reopens_with_exact_artifact_lineage(tmp_path: Path) -> None:
+    _install_recording(tmp_path)
+    settings = _settings(tmp_path)
+    app = create_test_app(settings, event_provider=FakeEventProvider())
+
+    with TestClient(app) as client:
+        created = _enqueue_event_job(client, RECORDING_ID, _request("event-set-reopen"))
+        assert created.status_code == 202
+        job_id = created.json()["id"]
+        _wait_for_status(client, job_id, "complete")
+        event_set = app.state.event_set_store.get(RECORDING_ID, f"run-{job_id}", "1")
+        assert event_set is not None
+        digest = event_set["content_sha256"]
+
+    reopened = create_test_app(settings, event_provider=FakeEventProvider())
+    with TestClient(reopened) as client:
+        result = client.get(f"/api/recordings/{RECORDING_ID}/pipeline/events/{job_id}/result")
+        assert result.status_code == 200
+        assert result.json()["state"]["status"] == "complete"
+        assert result.json()["state"]["output_revision_ids"] == []
+        assert result.json()["revisions"] == []
+        event_set = reopened.state.event_set_store.get(RECORDING_ID, f"run-{job_id}", "1")
+        assert event_set is not None
+        assert event_set["content_sha256"] == digest
+        lineage = next(
+            item
+            for item in reopened.state.pipeline_lineage_service.snapshot(RECORDING_ID)["runs"]
+            if item["run_id"] == job_id
+        )
+        assert lineage["outputs"] == [
+            {
+                "kind": "artifact",
+                "role": "events",
+                "artifact_id": f"event-set/run-{job_id}/versions/1",
+                "sha256": digest,
+            }
+        ]
+
+
+def test_compatible_observation_inputs_keep_event_set_parent_exact(tmp_path: Path) -> None:
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
-    # Exercise the legacy node-backed event path alongside other node inputs.
-    app.state.pipeline_workspace_service.recording_folder_store = None
-    app.state.pipeline_workspace_service.event_set_store = None
     node_store = app.state.pipeline_lineage_writer.node_store
     source = app.state.event_pipeline_service.get_recording_source(RECORDING_ID).to_mapping()
+    root = app.state.recording_folder_store.get(RECORDING_ID)
+    event_set = app.state.event_set_store.save(
+        RECORDING_ID,
+        set_id="manual-events",
+        version="1",
+        content={"schema_version": "event-data/v1", "events": []},
+        origin="manual",
+        provenance={"source": {"recording_id": RECORDING_ID}},
+    )
+    event_set = app.state.event_set_store.get(RECORDING_ID, "manual-events", "1")
+    app.state.event_set_store.select(
+        RECORDING_ID,
+        choice="reference",
+        reference={"set_id": event_set["set_id"], "version": event_set["version"]},
+        expected_version=root.version,
+    )
     fixtures = (
-        ("event-node", "event-r1", "events", {"schema_version": "event-data/v1", "events": []}),
         (
             "visible-node",
             "visible-r1",
@@ -793,12 +855,13 @@ def test_compatible_observation_inputs_return_exact_node_references(tmp_path: Pa
 
     assert stage["compatible_input_sets"] == [
         {
+            "input_event_set_ref": {
+                "set_id": "manual-events",
+                "version": "1",
+                "content_sha256": event_set["content_sha256"],
+            },
+            "event_choice": "reference",
             "input_node_refs": [
-                {
-                    "node_id": "event-node",
-                    "revision_id": "event-r1",
-                    "revision_policy": "historical",
-                },
                 {
                     "node_id": "visible-node",
                     "revision_id": "visible-r1",
@@ -810,7 +873,7 @@ def test_compatible_observation_inputs_return_exact_node_references(tmp_path: Pa
                     "revision_policy": "historical",
                 },
             ],
-            "display_label": "Processor output events + Processor output visible cards + "
+            "display_label": "manual-events@1 (reference) + Processor output visible cards + "
             "Processor output visual identities",
         }
     ]
@@ -829,46 +892,37 @@ def test_runtime_workspace_does_not_load_legacy_reference_store(tmp_path: Path) 
     app.state.pipeline_workspace_service.get_statuses([RECORDING_ID], analyses_by_recording={})
 
 
-def test_recording_pipeline_workspace_ignores_legacy_event_selection_pointer(
-    tmp_path: Path,
-) -> None:
+def test_recording_pipeline_workspace_does_not_read_legacy_event_nodes(tmp_path: Path) -> None:
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
+    node_store = app.state.pipeline_lineage_writer.node_store
+    source = app.state.event_pipeline_service.get_recording_source(RECORDING_ID).to_mapping()
+    node_store.create(
+        "legacy-event-node",
+        "Legacy events",
+        "events",
+        source,
+        {"schema_version": "event-data/v1", "events": []},
+        {},
+        revision_id="legacy-event-revision",
+    )
+    original_history = node_store.history
+
+    def fail_event_node_read(node_id: str):
+        if node_id == "legacy-event-node":
+            raise AssertionError("workspace read an obsolete event node")
+        return original_history(node_id)
+
+    node_store.history = fail_event_node_read
 
     with TestClient(app) as client:
-        created = _enqueue_event_job(client, RECORDING_ID, _request("invalid-selection-run"))
-        assert created.status_code == 202
-        _wait_for_status(client, created.json()["id"], "complete")
-
-        revision = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/{created.json()['id']}/result"
-        ).json()["revisions"][0]
-        app.state.pipeline_selection_store.update_exact(
-            RECORDING_ID,
-            "events",
-            expected_revision=0,
-            selected_generated=app.state.pipeline_selection_store.reference_for_processor_output(
-                revision["manifest"]["revision_id"], RECORDING_ID, "events"
-            ),
-            selected_completed_reference=None,
-        )
-
-        selection_path = app.state.pipeline_selection_store.selection_path(RECORDING_ID, "events")
-        selection = json.loads(selection_path.read_text(encoding="utf-8"))
-        selection["selected_generated"]["revision_id"] = "missing-revision"
-        selection_path.write_text(
-            json.dumps(selection, separators=(",", ":")),
-            encoding="utf-8",
-        )
-
         response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert response.status_code == 200, response.text
         events = response.json()["stages"][0]
-        assert events["selection_revision"] == 1
+        assert events["event_selection_authority"] == "recording-head"
+        assert events["selected_event_set_generated"] is None
         assert events["selected_generated"] is None
-        assert not any(
-            option["node_revision_id"] == "missing-revision" for option in events["input_options"]
-        )
+        assert events["input_options"] == []
         assert not {
             diagnostic["code"]
             for diagnostic in response.json()["diagnostics"]
@@ -876,9 +930,7 @@ def test_recording_pipeline_workspace_ignores_legacy_event_selection_pointer(
         }
 
 
-def test_legacy_event_workspace_reports_pipeline_node_selection_authority(
-    tmp_path: Path,
-) -> None:
+def test_recording_event_workspace_does_not_expose_pipeline_node_selection(tmp_path: Path) -> None:
     _install_recording(tmp_path)
     app = create_test_app(_settings(tmp_path), event_provider=FakeEventProvider())
     source = app.state.event_pipeline_service.get_recording_source(RECORDING_ID).to_mapping()
@@ -891,30 +943,15 @@ def test_legacy_event_workspace_reports_pipeline_node_selection_authority(
         {},
         revision_id="legacy-event-revision",
     )
-    app.state.pipeline_selection_store.update_exact(
-        RECORDING_ID,
-        "events",
-        expected_revision=0,
-        selected_generated={
-            "node_id": "legacy-event-node",
-            "revision_id": "legacy-event-revision",
-        },
-        selected_completed_reference=None,
-    )
-    app.state.pipeline_workspace_service.recording_folder_store = SimpleNamespace(
-        get=lambda _recording_id: None
-    )
-
     with TestClient(app) as client:
         response = client.get(f"/api/recordings/{RECORDING_ID}/pipeline?stage=events")
 
     assert response.status_code == 200, response.text
     events = response.json()["stages"][0]
-    assert events["event_selection_authority"] == "pipeline-node"
-    assert events["selected_generated"] == {
-        "node_id": "legacy-event-node",
-        "revision_id": "legacy-event-revision",
-    }
+    assert events["event_selection_authority"] == "recording-head"
+    assert events["selected_event_set_generated"] is None
+    assert events["selected_generated"] is None
+    assert events["input_options"] == []
 
 
 def test_pipeline_workspace_does_not_read_evidence_package_media_or_manifests(
@@ -961,13 +998,14 @@ def test_import_validates_bundle_prediction_and_preserves_absent_model_fields(
         result = client.get(
             f"/api/recordings/{RECORDING_ID}/pipeline/events/{run_id}/result"
         ).json()
-        revision = result["revisions"][0]
+        event_set = app.state.event_set_store.get(RECORDING_ID, f"run-{run_id}", "1")
         assert result["state"]["status"] == "complete"
         assert result["state"]["progress"] == {"completed": 1, "total": 1}
         assert result["state"]["items"][0]["item_id"] == "import-proposal-both-0"
         assert "model" not in result["request"]
-        assert "model_id" in revision["manifest"]["producer"]
-        assert revision["content"]["events"][0]["event_type"] == CARD_STATE_CHANGED_EVENT_TYPE
+        assert result["state"]["output_revision_ids"] == []
+        assert event_set["provenance"]["import"]["model_id"]
+        assert event_set["content"]["events"][0]["event_type"] == CARD_STATE_CHANGED_EVENT_TYPE
 
 
 def test_provider_failure_cannot_change_existing_generated_selection(tmp_path: Path) -> None:
@@ -1051,7 +1089,8 @@ def test_event_job_cancel_does_not_publish_and_retry_creates_new_attempt(tmp_pat
         retry_run_id = retried.json()["id"]
         assert retry_run_id != run_id
         completed = _wait_for_status(client, retry_run_id, "complete")
-        assert completed["state"]["output_revision_ids"]
+        assert completed["state"]["output_revision_ids"] == []
+        assert app.state.event_set_store.get(RECORDING_ID, f"run-{retry_run_id}", "1") is not None
         assert calls == 2
 
 
@@ -1102,12 +1141,8 @@ def test_event_import_freezes_artifact_bytes_before_dispatch(tmp_path: Path) -> 
         )
         imported_status = _wait_for_status(client, import_run_id, "complete")
         assert imported_status["state"]["status"] == "complete"
-        result = client.get(
-            f"/api/recordings/{RECORDING_ID}/pipeline/events/{import_run_id}/result"
-        ).json()
-        assert result["revisions"][0]["manifest"]["producer"]["artifact_sha256"] == (
-            expected_digest
-        )
+        event_set = app.state.event_set_store.get(RECORDING_ID, f"run-{import_run_id}", "1")
+        assert event_set["provenance"]["import"]["artifact_sha256"] == expected_digest
 
 
 def test_restart_marks_running_event_run_failed(tmp_path: Path) -> None:

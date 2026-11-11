@@ -27,18 +27,21 @@ from test_visible_card_pipeline_api import (
     _selected_node_input,
     _settings,
     _wait,
+    _wait_event,
 )
 from test_visual_identity_pipeline_api import _IdentityProvider
 
 import dokodetector_backend.observation_pipeline_service as observation_service_module
-from dokodetector_backend.operator_corpus_import import import_recordings
 
 
 def _exact_input_refs(app: Any, revision_ids: list[str]) -> list[dict[str, str]]:
     node_store = app.state.pipeline_selection_store.node_store
     refs = []
     for revision_id in revision_ids:
-        node, _ = node_store.find_revision(revision_id)
+        try:
+            node, _ = node_store.find_revision(revision_id)
+        except (FileNotFoundError, KeyError):
+            continue
         refs.append(
             {
                 "node_id": node.node_id,
@@ -66,7 +69,6 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
     with TestClient(app) as client:
         event_revision_id = _run_pipeline(client, "events-assembly", "events")
         visible_revision_id = _run_pipeline(client, "visible-assembly", "visible-cards")
-        generated_visible_revision_id = visible_revision_id
         stored_visible = app.state.pipeline_selection_store.require_processor_revision(
             visible_revision_id
         )
@@ -135,33 +137,22 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
 
         workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline")
         assert workspace.status_code == 200
-        compatible_input_set = {
-            "input_node_refs": [
-                {
-                    "node_id": stage_option["node_id"],
-                    "revision_id": revision_id,
-                    "revision_policy": "historical",
-                }
-                for stage, revision_id in zip(
-                    workspace.json()["stages"][:3],
-                    [event_revision_id, generated_visible_revision_id, identity_revision_id],
-                    strict=True,
-                )
-                for stage_option in stage["input_options"]
-                if stage_option["node_revision_id"] == revision_id
-            ],
-            "display_label": (
-                "Processor output events + Processor output visible cards + "
-                "Processor output visual identities"
-            ),
-        }
-        assert compatible_input_set in workspace.json()["stages"][3]["compatible_input_sets"]
+        event_ref = _selected_node_input(client, "events", event_revision_id)["input_event_set_ref"]
+        candidate = next(
+            item
+            for item in workspace.json()["stages"][3]["compatible_input_sets"]
+            if item.get("input_event_set_ref", {}).get("set_id") == event_ref["set_id"]
+            and {ref["revision_id"] for ref in item["input_node_refs"]}
+            == {visible_revision_id, identity_revision_id}
+        )
+        assert candidate["input_event_set_ref"] == event_ref
 
         first = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
             json={
                 "request": {
                     "run_id": "assembly-01",
+                    "input_event_set_ref": event_ref,
                     "input_node_refs": _exact_input_refs(
                         app, [event_revision_id, visible_revision_id, identity_revision_id]
                     ),
@@ -176,16 +167,17 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         )
         assert first_result.status_code == 200
         first_body = first_result.json()
+        event_ref = _selected_node_input(client, "events", event_revision_id)["input_event_set_ref"]
+        assert first_body["request"]["input_event_set_ref"] == event_ref
         assert first_body["request"]["input_revision_ids"] == [
-            event_revision_id,
             visible_revision_id,
             identity_revision_id,
         ]
         node_refs = first_body["request"]["input_node_refs"]
-        assert len(node_refs) == 3
-        assert len({ref["node_id"] for ref in node_refs}) == 3
+        assert len(node_refs) == 2
+        assert len({ref["node_id"] for ref in node_refs}) == 2
         assert all(ref["revision_id"] for ref in node_refs)
-        assert [ref["revision_policy"] for ref in node_refs] == ["current_head"] * 3
+        assert [ref["revision_policy"] for ref in node_refs] == ["current_head"] * 2
         content = first_body["revisions"][0]["content"]
         assert content["observations"][0]["status"] == "observed"
         assert content["observations"][0]["schema_version"] == "table-observation/v2"
@@ -195,7 +187,6 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         }
         assert content["observations"][0]["source"]["assembly_run_id"] == assembly_first_id
         assert content["observations"][0]["source"]["input_revision_ids"] == [
-            event_revision_id,
             visible_revision_id,
             identity_revision_id,
         ]
@@ -228,15 +219,18 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
 
         accepted_job = client.get(f"/api/jobs/{assembly_first_id}").json()
         assert [item["id"] for item in accepted_job["inputs"]] == [
-            event_revision_id,
             visible_revision_id,
             identity_revision_id,
+            f"event-set/{event_ref['set_id']}/versions/{event_ref['version']}",
         ]
         assert [item["digest"] for item in accepted_job["inputs"]] == [
             app.state.pipeline_selection_store.require_processor_revision(
-                revision_id
-            ).manifest.content_sha256
-            for revision_id in (event_revision_id, visible_revision_id, identity_revision_id)
+                visible_revision_id
+            ).manifest.content_sha256,
+            app.state.pipeline_selection_store.require_processor_revision(
+                identity_revision_id
+            ).manifest.content_sha256,
+            event_ref["content_sha256"],
         ]
 
         original_assembler = observation_service_module.assemble_table_observations
@@ -256,6 +250,7 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
             json={
                 "run_id": "assembly-retry-source",
+                "input_event_set_ref": event_ref,
                 "input_node_refs": _exact_input_refs(
                     app, [event_revision_id, visible_revision_id, identity_revision_id]
                 ),
@@ -295,15 +290,16 @@ def test_observation_assembly_freezes_lineage_and_coexists_after_restart(
         assert retry_job["state"] == "succeeded", retry_job
         retried_run = app.state.pipeline_run_store.require(retry_job_id)
         assert retried_run.request.input_revision_ids == (
-            event_revision_id,
             visible_revision_id,
             identity_revision_id,
         )
+        assert retried_run.request.input_event_set_ref == event_ref
 
         second = client.post(
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
             json={
                 "run_id": "assembly-02",
+                "input_event_set_ref": event_ref,
                 "input_node_refs": _exact_input_refs(
                     app, [event_revision_id, visible_revision_id, identity_revision_id]
                 ),
@@ -401,11 +397,14 @@ def _run_pipeline(
 
 def _run_observation(client: TestClient, run_id: str) -> tuple[str, str]:
     workspace = client.get(f"/api/recordings/{RECORDING_ID}/pipeline").json()
-    compatible_sets = workspace["stages"][3]["compatible_input_sets"]
-    input_refs = compatible_sets[0]["input_node_refs"]
+    candidate = workspace["stages"][3]["compatible_input_sets"][0]
     response = client.post(
         f"/api/recordings/{RECORDING_ID}/pipeline/observations",
-        json={"run_id": run_id, "input_node_refs": input_refs},
+        json={
+            "run_id": run_id,
+            "input_event_set_ref": candidate["input_event_set_ref"],
+            "input_node_refs": candidate["input_node_refs"],
+        },
     )
     assert response.status_code == 202, response.text
     managed_run_id = response.json()["run_id"]
@@ -434,7 +433,6 @@ def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Pa
     session_id = "session-event-set-observation"
     _make_analysis_metadata(tmp_path, session_id=session_id)
     recordings_root = tmp_path / "data" / "recordings"
-    import_recordings(tmp_path / "recordings", recordings_root, (RECORDING_ID,))
     app = create_test_app(
         _settings(tmp_path, recordings_root=recordings_root),
         event_provider=_EventProvider(),
@@ -444,7 +442,17 @@ def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Pa
         run_round_analysis_synchronously=True,
     )
     with TestClient(app) as client:
-        event_revision_id = _run_event_job(client, "events-event-set-observation")
+        event_response = client.post(
+            "/api/jobs",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={
+                "type": "event_processing",
+                "context": {"recording_id": RECORDING_ID},
+                "request": {"run_id": "events-event-set-observation"},
+            },
+        )
+        assert event_response.status_code == 202
+        assert _wait_event(client, event_response.json()["id"])["state"]["status"] == "complete"
         event_sets = client.get(f"/api/recordings/{RECORDING_ID}/event-sets").json()["event_sets"]
         event_set = event_sets[0]
         event_set_content = client.get(
@@ -591,8 +599,7 @@ def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Pa
         assert stored_analysis is not None
         stored_request = json.loads(stored_analysis.request_json)
         assert stored_request["table_observation_node_ref"] == observation_ref
-        assert event_revision_id
-        assert event_revision_id
+        assert event_set["set_id"].startswith("run-")
 
 
 @pytest.mark.parametrize(
@@ -625,6 +632,9 @@ def test_recording_analysis_uses_selected_observations_without_evidence_packages
             f"/api/recordings/{RECORDING_ID}/pipeline/observations",
             json={
                 "run_id": "analysis-observation-conflict",
+                "input_event_set_ref": _selected_node_input(client, "events", event_revision_id)[
+                    "input_event_set_ref"
+                ],
                 "input_node_refs": _exact_input_refs(
                     app,
                     [

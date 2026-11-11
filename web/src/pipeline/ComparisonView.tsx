@@ -80,11 +80,8 @@ export function ComparisonView({
 
   const runs = useMemo(() => comparableRuns(stage), [stage]);
   const referenceOptions = useMemo(
-    () =>
-      stage.input_options.filter(
-        (option) => option.origin === "manual" || option.origin === "corrected",
-      ),
-    [stage.input_options],
+    () => comparisonReferences(stage, contentType),
+    [contentType, stage],
   );
   const defaults = useMemo(
     () => defaultComparisonSelection(runs, referenceOptions, stage),
@@ -104,9 +101,7 @@ export function ComparisonView({
           : defaults.right,
       reference:
         urlState.reference !== null &&
-        referenceOptions.some(
-          (option) => option.node_revision_id === urlState.reference,
-        )
+        referenceOptions.some((option) => option.value === urlState.reference)
           ? urlState.reference
           : defaults.reference,
     }),
@@ -124,7 +119,7 @@ export function ComparisonView({
     comparison !== null &&
     comparison.left.run_id === selection.left &&
     comparison.right.run_id === selection.right &&
-    comparison.reference.revision_id === selection.reference
+    referenceIdentity(comparison, contentType) === selection.reference
       ? comparison
       : null;
   const activeError = errorKey === selectionKey ? error : null;
@@ -197,7 +192,14 @@ export function ComparisonView({
           content_type: contentType,
           left_run_id: selection.left,
           right_run_id: selection.right,
-          reference_revision_id: selection.reference,
+          reference_revision_id:
+            referenceOptions.find(
+              (option) => option.value === selection.reference,
+            )?.revisionId ?? null,
+          reference_event_set_ref:
+            referenceOptions.find(
+              (option) => option.value === selection.reference,
+            )?.eventSetRef ?? null,
           matching_policy: POLICIES[contentType],
         },
         { signal: controller.signal },
@@ -222,6 +224,7 @@ export function ComparisonView({
     client,
     contentType,
     recordingId,
+    referenceOptions,
     selection.left,
     selection.reference,
     selection.right,
@@ -404,9 +407,7 @@ export function ComparisonInspectorControls({
 }) {
   const contentType = comparisonContentType(stage.key);
   const runs = comparableRuns(stage);
-  const references = stage.input_options.filter(
-    (option) => option.origin === "manual" || option.origin === "corrected",
-  );
+  const references = comparisonReferences(stage, contentType);
   const defaults = defaultComparisonSelection(runs, references, stage);
   const selection = {
     left: runs.some((run) => run.run_id === urlState.left)
@@ -415,9 +416,7 @@ export function ComparisonInspectorControls({
     right: runs.some((run) => run.run_id === urlState.right)
       ? urlState.right
       : defaults.right,
-    reference: references.some(
-      (option) => option.node_revision_id === urlState.reference,
-    )
+    reference: references.some((option) => option.value === urlState.reference)
       ? urlState.reference
       : defaults.reference,
   };
@@ -481,11 +480,8 @@ export function ComparisonInspectorControls({
             onChange={(event) => selectValue("reference", event.target.value)}
           >
             {references.map((option) => (
-              <option
-                key={option.node_revision_id}
-                value={option.node_revision_id}
-              >
-                {option.display_label} · {option.node_revision_id}
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -537,7 +533,7 @@ function ComparisonSelectedOutcome({
     contentType === "visual_identities"
       ? pipelineIdentityCropPath(
           recordingId,
-          run.revision_id,
+          run.revision_id ?? "",
           item.run_card_id ?? item.item_id,
         )
       : null;
@@ -642,7 +638,8 @@ function ComparisonFacts({
           <div>
             <dt>Left</dt>
             <dd>
-              {comparison.left.run_id} · {comparison.left.revision_id}
+              {comparison.left.run_id} ·{" "}
+              {comparisonOutputReference(comparison.left)}
               <br />
               inputs: {comparison.left.input_revision_ids.join(", ") || "none"}
             </dd>
@@ -650,7 +647,8 @@ function ComparisonFacts({
           <div>
             <dt>Right</dt>
             <dd>
-              {comparison.right.run_id} · {comparison.right.revision_id}
+              {comparison.right.run_id} ·{" "}
+              {comparisonOutputReference(comparison.right)}
               <br />
               inputs: {comparison.right.input_revision_ids.join(", ") || "none"}
             </dd>
@@ -658,7 +656,7 @@ function ComparisonFacts({
           <div>
             <dt>Reference</dt>
             <dd>
-              {comparison.reference.revision_id} ·{" "}
+              {comparisonOutputReference(comparison.reference)} ·{" "}
               {formatIdentifier(comparison.reference.origin)}
               <br />
               inputs:{" "}
@@ -805,21 +803,71 @@ function comparableRuns(stage: PipelineWorkspaceStage): PipelineRun[] {
 
 function defaultComparisonSelection(
   runs: PipelineRun[],
-  references: PipelineWorkspaceStage["input_options"],
+  references: ComparisonReferenceOption[],
   stage: PipelineWorkspaceStage,
 ): { left: string | null; right: string | null; reference: string | null } {
   const pair = newestCompatiblePair(runs);
   const selectedReference =
-    stage.selected_completed_reference?.revision_id ?? null;
+    stage.key === "events"
+      ? stage.selected_event_set_reference == null
+        ? null
+        : eventSetReferenceKey(stage.selected_event_set_reference)
+      : (stage.selected_completed_reference?.revision_id ?? null);
   return {
     left: pair?.left.run_id ?? null,
     right: pair?.right.run_id ?? null,
-    reference: references.some(
-      (option) => option.node_revision_id === selectedReference,
-    )
+    reference: references.some((option) => option.value === selectedReference)
       ? selectedReference
-      : (references[0]?.node_revision_id ?? null),
+      : (references[0]?.value ?? null),
   };
+}
+
+type ComparisonReferenceOption = {
+  value: string;
+  label: string;
+  revisionId: string | null;
+  eventSetRef: PipelineComparisonRequest["reference_event_set_ref"];
+};
+
+function comparisonReferences(
+  stage: PipelineWorkspaceStage,
+  contentType: ComparisonContentType | null,
+): ComparisonReferenceOption[] {
+  if (contentType === "events") {
+    return (stage.event_set_options ?? []).map((option) => ({
+      value: eventSetReferenceKey(option),
+      label: `${option.display_label} · ${option.content_sha256.slice(0, 12)}`,
+      revisionId: null,
+      eventSetRef: {
+        set_id: option.set_id,
+        version: option.version,
+        content_sha256: option.content_sha256,
+      },
+    }));
+  }
+  return stage.input_options
+    .filter(
+      (option) => option.origin === "manual" || option.origin === "corrected",
+    )
+    .map((option) => ({
+      value: option.node_revision_id,
+      label: `${option.display_label} · ${option.node_revision_id}`,
+      revisionId: option.node_revision_id,
+      eventSetRef: null,
+    }));
+}
+
+function eventSetReferenceKey(reference: { set_id: string; version: string }) {
+  return `${reference.set_id}::${reference.version}`;
+}
+
+function referenceIdentity(
+  comparison: PipelineComparisonResponse,
+  contentType: ComparisonContentType | null,
+) {
+  return contentType === "events" && comparison.reference.event_set_ref !== null
+    ? eventSetReferenceKey(comparison.reference.event_set_ref)
+    : comparison.reference.revision_id;
 }
 
 function newestCompatiblePair(
@@ -909,6 +957,19 @@ function formatIdentifier(value: string): string {
     .replaceAll("-", " ")
     .toLowerCase()
     .replace(/(^|\s)\S/g, (character) => character.toUpperCase());
+}
+
+function comparisonOutputReference(
+  resource: Pick<
+    PipelineComparisonResponse["left"],
+    "revision_id" | "event_set_ref"
+  >,
+): string {
+  if (resource.event_set_ref !== null) {
+    const { set_id, version, content_sha256 } = resource.event_set_ref;
+    return `${set_id}/${version} · ${content_sha256.slice(0, 12)}`;
+  }
+  return resource.revision_id ?? "Unavailable";
 }
 
 function formatMicroseconds(value: number): string {

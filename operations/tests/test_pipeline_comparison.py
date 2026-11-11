@@ -106,12 +106,8 @@ def test_interval_comparison_uses_stable_end_and_preserves_both_bounds() -> None
         anchor="end_us",
         tolerance_us=25,
     )
-    reference_event = _event(
-        "ref-interval", CARD_STATE_CHANGED_EVENT_TYPE, 100, end_us=300
-    )
-    predicted_event = _event(
-        "pred-interval", CARD_STATE_CHANGED_EVENT_TYPE, 120, end_us=320
-    )
+    reference_event = _event("ref-interval", CARD_STATE_CHANGED_EVENT_TYPE, 100, end_us=300)
+    predicted_event = _event("pred-interval", CARD_STATE_CHANGED_EVENT_TYPE, 120, end_us=320)
 
     assert event_anchor(reference_event, policy) == 300
     counts, _, items = compare_event_data(
@@ -148,7 +144,12 @@ def test_comparison_request_canonicalization_normalizes_optional_event_type() ->
         "content_type": "events",
         "left_run_id": "left-run",
         "right_run_id": "right-run",
-        "reference_revision_id": "reference-1",
+        "reference_revision_id": None,
+        "reference_event_set_ref": {
+            "set_id": "reference-1",
+            "version": "1",
+            "content_sha256": "a" * 64,
+        },
         "matching_policy": {
             "policy_id": "event-timing/v1",
             "anchor": "start_us",
