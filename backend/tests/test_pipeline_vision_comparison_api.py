@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,7 @@ from dokodetector_backend.config import Settings
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_revision_store import PipelineRevisionStore
 from dokodetector_backend.processor_run_store import ProcessorRunStore
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 
 RECORDING_ID = "recording-vision"
 SOURCE = RecordingVideoSource(
@@ -286,11 +288,42 @@ def test_visible_card_comparison_route_uses_exact_frame_and_geometry_policy(tmp_
     assert canonical_pipeline_comparison_bytes(body)
 
 
-def test_visible_card_comparison_uses_exact_saved_detection_set_reference(tmp_path: Path) -> None:
-    app = create_test_app(_settings(tmp_path))
+def test_visible_card_comparison_uses_exact_reviewed_detection_set_reference(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys.modules[__name__], "RECORDING_ID", "recording-both")
+    fixture = Path(__file__).parents[2] / "fixtures/repository-bundle/v1/both"
+    transport = tmp_path / "transport" / RECORDING_ID
+    transport.parent.mkdir(parents=True)
+    shutil.copytree(fixture, transport)
+    recording_store = RecordingFolderStore(tmp_path / "recordings")
+    recording_root = recording_store.publish_bundle(transport, recording_id=RECORDING_ID)
+    video_digest = recording_root.media["sha256"]
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "SOURCE",
+        RecordingVideoSource(
+            recording_id=RECORDING_ID,
+            relative_path="recordings/vision/video.mov",
+            video_sha256=video_digest,
+            byte_length=recording_root.media["byte_length"],
+            duration_us=2_000_000,
+        ),
+    )
+    settings = Settings(
+        _env_file=None,
+        repository_root=tmp_path,
+        evidence_root=tmp_path / "runtime",
+        repository_intake_root=tmp_path / "recordings",
+        recordings_root=tmp_path / "recordings",
+        evidence_package_intake_root=tmp_path / "evidence-packages",
+        pending_video_root=tmp_path / "pending-videos",
+    )
+    app = create_test_app(settings)
     revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
     runs = app.state.pipeline_run_store
     geometry = DetectorBoxGeometry(100, 100, 200, 200)
+    identity = _frame(100_000, source_video_sha256=video_digest)
     for run_id in ("left-detection-alternative", "right-detection-alternative"):
         _create_run(
             runs,
@@ -299,63 +332,150 @@ def test_visible_card_comparison_uses_exact_saved_detection_set_reference(tmp_pa
             revision_id=f"{run_id}-output",
             processor_type="visible-card-detection",
             content_type="visible_cards",
-            content=_visible_content(geometry),
+            content=_visible_content(geometry, frame=identity),
         )
-    identity = _frame(100_000)
-    reference = {
-        "set_id": "reviewed-alternative",
-        "version": "2",
-        "content_sha256": "b" * 64,
-    }
-
-    class DetectionSetFixture:
-        def get(self, recording_id: str, set_id: str, version: str):
-            if (recording_id, set_id, version) != (
-                RECORDING_ID,
-                reference["set_id"],
-                reference["version"],
-            ):
-                return None
-            return {
-                "recording_id": recording_id,
-                "set_id": set_id,
-                "version": version,
-                "origin": "manual",
-                "source": {
-                    "recording_id": RECORDING_ID,
-                    "source_video_sha256": SOURCE.video_sha256,
+    event_set = app.state.event_set_store.save(
+        RECORDING_ID,
+        set_id="review-events",
+        version="1",
+        content={
+            "schema_version": "event-data/v1",
+            "events": [
+                {
+                    "event_id": "event-1",
+                    "event_type": "card_state_changed",
+                    "start_us": 90_000,
+                    "end_us": 110_000,
                 },
-                "content_sha256": reference["content_sha256"],
-                "content": {
-                    "frames": [
-                        {
-                            "frame_id": "frame-1",
-                            "frame_identity": identity.to_mapping(),
-                            "event_ids": [{"event_id": "event-1"}],
-                            "detections": [
-                                {
-                                    "object_id": "card-1",
-                                    "kind": "visible_card",
-                                    "side": "unknown",
-                                    "segments": [
-                                        {
-                                            "segment_id": "segment-1",
-                                            "polygon": [
-                                                {"x": 100, "y": 100},
-                                                {"x": 200, "y": 100},
-                                                {"x": 200, "y": 200},
-                                                {"x": 100, "y": 200},
-                                            ],
-                                        }
-                                    ],
-                                }
-                            ],
-                        }
-                    ]
+                {
+                    "event_id": "event-2",
+                    "event_type": "card_state_changed",
+                    "start_us": 190_000,
+                    "end_us": 210_000,
                 },
+                {
+                    "event_id": "event-3",
+                    "event_type": "card_state_changed",
+                    "start_us": 290_000,
+                    "end_us": 310_000,
+                },
+            ],
+        },
+        origin="manual",
+        provenance={"source": {"recording_id": RECORDING_ID, "video_sha256": video_digest}},
+    )
+    event_set = app.state.event_set_store.get(RECORDING_ID, "review-events", "1")
+    assert event_set is not None
+    detection_set = app.state.detection_set_store.save(
+        RECORDING_ID,
+        set_id="reviewed-alternative",
+        version="2",
+        origin="manual",
+        source={"source_video_sha256": video_digest},
+        producer={"editor": "fixture"},
+        event_sets=[
+            {
+                "set_id": "review-events",
+                "version": "1",
+                "content_sha256": event_set["content_sha256"],
             }
-
-    app.state.pipeline_comparison_service.detection_set_store = DetectionSetFixture()
+        ],
+        frames=[
+            {
+                "frame_id": "frame-1",
+                "frame_identity": identity.to_mapping(),
+                "event_ids": [{"set_id": "review-events", "version": "1", "event_id": "event-1"}],
+                "detections": [
+                    {
+                        "object_id": "card-1",
+                        "kind": "visible_card",
+                        "side": "unknown",
+                        "segments": [
+                            {
+                                "segment_id": "accepted-segment",
+                                "polygon": [
+                                    {"x": 100, "y": 100},
+                                    {"x": 200, "y": 100},
+                                    {"x": 200, "y": 200},
+                                    {"x": 100, "y": 200},
+                                ],
+                            }
+                        ],
+                    },
+                    {
+                        "object_id": "card-rejected",
+                        "kind": "visible_card",
+                        "side": "unknown",
+                        "segments": [
+                            {
+                                "segment_id": "rejected-segment",
+                                "polygon": [
+                                    {"x": 500, "y": 500},
+                                    {"x": 600, "y": 500},
+                                    {"x": 600, "y": 600},
+                                    {"x": 500, "y": 600},
+                                ],
+                            }
+                        ],
+                    },
+                ],
+            },
+            {
+                "frame_id": "frame-2",
+                "frame_identity": _frame(
+                    200_000, source_video_sha256=video_digest, suffix="c"
+                ).to_mapping(),
+                "event_ids": [{"set_id": "review-events", "version": "1", "event_id": "event-2"}],
+                "detections": [
+                    {
+                        "object_id": "only-rejected",
+                        "kind": "visible_card",
+                        "side": "unknown",
+                        "segments": [
+                            {
+                                "segment_id": "rejected-only-segment",
+                                "polygon": [
+                                    {"x": 500, "y": 500},
+                                    {"x": 600, "y": 500},
+                                    {"x": 600, "y": 600},
+                                    {"x": 500, "y": 600},
+                                ],
+                            },
+                        ],
+                    }
+                ],
+            },
+            {
+                "frame_id": "frame-3",
+                "frame_identity": _frame(
+                    300_000, source_video_sha256=video_digest, suffix="d"
+                ).to_mapping(),
+                "event_ids": [{"set_id": "review-events", "version": "1", "event_id": "event-3"}],
+                "detections": [],
+            },
+        ],
+    )
+    for object_id, frame_id, decision in (
+        ("card-1", "frame-1", "accepted"),
+        ("card-rejected", "frame-1", "rejected"),
+        ("only-rejected", "frame-2", "rejected"),
+    ):
+        app.state.detection_set_review_store.save(
+            RECORDING_ID,
+            "reviewed-alternative",
+            "2",
+            review_id=f"review-{object_id}",
+            reviewer={"id": "reviewer-1"},
+            question="Is this geometry usable?",
+            decision=decision,
+            covered_frame_ids=[frame_id],
+            covered_object_ids=[object_id],
+        )
+    reference = {
+        "set_id": detection_set["set_id"],
+        "version": detection_set["version"],
+        "content_sha256": detection_set["content_sha256"],
+    }
     payload = {
         "schema_version": "pipeline-comparison-request/v1",
         "recording_id": RECORDING_ID,
@@ -378,6 +498,14 @@ def test_visible_card_comparison_uses_exact_saved_detection_set_reference(tmp_pa
     assert result["reference"]["detection_set_ref"] == reference
     assert result["counts"]["left"]["matches"] == 1
     assert result["counts"]["right"]["matches"] == 1
+    assert all(item.get("reference_card_id") != "card-rejected" for item in result["items"])
+    reviewed_images = {
+        frame["image_sha256"] for frame in result["scope"]["reviewed_frame_identities"]
+    }
+    assert reviewed_images == {
+        identity.image_sha256,
+        _frame(300_000, source_video_sha256=video_digest, suffix="d").image_sha256,
+    }
     with pytest.raises(ValueError, match="exact digest"):
         app.state.pipeline_comparison_service.compare(
             RECORDING_ID,
@@ -386,6 +514,114 @@ def test_visible_card_comparison_uses_exact_saved_detection_set_reference(tmp_pa
                 "reference_detection_set_ref": {
                     **reference,
                     "content_sha256": "c" * 64,
+                },
+            },
+        )
+    with pytest.raises(ValueError, match="geometry unsupported by comparison"):
+        unsupported = app.state.detection_set_store.save(
+            RECORDING_ID,
+            set_id="unsupported-alternative",
+            version="1",
+            origin="manual",
+            source={"source_video_sha256": video_digest},
+            producer={"editor": "fixture"},
+            event_sets=[
+                {
+                    "set_id": "review-events",
+                    "version": "1",
+                    "content_sha256": event_set["content_sha256"],
+                }
+            ],
+            frames=[
+                {
+                    "frame_id": "frame-1",
+                    "frame_identity": identity.to_mapping(),
+                    "event_ids": [
+                        {"set_id": "review-events", "version": "1", "event_id": "event-1"}
+                    ],
+                    "detections": [
+                        {
+                            "object_id": "pile-1",
+                            "kind": "pile",
+                            "side": None,
+                            "segments": [
+                                {
+                                    "segment_id": "pile-segment",
+                                    "polygon": [
+                                        {"x": 100, "y": 100},
+                                        {"x": 200, "y": 100},
+                                        {"x": 200, "y": 200},
+                                        {"x": 100, "y": 200},
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+        app.state.pipeline_comparison_service.compare(
+            RECORDING_ID,
+            {
+                **payload,
+                "reference_detection_set_ref": {
+                    "set_id": unsupported["set_id"],
+                    "version": unsupported["version"],
+                    "content_sha256": unsupported["content_sha256"],
+                },
+            },
+        )
+    with pytest.raises(ValueError, match="no geometry review"):
+        unreviewed = app.state.detection_set_store.save(
+            RECORDING_ID,
+            set_id="unreviewed-alternative",
+            version="1",
+            origin="manual",
+            source={"source_video_sha256": video_digest},
+            producer={"editor": "fixture"},
+            event_sets=[
+                {
+                    "set_id": "review-events",
+                    "version": "1",
+                    "content_sha256": event_set["content_sha256"],
+                }
+            ],
+            frames=[
+                {
+                    "frame_id": "frame-1",
+                    "frame_identity": identity.to_mapping(),
+                    "event_ids": [
+                        {"set_id": "review-events", "version": "1", "event_id": "event-1"}
+                    ],
+                    "detections": [
+                        {
+                            "object_id": "unreviewed-card",
+                            "kind": "visible_card",
+                            "side": "unknown",
+                            "segments": [
+                                {
+                                    "segment_id": "unreviewed-segment",
+                                    "polygon": [
+                                        {"x": 100, "y": 100},
+                                        {"x": 200, "y": 100},
+                                        {"x": 200, "y": 200},
+                                        {"x": 100, "y": 200},
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+        app.state.pipeline_comparison_service.compare(
+            RECORDING_ID,
+            {
+                **payload,
+                "reference_detection_set_ref": {
+                    "set_id": unreviewed["set_id"],
+                    "version": unreviewed["version"],
+                    "content_sha256": unreviewed["content_sha256"],
                 },
             },
         )

@@ -616,6 +616,11 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
                 "draft_id": DRAFT_ID,
                 "expected_revision": persisted_draft["revision"],
                 "preview_digest": preview_digest,
+                "input_detection_set_ref": {
+                    "set_id": source_detection_set["set_id"],
+                    "version": source_detection_set["version"],
+                    "content_sha256": source_detection_set["content_sha256"],
+                },
                 "operator_id": "m8-operator",
                 "confirm_affected": True,
             },

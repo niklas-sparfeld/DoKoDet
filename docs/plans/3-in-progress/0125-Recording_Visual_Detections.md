@@ -254,31 +254,38 @@ re-plans. Stop if a new transaction authority or additional unbounded prerequisi
 M2 changes: scene proposals, visual identity, and observation assembly accept an explicit
 `{set_id, version, content_sha256}` detection-set reference. Each path validates the exact version
 at acceptance and execution, writes the reference to the durable run and output artifact lineage,
-and fails when the existing algorithm cannot represent the stored geometry. Comparison accepts an
-exact saved detection set as a visible-card reference. Calibration reflow saves a corrected version
-with the exact source reference and retains its current node draft and review decisions. The existing
-node and 0096 frame-review routes remain the bridge for old inputs. No selection or review authority
-changed. The only persistent contract added was the M0 detection-set reference in pipeline request
-and lineage data; no new store or transaction authority was added.
+and fails when the existing algorithm cannot represent the stored geometry. Calibration apply now
+requires the exact saved detection-set reference, rechecks it before reflow, and records it in the
+new corrected version. The reference participates in the calibration receipt identity. This supports
+edited alternatives while the current node draft continues to retain its decisions. Comparison reads
+the exact version's geometry reviews: accepted objects remain, rejected objects are excluded, frames
+with only rejected objects are excluded from coverage, unreviewed objects fail, and explicit empty
+frames remain empty. Unsupported geometry fails. The existing node and 0096 frame-review routes
+remain the bridge for old inputs. No selection or review authority changed. The only persistent
+contract added was the M0 detection-set reference in pipeline request and lineage data; no new
+store or transaction authority was added.
 
-M2 scope review after implementation: all four exact-input paths and comparison now use bounded
-adapters to the existing algorithms. A hard-snapshot calibration performance fixture has no
-recording folder, so it supplies a deterministic detection-set store fixture; a separate test writes
-and reopens the calibration output through the real recording-folder store. The first complete
-workflow remains the M1 browser proof. M3 retains the planned migration rehearsal, selection
-cutover, old-path removal, and qualification. No new prerequisite or scope change was needed.
-M2 corrections: 0/2; M2 re-plans: 0/5; run re-plans: 0/10. Next milestone: M3.
+M2 scope review after correction 1: the geometry review contract covers one exact frame/object pair,
+so comparison validates each object independently and excludes frames with no accepted objects.
+It does not infer a review for unreviewed objects or empty frames. This uses the existing M1 review
+authority. A hard-snapshot calibration performance fixture has no recording folder, so it supplies
+a deterministic detection-set store fixture; a separate test writes and reopens a reviewed edited
+alternative through the real recording-folder store. The first complete workflow remains the M1
+browser proof. M3 retains the planned migration rehearsal, selection cutover, old-path removal, and
+qualification. No new prerequisite or scope change was needed. M2 corrections: 1/2; M2 re-plans:
+0/5; run re-plans: 0/10. Next milestone: M3.
 
 M2 checks and evidence are recorded in the [M2 report](../../reports/0125-M2_Exact_Detection_Set_Consumers.md).
 
 M2 checks: `uv run --project operations pytest -q operations/tests/test_pipeline_data.py
 operations/tests/test_pipeline_comparison.py` passed 21 tests. The combined backend consumer,
-comparison, detection-store, and lineage command passed 51 tests:
+comparison, detection-store, and lineage command passed 68 tests:
 `uv run --project backend pytest -q backend/tests/test_pipeline_vision_comparison_api.py
 backend/tests/test_pipeline_comparison_api.py backend/tests/test_calibration_refinement_service.py
 backend/tests/test_detection_set_api.py backend/tests/test_detection_set_inputs.py
 backend/tests/test_observation_pipeline_api.py backend/tests/test_visual_identity_pipeline_api.py
-backend/tests/test_proposed_card_scene_pipeline.py backend/tests/test_pipeline_lineage_writer.py`.
+backend/tests/test_proposed_card_scene_pipeline.py backend/tests/test_pipeline_lineage_writer.py
+backend/tests/test_visible_card_pipeline_api.py`.
 The node-review, node-selection and 0096 frame-review command passed 54 tests:
 `uv run --project backend pytest -q backend/tests/test_pipeline_node_reviews.py
 backend/tests/test_frame_review_bindings.py backend/tests/test_frame_review_queue.py

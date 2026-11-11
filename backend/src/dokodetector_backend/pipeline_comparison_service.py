@@ -27,7 +27,11 @@ from doko_operations.pipeline_comparison_execution import (
 from doko_operations.pipeline_data import EventData, canonical_json_bytes
 
 from dokodetector_backend.detection_set_inputs import detection_set_to_visible_card_data
-from dokodetector_backend.detection_set_store import DetectionSetError, DetectionSetStore
+from dokodetector_backend.detection_set_store import (
+    DetectionSetError,
+    DetectionSetReviewStore,
+    DetectionSetStore,
+)
 from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_service_errors import PipelineServiceError
@@ -54,11 +58,13 @@ class PipelineComparisonService:
         run_store: ProcessorRunStore,
         event_set_store: EventSetStore | None = None,
         detection_set_store: DetectionSetStore | None = None,
+        detection_set_review_store: DetectionSetReviewStore | None = None,
     ) -> None:
         self.selection_store = selection_store
         self.run_store = run_store
         self.event_set_store = event_set_store
         self.detection_set_store = detection_set_store
+        self.detection_set_review_store = detection_set_review_store
 
     def compare(
         self, recording_id: str, payload: Mapping[str, Any] | PipelineComparisonRequest
@@ -318,15 +324,54 @@ class PipelineComparisonService:
         if stored["origin"] not in {"manual", "corrected"}:
             raise PipelineComparisonInputError("reference detection set is not reviewed content")
         source = stored.get("source")
-        if not isinstance(source, Mapping) or (
-            source.get("recording_id") != recording_id
+        if (
+            stored.get("recording_id") != recording_id
+            or not isinstance(source, Mapping)
             or source.get("source_video_sha256") != expected_source.video_sha256
         ):
             raise PipelineComparisonInputError(
                 "reference detection set does not match the exact recording video"
             )
+        if self.detection_set_review_store is None:
+            raise PipelineComparisonInputError("detection-set geometry reviews are unavailable")
         try:
-            content = detection_set_to_visible_card_data(stored)
+            reviews = self.detection_set_review_store.list(
+                recording_id, reference["set_id"], reference["version"]
+            )
+        except DetectionSetError as error:
+            raise PipelineComparisonInputError(str(error)) from error
+        decisions: dict[tuple[str, str], str] = {}
+        for review in reviews:
+            pair = (review["covered_frame_ids"][0], review["covered_object_ids"][0])
+            previous = decisions.get(pair)
+            if previous is not None and previous != review["decision"]:
+                raise PipelineComparisonInputError(
+                    f"detection object {pair[1]} has conflicting geometry decisions"
+                )
+            decisions[pair] = review["decision"]
+        filtered_frames = []
+        for frame in stored["content"]["frames"]:
+            if any(item["kind"] != "visible_card" for item in frame["detections"]):
+                raise PipelineComparisonInputError(
+                    f"frame {frame['frame_id']} has geometry unsupported by comparison"
+                )
+            accepted = []
+            for detection in frame["detections"]:
+                pair = (frame["frame_id"], detection["object_id"])
+                decision = decisions.get(pair)
+                if decision is None:
+                    raise PipelineComparisonInputError(
+                        f"detection object {pair[1]} in frame {pair[0]} has no geometry review"
+                    )
+                if decision == "accepted":
+                    accepted.append(detection)
+            if frame["detections"] and not accepted:
+                # A frame with only rejected detections is excluded from comparison coverage.
+                continue
+            filtered_frames.append({**frame, "detections": accepted})
+        reviewed_set = {**stored, "content": {**stored["content"], "frames": filtered_frames}}
+        try:
+            content = detection_set_to_visible_card_data(reviewed_set)
         except DetectionSetError as error:
             raise PipelineComparisonInputError(str(error)) from error
         return SimpleNamespace(

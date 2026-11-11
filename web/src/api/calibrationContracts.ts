@@ -53,4 +53,9 @@ export type CalibrationRefinementApplyResponse = {
   calibration_revision_id: string;
   receipt: Record<string, unknown>;
   visible_card_node_ref: { node_id: string; revision_id: string };
+  detection_set_ref: {
+    set_id: string;
+    version: string;
+    content_sha256: string;
+  };
 };

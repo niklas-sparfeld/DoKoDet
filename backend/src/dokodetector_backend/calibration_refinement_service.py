@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -50,6 +49,7 @@ from table_evidence_analyzer.pipeline_data import (
     canonical_proposed_card_scene_data_bytes,
 )
 
+from dokodetector_backend.detection_set_inputs import resolve_detection_set
 from dokodetector_backend.detection_set_store import DetectionSetError, DetectionSetStore
 from dokodetector_backend.lineage_draft_projection import project_visible_card_items
 from dokodetector_backend.pipeline_item_provenance import _items
@@ -105,7 +105,11 @@ class CalibrationRefinementService:
         self.receipt_store = CalibrationReflowReceiptStore(settings.operations_root)
 
     def _publish_detection_set_reflow(
-        self, recording_id: str, source: Any, receipt: CalibrationReflowReceipt
+        self,
+        recording_id: str,
+        source: Any,
+        input_detection_set_ref: Mapping[str, str],
+        receipt: CalibrationReflowReceipt,
     ) -> dict[str, str]:
         """Save unchanged pixel evidence as a new exact calibration-reflow version."""
 
@@ -113,42 +117,10 @@ class CalibrationRefinementService:
             raise CalibrationRefinementInputError(
                 "the recording detection-set store is unavailable"
             )
-        producer = source.manifest.producer
-        run_id = producer.get("run_id") if isinstance(producer, Mapping) else None
-        revision_id = source.manifest.revision_id
-        if not isinstance(run_id, str) or not run_id:
-            raise CalibrationRefinementInputError(
-                "the detector source has no exact detection-set producer"
-            )
-        attempt_suffix = revision_id.rsplit("-attempt-", 1)
-        if len(attempt_suffix) != 2 or not attempt_suffix[1].isdigit():
-            raise CalibrationRefinementInputError(
-                "the detector source has no exact detection-set attempt"
-            )
-        sanitized_run_id = re.sub(r"[^A-Za-z0-9._:-]", "-", run_id).strip("-") or "unknown"
-        source_ref = {
-            "set_id": "detector-" + sanitized_run_id,
-            "version": attempt_suffix[1],
-        }
-        saved = self.detection_set_store.get(
-            recording_id, source_ref["set_id"], source_ref["version"]
+        saved = self._resolve_calibration_detection_set(
+            recording_id, source, input_detection_set_ref
         )
-        if saved is None:
-            raise CalibrationRefinementInputError(
-                "the exact detector detection-set version is unavailable"
-            )
-        saved_producer = saved.get("producer")
-        saved_source = saved.get("source")
-        if (
-            not isinstance(saved_producer, Mapping)
-            or saved_producer.get("run_id") != run_id
-            or not isinstance(saved_source, Mapping)
-            or saved_source.get("source_video_sha256") != source.manifest.source.video_sha256
-        ):
-            raise CalibrationRefinementInputError(
-                "the detector detection-set version has different producer or video lineage"
-            )
-        source_ref["content_sha256"] = saved["content_sha256"]
+        source_ref = dict(input_detection_set_ref)
         output_set_id = "calibration-reflow-" + receipt.receipt_id
         output_version = "1"
         output_producer = {
@@ -193,6 +165,38 @@ class CalibrationRefinementService:
             "version": output_version,
             "content_sha256": published["content_sha256"],
         }
+
+    def _resolve_calibration_detection_set(
+        self,
+        recording_id: str,
+        source: Any,
+        reference: Mapping[str, str],
+    ) -> dict[str, Any]:
+        if self.detection_set_store is None:
+            raise CalibrationRefinementInputError(
+                "the recording detection-set store is unavailable"
+            )
+        try:
+            saved = resolve_detection_set(self.detection_set_store, recording_id, reference)
+        except (DetectionSetError, KeyError, TypeError, ValueError) as error:
+            raise CalibrationRefinementInputError(str(error)) from error
+        if saved["source"].get("source_video_sha256") != source.manifest.source.video_sha256:
+            raise CalibrationRefinementInputError(
+                "the detection set does not match the calibration proposal video"
+            )
+        expected_frames = {
+            outcome.event_id: outcome.frame_identity.to_mapping()
+            for outcome in source.content.outcomes
+            if outcome.status != "failed" and outcome.frame_identity is not None
+        }
+        actual_frames = {}
+        for frame in saved["content"]["frames"]:
+            actual_frames[frame["frame_id"]] = frame["frame_identity"]
+        if actual_frames != expected_frames:
+            raise CalibrationRefinementInputError(
+                "the detection set does not match the calibration proposal frame coverage"
+            )
+        return saved
 
     def read_published_calibration(
         self, recording_id: str, calibration_revision_id: str
@@ -828,6 +832,7 @@ class CalibrationRefinementService:
         preview_digest = payload.get("preview_digest")
         operator_id = payload.get("operator_id", "operator")
         confirm_affected = payload.get("confirm_affected", False)
+        input_detection_set_ref = payload.get("input_detection_set_ref")
         if not isinstance(draft_id, str) or not draft_id:
             raise CalibrationRefinementInputError("draft_id is required")
         if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
@@ -838,8 +843,11 @@ class CalibrationRefinementService:
             raise CalibrationRefinementInputError("operator_id must be a non-empty string")
         if not isinstance(confirm_affected, bool):
             raise CalibrationRefinementInputError("confirm_affected must be a boolean")
+        if not isinstance(input_detection_set_ref, Mapping):
+            raise CalibrationRefinementInputError("input_detection_set_ref is required")
 
         _proposal, source, data = self._proposal(recording_id, proposal_revision_id)
+        self._resolve_calibration_detection_set(recording_id, source, input_detection_set_ref)
         try:
             draft = self.store.load(recording_id, draft_id)
         except CalibrationRefinementError as error:
@@ -866,6 +874,7 @@ class CalibrationRefinementService:
                         "draft_id": effective_draft.draft_id,
                         "draft_digest": effective_draft.draft_digest,
                         "preview_digest": preview_digest,
+                        "input_detection_set_ref": dict(input_detection_set_ref),
                     }
                 )
             ).hexdigest()[:24]
@@ -885,7 +894,7 @@ class CalibrationRefinementService:
                         "the calibration receipt has no matching visible-card node revision"
                     )
                 detection_set_ref = self._publish_detection_set_reflow(
-                    recording_id, source, previous_receipt
+                    recording_id, source, input_detection_set_ref, previous_receipt
                 )
                 return {
                     "schema_version": "table-plane-calibration-refinement/v1",
@@ -903,7 +912,7 @@ class CalibrationRefinementService:
             )
             if node_reference is not None:
                 detection_set_ref = self._publish_detection_set_reflow(
-                    recording_id, source, previous_receipt
+                    recording_id, source, input_detection_set_ref, previous_receipt
                 )
                 return {
                     "schema_version": "table-plane-calibration-refinement/v1",
@@ -1057,7 +1066,9 @@ class CalibrationRefinementService:
             raise CalibrationRefinementConflict(
                 "the calibration reflow did not publish its visible-card node revision"
             )
-        detection_set_ref = self._publish_detection_set_reflow(recording_id, source, receipt)
+        detection_set_ref = self._publish_detection_set_reflow(
+            recording_id, source, input_detection_set_ref, receipt
+        )
         return {
             "schema_version": "table-plane-calibration-refinement/v1",
             "action": "applied",

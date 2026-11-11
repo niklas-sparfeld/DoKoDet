@@ -785,10 +785,12 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
         assert generated_result["request"]["input_revision_ids"] == []
         assert generated_result["request"]["input_event_set_ref"] == generated_event_set_ref
         detection_ref = generated_result["detection_set_ref"]
-        assert detection_ref == {"set_id": f"detector-{generated_run_id}", "version": "1"}
+        assert detection_ref["set_id"] == f"detector-{generated_run_id}"
+        assert detection_ref["version"] == "1"
         detection_set = client.get(
             f"/api/recordings/{RECORDING_ID}/detection-sets/{detection_ref['set_id']}/versions/{detection_ref['version']}"
         ).json()
+        assert detection_ref["content_sha256"] == detection_set["content_sha256"]
         assert detection_set["event_sets"] == [generated_event_set_ref]
         assert [frame["frame_id"] for frame in detection_set["content"]["frames"]] == [
             "event-000000",

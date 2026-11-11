@@ -159,6 +159,11 @@ export interface DokoDetectorClient {
       draft_id: string;
       expected_revision: number;
       preview_digest: string;
+      input_detection_set_ref: {
+        set_id: string;
+        version: string;
+        content_sha256: string;
+      };
       operator_id: string;
       confirm_affected?: boolean;
     },

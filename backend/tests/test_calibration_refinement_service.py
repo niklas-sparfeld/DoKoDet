@@ -83,9 +83,15 @@ def test_get_loads_the_current_proposals_draft() -> None:
 
 
 def test_calibration_reflow_saves_new_detection_version_with_exact_parent() -> None:
-    input_frames = [{"frame_id": "frame-1", "detections": []}]
-    input_ref = {"set_id": "detector-run-1", "version": "2"}
+    frame_identity = {"frame": "identity"}
+    input_frames = [{"frame_id": "frame-1", "frame_identity": frame_identity, "detections": []}]
+    input_ref = {
+        "set_id": "detector-run-1",
+        "version": "2",
+        "content_sha256": "a" * 64,
+    }
     source_set = {
+        "recording_id": "recording-1",
         "content_sha256": "a" * 64,
         "source": {"source_video_sha256": "b" * 64},
         "producer": {"run_id": "run-1"},
@@ -121,7 +127,16 @@ def test_calibration_reflow_saves_new_detection_version_with_exact_parent() -> N
             revision_id="visible-cards-run-1-attempt-2",
             producer={"run_id": "run-1"},
             source=SimpleNamespace(video_sha256="b" * 64),
-        )
+        ),
+        content=SimpleNamespace(
+            outcomes=[
+                SimpleNamespace(
+                    event_id="frame-1",
+                    status="empty",
+                    frame_identity=SimpleNamespace(to_mapping=lambda: frame_identity),
+                )
+            ]
+        ),
     )
     receipt = SimpleNamespace(
         receipt_id="reflow-1",
@@ -129,7 +144,40 @@ def test_calibration_reflow_saves_new_detection_version_with_exact_parent() -> N
         target_calibration_revision_id="calibration-1",
     )
 
-    output_ref = service._publish_detection_set_reflow("recording-1", source, receipt)
+    with pytest.raises(CalibrationRefinementInputError, match="content digest"):
+        service._resolve_calibration_detection_set(
+            "recording-1", source, {**input_ref, "content_sha256": "f" * 64}
+        )
+    with pytest.raises(CalibrationRefinementInputError, match="must identify set"):
+        service._resolve_calibration_detection_set(
+            "recording-1", source, {"set_id": input_ref["set_id"], "version": "2"}
+        )
+    service._proposal = Mock(return_value=(None, source, None))
+    service.store = Mock()
+    apply_payload = {
+        "draft_id": "draft-1",
+        "expected_revision": 0,
+        "preview_digest": "preview-1",
+        "operator_id": "operator-1",
+        "confirm_affected": False,
+    }
+    with pytest.raises(
+        CalibrationRefinementInputError, match="input_detection_set_ref is required"
+    ):
+        service.apply("recording-1", "proposal-1", apply_payload)
+    service._proposal.assert_not_called()
+    with pytest.raises(CalibrationRefinementInputError, match="content digest"):
+        service.apply(
+            "recording-1",
+            "proposal-1",
+            {
+                **apply_payload,
+                "input_detection_set_ref": {**input_ref, "content_sha256": "f" * 64},
+            },
+        )
+    service.store.load.assert_not_called()
+
+    output_ref = service._publish_detection_set_reflow("recording-1", source, input_ref, receipt)
     reopened = service.detection_set_store.get(
         "recording-1", output_ref["set_id"], output_ref["version"]
     )
@@ -141,7 +189,6 @@ def test_calibration_reflow_saves_new_detection_version_with_exact_parent() -> N
     }
     assert reopened["producer"]["input_detection_set_ref"] == {
         **input_ref,
-        "content_sha256": "a" * 64,
     }
     assert reopened["content"]["frames"] == input_frames
 
@@ -204,13 +251,13 @@ def test_calibration_reflow_detection_version_reopens_from_recording_folder(tmp_
             ],
         }
     ]
-    detection_store.save(
+    input_set = detection_store.save(
         "recording-both",
-        set_id="detector-run-1",
+        set_id="edited-alternative",
         version="2",
-        origin="processor",
+        origin="manual",
         source={"source_video_sha256": video_digest},
-        producer={"run_id": "run-1"},
+        producer={"editor": "operator"},
         event_sets=[],
         frames=frames,
     )
@@ -221,7 +268,16 @@ def test_calibration_reflow_detection_version_reopens_from_recording_folder(tmp_
             revision_id="visible-cards-run-1-attempt-2",
             producer={"run_id": "run-1"},
             source=SimpleNamespace(video_sha256=video_digest),
-        )
+        ),
+        content=SimpleNamespace(
+            outcomes=[
+                SimpleNamespace(
+                    event_id="frame-1",
+                    status="detected",
+                    frame_identity=SimpleNamespace(to_mapping=lambda: frames[0]["frame_identity"]),
+                )
+            ]
+        ),
     )
     receipt = SimpleNamespace(
         receipt_id="reflow-persisted",
@@ -229,7 +285,12 @@ def test_calibration_reflow_detection_version_reopens_from_recording_folder(tmp_
         target_calibration_revision_id="calibration-1",
     )
 
-    output_ref = service._publish_detection_set_reflow("recording-both", source, receipt)
+    input_ref = {
+        "set_id": "edited-alternative",
+        "version": "2",
+        "content_sha256": input_set["content_sha256"],
+    }
+    output_ref = service._publish_detection_set_reflow("recording-both", source, input_ref, receipt)
     restarted_store = DetectionSetStore(
         RecordingFolderStore(recording_root),
         EventSetStore(RecordingFolderStore(recording_root)),
@@ -239,11 +300,9 @@ def test_calibration_reflow_detection_version_reopens_from_recording_folder(tmp_
     assert reopened is not None
     assert reopened["content"]["frames"] == frames
     assert reopened["producer"]["input_detection_set_ref"] == {
-        "set_id": "detector-run-1",
+        "set_id": "edited-alternative",
         "version": "2",
-        "content_sha256": detection_store.get("recording-both", "detector-run-1", "2")[
-            "content_sha256"
-        ],
+        "content_sha256": input_set["content_sha256"],
     }
 
 

@@ -8,7 +8,7 @@ from typing import Any
 from doko_operations.card_plane_calibration_refinement import CalibrationDraftStore
 
 from dokodetector_backend.calibration_refinement_service import CalibrationRefinementService
-from dokodetector_backend.detection_set_store import DetectionSetStore
+from dokodetector_backend.detection_set_store import DetectionSetReviewStore, DetectionSetStore
 from dokodetector_backend.event_pipeline_service import EventPipelineService, EventProcessorProvider
 from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.observation_pipeline_service import ObservationPipelineService
@@ -109,6 +109,9 @@ def build_pipeline_composition(
         run_store=run_store,
         event_set_store=event_set_store,
         detection_set_store=detection_set_store,
+        detection_set_review_store=(
+            None if detection_set_store is None else DetectionSetReviewStore(detection_set_store)
+        ),
     )
     visible_card_service = VisibleCardPipelineService(
         settings,
