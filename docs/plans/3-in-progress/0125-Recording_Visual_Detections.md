@@ -1,6 +1,6 @@
 # Recording visual detections
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** [0124](../5-closed/0124-Recording_Folders_and_Events.md) closure and stable recording/event references.
 - **Outcome:** Generate or annotate alternative visual detection sets, edit their segments, and reopen them from the recording folder.
 - **Origin:** [Recording data storage](../../RecordingDataStorage.md).
@@ -82,7 +82,7 @@ checks. Retain 0123's bounded list checks. No model-quality claim is required fo
 
 | Milestone | Observable result and commit boundary | State |
 | --- | --- | --- |
-| M0 | Concrete detection-set storage; real API save/open of exact frame/object/segment evidence | Not started |
+| M0 | Concrete detection-set storage; real API save/open of exact frame/object/segment evidence | Complete |
 | M1 | Existing detector and browser segment editor/review use the same contract; restart proof | Not started |
 | M2 | Convert exact-input consumers and calibration reflow writer; preserve comparison and frame-review access | Not started |
 | M3 | Retained-data rehearsal, default detection cutover, replaced-path removal, and qualification | Not started |
@@ -119,6 +119,29 @@ input conversion; do not silently convert the next resource type in this epic.
 
 ## Execution handoff
 
-Planning only. Baseline: 4 milestones; 4 remain. First API workflow: M0; browser: M1;
-qualification: M3. No run authorized. At most two corrections per family under the execution
-scope review. A new shared geometry/review framework or displaced browser proof is a scope stop.
+Luna loop authorized for four milestones. Baseline: 4; completed: 1; remaining: 3. This run:
+requested 4, completed 1, remaining 3. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
+0/2. Original outcome, non-goals, and closure checks remain above. First complete detector and
+browser workflow remains due in M1; qualification remains in M3. M0 proves only concrete API
+save/open through persisted data and app restart. The first workflow and qualification remain
+unproved. Scope decision: keep `Recording HEAD` selection authority unchanged and add no review
+store. The only new contract is the M0 detection-set content and save/open API, required to store
+exact source frames and segments in recording folders. Its owners are `detection_set_store.py`,
+`detection_sets_api.py`, app registration, generated API types, and focused tests. See the
+[M0 evidence](../../reports/0125-M0_Detection_Set_Storage.md).
+
+M0 contract: each version has recording, set, version, origin, source video digest, producer facts,
+exact optional event-set references with content digests, and an explicit list of examined frames.
+Each frame has the existing exact-frame identity, optional exact event IDs, and zero or more
+detections. Each frame-local object has a kind, card side when it is a visible card, and identified
+polygon segments in source-image pixel coordinates. Empty detections mean examined with no result;
+missing or failed evidence is not accepted as empty. Versions are immutable. Save and open do not
+select a version.
+
+Next assignment is M1: use the existing detector and browser segment editor/review with this same
+contract, then prove save, edit, and reopen after restart. Before edits, freeze the exact detector,
+browser API/client and review/draft owners in the M1 assignment. Preserve existing review decisions
+and resumable state. Do not add a review store or change selection authority without identifying
+the failing workflow requirement and dependency. M2 and M3 remain bounded until M1 proves the first
+workflow. Stop for a new shared geometry/review framework, displaced browser proof, or unresolved
+scope gate.

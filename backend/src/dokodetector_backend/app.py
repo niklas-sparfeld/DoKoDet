@@ -23,6 +23,8 @@ from dokodetector_backend.automated_pipeline_run import (
 )
 from dokodetector_backend.calculation_jobs import CalculationJobs
 from dokodetector_backend.config import Settings
+from dokodetector_backend.detection_set_store import DetectionSetStore
+from dokodetector_backend.detection_sets_api import router as detection_sets_router
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.event_jobs import EventJobParticipant
 from dokodetector_backend.event_pipeline_service import EventProcessorProvider
@@ -159,6 +161,9 @@ def create_app(
     app.state.recording_bundle_store = RecordingBundleStore(app.state.repository_bundle_storage)
     app.state.recording_folder_store = RecordingFolderStore(app_settings.recordings_root)
     app.state.event_set_store = EventSetStore(app.state.recording_folder_store)
+    app.state.detection_set_store = DetectionSetStore(
+        app.state.recording_folder_store, app.state.event_set_store
+    )
     app.state.recording_thumbnail_cache = RecordingThumbnailCache(
         app_settings.evidence_root / "recording-thumbnails"
     )
@@ -420,6 +425,7 @@ def create_app(
     app.include_router(round_analysis_router)
     app.include_router(recordings_router)
     app.include_router(event_sets_router)
+    app.include_router(detection_sets_router)
     app.include_router(recording_state_router)
     app.include_router(pipeline_router)
     app.include_router(frame_review_router)

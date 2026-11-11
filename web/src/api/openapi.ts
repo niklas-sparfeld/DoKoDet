@@ -335,6 +335,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/detection-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Detection Set */
+        post: operations["save_detection_set_api_recordings__recording_id__detection_sets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recordings/{recording_id}/detection-sets/{set_id}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Detection Set */
+        get: operations["get_detection_set_api_recordings__recording_id__detection_sets__set_id__versions__version__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/event-sets": {
         parameters: {
             query?: never;
@@ -1729,6 +1763,31 @@ export interface components {
             resource: components["schemas"]["ExactResourceRef"];
             /** Role */
             role: string;
+        };
+        /** DetectionSetSaveRequest */
+        DetectionSetSaveRequest: {
+            /** Event Sets */
+            event_sets?: {
+                [key: string]: string;
+            }[];
+            /** Frames */
+            frames: {
+                [key: string]: unknown;
+            }[];
+            /** Origin */
+            origin: string;
+            /** Producer */
+            producer: {
+                [key: string]: unknown;
+            };
+            /** Set Id */
+            set_id: string;
+            /** Source */
+            source: {
+                [key: string]: unknown;
+            };
+            /** Version */
+            version: string;
         };
         /** EmptyBody */
         EmptyBody: Record<string, never>;
@@ -5238,6 +5297,74 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    save_detection_set_api_recordings__recording_id__detection_sets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DetectionSetSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_detection_set_api_recordings__recording_id__detection_sets__set_id__versions__version__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                set_id: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
