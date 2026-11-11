@@ -16,6 +16,14 @@ import {
   reviewPipelineNodeOverall,
   type PipelineNodeRevision,
 } from "../pipeline/pipelineNodeClient";
+import {
+  getDetectionSetVersion,
+  listDetectionSetReviews,
+  saveDetectionSetReview,
+  saveDetectionSetVersion,
+  type DetectionGeometryReview,
+  type DetectionSetVersion,
+} from "../pipeline/detectionSetClient";
 
 type Outcome = Record<string, unknown> & {
   event_id: string;
@@ -667,6 +675,333 @@ export function PipelineNodeVisibleCardEditor({
   return portalTargets.inspector === null
     ? editor
     : createPortal(editor, portalTargets.inspector);
+}
+
+export function DetectionSetVersionEditor({
+  recordingId,
+  sourceSha256,
+  setId,
+  version,
+  onVersionChange,
+}: {
+  recordingId: string;
+  sourceSha256: string;
+  setId: string;
+  version: string;
+  onVersionChange: (version: string) => void;
+}) {
+  const profileName = useProfileName();
+  const reviewerId =
+    profileName
+      .trim()
+      .replace(/[^A-Za-z0-9._:-]+/g, "-")
+      .replace(/^[^A-Za-z0-9]+/, "")
+      .slice(0, 128) || "workspace-operator";
+  const [detectionSet, setDetectionSet] = useState<DetectionSetVersion | null>(
+    null,
+  );
+  const [reviews, setReviews] = useState<DetectionGeometryReview[]>([]);
+  const [frameId, setFrameId] = useState<string | null>(null);
+  const [objectId, setObjectId] = useState<string | null>(null);
+  const [segmentsText, setSegmentsText] = useState("[]");
+  const [message, setMessage] = useState(
+    "Loading exact detection-set version…",
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [center, setCenter] = useState<Element | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      getDetectionSetVersion(recordingId, setId, version),
+      listDetectionSetReviews(recordingId, setId, version),
+    ])
+      .then(([loaded, loadedReviews]) => {
+        if (cancelled) return;
+        setDetectionSet(loaded);
+        setReviews(loadedReviews.reviews);
+        const firstFrame = loaded.content.frames[0];
+        const firstDetection = firstFrame?.detections[0];
+        setFrameId(firstFrame?.frame_id ?? null);
+        setObjectId(firstDetection?.object_id ?? null);
+        setSegmentsText(
+          JSON.stringify(firstDetection?.segments ?? [], null, 2),
+        );
+        setMessage(
+          `Exact saved detection set · ${loaded.origin} · version ${loaded.version}`,
+        );
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) {
+          setError(reason instanceof Error ? reason.message : String(reason));
+          setMessage("Could not load this exact detection-set version.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [recordingId, setId, version]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setCenter(document.querySelector('[data-slot="center"]')),
+      0,
+    );
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const selectedFrame = detectionSet?.content.frames.find(
+    (frame) => frame.frame_id === frameId,
+  );
+  const selectedDetection = selectedFrame?.detections.find(
+    (item) => item.object_id === objectId,
+  );
+  const frameIdentity = selectedFrame?.frame_identity;
+  const requestedTimeUs = frameIdentity?.requested_time_us;
+  const frameState = useWorkingAreaFrame({
+    recordingId,
+    sourceId: recordingId,
+    sourceSha256: center === null ? "" : sourceSha256,
+    requestedTimeUs: typeof requestedTimeUs === "number" ? requestedTimeUs : 0,
+    mode: "exact",
+  });
+  const frameMatches =
+    center !== null &&
+    frameIdentity?.source_video_sha256 === sourceSha256 &&
+    frameState.state === "ready" &&
+    frameState.frame.identity.frameId ===
+      `${String(frameIdentity.frame_index)}@${String(frameIdentity.presentation_timestamp_us)}` &&
+    frameState.frame.resolvedTimeUs ===
+      frameIdentity.presentation_timestamp_us &&
+    frameState.frame.identity.width === frameIdentity.width &&
+    frameState.frame.identity.height === frameIdentity.height &&
+    frameState.frame.identity.contentSha256 === frameIdentity.image_sha256;
+  const overlays: GeometryOverlay[] =
+    frameState.state !== "ready" || selectedDetection === undefined
+      ? []
+      : selectedDetection.segments.flatMap((segment) => {
+          if (segment.polygon.length < 3) return [];
+          return [
+            {
+              id: segment.segment_id,
+              label: `${selectedDetection.kind} ${segment.segment_id}`,
+              frame: frameState.frame.identity,
+              calibration: null,
+              geometry: {
+                kind: "polygon" as const,
+                points: segment.polygon.map(
+                  (point) => [point.x, point.y] as const,
+                ),
+              },
+            },
+          ];
+        });
+
+  const chooseFrame = (nextFrameId: string) => {
+    const nextFrame = detectionSet?.content.frames.find(
+      (frame) => frame.frame_id === nextFrameId,
+    );
+    const nextDetection = nextFrame?.detections[0];
+    setFrameId(nextFrameId);
+    setObjectId(nextDetection?.object_id ?? null);
+    setSegmentsText(JSON.stringify(nextDetection?.segments ?? [], null, 2));
+  };
+  const chooseObject = (nextObjectId: string) => {
+    const nextDetection = selectedFrame?.detections.find(
+      (item) => item.object_id === nextObjectId,
+    );
+    setObjectId(nextObjectId);
+    setSegmentsText(JSON.stringify(nextDetection?.segments ?? [], null, 2));
+  };
+  const saveEdit = async () => {
+    if (
+      detectionSet === null ||
+      selectedFrame === undefined ||
+      selectedDetection === undefined ||
+      !frameMatches
+    )
+      return;
+    let segments: unknown;
+    try {
+      segments = JSON.parse(segmentsText);
+      if (!Array.isArray(segments))
+        throw new Error("Segments must be a JSON array.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+      return;
+    }
+    const nextFrames = detectionSet.content.frames.map((frame) =>
+      frame.frame_id !== frameId
+        ? frame
+        : {
+            ...frame,
+            detections: frame.detections.map((detection) =>
+              detection.object_id === objectId
+                ? { ...detection, segments }
+                : detection,
+            ),
+          },
+    );
+    const nextVersion = String((Number.parseInt(version, 10) || 1) + 1);
+    setBusy(true);
+    setError(null);
+    try {
+      await saveDetectionSetVersion(recordingId, {
+        ...detectionSet,
+        version: nextVersion,
+        content: { frames: nextFrames },
+      });
+      setMessage(
+        `Saved version ${nextVersion}. Earlier version ${version} remains available.`,
+      );
+      onVersionChange(nextVersion);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+      setMessage("The detection-set edit was not saved.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const submitReview = async (decision: "accepted" | "rejected") => {
+    if (
+      detectionSet === null ||
+      selectedFrame === undefined ||
+      selectedDetection === undefined ||
+      !frameMatches
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await saveDetectionSetReview(recordingId, setId, version, {
+        review_id: `geometry-${crypto.randomUUID()}`,
+        reviewer: { kind: "human", id: reviewerId },
+        question: "visible_detection_geometry",
+        decision,
+        covered_frame_ids: [selectedFrame.frame_id],
+        covered_object_ids: [selectedDetection.object_id],
+      });
+      setReviews((current) => [...current, saved]);
+      setMessage(`Geometry ${decision} review saved for version ${version}.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section
+      aria-label="Detection set geometry editor"
+      className={styles.editor}
+    >
+      {center !== null && frameMatches && frameState.state === "ready"
+        ? createPortal(
+            <GeometrySurface
+              frame={frameState.frame.identity}
+              imageUrl={frameState.frame.imageUrl}
+              overlays={overlays}
+            />,
+            center,
+          )
+        : null}
+      <header className={styles.header}>
+        <h2>
+          Detection set {setId} · version {version}
+        </h2>
+        <p>{message}</p>
+      </header>
+      {error ? <p role="alert">{error}</p> : null}
+      {detectionSet === null ? null : (
+        <article className={styles.content}>
+          <label>
+            Examined frame
+            <select
+              aria-label="Examined frame"
+              value={frameId ?? ""}
+              onChange={(event) => chooseFrame(event.target.value)}
+            >
+              {detectionSet.content.frames.map((frame) => (
+                <option key={frame.frame_id} value={frame.frame_id}>
+                  {frame.frame_id} · {frame.detections.length} objects
+                </option>
+              ))}
+            </select>
+          </label>
+          {selectedFrame?.detections.length ? (
+            <label>
+              Object
+              <select
+                aria-label="Detection object"
+                value={objectId ?? ""}
+                onChange={(event) => chooseObject(event.target.value)}
+              >
+                {selectedFrame.detections.map((item) => (
+                  <option key={item.object_id} value={item.object_id}>
+                    {item.kind} · {item.object_id}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <p>This examined frame has no detections.</p>
+          )}
+          {selectedDetection ? (
+            <label>
+              Segments (source-image pixels)
+              <textarea
+                aria-label="Detection segments"
+                rows={10}
+                value={segmentsText}
+                onChange={(event) => setSegmentsText(event.target.value)}
+              />
+            </label>
+          ) : null}
+          {frameIdentity === undefined || !frameMatches ? (
+            <p role="status">
+              The exact source frame does not match. Geometry edit and review
+              are blocked.
+            </p>
+          ) : null}
+          {selectedDetection ? (
+            <div>
+              <button
+                type="button"
+                disabled={busy || !frameMatches}
+                onClick={() => void saveEdit()}
+              >
+                Save as new detection version
+              </button>{" "}
+              <button
+                type="button"
+                disabled={busy || !frameMatches}
+                onClick={() => void submitReview("accepted")}
+              >
+                Accept geometry
+              </button>{" "}
+              <button
+                type="button"
+                disabled={busy || !frameMatches}
+                onClick={() => void submitReview("rejected")}
+              >
+                Reject geometry
+              </button>
+            </div>
+          ) : null}
+          <h3>Geometry reviews for this version</h3>
+          <ul>
+            {reviews.map((review) => (
+              <li key={review.review_id}>
+                {review.decision} · {review.covered_object_ids.join(", ")} ·{" "}
+                {review.reviewed_at}
+              </li>
+            ))}
+          </ul>
+        </article>
+      )}
+    </section>
+  );
 }
 
 function OutcomeNavigation({

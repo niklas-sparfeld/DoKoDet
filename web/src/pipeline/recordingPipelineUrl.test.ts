@@ -71,6 +71,8 @@ describe("recording pipeline URL helpers", () => {
       row: null,
       hypothesis: null,
       frameReviewQueue: null,
+      detectionSetId: null,
+      detectionVersion: null,
     });
   });
 
@@ -90,6 +92,8 @@ describe("recording pipeline URL helpers", () => {
       row: null,
       hypothesis: null,
       frameReviewQueue: null,
+      detectionSetId: null,
+      detectionVersion: null,
     });
   });
 
@@ -107,6 +111,19 @@ describe("recording pipeline URL helpers", () => {
 
     expect(recordingPipelinePath("recording-1", "visible_cards", state)).toBe(
       "/recordings/recording-1/pipeline/visible_cards?item=frame-1&frame_review=0096-M4",
+    );
+  });
+
+  it("opens and preserves an exact detection-set version", () => {
+    const state = readPipelineUrlState(
+      "?detection_set=set%2Fone&detection_version=3",
+    );
+    expect(state).toMatchObject({
+      detectionSetId: "set/one",
+      detectionVersion: "3",
+    });
+    expect(recordingPipelinePath("recording-1", "visible_cards", state)).toBe(
+      "/recordings/recording-1/pipeline/visible_cards?detection_set=set%2Fone&detection_version=3",
     );
   });
 

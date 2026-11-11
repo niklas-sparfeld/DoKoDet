@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   PipelineComparisonResponse,
   PipelineWorkspace,
   PipelineWorkspaceStage,
 } from "../api/pipelineContracts";
-import { PipelineNodeVisibleCardEditor } from "../visibleCards/PipelineNodeVisibleCardEditor";
+import { createPipelineProcessingClient } from "../api/pipelineProcessingClient";
+import {
+  DetectionSetVersionEditor,
+  PipelineNodeVisibleCardEditor,
+} from "../visibleCards/PipelineNodeVisibleCardEditor";
 import { PipelineNodeVirtualSceneEditor } from "../visibleCards/PipelineNodeVirtualSceneEditor";
 import { PipelineNodeVisualIdentityEditor } from "../visualIdentities/PipelineNodeVisualIdentityEditor";
 import styles from "../App.module.css";
@@ -351,6 +355,15 @@ export function RecordingWorkspaceTaskSurface({
       <div
         className={`${shellStyles.taskSurfaceContent} ${(stage.key === "visible_cards" || stage.key === "visual_identities") && !compare ? shellStyles.compactTaskSurfaceContent : ""} ${stage.key === "events" && !compare ? styles.pipelineEventTaskSurfaceContent : ""} ${(stage.key === "visible_cards" || stage.key === "visual_identities") && !compare ? styles.pipelineVisibleCardTaskSurfaceContent : ""} ${stage.key === "visible_cards" && !compare ? styles.pipelineVirtualTableTaskSurfaceContent : ""}`}
       >
+        {!compare &&
+        stage.key === "visible_cards" &&
+        urlState.detectionSetId == null ? (
+          <LatestDetectionSetLink
+            recordingId={recordingId}
+            stage={stage}
+            onNavigate={onNavigate}
+          />
+        ) : null}
         {compare ? (
           <ComparisonView
             recordingId={recordingId}
@@ -378,6 +391,28 @@ export function RecordingWorkspaceTaskSurface({
         {navigationStep === "visible_cards" &&
         stage.key === "visible_cards" &&
         !compare &&
+        urlState.detectionSetId != null &&
+        urlState.detectionVersion != null ? (
+          <DetectionSetVersionEditor
+            key={`${urlState.detectionSetId}:${urlState.detectionVersion}`}
+            recordingId={recordingId}
+            sourceSha256={workspace.video.video_sha256}
+            setId={urlState.detectionSetId}
+            version={urlState.detectionVersion}
+            onVersionChange={(version) =>
+              onNavigate(
+                recordingPipelineNavigationPath(recordingId, stage.key, {
+                  ...urlState,
+                  detectionVersion: version,
+                }),
+              )
+            }
+          />
+        ) : null}
+        {navigationStep === "visible_cards" &&
+        stage.key === "visible_cards" &&
+        !compare &&
+        urlState.detectionSetId == null &&
         selectedVisibleCardNode !== undefined ? (
           <PipelineNodeVisibleCardEditor
             key={`${selectedVisibleCardNode.node_id}:${selectedVisibleCardNode.revision_id}`}
@@ -589,5 +624,76 @@ export function RecordingWorkspaceTaskSurface({
         ) : null}
       </div>
     </section>
+  );
+}
+
+function LatestDetectionSetLink({
+  recordingId,
+  stage,
+  onNavigate,
+}: {
+  recordingId: string;
+  stage: PipelineWorkspaceStage;
+  onNavigate: (path: string) => void;
+}) {
+  const latestRun = stage.runs.find((run) => run.status === "complete");
+  const latestRunId = latestRun?.run_id ?? null;
+  const [loaded, setLoaded] = useState<{
+    runId: string;
+    reference: { set_id: string; version: string } | null;
+  } | null>(null);
+  useEffect(() => {
+    if (latestRunId === null) return;
+    let cancelled = false;
+    void createPipelineProcessingClient()
+      .getVisibleCardResult(recordingId, latestRunId)
+      .then((result) => {
+        const rawReference = result.detection_set_ref;
+        const exactReference =
+          rawReference !== null &&
+          rawReference !== undefined &&
+          typeof rawReference.set_id === "string" &&
+          typeof rawReference.version === "string"
+            ? { set_id: rawReference.set_id, version: rawReference.version }
+            : null;
+        if (!cancelled)
+          setLoaded({
+            runId: latestRunId,
+            reference: exactReference,
+          });
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded({ runId: latestRunId, reference: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [latestRunId, recordingId]);
+  const reference = loaded?.runId === latestRunId ? loaded.reference : null;
+  if (reference === null) return null;
+  const href = recordingPipelineNavigationPath(recordingId, "visible_cards", {
+    detectionSetId: reference.set_id,
+    detectionVersion: reference.version,
+  });
+  return (
+    <p>
+      <a
+        href={href}
+        onClick={(event) => {
+          if (
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          event.preventDefault();
+          onNavigate(href);
+        }}
+      >
+        Open detection set {reference.set_id} · version {reference.version}
+      </a>
+    </p>
   );
 }

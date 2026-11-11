@@ -369,6 +369,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recordings/{recording_id}/detection-sets/{set_id}/versions/{version}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Detection Set Reviews */
+        get: operations["list_detection_set_reviews_api_recordings__recording_id__detection_sets__set_id__versions__version__reviews_get"];
+        put?: never;
+        /** Save Detection Set Review */
+        post: operations["save_detection_set_review_api_recordings__recording_id__detection_sets__set_id__versions__version__reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recordings/{recording_id}/event-sets": {
         parameters: {
             query?: never;
@@ -1764,6 +1782,23 @@ export interface components {
             /** Role */
             role: string;
         };
+        /** DetectionSetReviewRequest */
+        DetectionSetReviewRequest: {
+            /** Covered Frame Ids */
+            covered_frame_ids: string[];
+            /** Covered Object Ids */
+            covered_object_ids: string[];
+            /** Decision */
+            decision: string;
+            /** Question */
+            question: string;
+            /** Review Id */
+            review_id: string;
+            /** Reviewer */
+            reviewer: {
+                [key: string]: unknown;
+            };
+        };
         /** DetectionSetSaveRequest */
         DetectionSetSaveRequest: {
             /** Event Sets */
@@ -3031,6 +3066,10 @@ export interface components {
         PipelineVisibleCardResultResponse: {
             /** Attempt */
             attempt: number;
+            /** Detection Set Ref */
+            detection_set_ref?: {
+                [key: string]: string;
+            } | null;
             /** Job Id */
             job_id?: string | null;
             /** Processor Type */
@@ -5348,6 +5387,76 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_detection_set_reviews_api_recordings__recording_id__detection_sets__set_id__versions__version__reviews_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                set_id: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_detection_set_review_api_recordings__recording_id__detection_sets__set_id__versions__version__reviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+                set_id: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DetectionSetReviewRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

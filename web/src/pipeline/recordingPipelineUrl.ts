@@ -31,6 +31,8 @@ export type PipelineUrlState = {
   row?: string | null;
   hypothesis?: number | null;
   frameReviewQueue?: string | null;
+  detectionSetId?: string | null;
+  detectionVersion?: string | null;
 };
 
 export type RecordingPipelineRoute = {
@@ -92,6 +94,8 @@ export function readPipelineUrlState(search: string): PipelineUrlState {
     hypothesis: readOptionalInteger(params.get("hypothesis")),
     frameReviewQueue:
       params.get("frame_review") === "0096-M4" ? "0096-M4" : null,
+    detectionSetId: readOptionalParameter(params.get("detection_set")),
+    detectionVersion: readOptionalParameter(params.get("detection_version")),
   };
 }
 
@@ -158,6 +162,10 @@ function pipelineSearch(
     params.set("hypothesis", String(state.hypothesis));
   if (state.frameReviewQueue === "0096-M4")
     params.set("frame_review", state.frameReviewQueue);
+  if (state.detectionSetId != null)
+    params.set("detection_set", state.detectionSetId);
+  if (state.detectionVersion != null)
+    params.set("detection_version", state.detectionVersion);
   const query = params.toString();
   return query === "" ? "" : `?${query}`;
 }

@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
+    "test:e2e:detection-set": "playwright test --config playwright.detection-set.config.ts",
     "generate:openapi": "mise exec -- uv run --project ../backend python ../backend/scripts/export_openapi.py --output .generated/openapi.json",
     "generate:api": "npm run generate:openapi && openapi-typescript .generated/openapi.json --output src/api/openapi.ts",
     "verify:api": "npm run generate:openapi && openapi-typescript .generated/openapi.json --output .generated/openapi.ts && diff -u .generated/openapi.ts src/api/openapi.ts",

@@ -56,6 +56,7 @@ from dokodetector_backend.derived_view_cache import (
     DERIVED_VIEW_CACHE_LOCK,
     runtime_derived_view_cache,
 )
+from dokodetector_backend.detection_set_store import DetectionSetStore
 from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.job_models import Job, JobCancelled
 from dokodetector_backend.job_store import JobManager
@@ -114,6 +115,7 @@ class VisibleCardPipelineService:
         selection_store: PipelineNodeSelectionStore,
         node_store: PipelineNodeStore,
         event_set_store: EventSetStore | None = None,
+        detection_set_store: DetectionSetStore | None = None,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
@@ -127,6 +129,7 @@ class VisibleCardPipelineService:
         self.selection_store = selection_store
         self.node_store = node_store
         self.event_set_store = event_set_store
+        self.detection_set_store = detection_set_store
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.max_concurrent_requests = getattr(settings, "gemini_max_concurrent_requests", 4)
         if isinstance(self.max_concurrent_requests, bool) or self.max_concurrent_requests < 1:
@@ -172,6 +175,22 @@ class VisibleCardPipelineService:
             for item in run.state.output_revision_ids
         )
         return run, revisions
+
+    def get_detection_set_reference(self, run: StoredProcessorRun) -> dict[str, str] | None:
+        if self.detection_set_store is None or run.request.input_event_set_ref is None:
+            return None
+        reference = {
+            "set_id": f"detector-{_safe(run.run_id)}",
+            "version": str(run.state.attempt),
+        }
+        if (
+            self.detection_set_store.get(
+                run.request.source.recording_id, reference["set_id"], reference["version"]
+            )
+            is None
+        ):
+            return None
+        return reference
 
     def resolve_source_frame(self, recording_id: str, requested_time_us: int) -> ResolvedFrame:
         """Resolve one recording-owned exact-event frame for a derived-view URL."""
@@ -637,6 +656,7 @@ class VisibleCardPipelineService:
             )
 
             def commit() -> None:
+                self._publish_detection_set(run, content)
                 revision = self._publish_revision(run, content)
                 self.run_store.complete(
                     run_id,
@@ -903,6 +923,114 @@ class VisibleCardPipelineService:
         )
         stored, _ = self.selection_store.publish_processor_revision(manifest, content)
         return stored
+
+    def _publish_detection_set(
+        self, run: StoredProcessorRun, content: VisibleCardData
+    ) -> dict[str, Any] | None:
+        if self.detection_set_store is None or run.request.input_event_set_ref is None:
+            return None
+        event_ref = run.request.input_event_set_ref
+        frames = []
+        for outcome in content.outcomes:
+            if outcome.status == "failed" or outcome.frame_identity is None:
+                continue
+            identity = outcome.frame_identity
+            detections = []
+
+            def make_detection(
+                object_id: str,
+                kind: str,
+                side: str | None,
+                polygons: Any,
+                width: int,
+                height: int,
+            ) -> dict[str, Any]:
+                segments = []
+                for index, polygon in enumerate(polygons):
+                    segments.append(
+                        {
+                            "segment_id": f"segment-{index:04d}",
+                            "polygon": [
+                                {
+                                    "x": round(point[0] * width / 1000),
+                                    "y": round(point[1] * height / 1000),
+                                }
+                                for point in polygon
+                            ],
+                        }
+                    )
+                return {
+                    "object_id": object_id,
+                    "kind": kind,
+                    "side": side,
+                    "segments": segments,
+                }
+
+            for candidate in outcome.candidates:
+                detections.append(
+                    make_detection(
+                        candidate.card_id,
+                        "visible_card",
+                        candidate.side,
+                        candidate.geometry.polygons,
+                        identity.width,
+                        identity.height,
+                    )
+                )
+            for pile in outcome.pile_regions:
+                detections.append(
+                    make_detection(
+                        pile.pile_id,
+                        "pile",
+                        None,
+                        pile.polygons,
+                        identity.width,
+                        identity.height,
+                    )
+                )
+            for ignored in outcome.ignored_regions:
+                detections.append(
+                    make_detection(
+                        ignored.region_id,
+                        "ignore",
+                        None,
+                        ignored.geometry.polygons,
+                        identity.width,
+                        identity.height,
+                    )
+                )
+            frames.append(
+                {
+                    "frame_id": outcome.event_id,
+                    "frame_identity": identity.to_mapping(),
+                    "event_ids": [
+                        {
+                            "set_id": event_ref["set_id"],
+                            "version": event_ref["version"],
+                            "event_id": outcome.event_id,
+                        }
+                    ],
+                    "detections": detections,
+                }
+            )
+        if not frames:
+            return None
+        return self.detection_set_store.save(
+            run.request.source.recording_id,
+            set_id=f"detector-{_safe(run.run_id)}",
+            version=str(run.state.attempt),
+            origin="processor",
+            source={"source_video_sha256": run.request.source.video_sha256},
+            producer={
+                "run_id": run.run_id,
+                "processor_type": run.request.processor_type,
+                "implementation": run.request.implementation.to_mapping(),
+                "model": None if run.request.model is None else run.request.model.to_mapping(),
+                "configuration": dict(run.request.configuration),
+            },
+            event_sets=[dict(event_ref)],
+            frames=frames,
+        )
 
     def _advance_generated_selection(self, recording_id: str, revision_id: str) -> None:
         current = self.selection_store.get_exact(recording_id, "visible_cards")

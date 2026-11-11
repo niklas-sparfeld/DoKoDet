@@ -162,6 +162,41 @@ def test_detection_set_api_saves_exact_frames_and_reopens_after_restart(tmp_path
         assert (card_path / "segments/left.json").is_file()
         assert (card_path / "segments/right.json").is_file()
         assert not (version_path / "frames/frame-direct.json").exists()
+        review_payload = {
+            "review_id": "geom-review-1",
+            "reviewer": {"kind": "human", "id": "worker"},
+            "question": "visible geometry is correct",
+            "decision": "accepted",
+            "covered_frame_ids": ["frame-direct"],
+            "covered_object_ids": ["card-1"],
+        }
+        expected_review_path = (
+            settings.recordings_root
+            / "recording-both/detection-sets/det-alt/reviews/geom-review-1.json"
+        )
+        review_response = client.post(
+            "/api/recordings/recording-both/detection-sets/det-alt/versions/1/reviews",
+            json=review_payload,
+        )
+        assert review_response.status_code == 200, review_response.text
+        assert expected_review_path.is_file()
+        assert review_response.json()["content_sha256"] == response.json()["content_sha256"]
+        listed_reviews = client.get(
+            "/api/recordings/recording-both/detection-sets/det-alt/versions/1/reviews"
+        )
+        assert listed_reviews.json()["reviews"] == [review_response.json()]
+        invalid_review = {
+            **review_payload,
+            "review_id": "geom-review-invalid",
+            "covered_object_ids": ["absent-object"],
+        }
+        assert (
+            client.post(
+                "/api/recordings/recording-both/detection-sets/det-alt/versions/1/reviews",
+                json=invalid_review,
+            ).status_code
+            == 422
+        )
         assert (
             client.post("/api/recordings/recording-both/detection-sets", json=content).status_code
             == 422
@@ -273,6 +308,12 @@ def test_detection_set_api_saves_exact_frames_and_reopens_after_restart(tmp_path
     assert reopened.json()["content"]["frames"] == content["frames"]
     assert reopened.json()["content"]["frames"][2]["detections"] == []
     assert reopened.json()["event_sets"] == content["event_sets"]
+    with TestClient(create_test_app(settings)) as client:
+        reopened_review = client.get(
+            "/api/recordings/recording-both/detection-sets/det-alt/versions/1/reviews"
+        )
+    assert reopened_review.status_code == 200
+    assert reopened_review.json()["reviews"][0]["review_id"] == "geom-review-1"
 
 
 def test_failed_detection_set_publication_leaves_no_version(tmp_path, monkeypatch):

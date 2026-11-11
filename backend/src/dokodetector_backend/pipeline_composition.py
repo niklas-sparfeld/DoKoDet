@@ -8,6 +8,7 @@ from typing import Any
 from doko_operations.card_plane_calibration_refinement import CalibrationDraftStore
 
 from dokodetector_backend.calibration_refinement_service import CalibrationRefinementService
+from dokodetector_backend.detection_set_store import DetectionSetStore
 from dokodetector_backend.event_pipeline_service import EventPipelineService, EventProcessorProvider
 from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.observation_pipeline_service import ObservationPipelineService
@@ -77,6 +78,7 @@ def build_pipeline_composition(
     visible_card_identity_classifiers: Any | None = None,
     recording_folder_store: RecordingFolderStore | None = None,
     event_set_store: EventSetStore | None = None,
+    detection_set_store: DetectionSetStore | None = None,
 ) -> PipelineComposition:
     """Create shared pipeline stores and services with explicit dependencies."""
 
@@ -118,6 +120,7 @@ def build_pipeline_composition(
         selection_store=selection_store,
         node_store=node_store,
         event_set_store=event_set_store,
+        detection_set_store=detection_set_store,
     )
     proposed_card_scene_service = ProposedCardScenePipelineService(
         settings,

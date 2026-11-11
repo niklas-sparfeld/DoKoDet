@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -15,7 +16,7 @@ from typing import Any
 from table_evidence_analyzer.pipeline_data import VisibleCardFrameIdentity
 
 from dokodetector_backend.event_set_store import EventSetStore
-from dokodetector_backend.filesystem import contained_path
+from dokodetector_backend.filesystem import atomic_write_json, contained_path
 from dokodetector_backend.recording_folder_store import RecordingFolderStore
 
 SCHEMA = "detection-set/v1"
@@ -252,6 +253,142 @@ class DetectionSetStore:
             return {**metadata, "content": content, "content_sha256": digest}
         except (OSError, TypeError, ValueError, KeyError, json.JSONDecodeError):
             return None
+
+
+class DetectionSetReviewStore:
+    """Store independent geometry decisions beside their exact detection set."""
+
+    def __init__(self, detections: DetectionSetStore) -> None:
+        self.detections = detections
+
+    def save(
+        self,
+        recording_id: str,
+        set_id: str,
+        version: str,
+        *,
+        review_id: str,
+        reviewer: dict[str, Any],
+        question: str,
+        decision: str,
+        covered_frame_ids: list[str],
+        covered_object_ids: list[str],
+    ) -> dict[str, Any]:
+        _identifier(review_id, "review ID")
+        detection_set = self.detections.get(recording_id, set_id, version)
+        if detection_set is None:
+            raise DetectionSetError("reviewed detection-set version is unavailable")
+        if not isinstance(reviewer, dict) or not reviewer:
+            raise DetectionSetError("reviewer facts must be a non-empty object")
+        if not isinstance(question, str) or not question.strip():
+            raise DetectionSetError("review question must not be empty")
+        if decision not in {"accepted", "rejected"}:
+            raise DetectionSetError("geometry review decision is invalid")
+        if (
+            not isinstance(covered_frame_ids, list)
+            or not covered_frame_ids
+            or not isinstance(covered_object_ids, list)
+            or not covered_object_ids
+        ):
+            raise DetectionSetError("geometry review must cover frames and objects")
+        for frame_id in covered_frame_ids:
+            _identifier(frame_id, "covered frame ID")
+        for object_id in covered_object_ids:
+            _identifier(object_id, "covered object ID")
+        if len(covered_frame_ids) != len(set(covered_frame_ids)) or len(covered_object_ids) != len(
+            set(covered_object_ids)
+        ):
+            raise DetectionSetError("geometry review targets must be unique")
+        frame_objects = {
+            frame["frame_id"]: {item["object_id"] for item in frame["detections"]}
+            for frame in detection_set["content"]["frames"]
+        }
+        if any(frame_id not in frame_objects for frame_id in covered_frame_ids):
+            raise DetectionSetError("reviewed frame is not present in the detection set")
+        available_objects = set().union(*(frame_objects[item] for item in covered_frame_ids))
+        if any(object_id not in available_objects for object_id in covered_object_ids):
+            raise DetectionSetError("reviewed object is not present in the covered frames")
+        record = {
+            "schema_version": "detection-review/v1",
+            "recording_id": recording_id,
+            "review_id": review_id,
+            "set_id": set_id,
+            "version": version,
+            "content_sha256": detection_set["content_sha256"],
+            "reviewer": reviewer,
+            "question": question,
+            "decision": decision,
+            "covered_frame_ids": covered_frame_ids,
+            "covered_object_ids": covered_object_ids,
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        directory = contained_path(
+            self.detections.recordings.recording_path(recording_id) / "detection-sets" / set_id,
+            "reviews",
+        )
+        directory.mkdir(parents=True, exist_ok=True)
+        path = contained_path(directory, f"{review_id}.json")
+        lock_path = self.detections.recordings.recording_path(recording_id) / ".recording.lock"
+        with lock_path.open("a+b") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            if path.exists() or path.is_symlink():
+                previous = json.loads(path.read_text(encoding="utf-8"))
+                if {key: value for key, value in previous.items() if key != "reviewed_at"} != {
+                    key: value for key, value in record.items() if key != "reviewed_at"
+                }:
+                    raise DetectionSetError("review ID is already used by another decision")
+                return previous
+            atomic_write_json(path, record)
+        return record
+
+    def list(self, recording_id: str, set_id: str, version: str) -> list[dict[str, Any]]:
+        detection_set = self.detections.get(recording_id, set_id, version)
+        if detection_set is None:
+            raise DetectionSetError("detection-set version is unavailable")
+        directory = (
+            self.detections.recordings.recording_path(recording_id)
+            / "detection-sets"
+            / set_id
+            / "reviews"
+        )
+        if not directory.is_dir() or directory.is_symlink():
+            return []
+        result = []
+        for path in sorted(directory.glob("*.json")):
+            if path.is_symlink():
+                continue
+            record = json.loads(path.read_text(encoding="utf-8"))
+            if record.get("set_id") != set_id or record.get("version") != version:
+                continue
+            if (
+                set(record)
+                != {
+                    "schema_version",
+                    "recording_id",
+                    "review_id",
+                    "set_id",
+                    "version",
+                    "content_sha256",
+                    "reviewer",
+                    "question",
+                    "decision",
+                    "covered_frame_ids",
+                    "covered_object_ids",
+                    "reviewed_at",
+                }
+                or record.get("schema_version") != "detection-review/v1"
+                or record.get("recording_id") != recording_id
+                or record.get("review_id") != path.stem
+                or record.get("content_sha256") != detection_set["content_sha256"]
+                or not isinstance(record.get("reviewer"), dict)
+                or not record["reviewer"]
+                or not isinstance(record.get("question"), str)
+                or not record["question"].strip()
+                or record.get("decision") not in {"accepted", "rejected"}
+            ):
+                raise DetectionSetError("detection review record is invalid")
+            result.append(record)
+        return result
 
 
 def _validate_event_sets(

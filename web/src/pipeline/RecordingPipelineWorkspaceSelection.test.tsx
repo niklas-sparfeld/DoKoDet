@@ -260,6 +260,8 @@ describe("recording pipeline workspace", () => {
       row: null,
       hypothesis: null,
       frameReviewQueue: null,
+      detectionSetId: null,
+      detectionVersion: null,
     });
     expect(
       recordingPipelinePath(RECORDING_ID, "events", { lineage: "choice-1" }),

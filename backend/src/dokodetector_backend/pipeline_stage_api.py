@@ -231,6 +231,7 @@ class PipelineVisibleCardResultResponse(ContractModel):
     request: dict[str, Any]
     state: dict[str, Any]
     revisions: list[PipelineVisibleCardRevisionResponse]
+    detection_set_ref: dict[str, str] | None = None
 
 
 def _event_service(request: Request) -> EventPipelineService:
@@ -410,6 +411,7 @@ def get_visible_card_result(recording_id: str, run_id: str, request: Request) ->
     return {
         **run_response(run),
         "revisions": [revision.to_mapping() for revision in revisions],
+        "detection_set_ref": _visible_service(request).get_detection_set_reference(run),
     }
 
 

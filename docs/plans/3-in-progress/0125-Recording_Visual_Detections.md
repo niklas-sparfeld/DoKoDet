@@ -83,7 +83,7 @@ checks. Retain 0123's bounded list checks. No model-quality claim is required fo
 | Milestone | Observable result and commit boundary | State |
 | --- | --- | --- |
 | M0 | Concrete detection-set storage; real API save/open of exact frame/object/segment evidence | Complete |
-| M1 | Existing detector and browser segment editor/review use the same contract; restart proof | Not started |
+| M1 | Existing detector and browser segment editor/review use the same contract; restart proof | Complete |
 | M2 | Convert exact-input consumers and calibration reflow writer; preserve comparison and frame-review access | Not started |
 | M3 | Retained-data rehearsal, default detection cutover, replaced-path removal, and qualification | Not started |
 
@@ -117,21 +117,48 @@ Specify M1 before assignment, then M2/M3 after the browser proof. Keep qualifica
 consumer needs a broader new representation, retain its current algorithm with a small explicit
 input conversion; do not silently convert the next resource type in this epic.
 
+### M1 assignment
+
+Launch the existing detector for an exact event set, open its saved detection set in the recording
+workspace, edit and save one object's segments, record a geometry review, and reopen the exact
+saved content and review after backend restart. Keep an earlier version unchanged. Use a
+deterministic detector stub in the real-backend browser check. Failed frame work remains in jobs;
+only examined frames enter detection coverage. Do not infer missing event or frame evidence.
+M0 save/open remains the version authority. A direct exact set/version link is sufficient for this
+proof; leave node selection and downstream node readers in place until their cutover.
+
+Owners: `visible_card_pipeline_service.py` and its job/run and app wiring; the M0 detection-set
+store/API; `web/src/pipeline/RecordingPipelineWorkspace.tsx`, `RecordingWorkspaceShell.tsx`,
+`pipelineNodeClient.ts`, `pipelineProcessingClient.ts`, and
+`web/src/visibleCards/PipelineNodeVisibleCardEditor.tsx` plus focused clients and tests. Reuse
+`GeometrySurface` and frame resolution. A narrow output conversion can keep existing node output
+for still-active consumers during this milestone. Do not change their selection authority.
+
+Review is the one new persistent contract in M1: a recording-local review record beside the
+detection set, with a safe review ID, exact set/version, reviewer, question, decision, covered
+frame/object IDs, and timestamp. Validate targets against that immutable version; save and reopen
+independently for each review. Persist unfinished editing as saved detection-set versions; do not
+merge independent review decisions or invent completed coverage. Preserve existing node review
+and 0096 queue paths until M2. Use existing atomic file primitives; do not introduce a shared
+review framework or another transaction authority. Record the exact review API and path in the M1
+report with their owner and tests.
+
+Commit: detector adapter, detection-set editor and review path, real-backend browser proof,
+focused backend/web checks, generated API, evidence and plan/board update. Verify exact event and
+frame evidence, edit and review persistence, earlier-version preservation, empty and failed frame
+distinction, restart, and existing node consumer/review regressions. Run affected backend tests,
+`web/npm run check`, real-backend Playwright workflow, and Markdown link checks.
+
 ## Execution handoff
 
-Luna loop authorized for four milestones. Baseline: 4; completed: 1; remaining: 3. This run:
-requested 4, completed 1, remaining 3. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
+Luna loop authorized for four milestones. Baseline: 4; completed: 2; remaining: 2. This run:
+requested 4, completed 2, remaining 2. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
 2/2. Correction 1 added a process-exit publication test and rejected self-intersecting polygons.
 Correction 2 aligned persistence with the required frame/detection/segment folder paths and added
-path-level reopen coverage. Original outcome, non-goals, and closure checks remain above. First
-complete detector and browser workflow remains due in M1; qualification remains in M3. M0 proves
-only concrete API
-save/open through persisted data and app restart. The first workflow and qualification remain
-unproved. Scope decision: keep `Recording HEAD` selection authority unchanged and add no review
-store. The only new contract is the M0 detection-set content and save/open API, required to store
-exact source frames and segments in recording folders. Its owners are `detection_set_store.py`,
-`detection_sets_api.py`, app registration, generated API types, and focused tests. See the
-[M0 evidence](../../reports/0125-M0_Detection_Set_Storage.md).
+path-level reopen coverage. M1 re-plans: 0/5; M1 corrections: 0/2. Original outcome, non-goals,
+and closure checks remain above. The first complete detector and browser workflow is proved in M1;
+qualification remains in M3. See the [M0 evidence](../../reports/0125-M0_Detection_Set_Storage.md)
+and [M1 evidence](../../reports/0125-M1_Detection_Set_Editing_and_Review.md).
 
 M0 contract: each version has recording, set, version, origin, source video digest, producer facts,
 exact optional event-set references with content digests, and an explicit list of examined frames.
@@ -141,10 +168,34 @@ polygon segments in source-image pixel coordinates. Empty detections mean examin
 missing or failed evidence is not accepted as empty. Versions are immutable. Save and open do not
 select a version.
 
-Next assignment is M1: use the existing detector and browser segment editor/review with this same
-contract, then prove save, edit, and reopen after restart. Before edits, freeze the exact detector,
-browser API/client and review/draft owners in the M1 assignment. Preserve existing review decisions
-and resumable state. Do not add a review store or change selection authority without identifying
-the failing workflow requirement and dependency. M2 and M3 remain bounded until M1 proves the first
-workflow. Stop for a new shared geometry/review framework, displaced browser proof, or unresolved
-scope gate.
+M1 changes: the existing visible-card detector saves examined outcomes to M0 versions while its
+legacy node output remains available to active readers. The workspace links the latest exact
+detection-set version. The editor saves segment changes as a new immutable version and records a
+geometry review against that exact version. Review records use
+`detection-sets/<set-id>/reviews/<review-id>.json`; the API saves and lists those records below the
+exact set/version route. The only new M1 contract is this recording-local geometry review. No
+selection authority, downstream node read, existing node review, or 0096 queue changed.
+
+M1 scope review: the real-backend browser workflow now proves exact event input, deterministic
+detection output, edited segments, independent geometry review, and restart/reopen. Empty examined
+frames are included; a failed frame remains in the run outcome and is absent from detection
+coverage. Earlier detection-set versions remain unchanged. Keep the approach for M2. No new
+prerequisite was found. Next proof: specify M2 against the named exact-input consumers, calibration
+writer, comparison path, and 0096 frame-review bridge. Keep M3 qualification in place. Stop if M2
+requires another authority/framework or would displace qualification.
+
+M1 checks: the focused backend suite passed (16 tests); Ruff lint and format checks passed; web
+check passed (typecheck, lint, format, generated API verification, 46 Vitest files and 243 tests);
+the dedicated real-backend Playwright workflow passed; and local Markdown links and
+`git diff --check` passed. See the M1 report for routes, persisted review path, and limits. This
+milestone adds one review-record contract and no new authority. Existing node output, selection,
+downstream readers, node reviews, and 0096 progress remain in place.
+
+M0 scope review after two correction turns (recorded before M1): the original folder-storage approach remains valid.
+The first correction added process interruption and geometry boundaries; the second aligned the
+saved paths with the promised layout. Both reduced M0's acceptance gap and passed focused checks
+and independent review. The user-facing detector/browser workflow is not yet proved. No new
+prerequisite is needed before M1: reuse M0 versions and the existing detector, editor, and node
+bridge. Next proof is the M1 real-backend browser workflow above. Stop if it requires a shared
+framework, further publication authority, or moving that proof past M1. M0's 2/2 correction
+history remains closed; M1 starts at 0/2 corrections and 0/5 re-plans.

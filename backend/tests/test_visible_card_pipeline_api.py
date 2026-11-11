@@ -784,6 +784,27 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
         generated_content = generated_result["revisions"][0]["content"]
         assert generated_result["request"]["input_revision_ids"] == []
         assert generated_result["request"]["input_event_set_ref"] == generated_event_set_ref
+        detection_ref = generated_result["detection_set_ref"]
+        assert detection_ref == {"set_id": f"detector-{generated_run_id}", "version": "1"}
+        detection_set = client.get(
+            f"/api/recordings/{RECORDING_ID}/detection-sets/{detection_ref['set_id']}/versions/{detection_ref['version']}"
+        ).json()
+        assert detection_set["event_sets"] == [generated_event_set_ref]
+        assert [frame["frame_id"] for frame in detection_set["content"]["frames"]] == [
+            "event-000000",
+            "event-000001",
+            "event-000004",
+        ]
+        assert detection_set["content"]["frames"][0]["detections"][0]["kind"] == "visible_card"
+        assert detection_set["content"]["frames"][0]["detections"][0]["segments"][0]["polygon"] == [
+            {"x": 6, "y": 13},
+            {"x": 45, "y": 13},
+            {"x": 36, "y": 51},
+            {"x": 6, "y": 51},
+        ]
+        assert detection_set["content"]["frames"][1]["detections"] == []
+        assert "event-000002" not in detection_set["frames"]
+        assert "event-000003" not in detection_set["frames"]
         assert [outcome["status"] for outcome in generated_content["outcomes"]] == [
             "detected",
             "empty",
@@ -840,6 +861,11 @@ def test_visible_card_pipeline_uses_explicit_event_revisions_and_retains_outcome
         assert [
             outcome["status"] for outcome in persisted.json()["revisions"][0]["content"]["outcomes"]
         ] == ["detected", "empty", "failed", "failed", "empty"]
+        persisted_detection_set = client.get(
+            f"/api/recordings/{RECORDING_ID}/detection-sets/{detection_ref['set_id']}/versions/{detection_ref['version']}"
+        )
+        assert persisted_detection_set.status_code == 200
+        assert persisted_detection_set.json() == detection_set
 
 
 def test_visible_card_pipeline_uses_configured_gemini_model_for_provider_placeholder(

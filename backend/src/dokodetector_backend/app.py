@@ -23,7 +23,10 @@ from dokodetector_backend.automated_pipeline_run import (
 )
 from dokodetector_backend.calculation_jobs import CalculationJobs
 from dokodetector_backend.config import Settings
-from dokodetector_backend.detection_set_store import DetectionSetStore
+from dokodetector_backend.detection_set_store import (
+    DetectionSetReviewStore,
+    DetectionSetStore,
+)
 from dokodetector_backend.detection_sets_api import router as detection_sets_router
 from dokodetector_backend.errors import register_error_handlers
 from dokodetector_backend.event_jobs import EventJobParticipant
@@ -164,6 +167,7 @@ def create_app(
     app.state.detection_set_store = DetectionSetStore(
         app.state.recording_folder_store, app.state.event_set_store
     )
+    app.state.detection_set_review_store = DetectionSetReviewStore(app.state.detection_set_store)
     app.state.recording_thumbnail_cache = RecordingThumbnailCache(
         app_settings.evidence_root / "recording-thumbnails"
     )
@@ -243,6 +247,7 @@ def create_app(
         event_provider=event_provider,
         recording_folder_store=app.state.recording_folder_store,
         event_set_store=app.state.event_set_store,
+        detection_set_store=app.state.detection_set_store,
     )
     install_pipeline_composition(app.state, pipeline_composition)
     app.state.pipeline_lineage_writer.node_store.reconcile_revision_history_outbox()
