@@ -121,8 +121,11 @@ input conversion; do not silently convert the next resource type in this epic.
 
 Luna loop authorized for four milestones. Baseline: 4; completed: 1; remaining: 3. This run:
 requested 4, completed 1, remaining 3. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
-0/2. Original outcome, non-goals, and closure checks remain above. First complete detector and
-browser workflow remains due in M1; qualification remains in M3. M0 proves only concrete API
+1/2. Correction 1 added a process-exit publication test and rejected self-intersecting polygons.
+Existing geometry validators check non-zero signed area but do not reject self-intersection; the
+new focused check rejects invalid polygons without changing shared geometry contracts. Original
+outcome, non-goals, and closure checks remain above. First complete detector and browser workflow
+remains due in M1; qualification remains in M3. M0 proves only concrete API
 save/open through persisted data and app restart. The first workflow and qualification remain
 unproved. Scope decision: keep `Recording HEAD` selection authority unchanged and add no review
 store. The only new contract is the M0 detection-set content and save/open API, required to store

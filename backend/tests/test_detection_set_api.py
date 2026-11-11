@@ -1,4 +1,6 @@
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -7,7 +9,10 @@ from app_factory import create_test_app
 from fastapi.testclient import TestClient
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.detection_set_store import DetectionSetStore
+from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.operator_corpus_import import import_recordings
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
 
 FIXTURE = Path(__file__).parents[2] / "fixtures/repository-bundle/v1/both"
 SOURCE_SHA256 = "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8"
@@ -212,6 +217,36 @@ def test_detection_set_api_saves_exact_frames_and_reopens_after_restart(tmp_path
             ).status_code
             == 422
         )
+        self_intersecting = _frame(
+            "self-intersecting",
+            7,
+            70,
+            detections=[
+                {
+                    "object_id": "card-crossed",
+                    "kind": "visible_card",
+                    "side": "unknown",
+                    "segments": [
+                        {
+                            "segment_id": "crossing",
+                            "polygon": [
+                                {"x": 10, "y": 10},
+                                {"x": 50, "y": 50},
+                                {"x": 10, "y": 50},
+                                {"x": 40, "y": 10},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+        assert (
+            client.post(
+                "/api/recordings/recording-both/detection-sets",
+                json={**content, "set_id": "self-intersecting", "frames": [self_intersecting]},
+            ).status_code
+            == 422
+        )
         assert (
             client.post(
                 "/api/recordings/recording-both/detection-sets",
@@ -263,3 +298,67 @@ def test_failed_detection_set_publication_leaves_no_version(tmp_path, monkeypatc
             ".detection-set-*"
         )
     )
+
+
+def test_process_interruption_leaves_unpublished_staging_and_restart_cannot_open_it(tmp_path):
+    settings = _settings(tmp_path)
+    script = """
+import os
+import sys
+from pathlib import Path
+import dokodetector_backend.detection_set_store as detection_module
+from dokodetector_backend.detection_set_store import DetectionSetStore
+from dokodetector_backend.event_set_store import EventSetStore
+from dokodetector_backend.recording_folder_store import RecordingFolderStore
+
+root = Path(sys.argv[1])
+recordings = RecordingFolderStore(root)
+events = EventSetStore(recordings)
+store = DetectionSetStore(recordings, events)
+original_rename = os.rename
+def interrupt_before_publish(source, destination):
+    if ".detection-set-" in str(source):
+        os._exit(73)
+    original_rename(source, destination)
+detection_module.os.rename = interrupt_before_publish
+identity = {
+    "schema_version": "exact-event/v1",
+    "source_video_sha256": "7184fd89dd78b265e8f617989e8a9659897e060bde2d4f8d47dc05708771f8a8",
+    "requested_time_us": 0,
+    "frame_index": 0,
+    "presentation_timestamp_us": 0,
+    "width": 640,
+    "height": 480,
+    "decoder_version": "fixture-decoder/1",
+    "transform_version": "identity/1",
+    "output_encoding": "jpeg",
+    "content_type": "image/jpeg",
+    "image_sha256": "0" * 64,
+    "policy": "exact-event/v1",
+}
+store.save(
+    "recording-both", set_id="interrupted", version="1", origin="manual",
+    source={"source_video_sha256": identity["source_video_sha256"]}, producer={},
+    event_sets=[], frames=[{"frame_id": "frame-1", "frame_identity": identity,
+                            "event_ids": [], "detections": []}],
+)
+"""
+    process = subprocess.run(
+        [sys.executable, "-c", script, str(settings.recordings_root)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert process.returncode == 73, process.stderr
+
+    recordings = RecordingFolderStore(settings.recordings_root)
+    reopened = DetectionSetStore(recordings, EventSetStore(recordings))
+    assert reopened.get("recording-both", "interrupted", "1") is None
+    staging = list(
+        (settings.recordings_root / "recording-both/detection-sets/interrupted/versions").glob(
+            ".detection-set-*"
+        )
+    )
+    assert len(staging) == 1
+    assert (staging[0] / "detection-set.json").is_file()
+    assert list((staging[0] / "frames").glob("*.json"))

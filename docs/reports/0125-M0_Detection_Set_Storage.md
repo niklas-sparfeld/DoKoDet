@@ -11,12 +11,16 @@ and atomic rename publish each version. Save and open do not change `Recording H
 
 The recording-both fixture API test saved and reopened this content after constructing a new app
 against the same persisted root. It covered a direct frame, an event-linked frame, one visible card
-with two disconnected segments, pile and ignore geometry, and an empty examined frame. A second
-test injected a failed publication and verified that no version or staging directory remained.
+with two disconnected segments, pile and ignore geometry, and an empty examined frame. A raised
+publication error still verifies cleanup of ordinary failures. A separate child process exited
+after the staged version was synced and before rename. A new store instance could not open that
+partial version; the staging directory remained unpublished. Geometry tests reject a polygon with
+non-zero signed area whose edges self-intersect. Existing shared validators check signed area only,
+so this local check preserves their contract and closes the invalid geometry case for detections.
 
 ## Verification
 
-- `mise exec -- uv run --project backend pytest backend/tests/test_detection_set_api.py backend/tests/test_event_set_store.py -q` — passed, 6 tests.
+- `mise exec -- uv run --project backend pytest backend/tests/test_detection_set_api.py backend/tests/test_event_set_store.py -q` — passed, 7 tests.
 - `mise exec -- uv run --project backend ruff check ...` — passed for changed backend source and tests.
 - `mise exec -- uv run --project backend ruff format --check ...` — passed for changed backend source and tests.
 - `npm run generate:api` — passed; regenerated `web/src/api/openapi.ts`.

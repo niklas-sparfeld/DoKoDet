@@ -310,6 +310,8 @@ def _validate_frames(
                 )
                 if area == 0:
                     raise DetectionSetError("polygon must have non-zero area")
+                if not _polygon_is_simple(points):
+                    raise DetectionSetError("polygon must not self-intersect")
                 clean_segments.append({"segment_id": segment_id, "polygon": polygon})
             clean_detections.append(
                 {"object_id": object_id, "kind": kind, "side": side, "segments": clean_segments}
@@ -329,6 +331,46 @@ def _identifier(value: Any, field: str) -> str:
     if not isinstance(value, str) or _IDENTIFIER.fullmatch(value) is None:
         raise DetectionSetError(f"{field} must be a safe identifier")
     return value
+
+
+def _polygon_is_simple(points: list[tuple[int, int]]) -> bool:
+    """Reject intersections between non-adjacent polygon edges."""
+    count = len(points)
+    for first in range(count):
+        a, b = points[first], points[(first + 1) % count]
+        for second in range(first + 1, count):
+            if second == first + 1 or (first == 0 and second == count - 1):
+                continue
+            c, d = points[second], points[(second + 1) % count]
+            if _segments_intersect(a, b, c, d):
+                return False
+    return True
+
+
+def _segments_intersect(
+    a: tuple[int, int], b: tuple[int, int], c: tuple[int, int], d: tuple[int, int]
+) -> bool:
+    def orientation(p: tuple[int, int], q: tuple[int, int], r: tuple[int, int]) -> int:
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+
+    def on_segment(p: tuple[int, int], q: tuple[int, int], r: tuple[int, int]) -> bool:
+        return min(p[0], r[0]) <= q[0] <= max(p[0], r[0]) and min(p[1], r[1]) <= q[1] <= max(
+            p[1], r[1]
+        )
+
+    first = orientation(a, b, c)
+    second = orientation(a, b, d)
+    third = orientation(c, d, a)
+    fourth = orientation(c, d, b)
+    if first == 0 and on_segment(a, c, b):
+        return True
+    if second == 0 and on_segment(a, d, b):
+        return True
+    if third == 0 and on_segment(c, a, d):
+        return True
+    if fourth == 0 and on_segment(c, b, d):
+        return True
+    return first * second < 0 and third * fourth < 0
 
 
 def _fsync_directory(path: Path) -> None:
