@@ -147,12 +147,18 @@ def test_save_review_receipt_requires_exact_applicable_node_review(
             revision_id="fixture-revision",
         )
         original_read_revision = writer.node_store.read_revision
+        original_read_authorized_revision = writer.node_store.read_authorized_revision
 
         def read_revision(node_id: str, revision_id: str):
             revision = original_read_revision(node_id, revision_id)
             return replace(revision, content_sha256=frame["m1_revision_sha256"])
 
+        def read_authorized_revision(node_id: str, revision_id: str):
+            revision = original_read_authorized_revision(node_id, revision_id)
+            return replace(revision, content_sha256=frame["m1_revision_sha256"])
+
         monkeypatch.setattr(writer.node_store, "read_revision", read_revision)
+        monkeypatch.setattr(writer.node_store, "read_authorized_revision", read_authorized_revision)
         write_frame_review_bindings(
             writer.node_store.root,
             {

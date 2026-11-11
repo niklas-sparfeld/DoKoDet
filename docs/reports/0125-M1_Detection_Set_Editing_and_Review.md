@@ -65,15 +65,17 @@ detection coverage.
 - `cd web && npm run check` — passed: typecheck, lint, format, generated API verification, 46 test files and 243 tests.
 - `cd web && npm run test:e2e:detection-set` — passed, 1 real-backend browser workflow.
 - `cd web && npx vitest run src/visibleCards/PipelineNodeVisibleCardEditor.test.tsx` — passed, 6 tests.
-- `mise exec -- uv run --project backend pytest backend/tests/test_detection_set_api.py backend/tests/test_visible_card_pipeline_api.py backend/tests/test_pipeline_node_reviews.py backend/tests/test_frame_review_bindings.py backend/tests/test_frame_review_lineage_target.py backend/tests/test_frame_review_queue.py backend/tests/test_frame_review_api.py backend/tests/test_visible_card_review_frontend.py -q -k 'not test_save_review_receipt_requires_exact_applicable_node_review'` — passed, 36 tests.
+- `mise exec -- uv run --project backend pytest backend/tests/test_detection_set_api.py backend/tests/test_visible_card_pipeline_api.py backend/tests/test_pipeline_node_reviews.py backend/tests/test_frame_review_bindings.py backend/tests/test_frame_review_lineage_target.py backend/tests/test_frame_review_queue.py backend/tests/test_frame_review_api.py backend/tests/test_visible_card_review_frontend.py -q` — passed, 37 tests.
 - `git diff --check` and local Markdown link checks — passed.
 
-One existing 0096 regression remains failing:
-`backend/tests/test_frame_review_api.py::test_save_review_receipt_requires_exact_applicable_node_review`
-returns HTTP 409 where the test expects 200. The same failure was reproduced in the clean main
-worktree at baseline `dac0caba`, before this correction. `frame_review_api.py` owns this receipt
-applicability path; M1 does not change it. This is a known baseline gap, not evidence that the
-acceptance criterion passed.
+Correction 2 fixes the 0096 regression test fixture. Its pre-M1 baseline failure was reproduced
+from `8047f255` in an isolated archive: the test patched `PipelineNodeStore.read_revision` to
+return queued digest `0888df…`, but `PipelineNodeReviews.item` reads through
+`read_authorized_revision`, which returned actual digest `406acd…`. The review was then correctly
+rejected because its content digest did not match the revision read by the applicability check.
+The fixture now supplies the same exact queued digest to both read paths. The API test passes,
+and it still checks that the saved review becomes unavailable after the frame content changes.
+No production code changed. The real content-digest mismatch rejection remains enabled.
 
 ## Limits and next milestone
 

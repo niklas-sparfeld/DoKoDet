@@ -155,10 +155,12 @@ Luna loop authorized for four milestones. Baseline: 4; completed: 2; remaining: 
 requested 4, completed 2, remaining 2. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
 2/2. Correction 1 added a process-exit publication test and rejected self-intersecting polygons.
 Correction 2 aligned persistence with the required frame/detection/segment folder paths and added
-path-level reopen coverage. M1 re-plans: 0/5; M1 corrections: 1/2. Correction 1 constrains each
+path-level reopen coverage. M1 re-plans: 0/5; M1 corrections: 2/2. Correction 1 constrains each
 geometry review to one validated frame/object pair, adds a duplicate frame-local object ID
-regression, and reopens the earlier version after backend restart in the browser proof. Original
-outcome, non-goals, and closure checks remain above. The first complete detector and browser
+regression, and reopens the earlier version after backend restart in the browser proof. Correction
+2 makes the existing 0096 review test return the same fixture digest from authorized and ordinary
+revision reads; it preserves the production content-mismatch rejection. Original outcome,
+non-goals, and closure checks remain above. The first complete detector and browser
 workflow is proved in M1; qualification remains in M3. See the
 [M0 evidence](../../reports/0125-M0_Detection_Set_Storage.md)
 and [M1 evidence](../../reports/0125-M1_Detection_Set_Editing_and_Review.md).
@@ -188,12 +190,12 @@ writer, comparison path, and 0096 frame-review bridge. Keep M3 qualification in 
 requires another authority/framework or would displace qualification.
 
 M1 checks: the focused detection backend suite passed (16 tests). The combined node-review and
-0096 regression set passed 36 tests when excluding
-`test_save_review_receipt_requires_exact_applicable_node_review`, which fails with HTTP 409 on the
-unchanged baseline commit `dac0caba` as well. The node editor's six browser component tests passed.
-Ruff, web check (46 files, 243 tests), generated API, real-backend Playwright, Markdown links, and
-`git diff --check` passed. See the M1 report for exact commands, API routes, persisted review
-path, and this named baseline gap. This milestone adds one review-record contract and no new
+0096 regression set passed all 37 tests, including the corrected receipt test. The node editor's
+six browser component tests passed. Ruff, web check (46 files, 243 tests), generated API,
+real-backend Playwright, Markdown links, and `git diff --check` passed. The 0096 test originally
+failed on pre-M1 `8047f255` because its test-only digest mock covered ordinary but not authorized
+revision reads; correction 2 supplies one consistent digest. See the M1 report for exact commands
+and the mismatch rejection boundary. This milestone adds one review-record contract and no new
 authority. Existing node output, selection, downstream readers, node reviews, and 0096 progress
 remain in place.
 
