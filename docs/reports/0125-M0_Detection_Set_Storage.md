@@ -9,6 +9,12 @@ and optional exact event references with content digests. It rejects invalid sou
 missing event evidence, invalid geometry, duplicate IDs, and version overwrite. A staged directory
 and atomic rename publish each version. Save and open do not change `Recording HEAD`.
 
+Persistence follows the recording storage layout. `detection-set.json` names the examined frames.
+Each `frames/<frame-id>/frame.json` stores exact frame identity and event references.
+`frames/<frame-id>/detections/<detection-id>/detection.json` stores object facts and ordered
+segment IDs. Each `frames/<frame-id>/detections/<detection-id>/segments/<segment-id>.json` stores
+one polygon segment.
+
 The recording-both fixture API test saved and reopened this content after constructing a new app
 against the same persisted root. It covered a direct frame, an event-linked frame, one visible card
 with two disconnected segments, pile and ignore geometry, and an empty examined frame. A raised
@@ -17,6 +23,8 @@ after the staged version was synced and before rename. A new store instance coul
 partial version; the staging directory remained unpublished. Geometry tests reject a polygon with
 non-zero signed area whose edges self-intersect. Existing shared validators check signed area only,
 so this local check preserves their contract and closes the invalid geometry case for detections.
+The path-level regression confirms frame, detection, and both segment files exist at the required
+paths and that reopen reconstructs the exact API content.
 
 ## Verification
 

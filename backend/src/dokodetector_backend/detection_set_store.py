@@ -95,18 +95,49 @@ class DetectionSetStore:
                 json.dumps(metadata, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
                 encoding="utf-8",
             )
-            frame_dir = staging / "frames"
-            frame_dir.mkdir()
             for frame in checked_frames:
-                (frame_dir / f"{frame['frame_id']}.json").write_text(
-                    json.dumps(frame, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
-                    encoding="utf-8",
+                frame_dir = staging / "frames" / frame["frame_id"]
+                frame_dir.mkdir(parents=True)
+                detections_dir = frame_dir / "detections"
+                detections_dir.mkdir()
+                detection_ids = []
+                for detection in frame["detections"]:
+                    detection_ids.append(detection["object_id"])
+                    detection_dir = detections_dir / detection["object_id"]
+                    detection_dir.mkdir()
+                    segment_dir = detection_dir / "segments"
+                    segment_dir.mkdir()
+                    detection_metadata = {
+                        key: detection[key] for key in ("object_id", "kind", "side")
+                    }
+                    detection_metadata["segments"] = [
+                        segment["segment_id"] for segment in detection["segments"]
+                    ]
+                    _write_json(detection_dir / "detection.json", detection_metadata)
+                    for segment in detection["segments"]:
+                        _write_json(
+                            segment_dir / f"{segment['segment_id']}.json",
+                            segment,
+                        )
+                _write_json(
+                    frame_dir / "frame.json",
+                    {
+                        "frame_id": frame["frame_id"],
+                        "frame_identity": frame["frame_identity"],
+                        "event_ids": frame["event_ids"],
+                        "detections": detection_ids,
+                    },
                 )
             for path in staging.rglob("*"):
                 if path.is_file():
                     with path.open("rb") as handle:
                         os.fsync(handle.fileno())
-            for directory in (frame_dir, staging):
+            directories = sorted(
+                (path for path in staging.rglob("*") if path.is_dir()),
+                key=lambda item: len(item.parts),
+                reverse=True,
+            )
+            for directory in [*directories, staging]:
                 _fsync_directory(directory)
             os.rename(staging, destination)
             _fsync_directory(destination.parent)
@@ -155,13 +186,65 @@ class DetectionSetStore:
                 return None
             frames = []
             for frame_id in metadata["frames"]:
-                path = contained_path(folder / "frames", f"{frame_id}.json")
-                if path.is_symlink():
+                frame_dir = contained_path(folder / "frames", frame_id)
+                if frame_dir.is_symlink() or not frame_dir.is_dir():
                     return None
-                frame = json.loads(path.read_text(encoding="utf-8"))
-                if frame.get("frame_id") != frame_id:
+                frame_metadata_path = frame_dir / "frame.json"
+                if frame_metadata_path.is_symlink():
                     return None
-                frames.append(frame)
+                frame_metadata = json.loads(frame_metadata_path.read_text(encoding="utf-8"))
+                if (
+                    not isinstance(frame_metadata, dict)
+                    or set(frame_metadata)
+                    != {"frame_id", "frame_identity", "event_ids", "detections"}
+                    or frame_metadata["frame_id"] != frame_id
+                    or not isinstance(frame_metadata["detections"], list)
+                ):
+                    return None
+                detections = []
+                for detection_id in frame_metadata["detections"]:
+                    _identifier(detection_id, "object ID")
+                    detection_dir = contained_path(frame_dir / "detections", detection_id)
+                    detection_path = detection_dir / "detection.json"
+                    if (
+                        detection_dir.is_symlink()
+                        or not detection_dir.is_dir()
+                        or detection_path.is_symlink()
+                    ):
+                        return None
+                    detection = json.loads(detection_path.read_text(encoding="utf-8"))
+                    if (
+                        not isinstance(detection, dict)
+                        or set(detection) != {"object_id", "kind", "side", "segments"}
+                        or detection["object_id"] != detection_id
+                        or not isinstance(detection["segments"], list)
+                    ):
+                        return None
+                    segments = []
+                    for segment_id in detection["segments"]:
+                        _identifier(segment_id, "segment ID")
+                        segment_path = contained_path(
+                            detection_dir / "segments", f"{segment_id}.json"
+                        )
+                        if segment_path.is_symlink():
+                            return None
+                        segment = json.loads(segment_path.read_text(encoding="utf-8"))
+                        if (
+                            not isinstance(segment, dict)
+                            or set(segment) != {"segment_id", "polygon"}
+                            or segment["segment_id"] != segment_id
+                        ):
+                            return None
+                        segments.append(segment)
+                    detections.append({**detection, "segments": segments})
+                frames.append(
+                    {
+                        "frame_id": frame_id,
+                        "frame_identity": frame_metadata["frame_identity"],
+                        "event_ids": frame_metadata["event_ids"],
+                        "detections": detections,
+                    }
+                )
             content = {"schema_version": SCHEMA, "frames": frames}
             digest = hashlib.sha256(
                 json.dumps(content, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
@@ -331,6 +414,13 @@ def _identifier(value: Any, field: str) -> str:
     if not isinstance(value, str) or _IDENTIFIER.fullmatch(value) is None:
         raise DetectionSetError(f"{field} must be a safe identifier")
     return value
+
+
+def _write_json(path: Path, value: Any) -> None:
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _polygon_is_simple(points: list[tuple[int, int]]) -> bool:

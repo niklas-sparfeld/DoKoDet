@@ -62,9 +62,11 @@ recordings/<recording-id>/
     events/<event-id>/event.json
   detection-sets/<set-id>/versions/<version>/
     detection-set.json
-    frames/<frame-id>/detections/<detection-id>/
-      detection.json
-      segments/<segment-id>.json
+    frames/<frame-id>/
+      frame.json
+      detections/<detection-id>/
+        detection.json
+        segments/<segment-id>.json
   calibrations/<calibration-id>/versions/<version>/calibration.json
   virtual-scene-sets/<set-id>/versions/<version>/
     scene-set.json

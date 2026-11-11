@@ -155,6 +155,13 @@ def test_detection_set_api_saves_exact_frames_and_reopens_after_restart(tmp_path
         response = client.post("/api/recordings/recording-both/detection-sets", json=content)
         assert response.status_code == 200, response.text
         assert response.json()["content"]["frames"] == content["frames"]
+        version_path = settings.recordings_root / "recording-both/detection-sets/det-alt/versions/1"
+        card_path = version_path / "frames/frame-direct/detections/card-1"
+        assert (version_path / "frames/frame-direct/frame.json").is_file()
+        assert (card_path / "detection.json").is_file()
+        assert (card_path / "segments/left.json").is_file()
+        assert (card_path / "segments/right.json").is_file()
+        assert not (version_path / "frames/frame-direct.json").exists()
         assert (
             client.post("/api/recordings/recording-both/detection-sets", json=content).status_code
             == 422
@@ -361,4 +368,4 @@ store.save(
     )
     assert len(staging) == 1
     assert (staging[0] / "detection-set.json").is_file()
-    assert list((staging[0] / "frames").glob("*.json"))
+    assert (staging[0] / "frames/frame-1/frame.json").is_file()
