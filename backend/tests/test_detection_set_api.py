@@ -197,6 +197,71 @@ def test_detection_set_api_saves_exact_frames_and_reopens_after_restart(tmp_path
             ).status_code
             == 422
         )
+        ambiguous_content = {
+            **content,
+            "set_id": "det-ambiguous-targets",
+            "frames": [
+                _frame(
+                    "frame-a",
+                    8,
+                    80,
+                    detections=[
+                        {
+                            "object_id": "local-card-x",
+                            "kind": "visible_card",
+                            "side": "unknown",
+                            "segments": [{"segment_id": "area", "polygon": _polygon(10, 10)}],
+                        }
+                    ],
+                ),
+                _frame(
+                    "frame-b",
+                    9,
+                    90,
+                    detections=[
+                        {
+                            "object_id": "local-card-x",
+                            "kind": "visible_card",
+                            "side": "unknown",
+                            "segments": [{"segment_id": "area", "polygon": _polygon(40, 40)}],
+                        }
+                    ],
+                ),
+            ],
+        }
+        ambiguous_saved = client.post(
+            "/api/recordings/recording-both/detection-sets", json=ambiguous_content
+        )
+        assert ambiguous_saved.status_code == 200, ambiguous_saved.text
+        ambiguous_review = {
+            **review_payload,
+            "review_id": "ambiguous-geometry-review",
+            "covered_frame_ids": ["frame-a", "frame-b"],
+            "covered_object_ids": ["local-card-x"],
+        }
+        ambiguous_review_response = client.post(
+            "/api/recordings/recording-both/detection-sets/det-ambiguous-targets/versions/1/reviews",
+            json=ambiguous_review,
+        )
+        assert ambiguous_review_response.status_code == 422
+        assert (
+            client.get(
+                "/api/recordings/recording-both/detection-sets/det-ambiguous-targets/versions/1/reviews"
+            ).json()["reviews"]
+            == []
+        )
+        paired_review = {
+            **ambiguous_review,
+            "review_id": "paired-geometry-review",
+            "covered_frame_ids": ["frame-a"],
+        }
+        assert (
+            client.post(
+                "/api/recordings/recording-both/detection-sets/det-ambiguous-targets/versions/1/reviews",
+                json=paired_review,
+            ).status_code
+            == 200
+        )
         assert (
             client.post("/api/recordings/recording-both/detection-sets", json=content).status_code
             == 422

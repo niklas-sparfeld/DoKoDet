@@ -13,6 +13,13 @@ segment editor reads that version, resolves its exact source frame, edits one ob
 list, and saves a new immutable version. A separate geometry review can accept or reject the
 selected object's geometry. Old versions remain readable.
 
+Correction 1 constrains each geometry review to one explicit frame/object pair. Object IDs remain
+frame-local, so a review cannot cover two frames and ambiguously refer to the same ID in both.
+Backend validation checks the object in the exact covered frame. A regression saves two frames
+with the same object ID, rejects a review that names both frames, confirms no review was saved,
+then accepts a review for one exact pair. The browser proof now fetches version 1 again after the
+backend restart and compares its persisted content with the original version.
+
 The only new M1 persistent contract is a recording-local geometry review. The API writes
 `detection-review/v1` to
 `data/recordings/<recording-id>/detection-sets/<set-id>/reviews/<review-id>.json`. Each record
@@ -57,7 +64,16 @@ detection coverage.
 - `cd web && npm run generate:api` — passed.
 - `cd web && npm run check` — passed: typecheck, lint, format, generated API verification, 46 test files and 243 tests.
 - `cd web && npm run test:e2e:detection-set` — passed, 1 real-backend browser workflow.
+- `cd web && npx vitest run src/visibleCards/PipelineNodeVisibleCardEditor.test.tsx` — passed, 6 tests.
+- `mise exec -- uv run --project backend pytest backend/tests/test_detection_set_api.py backend/tests/test_visible_card_pipeline_api.py backend/tests/test_pipeline_node_reviews.py backend/tests/test_frame_review_bindings.py backend/tests/test_frame_review_lineage_target.py backend/tests/test_frame_review_queue.py backend/tests/test_frame_review_api.py backend/tests/test_visible_card_review_frontend.py -q -k 'not test_save_review_receipt_requires_exact_applicable_node_review'` — passed, 36 tests.
 - `git diff --check` and local Markdown link checks — passed.
+
+One existing 0096 regression remains failing:
+`backend/tests/test_frame_review_api.py::test_save_review_receipt_requires_exact_applicable_node_review`
+returns HTTP 409 where the test expects 200. The same failure was reproduced in the clean main
+worktree at baseline `dac0caba`, before this correction. `frame_review_api.py` owns this receipt
+applicability path; M1 does not change it. This is a known baseline gap, not evidence that the
+acceptance criterion passed.
 
 ## Limits and next milestone
 

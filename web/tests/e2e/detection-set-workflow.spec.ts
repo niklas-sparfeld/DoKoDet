@@ -224,6 +224,12 @@ test("detector output, segment edit, geometry review, and exact reopen survive r
   const exactUrl = page.url();
   await stopBackend();
   await startBackend();
+  const reopenedVersionOne = await (
+    await request.get(
+      `${backendUrl}/api/recordings/recording-both/detection-sets/${detectionRef.set_id}/versions/1`,
+    )
+  ).json();
+  expect(reopenedVersionOne.content).toEqual(original.content);
   await page.goto(exactUrl);
   await expect(
     page.getByText(/Geometry reviews for this version/),

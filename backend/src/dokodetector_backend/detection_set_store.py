@@ -286,28 +286,25 @@ class DetectionSetReviewStore:
             raise DetectionSetError("geometry review decision is invalid")
         if (
             not isinstance(covered_frame_ids, list)
-            or not covered_frame_ids
+            or len(covered_frame_ids) != 1
             or not isinstance(covered_object_ids, list)
-            or not covered_object_ids
+            or len(covered_object_ids) != 1
         ):
-            raise DetectionSetError("geometry review must cover frames and objects")
+            raise DetectionSetError("geometry review must cover one frame/object pair")
         for frame_id in covered_frame_ids:
             _identifier(frame_id, "covered frame ID")
         for object_id in covered_object_ids:
             _identifier(object_id, "covered object ID")
-        if len(covered_frame_ids) != len(set(covered_frame_ids)) or len(covered_object_ids) != len(
-            set(covered_object_ids)
-        ):
-            raise DetectionSetError("geometry review targets must be unique")
         frame_objects = {
             frame["frame_id"]: {item["object_id"] for item in frame["detections"]}
             for frame in detection_set["content"]["frames"]
         }
-        if any(frame_id not in frame_objects for frame_id in covered_frame_ids):
+        frame_id = covered_frame_ids[0]
+        object_id = covered_object_ids[0]
+        if frame_id not in frame_objects:
             raise DetectionSetError("reviewed frame is not present in the detection set")
-        available_objects = set().union(*(frame_objects[item] for item in covered_frame_ids))
-        if any(object_id not in available_objects for object_id in covered_object_ids):
-            raise DetectionSetError("reviewed object is not present in the covered frames")
+        if object_id not in frame_objects[frame_id]:
+            raise DetectionSetError("reviewed object is not present in the covered frame")
         record = {
             "schema_version": "detection-review/v1",
             "recording_id": recording_id,
@@ -385,8 +382,24 @@ class DetectionSetReviewStore:
                 or not isinstance(record.get("question"), str)
                 or not record["question"].strip()
                 or record.get("decision") not in {"accepted", "rejected"}
+                or not isinstance(record.get("covered_frame_ids"), list)
+                or len(record["covered_frame_ids"]) != 1
+                or not isinstance(record.get("covered_object_ids"), list)
+                or len(record["covered_object_ids"]) != 1
             ):
                 raise DetectionSetError("detection review record is invalid")
+            frame_id = record["covered_frame_ids"][0]
+            object_id = record["covered_object_ids"][0]
+            if (
+                not isinstance(frame_id, str)
+                or not isinstance(object_id, str)
+                or not any(
+                    frame["frame_id"] == frame_id
+                    and any(item["object_id"] == object_id for item in frame["detections"])
+                    for frame in detection_set["content"]["frames"]
+                )
+            ):
+                raise DetectionSetError("detection review target is invalid")
             result.append(record)
         return result
 

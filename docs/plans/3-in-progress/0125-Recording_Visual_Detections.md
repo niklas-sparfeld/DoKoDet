@@ -155,9 +155,12 @@ Luna loop authorized for four milestones. Baseline: 4; completed: 2; remaining: 
 requested 4, completed 2, remaining 2. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
 2/2. Correction 1 added a process-exit publication test and rejected self-intersecting polygons.
 Correction 2 aligned persistence with the required frame/detection/segment folder paths and added
-path-level reopen coverage. M1 re-plans: 0/5; M1 corrections: 0/2. Original outcome, non-goals,
-and closure checks remain above. The first complete detector and browser workflow is proved in M1;
-qualification remains in M3. See the [M0 evidence](../../reports/0125-M0_Detection_Set_Storage.md)
+path-level reopen coverage. M1 re-plans: 0/5; M1 corrections: 1/2. Correction 1 constrains each
+geometry review to one validated frame/object pair, adds a duplicate frame-local object ID
+regression, and reopens the earlier version after backend restart in the browser proof. Original
+outcome, non-goals, and closure checks remain above. The first complete detector and browser
+workflow is proved in M1; qualification remains in M3. See the
+[M0 evidence](../../reports/0125-M0_Detection_Set_Storage.md)
 and [M1 evidence](../../reports/0125-M1_Detection_Set_Editing_and_Review.md).
 
 M0 contract: each version has recording, set, version, origin, source video digest, producer facts,
@@ -184,14 +187,18 @@ prerequisite was found. Next proof: specify M2 against the named exact-input con
 writer, comparison path, and 0096 frame-review bridge. Keep M3 qualification in place. Stop if M2
 requires another authority/framework or would displace qualification.
 
-M1 checks: the focused backend suite passed (16 tests); Ruff lint and format checks passed; web
-check passed (typecheck, lint, format, generated API verification, 46 Vitest files and 243 tests);
-the dedicated real-backend Playwright workflow passed; and local Markdown links and
-`git diff --check` passed. See the M1 report for routes, persisted review path, and limits. This
-milestone adds one review-record contract and no new authority. Existing node output, selection,
-downstream readers, node reviews, and 0096 progress remain in place.
+M1 checks: the focused detection backend suite passed (16 tests). The combined node-review and
+0096 regression set passed 36 tests when excluding
+`test_save_review_receipt_requires_exact_applicable_node_review`, which fails with HTTP 409 on the
+unchanged baseline commit `dac0caba` as well. The node editor's six browser component tests passed.
+Ruff, web check (46 files, 243 tests), generated API, real-backend Playwright, Markdown links, and
+`git diff --check` passed. See the M1 report for exact commands, API routes, persisted review
+path, and this named baseline gap. This milestone adds one review-record contract and no new
+authority. Existing node output, selection, downstream readers, node reviews, and 0096 progress
+remain in place.
 
-M0 scope review after two correction turns (recorded before M1): the original folder-storage approach remains valid.
+M0 scope review after two correction turns (recorded before M1): the original folder-storage
+approach remains valid.
 The first correction added process interruption and geometry boundaries; the second aligned the
 saved paths with the promised layout. Both reduced M0's acceptance gap and passed focused checks
 and independent review. The user-facing detector/browser workflow is not yet proved. No new
