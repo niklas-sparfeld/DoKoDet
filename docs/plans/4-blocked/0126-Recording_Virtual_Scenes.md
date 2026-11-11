@@ -1,7 +1,7 @@
 # Recording virtual scenes
 
 - **Status:** Blocked
-- **Depends on:** [0125](0125-Recording_Visual_Detections.md) closure and stable detection/frame references.
+- **Depends on:** [0125](../2-ready/0125-Recording_Visual_Detections.md) closure and stable detection/frame references.
 - **Outcome:** Generate, edit, select, and reopen calibrated virtual scenes beside their recording evidence.
 - **Origin:** [Recording data storage](../../RecordingDataStorage.md).
 
