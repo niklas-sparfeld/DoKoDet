@@ -26,6 +26,8 @@ from doko_operations.pipeline_comparison_execution import (
 )
 from doko_operations.pipeline_data import EventData, canonical_json_bytes
 
+from dokodetector_backend.detection_set_inputs import detection_set_to_visible_card_data
+from dokodetector_backend.detection_set_store import DetectionSetError, DetectionSetStore
 from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_service_errors import PipelineServiceError
@@ -51,10 +53,12 @@ class PipelineComparisonService:
         selection_store: PipelineNodeSelectionStore,
         run_store: ProcessorRunStore,
         event_set_store: EventSetStore | None = None,
+        detection_set_store: DetectionSetStore | None = None,
     ) -> None:
         self.selection_store = selection_store
         self.run_store = run_store
         self.event_set_store = event_set_store
+        self.detection_set_store = detection_set_store
 
     def compare(
         self, recording_id: str, payload: Mapping[str, Any] | PipelineComparisonRequest
@@ -97,12 +101,23 @@ class PipelineComparisonService:
                 expected_source=left_run.request.source,
             )
         else:
-            reference = self._resolve_reference(
-                recording_id,
-                comparison_request.reference_revision_id,
-                comparison_request.content_type,
-                left_run.request.source,
-            )
+            if comparison_request.reference_detection_set_ref is not None:
+                if comparison_request.content_type != "visible_cards":
+                    raise PipelineComparisonInputError(
+                        "detection-set references support visible-card comparisons only"
+                    )
+                reference = self._resolve_detection_set_reference(
+                    recording_id,
+                    comparison_request.reference_detection_set_ref,
+                    expected_source=left_run.request.source,
+                )
+            else:
+                reference = self._resolve_reference(
+                    recording_id,
+                    comparison_request.reference_revision_id,
+                    comparison_request.content_type,
+                    left_run.request.source,
+                )
         if comparison_request.content_type == "events":
             duration_us = left_run.request.source.duration_us
             try:
@@ -267,6 +282,7 @@ class PipelineComparisonService:
             return PipelineComparisonReference(
                 revision_id=None,
                 event_set_ref=reference.event_set_ref,
+                detection_set_ref=None,
                 input_revision_ids=(),
                 content_sha256=reference.manifest.content_sha256,
                 origin=reference.manifest.origin,
@@ -274,9 +290,56 @@ class PipelineComparisonService:
         return PipelineComparisonReference(
             revision_id=reference.manifest.revision_id,
             event_set_ref=None,
+            detection_set_ref=getattr(reference, "detection_set_ref", None),
             input_revision_ids=reference.manifest.input_revision_ids,
             content_sha256=reference.manifest.content_sha256,
             origin=reference.manifest.origin,
+        )
+
+    def _resolve_detection_set_reference(
+        self,
+        recording_id: str,
+        reference: Mapping[str, str],
+        *,
+        expected_source: Any,
+    ) -> Any:
+        if self.detection_set_store is None:
+            raise PipelineComparisonInputError("detection-set comparison is unavailable")
+        try:
+            stored = self.detection_set_store.get(
+                recording_id, reference["set_id"], reference["version"]
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise PipelineComparisonInputError("reference detection set is invalid") from error
+        if stored is None or stored["content_sha256"] != reference["content_sha256"]:
+            raise PipelineComparisonInputError(
+                "reference detection set does not match its exact digest"
+            )
+        if stored["origin"] not in {"manual", "corrected"}:
+            raise PipelineComparisonInputError("reference detection set is not reviewed content")
+        source = stored.get("source")
+        if not isinstance(source, Mapping) or (
+            source.get("recording_id") != recording_id
+            or source.get("source_video_sha256") != expected_source.video_sha256
+        ):
+            raise PipelineComparisonInputError(
+                "reference detection set does not match the exact recording video"
+            )
+        try:
+            content = detection_set_to_visible_card_data(stored)
+        except DetectionSetError as error:
+            raise PipelineComparisonInputError(str(error)) from error
+        return SimpleNamespace(
+            manifest=SimpleNamespace(
+                revision_id=None,
+                input_revision_ids=(),
+                content_sha256=stored["content_sha256"],
+                origin=stored["origin"],
+            ),
+            content=content,
+            coverage={"kind": "saved-detection-set"},
+            event_set_ref=None,
+            detection_set_ref=dict(reference),
         )
 
     def _resolve_run(

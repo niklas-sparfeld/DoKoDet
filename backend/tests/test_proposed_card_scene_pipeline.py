@@ -20,6 +20,8 @@ from table_evidence_analyzer.pipeline_data import (
     canonical_visible_card_data_bytes,
 )
 
+from dokodetector_backend.detection_set_store import DetectionSetStore
+from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.job_models import JobCancelled
 from dokodetector_backend.job_scheduler import Claims
 from dokodetector_backend.job_store import JobManager
@@ -184,8 +186,10 @@ class _CancelDuringProcessor(_CancellationToken):
 def _run_proposal_job(
     service: ProposedCardScenePipelineService,
     recording_id: str,
-    revision_id: str,
+    revision_id: str | None = None,
     token: _CancellationToken | None = None,
+    *,
+    detection_set_ref: dict[str, str] | None = None,
 ):
     registry = JobTypeRegistry(service.settings.operations_root)
     participant = ProposedCardSceneJobParticipant(service)
@@ -207,9 +211,11 @@ def _run_proposal_job(
             {
                 "type": "proposed_card_scene_creation",
                 "context": {"recording_id": recording_id},
-                "request": {
-                    "input_node_ref": _node_ref(service.node_store, revision_id),
-                },
+                "request": (
+                    {"detection_set_ref": detection_set_ref}
+                    if detection_set_ref is not None
+                    else {"input_node_ref": _node_ref(service.node_store, revision_id)}
+                ),
             },
         )
         job = manager.transition(job.id, "running")
@@ -344,6 +350,111 @@ def test_proposal_request_uses_exact_canonical_visible_card_node(tmp_path: Path)
         "revision_id": node.revision_id,
         "revision_policy": "current_head",
     }
+
+
+def test_service_publishes_proposal_from_exact_detection_set_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recording_id = "recording-detection-input"
+
+    class RecordingFolders:
+        def __init__(self) -> None:
+            self.root = tmp_path / "recordings"
+            self.recording = SimpleNamespace(
+                media={"sha256": DIGEST, "relative_path": "video.mov", "byte_length": 100}
+            )
+
+        def get(self, requested_recording_id: str):
+            return self.recording if requested_recording_id == recording_id else None
+
+        def recording_path(self, requested_recording_id: str) -> Path:
+            path = self.root / requested_recording_id
+            path.mkdir(parents=True, exist_ok=True)
+            return path
+
+    folders = RecordingFolders()
+    detection_store = DetectionSetStore(folders, EventSetStore(folders))
+    visible = _visible_data()
+    frames = []
+    for outcome in visible.outcomes:
+        identity = outcome.frame_identity
+        assert identity is not None
+        detections = []
+        for candidate in outcome.candidates:
+            geometry = candidate.geometry.to_mapping()["visible_region"]["polygons"]
+            detections.append(
+                {
+                    "object_id": candidate.card_id,
+                    "kind": "visible_card",
+                    "side": candidate.side,
+                    "segments": [
+                        {
+                            "segment_id": f"segment-{index}",
+                            "polygon": [
+                                {
+                                    "x": round(point["x"] * identity.width / 1000),
+                                    "y": round(point["y"] * identity.height / 1000),
+                                }
+                                for point in polygon
+                            ],
+                        }
+                        for index, polygon in enumerate(geometry)
+                    ],
+                }
+            )
+        frames.append(
+            {
+                "frame_id": outcome.event_id,
+                "frame_identity": identity.to_mapping(),
+                "event_ids": [],
+                "detections": detections,
+            }
+        )
+    detection_set = detection_store.save(
+        recording_id,
+        set_id="manual-alt",
+        version="7",
+        origin="manual",
+        source={"source_video_sha256": DIGEST},
+        producer={"tool": "test-fixture"},
+        event_sets=[],
+        frames=frames,
+    )
+    reference = {
+        "set_id": detection_set["set_id"],
+        "version": detection_set["version"],
+        "content_sha256": detection_set["content_sha256"],
+    }
+    runtime = PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations")
+    nodes = PipelineNodeStore(tmp_path / "operations" / "pipeline-nodes")
+    writer = PipelineLineageWriter(nodes, PipelineLineage(nodes), PipelineNodeUses(nodes))
+    runs = ProcessorRunStore(runtime, lineage_writer=writer)
+    service = ProposedCardScenePipelineService(
+        _Settings(tmp_path),
+        run_store=runs,
+        selection_store=PipelineNodeSelectionStore(nodes, writer),
+        detection_set_store=detection_store,
+    )
+    monkeypatch.setattr(
+        "dokodetector_backend.video_probe.probe_video_path_metadata",
+        lambda _path: SimpleNamespace(duration_ms=20_000),
+    )
+
+    job = _run_proposal_job(service, recording_id, detection_set_ref=reference)
+    run = service.get_run(recording_id, job.id)
+    result, revisions = service.get_result(recording_id, job.id)
+
+    assert run.request.input_detection_set_ref == reference
+    assert run.request.input_revision_ids == ()
+    assert revisions[0].manifest.coverage["detection_set_ref"] == reference
+    lineage_run = next(
+        item for item in writer.lineage.snapshot(recording_id)["runs"] if item["run_id"] == job.id
+    )
+    assert lineage_run["inputs"][0]["artifact_id"] == (
+        f"detection-set/{reference['set_id']}/versions/{reference['version']}"
+    )
+    assert result.state.status in {"complete", "partial"}
+    assert result.state.output_revision_ids
 
 
 def test_service_publishes_zero_card_and_pile_only_frames_without_calibration(

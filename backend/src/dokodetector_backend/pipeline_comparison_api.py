@@ -47,6 +47,14 @@ class PipelineComparisonEventSetRef(ContractModel):
     content_sha256: Sha256
 
 
+class PipelineComparisonDetectionSetRef(ContractModel):
+    """Exact detection-set identity used by geometry comparisons."""
+
+    set_id: str = Field(min_length=1, max_length=128)
+    version: str = Field(min_length=1, max_length=128)
+    content_sha256: Sha256
+
+
 class PipelineComparisonRequest(ContractModel):
     """The strict request for one on-demand comparison."""
 
@@ -57,6 +65,7 @@ class PipelineComparisonRequest(ContractModel):
     right_run_id: str = Field(min_length=1, max_length=128)
     reference_revision_id: str | None = Field(default=None, min_length=1, max_length=128)
     reference_event_set_ref: PipelineComparisonEventSetRef | None = None
+    reference_detection_set_ref: PipelineComparisonDetectionSetRef | None = None
     matching_policy: PipelineComparisonMatchingPolicyRequest
 
 
@@ -132,6 +141,7 @@ class PipelineComparisonReferenceResponse(ContractModel):
 
     revision_id: str | None
     event_set_ref: PipelineComparisonEventSetRef | None
+    detection_set_ref: PipelineComparisonDetectionSetRef | None
     input_revision_ids: list[str]
     content_sha256: Sha256
     origin: Literal["manual", "corrected"]

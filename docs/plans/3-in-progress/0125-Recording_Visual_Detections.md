@@ -84,7 +84,7 @@ checks. Retain 0123's bounded list checks. No model-quality claim is required fo
 | --- | --- | --- |
 | M0 | Concrete detection-set storage; real API save/open of exact frame/object/segment evidence | Complete |
 | M1 | Existing detector and browser segment editor/review use the same contract; restart proof | Complete |
-| M2 | Convert exact-input consumers and calibration reflow writer; preserve comparison and frame-review access | Not started |
+| M2 | Convert exact-input consumers and calibration reflow writer; preserve comparison and frame-review access | Complete |
 | M3 | Retained-data rehearsal, default detection cutover, replaced-path removal, and qualification | Not started |
 
 ### Assignment preparation
@@ -149,10 +149,42 @@ frame evidence, edit and review persistence, earlier-version preservation, empty
 distinction, restart, and existing node consumer/review regressions. Run affected backend tests,
 `web/npm run check`, real-backend Playwright workflow, and Markdown link checks.
 
+### M2 assignment
+
+Observable result: the scene, calibration reflow, visual identity, and observation paths can use an
+explicit saved detection-set version, and comparison can compare exact saved detection versions.
+Use `{set_id, version, content_sha256}` as the detection reference. Validate it against the
+recording-owned M0 store at request acceptance and again when work runs; retain it in durable run
+and output lineage so a later edit or restart cannot change the input. Reject missing, mismatched,
+or cross-recording evidence. Keep the existing identity and calibration inputs under their current
+authorities. A small in-memory conversion to the existing visible-card algorithm input is allowed;
+do not publish a shadow node as authority for the new path. Preserve event/frame identity, geometry,
+empty coverage, IDs, and review facts needed by each consumer. Fail explicitly when existing
+algorithms cannot represent evidence rather than inventing data or dropping it silently.
+
+Owners: `proposed_card_scene_pipeline_service.py`, `calibration_refinement_service.py`,
+`visual_identity_pipeline_service.py` and its `visual_identity_request.py` and crop-input adapters,
+`observation_pipeline_service.py`, detection branches of `pipeline_comparison_service.py` and API,
+their request/run/lineage contracts in `operations/.../pipeline_data.py`, app composition and
+focused client call sites and tests. The calibration reflow writer must save a new detection-set
+version with its exact input and preserve its existing draft decisions. Existing nodes remain the
+bounded bridge for old inputs and the frozen 0096 queue; do not change its target or progress in
+M2. Do not remove old paths or convert scene/classification formats here. M3 owns retained-data
+conversion, selection cutover, removal and qualification.
+
+Checks: for each named path, save real detection evidence and prove exact input and output lineage,
+restart, rejected wrong digest/missing input, and preserved historical input after another edit;
+use deterministic processor stubs. Include calibration write/reopen and two alternatives in
+comparison. At least one scene or classifier uses the saved version with old detection-node reads
+disabled. Run affected consumer, comparison, frame-review, detection store and API suites, static
+and generated API checks, web check, and the M1 real-backend browser test. Commit implementation,
+tests, evidence and plan/board updates together. If preserving the actual consumer contract needs a
+new persistent transaction or an unbounded set of adapters, stop for scope review before adding it.
+
 ## Execution handoff
 
-Luna loop authorized for four milestones. Baseline: 4; completed: 2; remaining: 2. This run:
-requested 4, completed 2, remaining 2. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
+Luna loop authorized for four milestones. Baseline: 4; completed: 3; remaining: 1. This run:
+requested 4, completed 3, remaining 1. Run re-plans: 0/10; M0 re-plans: 0/5; M0 corrections:
 2/2. Correction 1 added a process-exit publication test and rejected self-intersecting polygons.
 Correction 2 aligned persistence with the required frame/detection/segment folder paths and added
 path-level reopen coverage. M1 re-plans: 0/5; M1 corrections: 2/2. Correction 1 constrains each
@@ -208,3 +240,52 @@ prerequisite is needed before M1: reuse M0 versions and the existing detector, e
 bridge. Next proof is the M1 real-backend browser workflow above. Stop if it requires a shared
 framework, further publication authority, or moving that proof past M1. M0's 2/2 correction
 history remains closed; M1 starts at 0/2 corrections and 0/5 re-plans.
+
+M1 scope review after two correction turns: the first complete detector/browser workflow is now
+proved. The first correction disambiguated frame-local review targets and proved the older version
+after restart; the second fixed a pre-M1 test fixture whose two read paths returned inconsistent
+digests. Both passed the combined checks and independent review. Keep the current approach: M2
+uses exact M0 versions and existing algorithm adapters, with the old node path as a bounded bridge.
+No new persistent authority is required. M2's exact reference extends existing request and lineage
+data because the four consumers otherwise cannot name a saved detection version. M3 remains the
+qualification checkpoint. M1 corrections 2/2 remain closed; M2 starts at 0/2 corrections and 0/5
+re-plans. Stop if a new transaction authority or additional unbounded prerequisite is needed.
+
+M2 changes: scene proposals, visual identity, and observation assembly accept an explicit
+`{set_id, version, content_sha256}` detection-set reference. Each path validates the exact version
+at acceptance and execution, writes the reference to the durable run and output artifact lineage,
+and fails when the existing algorithm cannot represent the stored geometry. Comparison accepts an
+exact saved detection set as a visible-card reference. Calibration reflow saves a corrected version
+with the exact source reference and retains its current node draft and review decisions. The existing
+node and 0096 frame-review routes remain the bridge for old inputs. No selection or review authority
+changed. The only persistent contract added was the M0 detection-set reference in pipeline request
+and lineage data; no new store or transaction authority was added.
+
+M2 scope review after implementation: all four exact-input paths and comparison now use bounded
+adapters to the existing algorithms. A hard-snapshot calibration performance fixture has no
+recording folder, so it supplies a deterministic detection-set store fixture; a separate test writes
+and reopens the calibration output through the real recording-folder store. The first complete
+workflow remains the M1 browser proof. M3 retains the planned migration rehearsal, selection
+cutover, old-path removal, and qualification. No new prerequisite or scope change was needed.
+M2 corrections: 0/2; M2 re-plans: 0/5; run re-plans: 0/10. Next milestone: M3.
+
+M2 checks and evidence are recorded in the [M2 report](../../reports/0125-M2_Exact_Detection_Set_Consumers.md).
+
+M2 checks: `uv run --project operations pytest -q operations/tests/test_pipeline_data.py
+operations/tests/test_pipeline_comparison.py` passed 21 tests. The combined backend consumer,
+comparison, detection-store, and lineage command passed 51 tests:
+`uv run --project backend pytest -q backend/tests/test_pipeline_vision_comparison_api.py
+backend/tests/test_pipeline_comparison_api.py backend/tests/test_calibration_refinement_service.py
+backend/tests/test_detection_set_api.py backend/tests/test_detection_set_inputs.py
+backend/tests/test_observation_pipeline_api.py backend/tests/test_visual_identity_pipeline_api.py
+backend/tests/test_proposed_card_scene_pipeline.py backend/tests/test_pipeline_lineage_writer.py`.
+The node-review, node-selection and 0096 frame-review command passed 54 tests:
+`uv run --project backend pytest -q backend/tests/test_pipeline_node_reviews.py
+backend/tests/test_frame_review_bindings.py backend/tests/test_frame_review_queue.py
+backend/tests/test_frame_review_api.py backend/tests/test_visible_card_review_frontend.py
+backend/tests/test_pipeline_node_selection_store.py backend/tests/test_pipeline_api.py
+backend/tests/test_pipeline_comparison_api.py backend/tests/test_pipeline_vision_comparison_api.py`.
+The calibration apply/readback fixture passed; the persisted detection-set reopen test also passed.
+Backend and operations Ruff checks passed. `cd web && npm run generate:api`, `cd web && npm run
+check` (46 files, 243 tests), and `cd web && npm run test:e2e:detection-set` (one real-backend
+workflow) passed. Local links and `git diff --check` passed.

@@ -8,6 +8,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import numpy as np
@@ -276,6 +277,146 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
         _proposal, source, proposal_data = service._proposal(
             CALIBRATION_RECORDING, CALIBRATION_PROPOSAL_REVISION
         )
+        source_node, source_revision = service._find_node_revision(
+            source.manifest.revision_id, "visible_cards"
+        )
+        detector_producer = source_revision.metadata["producer"]
+        detector_run_id = detector_producer["run_id"]
+        detector_attempt = source.manifest.revision_id.rsplit("-attempt-", 1)[1]
+        source_coverage = source_revision.metadata.get("coverage", {})
+        event_ref = source_coverage.get("event_set_ref")
+        event_sets = []
+        if isinstance(event_ref, dict):
+            event_set = app.state.event_set_store.get(
+                CALIBRATION_RECORDING, event_ref["set_id"], event_ref["version"]
+            )
+            assert event_set is not None
+            event_sets = [
+                {
+                    "set_id": event_ref["set_id"],
+                    "version": event_ref["version"],
+                    "content_sha256": event_set["content_sha256"],
+                }
+            ]
+            event_ids = {item["event_id"] for item in event_set["content"]["events"]}
+        else:
+            event_ids = set()
+
+        def detection(
+            object_id: str, kind: str, side: str | None, polygons: Any, width: int, height: int
+        ):
+            return {
+                "object_id": object_id,
+                "kind": kind,
+                "side": side,
+                "segments": [
+                    {
+                        "segment_id": f"segment-{index:04d}",
+                        "polygon": [
+                            {
+                                "x": round(point[0] * width / 1000),
+                                "y": round(point[1] * height / 1000),
+                            }
+                            for point in polygon
+                        ],
+                    }
+                    for index, polygon in enumerate(polygons)
+                ],
+            }
+
+        detection_frames = []
+        for outcome in source.content.outcomes:
+            if outcome.status == "failed" or outcome.frame_identity is None:
+                continue
+            identity = outcome.frame_identity
+            event_ids_for_frame = (
+                [
+                    {
+                        "set_id": event_ref["set_id"],
+                        "version": event_ref["version"],
+                        "event_id": outcome.event_id,
+                    }
+                ]
+                if isinstance(event_ref, dict) and outcome.event_id in event_ids
+                else []
+            )
+            detections = [
+                detection(
+                    candidate.card_id,
+                    "visible_card",
+                    candidate.side,
+                    candidate.geometry.polygons,
+                    identity.width,
+                    identity.height,
+                )
+                for candidate in outcome.candidates
+            ]
+            detections.extend(
+                detection(
+                    item.pile_id,
+                    "pile",
+                    None,
+                    item.polygons,
+                    identity.width,
+                    identity.height,
+                )
+                for item in outcome.pile_regions
+            )
+            detections.extend(
+                detection(
+                    item.region_id,
+                    "ignore",
+                    None,
+                    item.geometry.polygons,
+                    identity.width,
+                    identity.height,
+                )
+                for item in outcome.ignored_regions
+            )
+            detection_frames.append(
+                {
+                    "frame_id": outcome.event_id,
+                    "frame_identity": identity.to_mapping(),
+                    "event_ids": event_ids_for_frame,
+                    "detections": detections,
+                }
+            )
+
+        class DetectionSetFixture:
+            values: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+            def save(self, recording_id: str, **kwargs):
+                value = {
+                    "recording_id": recording_id,
+                    "set_id": kwargs["set_id"],
+                    "version": kwargs["version"],
+                    "origin": kwargs["origin"],
+                    "source": kwargs["source"],
+                    "producer": kwargs["producer"],
+                    "event_sets": kwargs["event_sets"],
+                    "content": {"frames": kwargs["frames"]},
+                    "content_sha256": hashlib.sha256(
+                        json.dumps(kwargs, sort_keys=True).encode()
+                    ).hexdigest(),
+                }
+                self.values[(recording_id, kwargs["set_id"], kwargs["version"])] = value
+                return value
+
+            def get(self, recording_id: str, set_id: str, version: str):
+                return self.values.get((recording_id, set_id, version))
+
+        detection_sets = DetectionSetFixture()
+        service.detection_set_store = detection_sets
+        source_detection_set = detection_sets.save(
+            CALIBRATION_RECORDING,
+            set_id=f"detector-{detector_run_id}",
+            version=detector_attempt,
+            origin="processor",
+            source={"source_video_sha256": source.manifest.source.video_sha256},
+            producer=detector_producer,
+            event_sets=event_sets,
+            frames=detection_frames,
+        )
         from doko_operations.card_plane_calibration_refinement import (
             build_calibration_preview,
             exclude_anchors_in_reviewed_ignore_regions,
@@ -483,6 +624,19 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
         result = applied.json()
         assert result["action"] == "applied"
         assert result["recording_id"] == CALIBRATION_RECORDING
+        reflow_set = detection_sets.get(
+            CALIBRATION_RECORDING,
+            result["detection_set_ref"]["set_id"],
+            result["detection_set_ref"]["version"],
+        )
+        assert reflow_set is not None
+        assert reflow_set["content_sha256"] == result["detection_set_ref"]["content_sha256"]
+        assert reflow_set["producer"]["input_detection_set_ref"] == {
+            "set_id": source_detection_set["set_id"],
+            "version": source_detection_set["version"],
+            "content_sha256": source_detection_set["content_sha256"],
+        }
+        assert reflow_set["content"] == source_detection_set["content"]
         calibration = client.get(
             f"/api/recordings/{CALIBRATION_RECORDING}/pipeline/calibrations/"
             f"{result['calibration_revision_id']}"

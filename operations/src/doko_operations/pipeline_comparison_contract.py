@@ -298,11 +298,13 @@ class PipelineComparisonRequest:
     right_run_id: str
     reference_revision_id: str | None
     reference_event_set_ref: dict[str, str] | None
+    reference_detection_set_ref: dict[str, str] | None
     matching_policy: EventMatchingPolicy
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> PipelineComparisonRequest:
         data = _mapping(raw, "pipeline comparison request")
+        data.setdefault("reference_detection_set_ref", None)
         _strict(
             data,
             {
@@ -314,6 +316,7 @@ class PipelineComparisonRequest:
                 "matching_policy",
                 "reference_revision_id",
                 "reference_event_set_ref",
+                "reference_detection_set_ref",
             },
             "pipeline comparison request",
         )
@@ -326,8 +329,13 @@ class PipelineComparisonRequest:
         content_type = data["content_type"]
         revision_id = data["reference_revision_id"]
         raw_event_set_ref = data["reference_event_set_ref"]
+        raw_detection_set_ref = data.get("reference_detection_set_ref")
         if content_type == "events":
-            if revision_id is not None or not isinstance(raw_event_set_ref, Mapping):
+            if (
+                revision_id is not None
+                or raw_detection_set_ref is not None
+                or not isinstance(raw_event_set_ref, Mapping)
+            ):
                 raise PipelineComparisonContractError(
                     "event comparisons need an exact reference_event_set_ref"
                 )
@@ -340,13 +348,38 @@ class PipelineComparisonRequest:
                 "version": _identifier(raw_event_set_ref["version"], "version"),
                 "content_sha256": _sha256(raw_event_set_ref["content_sha256"], "content_sha256"),
             }
+            detection_set_ref = None
             normalized_revision_id = None
         else:
-            if raw_event_set_ref is not None or revision_id is None:
+            if raw_event_set_ref is not None:
                 raise PipelineComparisonContractError(
-                    "non-event comparisons need a reference_revision_id"
+                    "non-event comparisons cannot use an event-set reference"
                 )
-            normalized_revision_id = _identifier(revision_id, "reference_revision_id")
+            if raw_detection_set_ref is not None:
+                if revision_id is not None or not isinstance(raw_detection_set_ref, Mapping):
+                    raise PipelineComparisonContractError(
+                        "a detection-set reference cannot be combined with a revision reference"
+                    )
+                if set(raw_detection_set_ref) != {"set_id", "version", "content_sha256"}:
+                    raise PipelineComparisonContractError(
+                        "reference_detection_set_ref must contain set_id, version, "
+                        "and content_sha256"
+                    )
+                detection_set_ref = {
+                    "set_id": _identifier(raw_detection_set_ref["set_id"], "set_id"),
+                    "version": _identifier(raw_detection_set_ref["version"], "version"),
+                    "content_sha256": _sha256(
+                        raw_detection_set_ref["content_sha256"], "content_sha256"
+                    ),
+                }
+                normalized_revision_id = None
+            elif revision_id is not None:
+                normalized_revision_id = _identifier(revision_id, "reference_revision_id")
+                detection_set_ref = None
+            else:
+                raise PipelineComparisonContractError(
+                    "non-event comparisons need an exact revision or detection-set reference"
+                )
             event_set_ref = None
         expected_kind = {
             "events": "event_timing",
@@ -368,6 +401,7 @@ class PipelineComparisonRequest:
             right_run_id=_identifier(data["right_run_id"], "right_run_id"),
             reference_revision_id=normalized_revision_id,
             reference_event_set_ref=event_set_ref,
+            reference_detection_set_ref=detection_set_ref,
             matching_policy=matching_policy,
         )
 
@@ -380,6 +414,7 @@ class PipelineComparisonRequest:
             "right_run_id": self.right_run_id,
             "reference_revision_id": self.reference_revision_id,
             "reference_event_set_ref": self.reference_event_set_ref,
+            "reference_detection_set_ref": self.reference_detection_set_ref,
             "matching_policy": self.matching_policy.to_mapping(),
         }
 
@@ -775,6 +810,7 @@ class PipelineComparisonReference:
 
     revision_id: str | None
     event_set_ref: dict[str, str] | None
+    detection_set_ref: dict[str, str] | None
     input_revision_ids: tuple[str, ...]
     content_sha256: str
     origin: Literal["manual", "corrected"]
@@ -783,6 +819,7 @@ class PipelineComparisonReference:
         return {
             "revision_id": self.revision_id,
             "event_set_ref": self.event_set_ref,
+            "detection_set_ref": self.detection_set_ref,
             "input_revision_ids": list(self.input_revision_ids),
             "content_sha256": self.content_sha256,
             "origin": self.origin,
@@ -1070,14 +1107,26 @@ def _reference_from_mapping(raw: Any) -> PipelineComparisonReference:
     data = _mapping(raw, "reference")
     _strict(
         data,
-        {"revision_id", "event_set_ref", "input_revision_ids", "content_sha256", "origin"},
+        {
+            "revision_id",
+            "event_set_ref",
+            "detection_set_ref",
+            "input_revision_ids",
+            "content_sha256",
+            "origin",
+        },
         "reference",
     )
     if data["origin"] not in {"manual", "corrected"}:
         raise PipelineComparisonContractError("reference.origin is unsupported")
-    if (data["revision_id"] is None) == (data["event_set_ref"] is None):
+    references = [
+        data["revision_id"],
+        data["event_set_ref"],
+        data["detection_set_ref"],
+    ]
+    if sum(item is not None for item in references) != 1:
         raise PipelineComparisonContractError(
-            "reference must identify exactly one revision or event set"
+            "reference must identify exactly one revision or saved set"
         )
     return PipelineComparisonReference(
         revision_id=(
@@ -1086,6 +1135,9 @@ def _reference_from_mapping(raw: Any) -> PipelineComparisonReference:
             else _identifier(data["revision_id"], "reference.revision_id")
         ),
         event_set_ref=_event_set_identity(data["event_set_ref"], "reference.event_set_ref"),
+        detection_set_ref=_event_set_identity(
+            data["detection_set_ref"], "reference.detection_set_ref"
+        ),
         input_revision_ids=_identifier_list(
             data["input_revision_ids"], "reference.input_revision_ids"
         ),

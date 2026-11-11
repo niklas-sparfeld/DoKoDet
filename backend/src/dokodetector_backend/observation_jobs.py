@@ -57,7 +57,22 @@ class ObservationJobParticipant:
     def job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
         processor = request["request"]["processor_request"]
         inputs = []
+        detection_ref = processor.get("input_detection_set_ref")
         for revision_id in processor["input_revision_ids"]:
+            if detection_ref is not None and revision_id == (
+                f"detection-set:{detection_ref['set_id']}:{detection_ref['version']}"
+            ):
+                inputs.append(
+                    {
+                        "kind": "artifact",
+                        "id": (
+                            f"detection-set/{detection_ref['set_id']}"
+                            f"/versions/{detection_ref['version']}"
+                        ),
+                        "digest": detection_ref["content_sha256"],
+                    }
+                )
+                continue
             revision = self.service.selection_store.require_processor_revision(revision_id)
             inputs.append(
                 {

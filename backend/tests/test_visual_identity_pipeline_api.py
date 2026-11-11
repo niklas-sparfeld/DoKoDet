@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from copy import deepcopy
 from typing import Any
 
 import pytest
@@ -242,3 +243,102 @@ def test_local_pipeline_requests_record_actual_bundle_and_crop(tmp_path: Any) ->
         identity.device = "mps"
         with pytest.raises(VisualIdentityPipelineError, match="device changed"):
             app.state.visual_identity_pipeline_service._classifier_for_request(request)
+
+
+def test_identity_run_uses_exact_detection_set_without_node_input(tmp_path: Any) -> None:
+    _install_recording(tmp_path)
+    detector = _Detector()
+    identity = _IdentityProvider()
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=detector,
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=identity,
+    )
+    with TestClient(app) as client:
+        _run_event_job(client, "events-for-exact-detections")
+        visible_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "cards-for-exact-identity",
+                **_selected_node_input(client, "events"),
+                "configuration": {"provider": detector.name},
+            },
+        )
+        assert visible_response.status_code == 202, visible_response.text
+        _wait(client, visible_response.json()["run_id"])
+        visible = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/"
+            f"{visible_response.json()['run_id']}/result"
+        ).json()
+        reference = visible["detection_set_ref"]
+        stale_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-from-stale-detections",
+                "input_detection_set_ref": {**reference, "content_sha256": "f" * 64},
+                "configuration": {"provider": identity.name},
+            },
+        )
+        assert stale_response.status_code == 422
+        response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-from-exact-detections",
+                "input_detection_set_ref": reference,
+                "configuration": {"provider": identity.name},
+            },
+        )
+        assert response.status_code == 202, response.text
+        run_id = response.json()["run_id"]
+        assert _wait_identity(client, run_id)["state"]["status"] == "complete"
+        run = app.state.visual_identity_pipeline_service.run_store.require(run_id)
+        assert run.request.input_detection_set_ref == reference
+        assert run.request.input_revision_ids == ()
+        revision = app.state.pipeline_lineage_writer.require_revision(
+            run.state.output_revision_ids[0]
+        )
+        assert revision.manifest.coverage["detection_set_ref"] == reference
+        lineage_run = next(
+            item
+            for item in app.state.pipeline_lineage_writer.lineage.snapshot(RECORDING_ID)["runs"]
+            if item["run_id"] == run_id
+        )
+        assert lineage_run["inputs"][0]["artifact_id"] == (
+            f"detection-set/{reference['set_id']}/versions/{reference['version']}"
+        )
+        original = app.state.detection_set_store.get(
+            RECORDING_ID, reference["set_id"], reference["version"]
+        )
+        edited_frames = deepcopy(original["content"]["frames"])
+        edited_frames[0]["detections"][0]["segments"][0]["polygon"][0]["x"] += 1
+        app.state.detection_set_store.save(
+            RECORDING_ID,
+            set_id=reference["set_id"],
+            version="2",
+            origin="corrected",
+            source=original["source"],
+            producer={"tool": "edit-after-classification"},
+            event_sets=original["event_sets"],
+            frames=edited_frames,
+        )
+        restarted = create_test_app(
+            _settings(tmp_path),
+            event_provider=_EventProvider(),
+            visible_card_provider=detector,
+            visible_card_frame_resolver=_FrameResolver(),
+            visible_card_identity_classifier=identity,
+        )
+        reopened = restarted.state.visual_identity_pipeline_service.run_store.require(run_id)
+        assert reopened.request.input_detection_set_ref == reference
+        reopened_revision = restarted.state.pipeline_lineage_writer.require_revision(
+            reopened.state.output_revision_ids[0]
+        )
+        assert reopened_revision.manifest.coverage["detection_set_ref"] == reference
+        assert (
+            restarted.state.detection_set_store.get(
+                RECORDING_ID, reference["set_id"], reference["version"]
+            )
+            == original
+        )

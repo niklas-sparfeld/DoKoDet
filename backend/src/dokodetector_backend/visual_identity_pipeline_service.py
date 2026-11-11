@@ -19,6 +19,7 @@ from table_evidence_analyzer.visual_identity_crop_input import (
 
 from dokodetector_backend.config import Settings
 from dokodetector_backend.derived_view_cache import DERIVED_VIEW_CACHE_LOCK
+from dokodetector_backend.detection_set_store import DetectionSetStore
 from dokodetector_backend.job_models import Job
 from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import (
@@ -70,6 +71,7 @@ class VisualIdentityPipelineService:
         selection_store: PipelineNodeSelectionStore,
         node_store: PipelineNodeStore | None = None,
         recording_folder_store: RecordingFolderStore | None = None,
+        detection_set_store: DetectionSetStore | None = None,
     ) -> None:
         self.settings = settings
         self.recording_store = recording_store
@@ -133,6 +135,7 @@ class VisualIdentityPipelineService:
             recording_access=self.recording_access,
             classification=self.classification,
             calibration_store=self.calibration_store,
+            detection_set_store=detection_set_store,
         )
         self.crop_queries = VisualIdentityCropQueries(
             recording_access=self.recording_access,

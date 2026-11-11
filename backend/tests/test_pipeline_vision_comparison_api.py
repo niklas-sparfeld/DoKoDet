@@ -286,6 +286,111 @@ def test_visible_card_comparison_route_uses_exact_frame_and_geometry_policy(tmp_
     assert canonical_pipeline_comparison_bytes(body)
 
 
+def test_visible_card_comparison_uses_exact_saved_detection_set_reference(tmp_path: Path) -> None:
+    app = create_test_app(_settings(tmp_path))
+    revisions = PipelineRevisionStore(app.state.pipeline_run_store.storage)
+    runs = app.state.pipeline_run_store
+    geometry = DetectorBoxGeometry(100, 100, 200, 200)
+    for run_id in ("left-detection-alternative", "right-detection-alternative"):
+        _create_run(
+            runs,
+            revisions,
+            run_id=run_id,
+            revision_id=f"{run_id}-output",
+            processor_type="visible-card-detection",
+            content_type="visible_cards",
+            content=_visible_content(geometry),
+        )
+    identity = _frame(100_000)
+    reference = {
+        "set_id": "reviewed-alternative",
+        "version": "2",
+        "content_sha256": "b" * 64,
+    }
+
+    class DetectionSetFixture:
+        def get(self, recording_id: str, set_id: str, version: str):
+            if (recording_id, set_id, version) != (
+                RECORDING_ID,
+                reference["set_id"],
+                reference["version"],
+            ):
+                return None
+            return {
+                "recording_id": recording_id,
+                "set_id": set_id,
+                "version": version,
+                "origin": "manual",
+                "source": {
+                    "recording_id": RECORDING_ID,
+                    "source_video_sha256": SOURCE.video_sha256,
+                },
+                "content_sha256": reference["content_sha256"],
+                "content": {
+                    "frames": [
+                        {
+                            "frame_id": "frame-1",
+                            "frame_identity": identity.to_mapping(),
+                            "event_ids": [{"event_id": "event-1"}],
+                            "detections": [
+                                {
+                                    "object_id": "card-1",
+                                    "kind": "visible_card",
+                                    "side": "unknown",
+                                    "segments": [
+                                        {
+                                            "segment_id": "segment-1",
+                                            "polygon": [
+                                                {"x": 100, "y": 100},
+                                                {"x": 200, "y": 100},
+                                                {"x": 200, "y": 200},
+                                                {"x": 100, "y": 200},
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                },
+            }
+
+    app.state.pipeline_comparison_service.detection_set_store = DetectionSetFixture()
+    payload = {
+        "schema_version": "pipeline-comparison-request/v1",
+        "recording_id": RECORDING_ID,
+        "content_type": "visible_cards",
+        "left_run_id": "left-detection-alternative",
+        "right_run_id": "right-detection-alternative",
+        "reference_revision_id": None,
+        "reference_event_set_ref": None,
+        "reference_detection_set_ref": reference,
+        "matching_policy": {
+            "policy_id": "visible-card-geometry/v1",
+            "kind": "visible_card_geometry",
+            "iou_threshold": 0.5,
+            "derived_box_policy": "bounding_box",
+        },
+    }
+
+    result = app.state.pipeline_comparison_service.compare(RECORDING_ID, payload).to_mapping()
+
+    assert result["reference"]["detection_set_ref"] == reference
+    assert result["counts"]["left"]["matches"] == 1
+    assert result["counts"]["right"]["matches"] == 1
+    with pytest.raises(ValueError, match="exact digest"):
+        app.state.pipeline_comparison_service.compare(
+            RECORDING_ID,
+            {
+                **payload,
+                "reference_detection_set_ref": {
+                    **reference,
+                    "content_sha256": "c" * 64,
+                },
+            },
+        )
+
+
 @pytest.mark.parametrize(
     ("frame_index", "requested_time_us", "presentation_timestamp_us", "image_sha256"),
     [

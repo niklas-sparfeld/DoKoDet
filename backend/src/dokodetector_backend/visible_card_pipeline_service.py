@@ -183,14 +183,12 @@ class VisibleCardPipelineService:
             "set_id": f"detector-{_safe(run.run_id)}",
             "version": str(run.state.attempt),
         }
-        if (
-            self.detection_set_store.get(
-                run.request.source.recording_id, reference["set_id"], reference["version"]
-            )
-            is None
-        ):
+        detection_set = self.detection_set_store.get(
+            run.request.source.recording_id, reference["set_id"], reference["version"]
+        )
+        if detection_set is None:
             return None
-        return reference
+        return {**reference, "content_sha256": detection_set["content_sha256"]}
 
     def resolve_source_frame(self, recording_id: str, requested_time_us: int) -> ResolvedFrame:
         """Resolve one recording-owned exact-event frame for a derived-view URL."""

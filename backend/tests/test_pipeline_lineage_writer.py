@@ -232,3 +232,45 @@ def test_processor_lineage_reuses_imported_revision_nodes(tmp_path: Path) -> Non
     with pytest.raises(PipelineNotFound):
         writer.require_revision(revision.manifest.revision_id)
     assert len(node_store.list_nodes()) == 1
+
+
+def test_processor_lineage_records_exact_detection_set_artifact(tmp_path: Path) -> None:
+    nodes = PipelineNodeStore(tmp_path / "nodes")
+    lineage = PipelineLineage(nodes)
+    writer = PipelineLineageWriter(nodes, lineage, PipelineNodeUses(nodes))
+    runs = ProcessorRunStore(
+        PipelineRuntimeStorage(tmp_path / "runtime", tmp_path / "operations"),
+        lineage_writer=writer,
+    )
+    reference = {"set_id": "set-a", "version": "3", "content_sha256": "a" * 64}
+    request = ProcessorRunRequest.from_mapping(
+        {
+            "schema_version": "processor-run-request/v1",
+            "run_id": "scene-exact-set",
+            "processor_type": "visible-card-scene-proposal",
+            "source": SOURCE,
+            "input_revision_ids": [],
+            "implementation": {"name": "fixture", "version": "1"},
+            "model": None,
+            "configuration": {},
+            "extraction_policy": {"policy_id": "saved-detection-set/v1"},
+            "crop_policy": None,
+            "input_detection_set_ref": reference,
+        }
+    )
+
+    runs.create(request)
+
+    run = next(
+        item
+        for item in lineage.snapshot("recording-01")["runs"]
+        if item["run_id"] == request.run_id
+    )
+    assert run["inputs"] == [
+        {
+            "kind": "artifact",
+            "artifact_id": "detection-set/set-a/versions/3",
+            "sha256": "a" * 64,
+            "role": "detections",
+        }
+    ]

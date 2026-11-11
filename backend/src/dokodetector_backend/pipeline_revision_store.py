@@ -484,10 +484,22 @@ class PipelineRevisionStore:
         if manifest.content_type == "card_scene_proposals" and isinstance(
             content, ProposedCardSceneData
         ):
+            detection_ref = manifest.coverage.get("detection_set_ref")
+            exact_detection_input = (
+                isinstance(detection_ref, dict)
+                and set(detection_ref) == {"set_id", "version", "content_sha256"}
+                and not manifest.input_revision_ids
+                and content.detector_revision_id
+                == f"detection-set:{detection_ref['set_id']}:{detection_ref['version']}"
+                and content.detector_revision_digest == detection_ref["content_sha256"]
+            )
             if (
                 not isinstance(manifest.source, RecordingVideoSource)
                 or manifest.recording_id is None
-                or manifest.input_revision_ids != (content.detector_revision_id,)
+                or (
+                    manifest.input_revision_ids != (content.detector_revision_id,)
+                    and not exact_detection_input
+                )
             ):
                 raise PipelineDataContractError(
                     "proposed card scene content has invalid detector lineage"
@@ -547,7 +559,16 @@ class PipelineRevisionStore:
         *,
         revision_cache: dict[str, StoredPipelineRevision] | None = None,
     ) -> None:
+        detection_ref = manifest.coverage.get("detection_set_ref")
+        external_detection_input = (
+            f"detection-set:{detection_ref['set_id']}:{detection_ref['version']}"
+            if isinstance(detection_ref, dict)
+            and set(detection_ref) == {"set_id", "version", "content_sha256"}
+            else None
+        )
         for input_revision_id in manifest.input_revision_ids:
+            if input_revision_id == external_detection_input:
+                continue
             if self.get(input_revision_id, revision_cache=revision_cache) is None:
                 if self.has_revision(input_revision_id):
                     raise PipelineDataContractError(

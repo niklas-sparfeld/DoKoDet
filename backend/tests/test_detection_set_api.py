@@ -475,3 +475,55 @@ store.save(
     assert len(staging) == 1
     assert (staging[0] / "detection-set.json").is_file()
     assert (staging[0] / "frames/frame-1/frame.json").is_file()
+
+
+def test_scene_request_freezes_and_revalidates_exact_detection_set(tmp_path, monkeypatch):
+    settings = _settings(tmp_path)
+    monkeypatch.setattr(
+        "dokodetector_backend.video_probe.probe_video_path_metadata",
+        lambda _path: SimpleNamespace(duration_ms=2_000),
+    )
+    app = create_test_app(settings)
+    saved = app.state.detection_set_store.save(
+        "recording-both",
+        set_id="scene-input",
+        version="1",
+        origin="manual",
+        source={"source_video_sha256": SOURCE_SHA256},
+        producer={"tool": "fixture"},
+        event_sets=[],
+        frames=[
+            _frame(
+                "frame-a",
+                0,
+                1_000,
+                detections=[
+                    {
+                        "object_id": "card-a",
+                        "kind": "visible_card",
+                        "side": "face_up",
+                        "segments": [{"segment_id": "s0", "polygon": _polygon(10, 20)}],
+                    }
+                ],
+            )
+        ],
+    )
+    service = app.state.proposed_card_scene_pipeline_service
+    reference = {
+        "set_id": saved["set_id"],
+        "version": saved["version"],
+        "content_sha256": saved["content_sha256"],
+    }
+    frozen = service.freeze_job_request(
+        "recording-both", {"run_id": "scene-run", "detection_set_ref": reference}
+    )
+    service.validate_frozen_job_request("recording-both", frozen)
+    assert frozen["processor_request"]["input_detection_set_ref"] == reference
+
+    stale = {**frozen, "processor_request": dict(frozen["processor_request"])}
+    stale["processor_request"]["input_detection_set_ref"] = {
+        **reference,
+        "content_sha256": "f" * 64,
+    }
+    with pytest.raises(ValueError, match="content digest"):
+        service.validate_frozen_job_request("recording-both", stale)

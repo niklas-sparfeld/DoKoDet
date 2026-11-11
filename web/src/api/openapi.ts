@@ -2471,6 +2471,18 @@ export interface components {
             recall: number | null;
         };
         /**
+         * PipelineComparisonDetectionSetRef
+         * @description Exact detection-set identity used by geometry comparisons.
+         */
+        PipelineComparisonDetectionSetRef: {
+            /** Content Sha256 */
+            content_sha256: string;
+            /** Set Id */
+            set_id: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * PipelineComparisonEventSetRef
          * @description Exact event-set identity used by event comparisons.
          */
@@ -2616,6 +2628,7 @@ export interface components {
         PipelineComparisonReferenceResponse: {
             /** Content Sha256 */
             content_sha256: string;
+            detection_set_ref: components["schemas"]["PipelineComparisonDetectionSetRef"] | null;
             event_set_ref: components["schemas"]["PipelineComparisonEventSetRef"] | null;
             /** Input Revision Ids */
             input_revision_ids: string[];
@@ -2642,6 +2655,7 @@ export interface components {
             matching_policy: components["schemas"]["PipelineComparisonMatchingPolicyRequest"];
             /** Recording Id */
             recording_id: string;
+            reference_detection_set_ref?: components["schemas"]["PipelineComparisonDetectionSetRef"] | null;
             reference_event_set_ref?: components["schemas"]["PipelineComparisonEventSetRef"] | null;
             /** Reference Revision Id */
             reference_revision_id?: string | null;

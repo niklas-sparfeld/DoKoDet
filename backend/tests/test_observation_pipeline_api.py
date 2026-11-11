@@ -20,6 +20,7 @@ from table_evidence_analyzer.pipeline_data import (
 from test_visible_card_pipeline_api import (
     RECORDING_ID,
     _Detector,
+    _event_set_reference,
     _EventProvider,
     _FrameResolver,
     _install_recording,
@@ -29,7 +30,7 @@ from test_visible_card_pipeline_api import (
     _wait,
     _wait_event,
 )
-from test_visual_identity_pipeline_api import _IdentityProvider
+from test_visual_identity_pipeline_api import _IdentityProvider, _wait_identity
 
 import dokodetector_backend.observation_pipeline_service as observation_service_module
 
@@ -426,6 +427,73 @@ def _wait_observation(client: TestClient, run_id: str) -> dict[str, Any]:
             ).json()
         time.sleep(0.01)
     return body
+
+
+def test_observation_assembly_can_use_exact_detection_set_and_identity_node(
+    tmp_path: Path,
+) -> None:
+    _install_recording(tmp_path)
+    app = create_test_app(
+        _settings(tmp_path),
+        event_provider=_EventProvider(),
+        visible_card_provider=_Detector(),
+        visible_card_frame_resolver=_FrameResolver(),
+        visible_card_identity_classifier=_IdentityProvider(),
+    )
+    with TestClient(app) as client:
+        event_run_id = _run_event_job(client, "events-detection-input")
+        event_ref = _event_set_reference(client, event_run_id)
+        visible_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards",
+            json={
+                "run_id": "visible-detection-input",
+                "input_event_set_ref": event_ref,
+                "configuration": {"provider": "fixture-detector"},
+            },
+        )
+        assert visible_response.status_code == 202, visible_response.text
+        visible_run_id = visible_response.json()["run_id"]
+        _wait(client, visible_run_id)
+        visible_result = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visible-cards/{visible_run_id}/result"
+        ).json()
+        detection_ref = visible_result["detection_set_ref"]
+        identity_response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities",
+            json={
+                "run_id": "identity-detection-input",
+                "input_detection_set_ref": detection_ref,
+                "configuration": {"provider": "fixture-identity"},
+            },
+        )
+        assert identity_response.status_code == 202, identity_response.text
+        identity_run_id = identity_response.json()["run_id"]
+        assert _wait_identity(client, identity_run_id)["state"]["status"] == "complete"
+        identity_revision = client.get(
+            f"/api/recordings/{RECORDING_ID}/pipeline/visual-identities/{identity_run_id}/result"
+        ).json()["state"]["output_revision_ids"][0]
+        response = client.post(
+            f"/api/recordings/{RECORDING_ID}/pipeline/observations",
+            json={
+                "run_id": "assembly-from-detection-set",
+                "input_event_set_ref": event_ref,
+                "input_detection_set_ref": detection_ref,
+                "input_node_refs": _exact_input_refs(app, [identity_revision]),
+            },
+        )
+        assert response.status_code == 202, response.text
+        run_id = response.json()["run_id"]
+        assert _wait_observation(client, run_id)["state"]["status"] == "complete"
+        run = app.state.observation_pipeline_service.run_store.require(run_id)
+        assert run.request.input_detection_set_ref == detection_ref
+        assert run.request.input_revision_ids == (
+            f"detection-set:{detection_ref['set_id']}:{detection_ref['version']}",
+            identity_revision,
+        )
+        revision = app.state.pipeline_lineage_writer.require_revision(
+            run.state.output_revision_ids[0]
+        )
+        assert revision.manifest.coverage["detection_set_ref"] == detection_ref
 
 
 def test_observation_assembly_uses_event_set_and_exact_other_inputs(tmp_path: Path) -> None:

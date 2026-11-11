@@ -29,6 +29,8 @@ from table_evidence_analyzer.visual_identity_crop_input import (
     validate_crop_policy_compatibility,
 )
 
+from dokodetector_backend.detection_set_inputs import resolve_detection_set
+from dokodetector_backend.detection_set_store import DetectionSetError, DetectionSetStore
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
 from dokodetector_backend.pipeline_node_store import PipelineNodeStore
 from dokodetector_backend.pipeline_storage import PipelineNotFound
@@ -113,6 +115,7 @@ class VisualIdentityRequestBuilder:
         recording_access: VisualIdentityRecordingAccess,
         classification: ClassifierSelection,
         calibration_store: CalibrationRevisionStore,
+        detection_set_store: DetectionSetStore | None = None,
     ) -> None:
         self.selection_store = selection_store
         self.node_store = node_store
@@ -121,6 +124,7 @@ class VisualIdentityRequestBuilder:
         self.recording_access = recording_access
         self.classification = classification
         self.calibration_store = calibration_store
+        self.detection_set_store = detection_set_store
 
     def list_proposed_crop_inputs(self, recording_id: str) -> tuple[dict[str, Any], ...]:
         """List exact proposal revisions that can supply identity crop geometry."""
@@ -208,78 +212,109 @@ class VisualIdentityRequestBuilder:
         _, source = self.recording_access.accepted_source(recording_id)
         requested_crop_input = raw.get("crop_input")
         requested_kind = raw.get("crop_input_kind")
-        content_type = (
-            "card_scene_proposals"
-            if requested_kind == "proposed_virtual_cards"
-            else "visible_cards"
-        )
-        input_node_refs = raw.get("input_node_refs")
-        input_node_ref = raw.get("input_node_ref")
-        if input_node_refs is not None:
-            if not isinstance(input_node_refs, list) or len(input_node_refs) != 1:
+        detection_ref = raw.get("input_detection_set_ref")
+        detection_set = None
+        if detection_ref is not None:
+            if self.detection_set_store is None:
+                raise VisualIdentityPipelineInputError("The detection-set store is unavailable.")
+            try:
+                detection_set = resolve_detection_set(
+                    self.detection_set_store, recording_id, detection_ref
+                )
+            except (DetectionSetError, TypeError, KeyError) as error:
+                raise VisualIdentityPipelineInputError(str(error)) from error
+            if detection_set["source"]["source_video_sha256"] != source.video_sha256:
+                raise VisualIdentityPipelineInputError(
+                    "The detection set does not match the accepted recording video."
+                )
+            crop_input = self._detection_set_crop_input(
+                detection_set, reference=detection_ref, source=source
+            )
+            if requested_crop_input is not None and requested_crop_input != crop_input.to_mapping():
+                raise VisualIdentityPipelineInputError(
+                    "The crop-input descriptor does not match the exact detection set."
+                )
+            revision = None
+            input_node_ref = None
+            visible_revision_id = None
+            content_type = "visible_cards"
+        else:
+            content_type = (
+                "card_scene_proposals"
+                if requested_kind == "proposed_virtual_cards"
+                else "visible_cards"
+            )
+        if detection_set is None:
+            input_node_refs = raw.get("input_node_refs")
+            input_node_ref = raw.get("input_node_ref")
+            if input_node_refs is not None:
+                if not isinstance(input_node_refs, list) or len(input_node_refs) != 1:
+                    raise VisualIdentityPipelineInputError("one exact input_node_ref is required")
+                input_node_ref = input_node_refs[0]
+            if input_node_ref is None:
                 raise VisualIdentityPipelineInputError("one exact input_node_ref is required")
-            input_node_ref = input_node_refs[0]
-        if input_node_ref is None:
-            raise VisualIdentityPipelineInputError("one exact input_node_ref is required")
-        if not isinstance(input_node_ref, Mapping) or set(input_node_ref) != {
-            "node_id",
-            "revision_id",
-            "revision_policy",
-        }:
-            raise VisualIdentityPipelineInputError("input_node_ref is invalid")
-        visible_revision_id = input_node_ref.get("revision_id")
-        if not isinstance(visible_revision_id, str) or not visible_revision_id:
-            raise VisualIdentityPipelineInputError("input_node_ref needs a revision ID")
-        if input_node_ref["revision_policy"] not in {"current_head", "historical"}:
-            raise VisualIdentityPipelineInputError("input_node_ref needs a revision policy")
-        if any(
-            raw.get(field) is not None
-            for field in (
-                "input_revision_ids",
-                "visible_card_revision_id",
-                "card_scene_proposal_revision_id",
-            )
-        ):
-            raise VisualIdentityPipelineInputError(
-                "use input_node_ref instead of revision-ID input fields"
-            )
-        try:
-            revision = self.selection_store.read_node_revision(
-                input_node_ref["node_id"], visible_revision_id
-            )
-        except (FileNotFoundError, KeyError, ValueError) as error:
-            raise VisualIdentityPipelineInputError(
-                "The selected node revision is unavailable"
-            ) from error
-        if (
-            revision.manifest.content_type != content_type
-            or revision.manifest.source != source
-            or (
-                input_node_ref["revision_policy"] == "current_head"
-                and self.node_store.get(input_node_ref["node_id"]).head_revision_id
-                != visible_revision_id
-            )
-        ):
-            raise VisualIdentityPipelineInputError(
-                "The selected node revision does not match the accepted recording video."
-            )
-        if content_type == "visible_cards" and not isinstance(revision.content, VisibleCardData):
-            raise VisualIdentityPipelineInputError(
-                "The selected node has invalid visible-card data"
-            )
+            if not isinstance(input_node_ref, Mapping) or set(input_node_ref) != {
+                "node_id",
+                "revision_id",
+                "revision_policy",
+            }:
+                raise VisualIdentityPipelineInputError("input_node_ref is invalid")
+            visible_revision_id = input_node_ref.get("revision_id")
+            if not isinstance(visible_revision_id, str) or not visible_revision_id:
+                raise VisualIdentityPipelineInputError("input_node_ref needs a revision ID")
+            if input_node_ref["revision_policy"] not in {"current_head", "historical"}:
+                raise VisualIdentityPipelineInputError("input_node_ref needs a revision policy")
+            if any(
+                raw.get(field) is not None
+                for field in (
+                    "input_revision_ids",
+                    "visible_card_revision_id",
+                    "card_scene_proposal_revision_id",
+                )
+            ):
+                raise VisualIdentityPipelineInputError(
+                    "use input_node_ref instead of revision-ID input fields"
+                )
+            try:
+                revision = self.selection_store.read_node_revision(
+                    input_node_ref["node_id"], visible_revision_id
+                )
+            except (FileNotFoundError, KeyError, ValueError) as error:
+                raise VisualIdentityPipelineInputError(
+                    "The selected node revision is unavailable"
+                ) from error
+            if (
+                revision.manifest.content_type != content_type
+                or revision.manifest.source != source
+                or (
+                    input_node_ref["revision_policy"] == "current_head"
+                    and self.node_store.get(input_node_ref["node_id"]).head_revision_id
+                    != visible_revision_id
+                )
+            ):
+                raise VisualIdentityPipelineInputError(
+                    "The selected node revision does not match the accepted recording video."
+                )
+            if content_type == "visible_cards" and not isinstance(
+                revision.content, VisibleCardData
+            ):
+                raise VisualIdentityPipelineInputError(
+                    "The selected node has invalid visible-card data"
+                )
         values = dict(raw)
         values.pop("card_scene_proposal_revision_id", None)
         values.pop("visible_card_revision_id", None)
         values.pop("input_node_ref", None)
-        crop_input = self._freeze_crop_input(
-            recording_id,
-            revision,
-            source=source,
-            requested=requested_crop_input,
-            requested_kind=requested_kind,
-            require_current_reference=True,
-            input_node_ref=input_node_ref,
-        )
+        if detection_set is None:
+            crop_input = self._freeze_crop_input(
+                recording_id,
+                revision,
+                source=source,
+                requested=requested_crop_input,
+                requested_kind=requested_kind,
+                require_current_reference=True,
+                input_node_ref=input_node_ref,
+            )
         values.pop("visible_card_revision_id", None)
         values.pop("crop_input_kind", None)
         values.setdefault("schema_version", "processor-run-request/v1")
@@ -288,8 +323,13 @@ class VisualIdentityRequestBuilder:
             raise VisualIdentityPipelineInputError("run_id is required.")
         values.setdefault("processor_type", "visual-card-identity")
         values.setdefault("source", source.to_mapping())
-        values["input_revision_ids"] = [visible_revision_id]
-        values["input_node_refs"] = [dict(input_node_ref)]
+        values["input_revision_ids"] = [] if detection_set is not None else [visible_revision_id]
+        if detection_set is not None:
+            values["input_detection_set_ref"] = dict(detection_ref)
+            values.pop("input_node_refs", None)
+            values.pop("input_node_ref", None)
+        else:
+            values["input_node_refs"] = [dict(input_node_ref)]
         values.setdefault(
             "implementation",
             {"name": "visual-identity-classifier-adapter", "version": "v1"},
@@ -322,6 +362,8 @@ class VisualIdentityRequestBuilder:
                 {"policy_id": "predicted_visible_region", "output_encoding": "ppm"}
                 if requested_kind == "proposed_virtual_cards"
                 else _default_crop_policy(revision.content)
+                if detection_set is None
+                else {"policy_id": "predicted_visible_region", "output_encoding": "ppm"}
             )
         try:
             validate_crop_policy_compatibility(crop_input, str(values["crop_policy"]["policy_id"]))
@@ -356,6 +398,64 @@ class VisualIdentityRequestBuilder:
                 "The request classifier identity does not match the configured classifier."
             )
         return request
+
+    def _detection_set_crop_input(self, detection_set, *, reference, source):
+        from doko_operations.pipeline_data import canonical_json_bytes, sha256_bytes
+        from table_evidence_analyzer.pipeline_data import (
+            PredictedVisibleRegionGeometry,
+            VisibleCardFrameIdentity,
+        )
+        from table_evidence_analyzer.visual_identity_crop_input import (
+            VisualIdentityCropInput,
+            VisualIdentityCropInputItem,
+        )
+
+        items = []
+        for frame in detection_set["content"]["frames"]:
+            identity = VisibleCardFrameIdentity.from_mapping(frame["frame_identity"])
+            for detection in frame["detections"]:
+                if detection["kind"] != "visible_card":
+                    raise VisualIdentityPipelineInputError(
+                        f"Identity crops cannot represent {detection['kind']} geometry."
+                    )
+                polygons = []
+                for segment in detection["segments"]:
+                    points = []
+                    for point in segment["polygon"]:
+                        x = round(point["x"] * 1000 / identity.width)
+                        y = round(point["y"] * 1000 / identity.height)
+                        if (
+                            round(x * identity.width / 1000) != point["x"]
+                            or round(y * identity.height / 1000) != point["y"]
+                        ):
+                            raise VisualIdentityPipelineInputError(
+                                "Detection geometry precision exceeds the identity crop contract."
+                            )
+                        points.append((x, y))
+                    polygons.append(tuple(points))
+                items.append(
+                    VisualIdentityCropInputItem(
+                        card_id=detection["object_id"],
+                        frame_identity=identity,
+                        geometry=PredictedVisibleRegionGeometry(tuple(polygons)),
+                        side=detection["side"],
+                        identity_usable=detection["side"] != "face_down",
+                    )
+                )
+        items.sort(key=lambda item: (item.frame_identity.frame_index, item.card_id))
+        source_id = f"detection-set:{reference['set_id']}:{reference['version']}"
+        content_digest = sha256_bytes(canonical_json_bytes(detection_set["content"]))
+        crop_input = VisualIdentityCropInput(
+            input_kind="gemini_polygon",
+            recording_id=detection_set["recording_id"],
+            accepted_video_sha256=source.video_sha256,
+            accepted_video_byte_length=source.byte_length,
+            source_revision_id=source_id,
+            source_revision_digest=reference["content_sha256"],
+            source_view_digest=content_digest,
+            items=tuple(items),
+        )
+        return VisualIdentityCropInput.from_mapping(crop_input.to_mapping())
 
     def _canonical_input_node_ref(self, revision_id, content_type):
         return self.crop_sources._canonical_input_node_ref(revision_id, content_type)

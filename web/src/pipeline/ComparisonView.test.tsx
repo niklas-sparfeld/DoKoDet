@@ -165,6 +165,7 @@ function comparison(
               content_sha256: "a".repeat(64),
             }
           : null,
+      detection_set_ref: null,
       input_revision_ids: ["input-1"],
       content_sha256: "a".repeat(64),
       origin: "manual",

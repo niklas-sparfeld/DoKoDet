@@ -59,6 +59,25 @@ class ProposedCardSceneJobParticipant:
 
     def job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
         frozen = request["request"]["processor_request"]
+        if frozen.get("input_detection_set_ref") is not None:
+            reference = frozen["input_detection_set_ref"]
+            return {
+                "label": "Create proposed card scenes",
+                "inputs": [
+                    {
+                        "kind": "artifact",
+                        "id": (
+                            f"detection-set/{reference['set_id']}/versions/{reference['version']}"
+                        ),
+                        "digest": reference["content_sha256"],
+                    }
+                ],
+                "implementation": {
+                    "implementation": frozen["implementation"],
+                    "configuration": frozen["configuration"],
+                    "extraction_policy": frozen["extraction_policy"],
+                },
+            }
         input_ref = frozen.get("input_node_ref")
         input_digest = self.service._visible_input(
             request["context"]["recording_id"],

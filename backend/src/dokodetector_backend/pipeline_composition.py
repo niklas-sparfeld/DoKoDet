@@ -108,6 +108,7 @@ def build_pipeline_composition(
         selection_store=selection_store,
         run_store=run_store,
         event_set_store=event_set_store,
+        detection_set_store=detection_set_store,
     )
     visible_card_service = VisibleCardPipelineService(
         settings,
@@ -127,6 +128,7 @@ def build_pipeline_composition(
         run_store=run_store,
         selection_store=selection_store,
         node_store=node_store,
+        detection_set_store=detection_set_store,
     )
     calibration_refinement_service = CalibrationRefinementService(
         settings,
@@ -134,6 +136,7 @@ def build_pipeline_composition(
             settings.operations_root / "calibration-refinement-drafts"
         ),
         node_store=node_store,
+        detection_set_store=detection_set_store,
     )
     visual_identity_service = VisualIdentityPipelineService(
         settings,
@@ -146,6 +149,7 @@ def build_pipeline_composition(
         selection_store=selection_store,
         node_store=node_store,
         recording_folder_store=recording_folder_store,
+        detection_set_store=detection_set_store,
     )
     observation_service = ObservationPipelineService(
         run_store=run_store,
@@ -155,6 +159,7 @@ def build_pipeline_composition(
         operations_root=settings.operations_root,
         node_store=node_store,
         event_set_store=event_set_store,
+        detection_set_store=detection_set_store,
     )
     workspace_service = RecordingPipelineWorkspaceService(
         recording_source_provider=event_service.get_recording_source,

@@ -172,10 +172,24 @@ class PipelineLineageWriter:
                     "role": "events",
                 }
             )
+        if request.input_detection_set_ref is not None:
+            inputs.append(
+                {
+                    "kind": "artifact",
+                    "artifact_id": (
+                        f"detection-set/{request.input_detection_set_ref['set_id']}"
+                        f"/versions/{request.input_detection_set_ref['version']}"
+                    ),
+                    "sha256": request.input_detection_set_ref["content_sha256"],
+                    "role": "detections",
+                }
+            )
         if node_refs:
             roles = {
                 "observation-assembly": (
-                    ("visible_cards", "visual_identities")
+                    ("visual_identities",)
+                    if request.input_detection_set_ref is not None
+                    else ("visible_cards", "visual_identities")
                     if request.input_event_set_ref is not None
                     else ("events", "visible_cards", "visual_identities")
                 ),
@@ -202,7 +216,7 @@ class PipelineLineageWriter:
                         "role": role,
                     }
                 )
-        elif request.input_event_set_ref is None:
+        elif request.input_event_set_ref is None and request.input_detection_set_ref is None:
             for index, revision_id in enumerate(request.input_revision_ids):
                 raise ValueError(
                     "processor execution requires exact node input references; "
@@ -350,10 +364,24 @@ class PipelineLineageWriter:
             ]
         else:
             refs = []
+        if request.input_detection_set_ref is not None:
+            refs.append(
+                {
+                    "kind": "artifact",
+                    "artifact_id": (
+                        f"detection-set/{request.input_detection_set_ref['set_id']}"
+                        f"/versions/{request.input_detection_set_ref['version']}"
+                    ),
+                    "sha256": request.input_detection_set_ref["content_sha256"],
+                    "role": "detections",
+                }
+            )
         if node_refs:
             roles = {
                 "observation-assembly": (
-                    ("visible_cards", "visual_identities")
+                    ("visual_identities",)
+                    if request.input_detection_set_ref is not None
+                    else ("visible_cards", "visual_identities")
                     if request.input_event_set_ref is not None
                     else ("events", "visible_cards", "visual_identities")
                 ),
@@ -379,7 +407,7 @@ class PipelineLineageWriter:
                     }
                 )
             return refs
-        if request.input_event_set_ref is not None:
+        if request.input_event_set_ref is not None or request.input_detection_set_ref is not None:
             return refs
         if request.input_revision_ids:
             raise ValueError("processor execution requires exact node input references")

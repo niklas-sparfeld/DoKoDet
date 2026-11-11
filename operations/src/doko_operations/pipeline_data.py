@@ -968,6 +968,7 @@ class ProcessorRunRequest:
     input_node_ref: dict[str, str] | None = None
     input_node_refs: tuple[dict[str, str], ...] | None = None
     input_event_set_ref: dict[str, str] | None = None
+    input_detection_set_ref: dict[str, str] | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> ProcessorRunRequest:
@@ -992,6 +993,8 @@ class ProcessorRunRequest:
             expected.add("input_node_refs")
         if "input_event_set_ref" in data:
             expected.add("input_event_set_ref")
+        if "input_detection_set_ref" in data:
+            expected.add("input_detection_set_ref")
         _strict(
             data, expected if "model" in data else expected - {"model"}, "processor run request"
         )
@@ -1045,10 +1048,50 @@ class ProcessorRunRequest:
             }
             if data["processor_type"] not in {"visible-card-detection", "observation-assembly"}:
                 raise PipelineDataContractError("event-set input is not valid for this processor")
+        input_detection_set_ref = data.get("input_detection_set_ref")
+        if input_detection_set_ref is not None:
+            input_detection_set_ref = _mapping(input_detection_set_ref, "input_detection_set_ref")
+            if set(input_detection_set_ref) != {"set_id", "version", "content_sha256"}:
+                raise PipelineDataContractError("input_detection_set_ref has invalid fields")
+            digest = input_detection_set_ref["content_sha256"]
+            if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
+                raise PipelineDataContractError(
+                    "input_detection_set_ref has an invalid content digest"
+                )
+            input_detection_set_ref = {
+                "set_id": _identifier(input_detection_set_ref["set_id"], "detection set ID"),
+                "version": _identifier(input_detection_set_ref["version"], "detection-set version"),
+                "content_sha256": digest,
+            }
+            if data["processor_type"] not in {
+                "visible-card-scene-proposal",
+                "visual-card-identity",
+                "observation-assembly",
+            }:
+                raise PipelineDataContractError(
+                    "detection-set input is not valid for this processor"
+                )
         if input_node_refs is not None:
             if input_node_ref is not None:
                 raise PipelineDataContractError("use input_node_ref or input_node_refs, not both")
             expected_count = len(data["input_revision_ids"])
+            if (
+                input_detection_set_ref is not None
+                and data["processor_type"] == "observation-assembly"
+            ):
+                expected_count -= 1
+                expected_external_id = (
+                    f"detection-set:{input_detection_set_ref['set_id']}"
+                    f":{input_detection_set_ref['version']}"
+                )
+                if (
+                    not data["input_revision_ids"]
+                    or data["input_revision_ids"][0] != expected_external_id
+                ):
+                    raise PipelineDataContractError(
+                        "observation detection input ID must match its exact "
+                        "detection-set reference"
+                    )
             if not isinstance(input_node_refs, list) or len(input_node_refs) != expected_count:
                 raise PipelineDataContractError("node inputs must match the input revision IDs")
             if data["processor_type"] not in {
@@ -1087,6 +1130,7 @@ class ProcessorRunRequest:
             input_node_ref=input_node_ref,
             input_node_refs=input_node_refs,
             input_event_set_ref=input_event_set_ref,
+            input_detection_set_ref=input_detection_set_ref,
         )
 
     def to_mapping(self) -> dict[str, Any]:
@@ -1111,6 +1155,8 @@ class ProcessorRunRequest:
             value["input_node_refs"] = list(self.input_node_refs)
         if self.input_event_set_ref is not None:
             value["input_event_set_ref"] = self.input_event_set_ref
+        if self.input_detection_set_ref is not None:
+            value["input_detection_set_ref"] = self.input_detection_set_ref
         return value
 
 

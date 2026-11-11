@@ -37,6 +37,11 @@ from table_evidence_analyzer.pipeline_data import (
 )
 
 from dokodetector_backend.config import Settings
+from dokodetector_backend.detection_set_inputs import (
+    detection_set_to_local_result,
+    resolve_detection_set,
+)
+from dokodetector_backend.detection_set_store import DetectionSetError, DetectionSetStore
 from dokodetector_backend.job_models import Job, JobCancelled
 from dokodetector_backend.job_store import JobManager
 from dokodetector_backend.pipeline_node_selection_store import PipelineNodeSelectionStore
@@ -76,6 +81,7 @@ class ProposedCardScenePipelineService:
         run_store: ProcessorRunStore,
         selection_store: PipelineNodeSelectionStore,
         node_store: PipelineNodeStore | None = None,
+        detection_set_store: DetectionSetStore | None = None,
     ) -> None:
         self.settings = settings
         self.run_store = run_store
@@ -83,6 +89,7 @@ class ProposedCardScenePipelineService:
         self.node_store = node_store or getattr(
             getattr(selection_store, "lineage_writer", None), "node_store", None
         )
+        self.detection_set_store = detection_set_store
         self.storage = PipelineRuntimeStorage(settings.evidence_root, settings.operations_root)
         self.job_manager_provider: Any | None = None
 
@@ -130,7 +137,23 @@ class ProposedCardScenePipelineService:
             ) from error
         if frozen.get("schema") != "proposed-card-scene-job-request/v1":
             raise ProposedCardScenePipelineInputError("the frozen proposal schema is invalid")
-        if request.source.recording_id != recording_id or len(request.input_revision_ids) != 1:
+        if request.source.recording_id != recording_id:
+            raise ProposedCardScenePipelineInputError("the frozen proposal inputs are invalid")
+        if request.input_detection_set_ref is not None:
+            if request.input_revision_ids or request.input_node_ref is not None:
+                raise ProposedCardScenePipelineInputError("the frozen proposal inputs are invalid")
+            if self.detection_set_store is None:
+                raise ProposedCardScenePipelineInputError("detection-set input is unavailable")
+            try:
+                resolve_detection_set(
+                    self.detection_set_store, recording_id, request.input_detection_set_ref
+                )
+            except DetectionSetError as error:
+                raise ProposedCardScenePipelineInputError(str(error)) from error
+            if request.processor_type != PROPOSED_CARD_SCENE_PROCESSOR_TYPE:
+                raise ProposedCardScenePipelineInputError("the frozen proposal input is invalid")
+            return
+        if len(request.input_revision_ids) != 1:
             raise ProposedCardScenePipelineInputError("the frozen proposal inputs are invalid")
         input_revision = self._visible_input(
             recording_id, request.input_revision_ids[0], request.input_node_ref
@@ -213,18 +236,39 @@ class ProposedCardScenePipelineService:
         run = self.run_store.start(run_id)
         try:
             token.check()
-            source_revision = self._visible_input(
-                run.request.source.recording_id,
-                run.request.input_revision_ids[0],
-                run.request.input_node_ref,
-            )
-            if not isinstance(source_revision.content, VisibleCardData):
-                raise ProposedCardScenePipelineError("the proposal input content is invalid")
-            local_result = visible_card_data_to_local_result(
-                source_revision.content,
-                recording_id=run.request.source.recording_id,
-                source_revision=run.request.input_revision_ids[0],
-            )
+            if run.request.input_detection_set_ref is not None:
+                if self.detection_set_store is None:
+                    raise ProposedCardScenePipelineInputError("detection-set input is unavailable")
+                detection_set = resolve_detection_set(
+                    self.detection_set_store,
+                    run.request.source.recording_id,
+                    run.request.input_detection_set_ref,
+                )
+                source_revision_id = (
+                    f"detection-set:{run.request.input_detection_set_ref['set_id']}"
+                    f":{run.request.input_detection_set_ref['version']}"
+                )
+                source_revision_digest = run.request.input_detection_set_ref["content_sha256"]
+                local_result = detection_set_to_local_result(
+                    detection_set,
+                    recording_id=run.request.source.recording_id,
+                    source_revision=source_revision_id,
+                )
+            else:
+                source_revision = self._visible_input(
+                    run.request.source.recording_id,
+                    run.request.input_revision_ids[0],
+                    run.request.input_node_ref,
+                )
+                if not isinstance(source_revision.content, VisibleCardData):
+                    raise ProposedCardScenePipelineError("the proposal input content is invalid")
+                source_revision_id = run.request.input_revision_ids[0]
+                source_revision_digest = source_revision.content_sha256
+                local_result = visible_card_data_to_local_result(
+                    source_revision.content,
+                    recording_id=run.request.source.recording_id,
+                    source_revision=source_revision_id,
+                )
 
             def report_progress(
                 phase: str, completed: int, total: int, message: str, step: int, steps: int
@@ -245,8 +289,8 @@ class ProposedCardScenePipelineService:
 
             processor_result = build_proposed_card_scenes(
                 local_result,
-                detector_revision_id=run.request.input_revision_ids[0],
-                detector_revision_digest=source_revision.content_sha256,
+                detector_revision_id=source_revision_id,
+                detector_revision_digest=source_revision_digest,
                 calibration_store=CalibrationRevisionStore(self.settings.operations_root),
                 progress_callback=report_progress,
             )
@@ -348,10 +392,56 @@ class ProposedCardScenePipelineService:
             "run_id",
             "configuration",
             "input_node_ref",
+            "detection_set_ref",
         }
         if unknown:
             raise ProposedCardScenePipelineInputError(
                 "the proposal request has unknown fields: " + ", ".join(sorted(unknown))
+            )
+        detection_ref = payload.get("detection_set_ref")
+        if detection_ref is not None:
+            if self.detection_set_store is None:
+                raise ProposedCardScenePipelineInputError("detection-set input is unavailable")
+            try:
+                resolve_detection_set(self.detection_set_store, recording_id, detection_ref)
+            except (DetectionSetError, KeyError, TypeError) as error:
+                raise ProposedCardScenePipelineInputError(str(error)) from error
+            root = self.detection_set_store.recordings.get(recording_id)
+            if root is None:
+                raise ProposedCardScenePipelineInputError("recording does not exist")
+            run_id = payload.get("run_id")
+            if not isinstance(run_id, str) or not run_id:
+                raise ProposedCardScenePipelineInputError("run_id is required")
+            configuration = payload.get("configuration", {})
+            if not isinstance(configuration, Mapping):
+                raise ProposedCardScenePipelineInputError("configuration must be an object")
+            video_path = (
+                self.detection_set_store.recordings.recording_path(recording_id)
+                / root.media["relative_path"]
+            )
+            from dokodetector_backend.video_probe import probe_video_path_metadata
+
+            probe = probe_video_path_metadata(video_path)
+            source = RecordingVideoSource(
+                recording_id=recording_id,
+                relative_path=f"data/recordings/{recording_id}/{root.media['relative_path']}",
+                video_sha256=root.media["sha256"],
+                byte_length=root.media["byte_length"],
+                duration_us=probe.duration_ms * 1000,
+            )
+            return ProcessorRunRequest(
+                run_id=run_id,
+                processor_type=PROPOSED_CARD_SCENE_PROCESSOR_TYPE,
+                source=source,
+                input_revision_ids=(),
+                implementation=ImplementationIdentity(
+                    name="proposed-card-scene-processor", version="v2"
+                ),
+                model=None,
+                configuration=dict(configuration),
+                extraction_policy={"policy_id": "saved-detection-set/v1"},
+                crop_policy=None,
+                input_detection_set_ref=dict(detection_ref),
             )
         node_ref = payload.get("input_node_ref")
         if node_ref is None:
@@ -497,6 +587,7 @@ class ProposedCardScenePipelineService:
                 "kind": "proposed-card-scenes",
                 "detector_revision_id": data.detector_revision_id,
                 "detector_revision_digest": data.detector_revision_digest,
+                "detection_set_ref": run.request.input_detection_set_ref,
                 "calibration_revision_id": data.calibration_revision_id,
                 "calibration_digest": data.calibration_digest,
                 "supported_frame_count": sum(frame.status == "supported" for frame in data.frames),

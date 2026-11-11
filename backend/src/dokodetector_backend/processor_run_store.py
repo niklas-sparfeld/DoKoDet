@@ -610,6 +610,11 @@ class ProcessorRunStore(ProcessorRunReader, ProcessorRunCatalog):
                     for observation in revision.content.observations
                 ):
                     raise PipelineStateError("observation output lost its exact event-set input")
+            if (
+                request.input_detection_set_ref is not None
+                and manifest.coverage.get("detection_set_ref") != request.input_detection_set_ref
+            ):
+                raise PipelineStateError("processor output lost its exact detection-set input")
 
     def _get_output_revision(
         self,

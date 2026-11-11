@@ -6,6 +6,7 @@ from typing import Any
 
 from doko_operations.pipeline_data import ProcessorRunRequest, RunFailure
 
+from dokodetector_backend.detection_set_inputs import resolve_detection_set
 from dokodetector_backend.job_models import Job
 from dokodetector_backend.job_scheduler import Claims
 from dokodetector_backend.job_store import JobManager
@@ -66,22 +67,40 @@ class VisualIdentityJobParticipant:
         if (
             run.source.recording_id != recording_id
             or run.processor_type != "visual-card-identity"
-            or len(run.input_revision_ids) != 1
-            or run.input_node_refs is None
-            or len(run.input_node_refs) != 1
+            or (
+                run.input_detection_set_ref is None
+                and (
+                    len(run.input_revision_ids) != 1
+                    or run.input_node_refs is None
+                    or len(run.input_node_refs) != 1
+                )
+            )
+            or (
+                run.input_detection_set_ref is not None
+                and (run.input_revision_ids or run.input_node_refs is not None)
+            )
             or run.crop_input is None
         ):
             raise ValueError("the frozen visual-identity inputs are invalid")
-        revision = self.service.canonical_input_revision(run)
         _, source = self.service._accepted_source(recording_id)
-        if revision.manifest.source != source:
-            raise ValueError("the identity input does not match the accepted recording")
-        frozen = self.service._freeze_crop_input(
-            recording_id,
-            revision,
-            source=source,
-            requested=run.crop_input,
-        )
+        if run.input_detection_set_ref is not None:
+            store = self.service.request_builder.detection_set_store
+            if store is None:
+                raise ValueError("the detection-set store is unavailable")
+            detection_set = resolve_detection_set(store, recording_id, run.input_detection_set_ref)
+            frozen = self.service.request_builder._detection_set_crop_input(
+                detection_set, reference=run.input_detection_set_ref, source=source
+            )
+        else:
+            revision = self.service.canonical_input_revision(run)
+            if revision.manifest.source != source:
+                raise ValueError("the identity input does not match the accepted recording")
+            frozen = self.service._freeze_crop_input(
+                recording_id,
+                revision,
+                source=source,
+                requested=run.crop_input,
+            )
         if frozen.to_mapping() != run.crop_input:
             raise ValueError("the frozen identity crop input changed")
 
@@ -107,17 +126,30 @@ class VisualIdentityJobParticipant:
 
     def job_fields(self, request: dict[str, Any]) -> dict[str, Any]:
         run = ProcessorRunRequest.from_mapping(request["request"]["processor_request"])
-        input_id = run.input_revision_ids[0]
-        input_revision = self.service.canonical_input_revision(run)
         device = run.configuration.get("device")
-        return {
-            "label": "Classify visual identities",
-            "inputs": [
+        if run.input_detection_set_ref is not None:
+            reference = run.input_detection_set_ref
+            inputs = [
+                {
+                    "kind": "artifact",
+                    "id": f"detection-set/{reference['set_id']}/versions/{reference['version']}",
+                    "digest": reference["content_sha256"],
+                }
+            ]
+        else:
+            input_id = run.input_revision_ids[0]
+            input_revision = self.service.canonical_input_revision(run)
+            inputs = [
                 {
                     "kind": "pipeline_revision",
                     "id": input_id,
                     "digest": input_revision.manifest.content_sha256,
-                },
+                }
+            ]
+        return {
+            "label": "Classify visual identities",
+            "inputs": [
+                *inputs,
                 {
                     "kind": "visual_identity_crop_input",
                     "id": run.crop_input["source_revision_id"],

@@ -26,7 +26,10 @@ from table_evidence_analyzer.pipeline_data import (
     VisualIdentityOutcome,
     canonical_visual_identity_data_bytes,
 )
-from table_evidence_analyzer.visual_identity_crop_input import VisualIdentityCropInputItem
+from table_evidence_analyzer.visual_identity_crop_input import (
+    VisualIdentityCropInput,
+    VisualIdentityCropInputItem,
+)
 
 from dokodetector_backend.job_models import Job, JobCancelled
 from dokodetector_backend.job_store import JobManager
@@ -93,20 +96,73 @@ class VisualIdentityJobExecutor:
         try:
             token.check()
             run_id = job.id
-            if len(run.request.input_revision_ids) != 1 or run.request.crop_input is None:
+            if (
+                not run.request.input_revision_ids and run.request.input_detection_set_ref is None
+            ) or run.request.crop_input is None:
                 raise VisualIdentityPipelineError("The frozen crop input is unavailable.")
-            visible_revision = self.request_builder.canonical_input_revision(run.request)
             _, source = self.recording_access.accepted_source(run.request.source.recording_id)
-            frozen_input = self.request_builder._freeze_crop_input(
-                run.request.source.recording_id,
-                visible_revision,
-                source=source,
-                requested=run.request.crop_input,
-                input_node_ref=(run.request.input_node_refs or [None])[0],
-            )
-            if frozen_input.to_mapping() != run.request.crop_input:
+            if run.request.input_detection_set_ref is not None:
+                store = self.request_builder.detection_set_store
+                if store is None:
+                    raise VisualIdentityPipelineError("The detection-set store is unavailable.")
+                from dokodetector_backend.detection_set_inputs import resolve_detection_set
+
+                detection_set = resolve_detection_set(
+                    store,
+                    run.request.source.recording_id,
+                    run.request.input_detection_set_ref,
+                )
+                expected_crop_input = self.request_builder._detection_set_crop_input(
+                    detection_set,
+                    reference=run.request.input_detection_set_ref,
+                    source=source,
+                )
+                frozen_input = VisualIdentityCropInput.from_mapping(run.request.crop_input)
+                visible_revision = None
+            else:
+                visible_revision = self.request_builder.canonical_input_revision(run.request)
+                frozen_input = self.request_builder._freeze_crop_input(
+                    run.request.source.recording_id,
+                    visible_revision,
+                    source=source,
+                    requested=run.request.crop_input,
+                    input_node_ref=(run.request.input_node_refs or [None])[0],
+                )
+                expected_crop_input = frozen_input
+            if (
+                frozen_input.to_mapping() != run.request.crop_input
+                or expected_crop_input.to_mapping() != run.request.crop_input
+            ):
                 raise VisualIdentityPipelineError("The frozen crop input changed.")
-            if isinstance(visible_revision.content, VisibleCardData):
+            if visible_revision is None:
+                grouped: dict[int, list[VisualIdentityCropInputItem]] = {}
+                for crop_item in frozen_input.items:
+                    grouped.setdefault(crop_item.frame_identity.frame_index, []).append(crop_item)
+                candidate_lookup = {}
+                for frame_index, frame_items in grouped.items():
+                    frame_identity = frame_items[0].frame_identity
+                    candidates_for_frame = tuple(
+                        VisibleCardCandidate(
+                            card_id=item.card_id,
+                            geometry=item.geometry,
+                            normalization={
+                                "width": frame_identity.width,
+                                "height": frame_identity.height,
+                                "policy_id": "detection-set-pixel-adapter/v1",
+                            },
+                            side=item.side,
+                        )
+                        for item in frame_items
+                    )
+                    synthetic = VisibleCardOutcome(
+                        event_id=f"detection-frame-{frame_index}",
+                        frame_identity=frame_identity,
+                        status="detected",
+                        candidates=candidates_for_frame,
+                    )
+                    for candidate in candidates_for_frame:
+                        candidate_lookup[(frame_index, candidate.card_id)] = (synthetic, candidate)
+            elif isinstance(visible_revision.content, VisibleCardData):
                 candidate_lookup = {
                     (outcome.frame_identity.frame_index, candidate.card_id): (outcome, candidate)
                     for outcome in visible_revision.content.outcomes
@@ -327,9 +383,14 @@ class VisualIdentityJobExecutor:
             implementation_id=_implementation_id(run.request.implementation),
             model_id=_model_id(run.request.model),
         )
-        crop_policy = run.request.crop_policy or _default_crop_policy(
-            self.request_builder.canonical_input_revision(run.request).content
-        )
+        crop_policy = run.request.crop_policy
+        if crop_policy is None:
+            if run.request.input_detection_set_ref is None:
+                crop_policy = _default_crop_policy(
+                    self.request_builder.canonical_input_revision(run.request).content
+                )
+            else:
+                crop_policy = {"policy_id": "predicted_visible_region", "output_encoding": "ppm"}
         manifest = DataRevision(
             revision_id=f"visual-identities-{_safe(run.run_id)}-attempt-{run.state.attempt}",
             content_type="visual_identities",
@@ -342,7 +403,12 @@ class VisualIdentityJobExecutor:
             producer=producer,
             coverage={
                 "kind": "requested-visible-cards",
-                "visible_card_revision_id": run.request.input_revision_ids[0],
+                "visible_card_revision_id": (
+                    None
+                    if run.request.input_detection_set_ref is not None
+                    else run.request.input_revision_ids[0]
+                ),
+                "detection_set_ref": run.request.input_detection_set_ref,
                 "card_ids": [outcome.card_id for outcome in content.outcomes],
                 "policy_id": crop_policy["policy_id"],
             },

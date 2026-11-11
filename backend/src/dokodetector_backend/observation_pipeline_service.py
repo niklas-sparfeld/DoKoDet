@@ -33,6 +33,11 @@ from table_evidence_analyzer import (
     parse_visual_identity_data_bytes,
 )
 
+from dokodetector_backend.detection_set_inputs import (
+    detection_set_to_visible_card_data,
+    resolve_detection_set,
+)
+from dokodetector_backend.detection_set_store import DetectionSetError, DetectionSetStore
 from dokodetector_backend.event_set_store import EventSetStore
 from dokodetector_backend.job_models import Job, JobCancelled
 from dokodetector_backend.job_store import JobManager
@@ -76,11 +81,13 @@ class ObservationPipelineService:
         operations_root: Any,
         node_store: PipelineNodeStore | None = None,
         event_set_store: EventSetStore | None = None,
+        detection_set_store: DetectionSetStore | None = None,
     ) -> None:
         self.run_store = run_store
         self.selection_store = selection_store
         self.node_store = node_store
         self.event_set_store = event_set_store
+        self.detection_set_store = detection_set_store
         self.recording_store = recording_store
         self.storage = PipelineRuntimeStorage(runtime_root, operations_root)
         self.job_manager_provider: Any | None = None
@@ -172,6 +179,13 @@ class ObservationPipelineService:
                 or event_set["content_sha256"] != request.input_event_set_ref["content_sha256"]
             ):
                 raise ObservationPipelineInputError("the frozen event-set input is unavailable")
+        if request.input_detection_set_ref is not None:
+            try:
+                resolve_detection_set(
+                    self.detection_set_store, recording_id, request.input_detection_set_ref
+                )
+            except (DetectionSetError, TypeError) as error:
+                raise ObservationPipelineInputError(str(error)) from error
         self._validate_frozen_inputs(recording_id, request)
 
     def _validate_frozen_inputs(self, recording_id: str, request: ProcessorRunRequest) -> None:
@@ -179,8 +193,16 @@ class ObservationPipelineService:
             raise ObservationPipelineInputError("frozen canonical input references are required")
         if request.input_event_set_ref is None:
             raise ObservationPipelineInputError("an exact event-set input is required")
-        revision_ids = request.input_revision_ids
-        content_types = ("visible_cards", "visual_identities")
+        revision_ids = (
+            request.input_revision_ids[1:]
+            if request.input_detection_set_ref is not None
+            else request.input_revision_ids
+        )
+        content_types = (
+            ("visual_identities",)
+            if request.input_detection_set_ref is not None
+            else ("visible_cards", "visual_identities")
+        )
         for revision_id, content_type, node_ref in zip(
             revision_ids,
             content_types,
@@ -385,8 +407,35 @@ class ObservationPipelineService:
             )
         ):
             raise ObservationPipelineInputError("the exact event-set reference is invalid")
-        input_refs = self._input_node_refs(recording_id, raw)
+        detection_ref = raw.get("input_detection_set_ref")
+        if detection_ref is not None:
+            if self.detection_set_store is None:
+                raise ObservationPipelineInputError("the detection-set store is unavailable")
+            try:
+                detection_set = resolve_detection_set(
+                    self.detection_set_store, recording_id, detection_ref
+                )
+                if any(
+                    reference["set_id"] != event_set_ref["set_id"]
+                    or reference["version"] != event_set_ref["version"]
+                    for frame in detection_set["content"]["frames"]
+                    for reference in frame["event_ids"]
+                ):
+                    raise DetectionSetError(
+                        "the detection set does not use the requested exact event-set version"
+                    )
+            except (DetectionSetError, TypeError, ValueError) as error:
+                raise ObservationPipelineInputError(str(error)) from error
+            input_refs = self._input_node_refs(recording_id, raw, detection_input=True)
+        else:
+            visible_data = None
+            input_refs = self._input_node_refs(recording_id, raw)
         input_ids = tuple(ref["revision_id"] for ref in input_refs)
+        if detection_ref is not None:
+            input_ids = (
+                f"detection-set:{detection_ref['set_id']}:{detection_ref['version']}",
+                *input_ids,
+            )
         event_set = (
             self.event_set_store.get(
                 recording_id, event_set_ref["set_id"], event_set_ref["version"]
@@ -406,24 +455,45 @@ class ObservationPipelineService:
                 "select this exact event-set version in recording HEAD first"
             )
         event_content = parse_event_data_bytes(canonical_json_bytes(event_set["content"]))
-        visible_revision, identity_revision = tuple(
-            self.selection_store.read_node_revision(ref["node_id"], ref["revision_id"])
-            for ref in input_refs
+        if detection_ref is not None:
+            assert isinstance(event_content, EventData)
+            try:
+                visible_data = detection_set_to_visible_card_data(
+                    detection_set,
+                    expected_event_ids={event.event_id for event in event_content.events},
+                )
+            except (DetectionSetError, TypeError, ValueError) as error:
+                raise ObservationPipelineInputError(str(error)) from error
+        if detection_ref is not None:
+            (identity_revision,) = tuple(
+                self.selection_store.read_node_revision(ref["node_id"], ref["revision_id"])
+                for ref in input_refs
+            )
+            visible_revision = None
+        else:
+            visible_revision, identity_revision = tuple(
+                self.selection_store.read_node_revision(ref["node_id"], ref["revision_id"])
+                for ref in input_refs
+            )
+        source = (
+            identity_revision.manifest.source
+            if visible_revision is None
+            else visible_revision.manifest.source
         )
-        source = visible_revision.manifest.source
         if not isinstance(source, RecordingVideoSource) or source.recording_id != recording_id:
             raise ObservationPipelineInputError("the selected inputs do not match the recording")
-        if visible_revision.manifest.content_type != "visible_cards" or not isinstance(
-            visible_revision.content, VisibleCardData
+        if detection_ref is None and (
+            visible_revision is None
+            or visible_revision.manifest.content_type != "visible_cards"
+            or not isinstance(visible_revision.content, VisibleCardData)
         ):
             raise ObservationPipelineInputError("the second input is not visible-card node content")
         if identity_revision.manifest.content_type != "visual_identities" or not isinstance(
             identity_revision.content, VisualIdentityData
         ):
             raise ObservationPipelineInputError("the third input is not identity node content")
-        if (
-            visible_revision.manifest.source != source
-            or identity_revision.manifest.source != source
+        if identity_revision.manifest.source != source or (
+            visible_revision is not None and visible_revision.manifest.source != source
         ):
             raise ObservationPipelineInputError(
                 "all input revisions must use the same recording video source"
@@ -452,6 +522,8 @@ class ObservationPipelineService:
             values.pop(field, None)
         values["input_revision_ids"] = list(input_ids)
         values["input_node_refs"] = list(input_refs)
+        if detection_ref is not None:
+            values["input_detection_set_ref"] = dict(detection_ref)
         if event_set_ref is not None:
             values["input_event_set_ref"] = dict(event_set_ref)
         values.setdefault("schema_version", "processor-run-request/v1")
@@ -459,12 +531,15 @@ class ObservationPipelineService:
         if not isinstance(run_id, str) or not run_id:
             raise ObservationPipelineInputError("run_id is required.")
         assert isinstance(event_content, EventData)
-        assert isinstance(visible_revision.content, VisibleCardData)
+        assert visible_data is None or isinstance(visible_data, VisibleCardData)
+        if visible_data is None:
+            assert isinstance(visible_revision.content, VisibleCardData)
+            visible_data = visible_revision.content
         assert isinstance(identity_revision.content, VisualIdentityData)
         try:
             assemble_table_observations(
                 event_content,
-                visible_revision.content,
+                visible_data,
                 identity_revision.content,
                 recording_id=recording_id,
                 video_sha256=source.video_sha256,
@@ -501,9 +576,11 @@ class ObservationPipelineService:
         return request
 
     def _input_node_refs(
-        self, recording_id: str, raw: Mapping[str, Any]
+        self, recording_id: str, raw: Mapping[str, Any], *, detection_input: bool = False
     ) -> tuple[dict[str, str], ...]:
-        expected_types = ("visible_cards", "visual_identities")
+        expected_types = (
+            ("visual_identities",) if detection_input else ("visible_cards", "visual_identities")
+        )
         provided = raw.get("input_node_refs")
         if any(
             raw.get(field) is not None
@@ -583,9 +660,38 @@ class ObservationPipelineService:
         event_content = parse_event_data_bytes(
             canonical_json_bytes(event_set["content"]), duration_us=request.source.duration_us
         )
-        visible_content = parse_visible_card_data_bytes(canonical_json_bytes(revisions[0].content))
+        if request.input_detection_set_ref is not None:
+            if self.detection_set_store is None:
+                raise ObservationPipelineInputError("the detection-set store is unavailable")
+            try:
+                detection_set = resolve_detection_set(
+                    self.detection_set_store,
+                    request.source.recording_id,
+                    request.input_detection_set_ref,
+                )
+                if any(
+                    event_ref["set_id"] != request.input_event_set_ref["set_id"]
+                    or event_ref["version"] != request.input_event_set_ref["version"]
+                    for frame in detection_set["content"]["frames"]
+                    for event_ref in frame["event_ids"]
+                ):
+                    raise DetectionSetError(
+                        "the detection set does not use the exact event-set input"
+                    )
+                visible_content = detection_set_to_visible_card_data(
+                    detection_set,
+                    expected_event_ids={event.event_id for event in event_content.events},
+                )
+            except (DetectionSetError, TypeError, ValueError) as error:
+                raise ObservationPipelineInputError(str(error)) from error
+            identity_revision = revisions[0]
+        else:
+            visible_content = parse_visible_card_data_bytes(
+                canonical_json_bytes(revisions[0].content)
+            )
+            identity_revision = revisions[1]
         identity_content = parse_visual_identity_data_bytes(
-            canonical_json_bytes(revisions[1].content)
+            canonical_json_bytes(identity_revision.content)
         )
         return event_content, visible_content, identity_content
 
@@ -611,8 +717,13 @@ class ObservationPipelineService:
             coverage={
                 "kind": "assembled-events",
                 "event_set_ref": run.request.input_event_set_ref,
-                "visible_card_revision_id": run.request.input_revision_ids[0],
-                "visual_identity_revision_id": run.request.input_revision_ids[1],
+                "detection_set_ref": run.request.input_detection_set_ref,
+                "visible_card_revision_id": (
+                    None
+                    if run.request.input_detection_set_ref is not None
+                    else run.request.input_revision_ids[0]
+                ),
+                "visual_identity_revision_id": run.request.input_revision_ids[-1],
                 "observation_ids": [
                     observation.observation_id for observation in content.observations
                 ],

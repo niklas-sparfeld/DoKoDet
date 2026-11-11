@@ -174,3 +174,34 @@ def test_comparison_request_parser_rejects_duplicate_fields() -> None:
 
     with pytest.raises(ValueError, match="duplicate field"):
         parse_pipeline_comparison_request_bytes(raw)
+
+
+def test_event_comparison_rejects_a_detection_set_reference() -> None:
+    from doko_operations.pipeline_comparison_contract import PipelineComparisonRequest
+
+    request = {
+        "schema_version": "pipeline-comparison-request/v1",
+        "recording_id": "recording-1",
+        "content_type": "events",
+        "left_run_id": "left-run",
+        "right_run_id": "right-run",
+        "reference_revision_id": None,
+        "reference_event_set_ref": {
+            "set_id": "reference-1",
+            "version": "1",
+            "content_sha256": "a" * 64,
+        },
+        "reference_detection_set_ref": {
+            "set_id": "detection-1",
+            "version": "1",
+            "content_sha256": "b" * 64,
+        },
+        "matching_policy": {
+            "policy_id": "event-timing/v1",
+            "anchor": "start_us",
+            "tolerance_us": 25,
+        },
+    }
+
+    with pytest.raises(ValueError, match="event comparisons"):
+        PipelineComparisonRequest.from_mapping(request)
