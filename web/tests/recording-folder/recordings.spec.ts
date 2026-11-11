@@ -178,6 +178,12 @@ test("pre-M3 visible-card output reopens its exact event parent after selection 
   const recordingId = "cardeventnet-IMG_0662";
   const parentSetId = "1dca5a93-4a87-59f6-ab83-d5c72154916b";
   const parentVersion = "d41f92f9-7fd1-52db-a065-7c94f963713a";
+  const expectedOutputFileSha256 =
+    "23d6a61ffa5c362d2e7bbf1f24c708c93a1800d684573a1fe4078961119da45c";
+  const expectedOutputContentSha256 =
+    "e7d585be69996a440c7c56d6e3fb3a2cd582288327b82555561a38c49191a1ad";
+  const expectedParentContentSha256 =
+    "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5";
   const forbiddenRuntimeReads: string[] = [];
   await page.route(
     new RegExp(
@@ -188,14 +194,29 @@ test("pre-M3 visible-card output reopens its exact event parent after selection 
       await route.abort();
     },
   );
-  const savedOutputDigest = async () => {
+  const savedOutputFacts = async () => {
     const response = await page.request.get(
       "http://127.0.0.1:8767/__test/saved-output-sha256",
     );
     expect(response.ok()).toBeTruthy();
-    return (await response.json()).sha256 as string;
+    return (await response.json()) as {
+      file_sha256: string;
+      content_sha256: string;
+    };
   };
-  const outputDigestBefore = await savedOutputDigest();
+  const outputBefore = await savedOutputFacts();
+  expect(outputBefore).toEqual({
+    file_sha256: expectedOutputFileSha256,
+    content_sha256: expectedOutputContentSha256,
+  });
+  const parentDetail = async () => {
+    const response = await page.request.get(
+      `http://127.0.0.1:8767/api/recordings/${recordingId}/event-sets/${parentSetId}/versions/${parentVersion}`,
+    );
+    expect(response.ok()).toBeTruthy();
+    return (await response.json()).content_sha256 as string;
+  };
+  expect(await parentDetail()).toBe(expectedParentContentSha256);
   const initialSelectionResponse = await page.request.get(
     `http://127.0.0.1:8767/api/recordings/${recordingId}/event-sets`,
   );
@@ -217,7 +238,7 @@ test("pre-M3 visible-card output reopens its exact event parent after selection 
       `/recordings/${recordingId}/event-sets\\?set=${parentSetId}&version=${parentVersion}`,
     ),
   );
-  await expect(page.getByLabel("Start (µs)")).toHaveValue("2001934");
+  await expect(page.getByLabel("Start (µs)").first()).toHaveValue("2001934");
 
   await page.getByRole("button", { name: "Select generated" }).click();
   await expect(page.getByRole("status")).toContainText(
@@ -242,7 +263,7 @@ test("pre-M3 visible-card output reopens its exact event parent after selection 
   await page.reload();
   await expect(exactParentLink).toBeVisible();
   await exactParentLink.click();
-  await expect(page.getByLabel("Start (µs)")).toHaveValue("2001934");
+  await expect(page.getByLabel("Start (µs)").first()).toHaveValue("2001934");
 
   const persistedSelectionResponse = await page.request.get(
     `http://127.0.0.1:8767/api/recordings/${recordingId}/event-sets`,
@@ -252,7 +273,8 @@ test("pre-M3 visible-card output reopens its exact event parent after selection 
     set_id: parentSetId,
     version: parentVersion,
   });
-  expect(await savedOutputDigest()).toBe(outputDigestBefore);
+  expect(await savedOutputFacts()).toEqual(outputBefore);
+  expect(await parentDetail()).toBe(expectedParentContentSha256);
   expect(forbiddenRuntimeReads).toEqual([]);
 });
 

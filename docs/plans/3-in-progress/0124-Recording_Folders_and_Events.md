@@ -536,7 +536,7 @@ owns that follow-up; it does not block M0.
 ## Execution handoff
 
 Current run: requested 1 milestone, completed 1, remaining 0. M5 is complete. M5 family re-plans
-2/5, run re-plans 2/10, corrections 1/2. The current baseline is seven: M0–M5 complete and M6
+2/5, run re-plans 2/10, corrections 2/2. The current baseline is seven: M0–M5 complete and M6
 remains. The browser opened the pre-M3 output's exact converted parent after selection change and
 backend restart with processor-run and lineage reads blocked. The saved M3 provider result also
 opened after restart without a detector run. The 58-root corpus snapshot and full disposable
@@ -557,13 +557,20 @@ that identity changes, including the first render before the next lookup finishe
 regressions switch recordings and outputs, resolve the old response late, and confirm that it cannot
 replace the current result.
 
-The checked-in recording-folder browser workflow now seeds a disposable persisted pre-M3 visible-card
-output using the retained node and revision IDs plus its saved legacy event identity. It follows the
-normal inspector link to the exact converted parent, changes recording event selection, restarts the
-backend, reloads the output, and opens the same parent again. It compares the persisted output
-revision-file digest before and after. The browser aborts and counts processor-run and lineage routes;
-the workflow makes neither request. The existing manual corpus qualification remains separate and
-uses the activated retained corpus. This correction adds no persistent contract or authority.
+Correction 1 added a checked-in browser flow with persisted data, but it constructed empty output and
+one-event parent content under retained IDs. It did not prove the retained payloads. Its stale-link
+switch and late-response tests remain valid and separate.
+
+### M5 correction 2 — use frozen retained payloads in the browser proof
+
+The browser fixture now uses the exact pre-M3 output revision and converted parent version from the
+frozen 0662 corpus. It checks their file and content SHA-256 values against the frozen output record
+and M5 parent mapping before browser interaction. The normal browser opens the output's exact parent,
+changes event selection, restarts, reopens the output and parent, and verifies both content digests
+plus the output-file digest before and after. It blocks only processor-run and lineage HTTP routes;
+normal workspace and event-set APIs remain available. The exact persisted payloads are committed
+under `backend/tests/fixtures/0124-m5/`, so the test does not depend on the live data path. No runtime
+authority, storage, or transaction contract is added.
 
 See [M5 rollout and qualification report](../../reports/0124-M5_Rollout_Qualification.md) for
 implemented changes, checks, and evidence limits. The following handoff is the historical M4

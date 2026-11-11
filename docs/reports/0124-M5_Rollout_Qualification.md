@@ -71,6 +71,7 @@ persistent contract or authority was introduced.
 - [Durable recovery data](0124-M5_Corpus_Recovery.json)
 - [Activation receipt](0124-M5_Activation_Receipt.json)
 - [Post-activation input check](0124-M5_PostActivation_Input_Check.json)
+- [Frozen browser payload and digest manifest](../../backend/tests/fixtures/0124-m5/fixture.json)
 - Browser evidence: [pre-M3 output](assets/0124-m5/pre-m3-output.png), [parent after restart](assets/0124-m5/parent-after-restart.png), [reviewed version](assets/0124-m5/reviewed-version.png), [generated version](assets/0124-m5/generated-version.png), [saved M3 result](assets/0124-m5/m3-saved-result.png), [activated parent](assets/0124-m5/activated-parent.png), and [activated M3 result after restart](assets/0124-m5/activated-m3-after-restart.png).
 - Backend regression suite: passed (12 focused test files, including rollout, event sets, reviews,
   pipeline APIs, persisted M2 observation, round analysis, and 0123 list growth).
@@ -78,11 +79,15 @@ persistent contract or authority was introduced.
 - `web/npm run check`: passed; 47 test files, 251 tests, type, lint, format, and generated API
   checks.
 - Recording-folder Playwright suite: passed, 5 browser tests. It uses a disposable persisted
-  backend, including browser restart coverage. The automated pre-M3 proof seeds the named output
-  and revision identity plus saved parent provenance into that persisted backend. It opens the
-  exact parent through the normal inspector, changes event selection, restarts, reopens the output
-  and parent, checks the output revision file SHA-256, and blocks run/lineage routes. The manual
-  corpus evidence above separately covers the unchanged activated retained output bytes.
+  backend, including browser restart coverage. The automated pre-M3 proof copies the exact output
+  node/revision and converted event-set version from `backend/tests/fixtures/0124-m5/` into disposable
+  storage. Before UI use it checks output file SHA-256
+  `23d6a61ffa5c362d2e7bbf1f24c708c93a1800d684573a1fe4078961119da45c`, output content SHA-256
+  `e7d585be69996a440c7c56d6e3fb3a2cd582288327b82555561a38c49191a1ad`, and parent content SHA-256
+  `00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5`. It opens the parent from the
+  inspector, changes event selection, restarts, reopens output and parent, and rechecks all three
+  digests. It blocks only processor-run and lineage routes; workspace and event-set APIs remain
+  enabled.
 - `web/npm run build`: passed. Vite reported the existing bundle-size warning for a 525 kB chunk.
 - Frozen source integrity and activation/recovery checks: passed as recorded above.
 
@@ -95,6 +100,15 @@ no prior link on the first render for a new key. Deferred responses cannot publi
 recording/output view. Both the switch and late-response regressions pass, as does the checked-in
 real-backend browser proof. The correction adds no storage contract, authority, or owner outside
 the existing M5 browser/UI and test harness.
+
+## Correction 2/2
+
+Review found that correction 1 used synthetic empty-output and one-event-parent content under the
+retained IDs. Replace it with the exact retained output and converted parent files from the frozen
+0662 corpus. The test verifies the recorded output file/content digests and exact parent content
+digest before and after the browser selection change and restart. The browser guard blocks only
+run/lineage routes. This is deterministic from the committed fixture and does not read the live
+corpus; the original activated-data browser run remains manual end-to-end evidence.
 
 ## Limits and next step
 

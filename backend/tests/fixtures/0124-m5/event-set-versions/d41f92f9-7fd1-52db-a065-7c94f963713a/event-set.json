@@ -1,0 +1,566 @@
+{
+  "schema_version": "event-set/v1",
+  "recording_id": "cardeventnet-IMG_0662",
+  "set_id": "1dca5a93-4a87-59f6-ab83-d5c72154916b",
+  "version": "d41f92f9-7fd1-52db-a065-7c94f963713a",
+  "events": [
+    {
+      "event_id": "cardeventnet-event-img_0662-000",
+      "relative_path": "events/cardeventnet-event-img_0662-000/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-001",
+      "relative_path": "events/cardeventnet-event-img_0662-001/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-002",
+      "relative_path": "events/cardeventnet-event-img_0662-002/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-003",
+      "relative_path": "events/cardeventnet-event-img_0662-003/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-004",
+      "relative_path": "events/cardeventnet-event-img_0662-004/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-005",
+      "relative_path": "events/cardeventnet-event-img_0662-005/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-006",
+      "relative_path": "events/cardeventnet-event-img_0662-006/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-007",
+      "relative_path": "events/cardeventnet-event-img_0662-007/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-008",
+      "relative_path": "events/cardeventnet-event-img_0662-008/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-009",
+      "relative_path": "events/cardeventnet-event-img_0662-009/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-010",
+      "relative_path": "events/cardeventnet-event-img_0662-010/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-011",
+      "relative_path": "events/cardeventnet-event-img_0662-011/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-012",
+      "relative_path": "events/cardeventnet-event-img_0662-012/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-013",
+      "relative_path": "events/cardeventnet-event-img_0662-013/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-014",
+      "relative_path": "events/cardeventnet-event-img_0662-014/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-015",
+      "relative_path": "events/cardeventnet-event-img_0662-015/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-016",
+      "relative_path": "events/cardeventnet-event-img_0662-016/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-017",
+      "relative_path": "events/cardeventnet-event-img_0662-017/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-018",
+      "relative_path": "events/cardeventnet-event-img_0662-018/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-019",
+      "relative_path": "events/cardeventnet-event-img_0662-019/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-020",
+      "relative_path": "events/cardeventnet-event-img_0662-020/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-021",
+      "relative_path": "events/cardeventnet-event-img_0662-021/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-022",
+      "relative_path": "events/cardeventnet-event-img_0662-022/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-023",
+      "relative_path": "events/cardeventnet-event-img_0662-023/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-024",
+      "relative_path": "events/cardeventnet-event-img_0662-024/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-025",
+      "relative_path": "events/cardeventnet-event-img_0662-025/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-026",
+      "relative_path": "events/cardeventnet-event-img_0662-026/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-027",
+      "relative_path": "events/cardeventnet-event-img_0662-027/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-028",
+      "relative_path": "events/cardeventnet-event-img_0662-028/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-029",
+      "relative_path": "events/cardeventnet-event-img_0662-029/event.json"
+    },
+    {
+      "event_id": "manual-1789567503801-13",
+      "relative_path": "events/manual-1789567503801-13/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-030",
+      "relative_path": "events/cardeventnet-event-img_0662-030/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-031",
+      "relative_path": "events/cardeventnet-event-img_0662-031/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-032",
+      "relative_path": "events/cardeventnet-event-img_0662-032/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-033",
+      "relative_path": "events/cardeventnet-event-img_0662-033/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-034",
+      "relative_path": "events/cardeventnet-event-img_0662-034/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-035",
+      "relative_path": "events/cardeventnet-event-img_0662-035/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-036",
+      "relative_path": "events/cardeventnet-event-img_0662-036/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-037",
+      "relative_path": "events/cardeventnet-event-img_0662-037/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-038",
+      "relative_path": "events/cardeventnet-event-img_0662-038/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-039",
+      "relative_path": "events/cardeventnet-event-img_0662-039/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-040",
+      "relative_path": "events/cardeventnet-event-img_0662-040/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-041",
+      "relative_path": "events/cardeventnet-event-img_0662-041/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-042",
+      "relative_path": "events/cardeventnet-event-img_0662-042/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-043",
+      "relative_path": "events/cardeventnet-event-img_0662-043/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-044",
+      "relative_path": "events/cardeventnet-event-img_0662-044/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-045",
+      "relative_path": "events/cardeventnet-event-img_0662-045/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-046",
+      "relative_path": "events/cardeventnet-event-img_0662-046/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-047",
+      "relative_path": "events/cardeventnet-event-img_0662-047/event.json"
+    },
+    {
+      "event_id": "cardeventnet-event-img_0662-048",
+      "relative_path": "events/cardeventnet-event-img_0662-048/event.json"
+    }
+  ],
+  "source": null,
+  "provenance": {
+    "source_schema": "pipeline-node-revision/v1",
+    "source_node_id": "1dca5a93-4a87-59f6-ab83-d5c72154916b",
+    "source_revision_id": "d41f92f9-7fd1-52db-a065-7c94f963713a",
+    "source_content_sha256": "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5",
+    "source_metadata": {
+      "copied_from": {
+        "node_id": "dc98c88a-f03d-54a8-9b6b-5b38da55c3fb",
+        "revision_id": "8497bb45-fdb4-5a1a-9cd7-4c2af997c944"
+      },
+      "coverage": {
+        "impact": [
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-004"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-004"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-004"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-004"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-004"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-004"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-004"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-004"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-009"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-009"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-009"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-009"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-014"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-014"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-014"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-014"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-019"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-019"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-019"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-019"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-024"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-024"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-024"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-024"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-029"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-029"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-029"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-029"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-029"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-029"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-029"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-029"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-034"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-034"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-034"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-034"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-038"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-038"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-038"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-038"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-043"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-043"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-043"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-043"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-048"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-048"
+          },
+          {
+            "affected_item_ids": [
+              "cardeventnet-event-img_0662-048"
+            ],
+            "downstream_content_type": "visible_cards",
+            "re_review_required": true,
+            "reason": "event evidence changed; review its visible-card frame again",
+            "schema_version": "pipeline-reference-impact/v1",
+            "source_content_type": "events",
+            "source_item_id": "cardeventnet-event-img_0662-048"
+          }
+        ],
+        "intervals": [
+          {
+            "end_us": 94875000,
+            "start_us": 0
+          }
+        ],
+        "kind": "event_intervals",
+        "reviewed_item_ids": [
+          "cardeventnet-event-img_0662-000",
+          "cardeventnet-event-img_0662-001",
+          "cardeventnet-event-img_0662-002",
+          "cardeventnet-event-img_0662-003",
+          "cardeventnet-event-img_0662-004",
+          "cardeventnet-event-img_0662-005",
+          "cardeventnet-event-img_0662-006",
+          "cardeventnet-event-img_0662-007",
+          "cardeventnet-event-img_0662-008",
+          "cardeventnet-event-img_0662-009",
+          "cardeventnet-event-img_0662-010",
+          "cardeventnet-event-img_0662-011",
+          "cardeventnet-event-img_0662-012",
+          "cardeventnet-event-img_0662-013",
+          "cardeventnet-event-img_0662-014",
+          "cardeventnet-event-img_0662-015",
+          "cardeventnet-event-img_0662-016",
+          "cardeventnet-event-img_0662-017",
+          "cardeventnet-event-img_0662-018",
+          "cardeventnet-event-img_0662-019",
+          "cardeventnet-event-img_0662-020",
+          "cardeventnet-event-img_0662-021",
+          "cardeventnet-event-img_0662-022",
+          "cardeventnet-event-img_0662-023",
+          "cardeventnet-event-img_0662-024",
+          "cardeventnet-event-img_0662-025",
+          "cardeventnet-event-img_0662-026",
+          "cardeventnet-event-img_0662-027",
+          "cardeventnet-event-img_0662-028",
+          "cardeventnet-event-img_0662-029",
+          "manual-1789567503801-13",
+          "cardeventnet-event-img_0662-030",
+          "cardeventnet-event-img_0662-031",
+          "cardeventnet-event-img_0662-032",
+          "cardeventnet-event-img_0662-033",
+          "cardeventnet-event-img_0662-034",
+          "cardeventnet-event-img_0662-035",
+          "cardeventnet-event-img_0662-036",
+          "cardeventnet-event-img_0662-037",
+          "cardeventnet-event-img_0662-038",
+          "cardeventnet-event-img_0662-039",
+          "cardeventnet-event-img_0662-040",
+          "cardeventnet-event-img_0662-041",
+          "cardeventnet-event-img_0662-042",
+          "cardeventnet-event-img_0662-043",
+          "cardeventnet-event-img_0662-044",
+          "cardeventnet-event-img_0662-045",
+          "cardeventnet-event-img_0662-046",
+          "cardeventnet-event-img_0662-047",
+          "cardeventnet-event-img_0662-048"
+        ],
+        "schema_version": "pipeline-reference-coverage/v1",
+        "source_duration_us": 94875000
+      },
+      "legacy_content_schema": "event-data/v1",
+      "legacy_content_sha256": "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5",
+      "legacy_created_at": "2026-09-16T14:06:10.368015Z",
+      "legacy_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909",
+      "migration_snapshot_sha256": "c8979c9a53956abd749e638466e1f88009f2e0ce8e725d674bf26ff0335ed430",
+      "origin": "corrected",
+      "producer": {
+        "base_revision_id": "reference-events-710e710c8c5fdf8238c989197f256945",
+        "kind": "human",
+        "operator_id": "Niklas",
+        "review_id": "reference-cardeventnet-IMG_0662-events"
+      },
+      "unknown_history": "not_recorded"
+    },
+    "source_parent_revision_id": null
+  },
+  "created_at": "2026-11-10T23:24:16.815151+00:00",
+  "origin": "corrected"
+}

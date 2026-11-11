@@ -1,0 +1,7 @@
+{
+  "schema_version": "event/v1",
+  "event_id": "cardeventnet-event-img_0662-031",
+  "event_type": "card_state_changed",
+  "start_us": 63811654,
+  "end_us": 63811654
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "0124-m5-retained-browser-fixture/v1",
+  "snapshot_sha256": "fb60d5fcd6ed62bd55d40c9e84189578d244e7fba179de9ef611ac51f151d0a6",
+  "recording_id": "cardeventnet-IMG_0662",
+  "output": {
+    "node_id": "8bfa825d-94af-5ac6-877d-a1381e662d65",
+    "revision_id": "d9c461ee-c7f9-5a2c-be60-36da3ea9a169",
+    "file_sha256": "23d6a61ffa5c362d2e7bbf1f24c708c93a1800d684573a1fe4078961119da45c",
+    "content_sha256": "e7d585be69996a440c7c56d6e3fb3a2cd582288327b82555561a38c49191a1ad",
+    "legacy_event_revision_id": "reference-events-fd5c08dc4f7540053b3ed1c04606b909"
+  },
+  "parent": {
+    "set_id": "1dca5a93-4a87-59f6-ab83-d5c72154916b",
+    "version": "d41f92f9-7fd1-52db-a065-7c94f963713a",
+    "content_sha256": "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5"
+  }
+}

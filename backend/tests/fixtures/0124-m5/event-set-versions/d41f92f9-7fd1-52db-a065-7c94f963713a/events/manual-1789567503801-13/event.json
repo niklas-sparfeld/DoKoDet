@@ -1,0 +1,7 @@
+{
+  "schema_version": "event/v1",
+  "event_id": "manual-1789567503801-13",
+  "event_type": "card_state_changed",
+  "start_us": 60056093,
+  "end_us": 60806093
+}

@@ -10,7 +10,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import uvicorn
-from doko_operations.pipeline_data import canonical_event_data_bytes
 from table_evidence_analyzer.visible_cards import ProviderResult
 
 from dokodetector_backend.app import create_app
@@ -25,6 +24,9 @@ M5_OUTPUT_REVISION_ID = "d9c461ee-c7f9-5a2c-be60-36da3ea9a169"
 M5_PARENT_SET_ID = "1dca5a93-4a87-59f6-ab83-d5c72154916b"
 M5_PARENT_VERSION = "d41f92f9-7fd1-52db-a065-7c94f963713a"
 M5_LEGACY_EVENT_REVISION_ID = "reference-events-fd5c08dc4f7540053b3ed1c04606b909"
+M5_OUTPUT_FILE_SHA256 = "23d6a61ffa5c362d2e7bbf1f24c708c93a1800d684573a1fe4078961119da45c"
+M5_OUTPUT_CONTENT_SHA256 = "e7d585be69996a440c7c56d6e3fb3a2cd582288327b82555561a38c49191a1ad"
+M5_PARENT_CONTENT_SHA256 = "00ce1f56caf862db76601d6e82cd36587d56f2c9fd23de208364559b910832f5"
 
 
 class RestartableBrowserApp:
@@ -103,7 +105,14 @@ class RestartableBrowserApp:
             payload = (
                 node_store.revision_path(M5_OUTPUT_NODE_ID, M5_OUTPUT_REVISION_ID) / "revision.json"
             )
-            body = json.dumps({"sha256": hashlib.sha256(payload.read_bytes()).hexdigest()}).encode()
+            output_bytes = payload.read_bytes()
+            output_revision = json.loads(output_bytes)
+            body = json.dumps(
+                {
+                    "file_sha256": hashlib.sha256(output_bytes).hexdigest(),
+                    "content_sha256": output_revision["content_sha256"],
+                }
+            ).encode()
             await send(
                 {
                     "type": "http.response.start",
@@ -190,29 +199,36 @@ def main() -> None:
         m5_recording_store = RecordingFolderStore(data_root)
         m5_recording_store.publish_bundle(retained_transport, recording_id=M5_RECORDING_ID)
         m5_event_sets = EventSetStore(m5_recording_store)
-        parent_content = {
-            "schema_version": "event-data/v1",
-            "events": [
-                {
-                    "event_id": "cardeventnet-event-img_0662-000",
-                    "event_type": "card_state_changed",
-                    "start_us": 2_001_934,
-                    "end_us": 2_002_934,
-                }
-            ],
-        }
-        parent_digest = hashlib.sha256(canonical_event_data_bytes(parent_content)).hexdigest()
-        m5_event_sets.save(
-            M5_RECORDING_ID,
-            set_id=M5_PARENT_SET_ID,
-            version=M5_PARENT_VERSION,
-            content=parent_content,
-            origin="corrected",
-            provenance={
-                "source": "retained-corpus-browser-proof",
-                "source_metadata": {"legacy_revision_id": M5_LEGACY_EVENT_REVISION_ID},
-                "source_content_sha256": parent_digest,
-            },
+        fixture_root = repository / "backend/tests/fixtures/0124-m5"
+        frozen_fixture = json.loads((fixture_root / "fixture.json").read_bytes())
+        assert frozen_fixture["recording_id"] == M5_RECORDING_ID
+        assert frozen_fixture["snapshot_sha256"] == (
+            "fb60d5fcd6ed62bd55d40c9e84189578d244e7fba179de9ef611ac51f151d0a6"
+        )
+        assert frozen_fixture["output"]["node_id"] == M5_OUTPUT_NODE_ID
+        assert frozen_fixture["output"]["revision_id"] == M5_OUTPUT_REVISION_ID
+        assert frozen_fixture["output"]["file_sha256"] == M5_OUTPUT_FILE_SHA256
+        assert frozen_fixture["output"]["content_sha256"] == M5_OUTPUT_CONTENT_SHA256
+        assert frozen_fixture["output"]["legacy_event_revision_id"] == (M5_LEGACY_EVENT_REVISION_ID)
+        assert frozen_fixture["parent"]["set_id"] == M5_PARENT_SET_ID
+        assert frozen_fixture["parent"]["version"] == M5_PARENT_VERSION
+        assert frozen_fixture["parent"]["content_sha256"] == M5_PARENT_CONTENT_SHA256
+        parent_source = fixture_root / "event-set-versions" / M5_PARENT_VERSION
+        parent_target = (
+            m5_recording_store.recording_path(M5_RECORDING_ID)
+            / "event-sets"
+            / M5_PARENT_SET_ID
+            / "versions"
+            / M5_PARENT_VERSION
+        )
+        parent_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(parent_source, parent_target)
+        parent = m5_event_sets.get(M5_RECORDING_ID, M5_PARENT_SET_ID, M5_PARENT_VERSION)
+        assert parent is not None
+        assert parent["content_sha256"] == M5_PARENT_CONTENT_SHA256
+        assert (
+            parent["provenance"]["source_metadata"]["legacy_revision_id"]
+            == M5_LEGACY_EVENT_REVISION_ID
         )
         m5_generated = m5_event_sets.save(
             M5_RECORDING_ID,
@@ -275,6 +291,12 @@ def main() -> None:
             pending_video_root=Path(directory) / "incoming",
             frontend_dist=repository / "web" / "dist",
         )
+        output_node_fixture = (
+            repository / "backend/tests/fixtures/0124-m5/pipeline-nodes" / M5_OUTPUT_NODE_ID
+        )
+        output_node_target = settings.operations_root / "pipeline-nodes" / M5_OUTPUT_NODE_ID
+        output_node_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(output_node_fixture, output_node_target)
         app = RestartableBrowserApp(settings)
         uvicorn.run(app, host="127.0.0.1", port=8767, log_level="warning")
 
@@ -340,37 +362,35 @@ def _write_json(path: Path, value: dict) -> bytes:
 
 def _seed_pre_m3_visible_output(app) -> None:
     node_store = app.state.pipeline_selection_store.node_store
-    try:
-        node_store.get(M5_OUTPUT_NODE_ID)
-        return
-    except (FileNotFoundError, KeyError):
-        pass
-    source = app.state.event_pipeline_service.get_recording_source(M5_RECORDING_ID).to_mapping()
-    node_store.create(
-        M5_OUTPUT_NODE_ID,
-        "Retained pre-M3 visible-card output",
-        "visible_cards",
-        source,
-        {"schema_version": "visible-card-data/v2", "outcomes": []},
-        {
-            "origin": "processor",
-            "coverage": {
-                "kind": "requested-event-frames",
-                "event_revision_id": M5_LEGACY_EVENT_REVISION_ID,
-            },
-        },
-        revision_id=M5_OUTPUT_REVISION_ID,
+    node = node_store.get(M5_OUTPUT_NODE_ID)
+    revision = node_store.read_authorized_revision(M5_OUTPUT_NODE_ID, M5_OUTPUT_REVISION_ID)
+    revision_bytes = (
+        node_store.revision_path(M5_OUTPUT_NODE_ID, M5_OUTPUT_REVISION_ID)
+        .joinpath("revision.json")
+        .read_bytes()
     )
-    app.state.pipeline_selection_store.update_exact(
-        M5_RECORDING_ID,
-        "visible_cards",
-        expected_revision=0,
-        selected_generated=None,
-        selected_completed_reference={
+    assert node.content_type == "visible_cards"
+    assert node.source["recording_id"] == M5_RECORDING_ID
+    assert hashlib.sha256(revision_bytes).hexdigest() == M5_OUTPUT_FILE_SHA256
+    assert revision.content_sha256 == M5_OUTPUT_CONTENT_SHA256
+    selection_store = app.state.pipeline_selection_store
+    selection = selection_store.get_exact(M5_RECORDING_ID, "visible_cards")
+    if selection is None:
+        selection_store.update_exact(
+            M5_RECORDING_ID,
+            "visible_cards",
+            expected_revision=0,
+            selected_generated=None,
+            selected_completed_reference={
+                "node_id": M5_OUTPUT_NODE_ID,
+                "revision_id": M5_OUTPUT_REVISION_ID,
+            },
+        )
+    else:
+        assert selection.selected_completed_reference == {
             "node_id": M5_OUTPUT_NODE_ID,
             "revision_id": M5_OUTPUT_REVISION_ID,
-        },
-    )
+        }
 
 
 if __name__ == "__main__":
