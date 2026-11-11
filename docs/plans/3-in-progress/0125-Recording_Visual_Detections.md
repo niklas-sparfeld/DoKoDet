@@ -265,14 +265,23 @@ remain the bridge for old inputs. No selection or review authority changed. The 
 contract added was the M0 detection-set reference in pipeline request and lineage data; no new
 store or transaction authority was added.
 
-M2 scope review after correction 1: the geometry review contract covers one exact frame/object pair,
-so comparison validates each object independently and excludes frames with no accepted objects.
+Calibration preview, apply, and target proposal generation now use the selected set's pixel geometry.
+Frame identities remain exact. Existing node review decisions and ignore regions remain under their
+current authority. The real apply regression edits one saved polygon, verifies that the published
+proposal reflects it, reopens the output detection set, and verifies exact input lineage and a
+retained frame review.
+
+M2 scope review after correction 2: calibration reflow consumes saved geometry through preview and
+target proposal generation. The real apply test proves an edited alternative changes the published
+proposal and keeps exact lineage after reopen. The existing node review authority remains the source
+of preserved frame decisions. The geometry review contract covers one exact frame/object pair, so
+comparison validates each object independently and excludes frames with no accepted objects.
 It does not infer a review for unreviewed objects or empty frames. This uses the existing M1 review
 authority. A hard-snapshot calibration performance fixture has no recording folder, so it supplies
-a deterministic detection-set store fixture; a separate test writes and reopens a reviewed edited
-alternative through the real recording-folder store. The first complete workflow remains the M1
+a recording-folder adapter to the production detection-set store; the apply regression reopens the
+edited output through a new store instance. The first complete workflow remains the M1
 browser proof. M3 retains the planned migration rehearsal, selection cutover, old-path removal, and
-qualification. No new prerequisite or scope change was needed. M2 corrections: 1/2; M2 re-plans:
+qualification. No new prerequisite or scope change was needed. M2 corrections: 2/2; M2 re-plans:
 0/5; run re-plans: 0/10. Next milestone: M3.
 
 M2 checks and evidence are recorded in the [M2 report](../../reports/0125-M2_Exact_Detection_Set_Consumers.md).
@@ -292,7 +301,9 @@ backend/tests/test_frame_review_bindings.py backend/tests/test_frame_review_queu
 backend/tests/test_frame_review_api.py backend/tests/test_visible_card_review_frontend.py
 backend/tests/test_pipeline_node_selection_store.py backend/tests/test_pipeline_api.py
 backend/tests/test_pipeline_comparison_api.py backend/tests/test_pipeline_vision_comparison_api.py`.
-The calibration apply/readback fixture passed; the persisted detection-set reopen test also passed.
+The calibration apply/readback fixture passed with a visibly edited saved polygon, exact proposal
+readback, output lineage reopen, and preserved node review. The real-backend detection-set browser
+workflow passed after this correction.
 Backend and operations Ruff checks passed. `cd web && npm run generate:api`, `cd web && npm run
 check` (46 files, 243 tests), and `cd web && npm run test:e2e:detection-set` (one real-backend
 workflow) passed. Local links and `git diff --check` passed.

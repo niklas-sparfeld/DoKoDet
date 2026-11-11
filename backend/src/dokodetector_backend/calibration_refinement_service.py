@@ -49,7 +49,10 @@ from table_evidence_analyzer.pipeline_data import (
     canonical_proposed_card_scene_data_bytes,
 )
 
-from dokodetector_backend.detection_set_inputs import resolve_detection_set
+from dokodetector_backend.detection_set_inputs import (
+    detection_set_to_local_result,
+    resolve_detection_set,
+)
 from dokodetector_backend.detection_set_store import DetectionSetError, DetectionSetStore
 from dokodetector_backend.lineage_draft_projection import project_visible_card_items
 from dokodetector_backend.pipeline_item_provenance import _items
@@ -197,6 +200,70 @@ class CalibrationRefinementService:
                 "the detection set does not match the calibration proposal frame coverage"
             )
         return saved
+
+    def _calibration_detection_set_proposal_data(
+        self,
+        recording_id: str,
+        source: Any,
+        detection_set: Mapping[str, Any],
+        calibration: Any,
+        diagnostics: Mapping[str, Any],
+    ) -> ProposedCardSceneData:
+        """Build calibration scenes from the selected immutable detection geometry."""
+
+        selected_calibration = (
+            calibration
+            if isinstance(calibration, TablePlaneCalibration)
+            else TablePlaneCalibration.from_mapping(calibration)
+        )
+        local_result = detection_set_to_local_result(
+            detection_set,
+            recording_id=recording_id,
+            source_revision=source.manifest.revision_id,
+        )
+        try:
+            return build_proposed_card_scene_data(
+                local_result,
+                detector_revision_id=source.manifest.revision_id,
+                detector_revision_digest=source.manifest.content_sha256,
+                calibration=selected_calibration,
+                calibration_diagnostics=diagnostics,
+            )
+        except (TypeError, ValueError) as error:
+            raise CalibrationRefinementInputError(
+                f"the exact detection set cannot provide calibration proposal geometry: {error}"
+            ) from error
+
+    def _calibration_detection_set_frame_scenes(
+        self,
+        recording_id: str,
+        proposal_revision_id: str,
+        data: ProposedCardSceneData,
+    ) -> tuple[dict[str, Any], ...]:
+        """Use exact proposal geometry while retaining reviewed ignore-region facts."""
+
+        node_draft = self._current_node_draft(
+            recording_id, proposal_revision_id, allow_missing=True
+        )
+        previous = (
+            {} if node_draft is None else {item.item_id: item.item for item in node_draft.items}
+        )
+        scenes = []
+        for frame in data.frames:
+            prior_item = previous.get(frame.frame_id, {})
+            scenes.append(
+                {
+                    "item_id": frame.frame_id,
+                    "frame_identity": (
+                        None
+                        if frame.source_identity is None
+                        else frame.source_identity.to_mapping()
+                    ),
+                    "ignored_regions": prior_item.get("ignored_regions", []),
+                    "scene": (None if frame.proposal is None else frame.proposal.initialized_scene),
+                }
+            )
+        return tuple(scenes)
 
     def read_published_calibration(
         self, recording_id: str, calibration_revision_id: str
@@ -847,7 +914,9 @@ class CalibrationRefinementService:
             raise CalibrationRefinementInputError("input_detection_set_ref is required")
 
         _proposal, source, data = self._proposal(recording_id, proposal_revision_id)
-        self._resolve_calibration_detection_set(recording_id, source, input_detection_set_ref)
+        selected_detection_set = self._resolve_calibration_detection_set(
+            recording_id, source, input_detection_set_ref
+        )
         try:
             draft = self.store.load(recording_id, draft_id)
         except CalibrationRefinementError as error:
@@ -864,7 +933,20 @@ class CalibrationRefinementService:
             raise CalibrationRefinementInputError(
                 "the calibration draft uses a stale detector revision; reload the refinement"
             )
-        frame_scenes = self._frame_scenes(recording_id, proposal_revision_id, data)
+        selected_ref = dict(input_detection_set_ref)
+        selected_data = self._calibration_detection_set_proposal_data(
+            recording_id,
+            source,
+            selected_detection_set,
+            data.calibration,
+            {
+                "source_proposal_revision_id": proposal_revision_id,
+                "input_detection_set_ref": selected_ref,
+            },
+        )
+        frame_scenes = self._calibration_detection_set_frame_scenes(
+            recording_id, proposal_revision_id, selected_data
+        )
         effective_draft = exclude_anchors_in_reviewed_ignore_regions(draft, frame_scenes)
         receipt_id = (
             "reflow-"
@@ -961,20 +1043,17 @@ class CalibrationRefinementService:
             effective_draft,
             preview_digest,
         )
-        target_data = build_proposed_card_scene_data(
-            visible_card_data_to_local_result(
-                source.content,
-                recording_id=recording_id,
-                source_revision=source.manifest.revision_id,
-            ),
-            detector_revision_id=source.manifest.revision_id,
-            detector_revision_digest=source.manifest.content_sha256,
-            calibration=target,
-            calibration_diagnostics={
+        target_data = self._calibration_detection_set_proposal_data(
+            recording_id,
+            source,
+            selected_detection_set,
+            target,
+            {
                 "source_proposal_revision_id": proposal_revision_id,
                 "source_calibration_revision_id": data.calibration_revision_id,
                 "source_calibration_digest": data.calibration_digest,
                 "refinement_preview_digest": preview_digest,
+                "input_detection_set_ref": selected_ref,
                 "anchor_command_digests": [command.command_digest for command in draft.commands],
             },
         )

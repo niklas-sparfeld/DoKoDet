@@ -285,6 +285,7 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
         detector_attempt = source.manifest.revision_id.rsplit("-attempt-", 1)[1]
         source_coverage = source_revision.metadata.get("coverage", {})
         event_ref = source_coverage.get("event_set_ref")
+        event_set = None
         event_sets = []
         if isinstance(event_ref, dict):
             event_set = app.state.event_set_store.get(
@@ -314,8 +315,16 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
                         "segment_id": f"segment-{index:04d}",
                         "polygon": [
                             {
-                                "x": round(point[0] * width / 1000),
-                                "y": round(point[1] * height / 1000),
+                                "x": round(
+                                    point["x"]
+                                    if isinstance(point, dict)
+                                    else point[0] * width / 1000
+                                ),
+                                "y": round(
+                                    point["y"]
+                                    if isinstance(point, dict)
+                                    else point[1] * height / 1000
+                                ),
                             }
                             for point in polygon
                         ],
@@ -324,7 +333,32 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
                 ],
             }
 
+        fixture_calibration = TablePlaneCalibration.from_mapping(proposal_data.calibration)
+
+        def detection_polygon(candidate, identity, *, edited: bool) -> list[dict[str, int]]:
+            source_point = np.asarray(
+                [
+                    identity.width / 2,
+                    identity.height / 2,
+                    1.0,
+                ]
+            )
+            table_point = np.asarray(fixture_calibration.image_to_table) @ source_point
+            table_center = table_point[:2] / table_point[2]
+            if edited:
+                table_center[0] += 0.25
+            projected = project_fixed_card(
+                fixture_calibration.table_to_image,
+                table_center,
+                0.0,
+                fixture_calibration.card_short_size,
+                fixture_calibration.card_long_size,
+            )
+            return [{"x": round(point[0]), "y": round(point[1])} for point in projected]
+
         detection_frames = []
+        edited_geometry_frame_id = None
+        reviewed_geometry_frame_id = None
         for outcome in source.content.outcomes:
             if outcome.status == "failed" or outcome.frame_identity is None:
                 continue
@@ -340,38 +374,27 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
                 if isinstance(event_ref, dict) and outcome.event_id in event_ids
                 else []
             )
-            detections = [
-                detection(
-                    candidate.card_id,
-                    "visible_card",
-                    candidate.side,
-                    candidate.geometry.polygons,
-                    identity.width,
-                    identity.height,
-                )
-                for candidate in outcome.candidates
-            ]
-            detections.extend(
-                detection(
-                    item.pile_id,
-                    "pile",
-                    None,
-                    item.polygons,
-                    identity.width,
-                    identity.height,
-                )
-                for item in outcome.pile_regions
+            edited_frame = bool(outcome.candidates) and edited_geometry_frame_id is None
+            if edited_frame:
+                edited_geometry_frame_id = outcome.event_id
+            reviewed_empty_frame = (
+                bool(outcome.candidates) and not edited_frame and reviewed_geometry_frame_id is None
             )
-            detections.extend(
-                detection(
-                    item.region_id,
-                    "ignore",
-                    None,
-                    item.geometry.polygons,
-                    identity.width,
-                    identity.height,
-                )
-                for item in outcome.ignored_regions
+            if reviewed_empty_frame:
+                reviewed_geometry_frame_id = outcome.event_id
+            detections = (
+                [
+                    detection(
+                        outcome.candidates[0].card_id,
+                        "visible_card",
+                        outcome.candidates[0].side,
+                        [detection_polygon(outcome.candidates[0], identity, edited=edited_frame)],
+                        identity.width,
+                        identity.height,
+                    )
+                ]
+                if outcome.candidates and not reviewed_empty_frame
+                else []
             )
             detection_frames.append(
                 {
@@ -382,30 +405,31 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
                 }
             )
 
-        class DetectionSetFixture:
-            values: dict[tuple[str, str, str], dict[str, Any]] = {}
+        from types import SimpleNamespace
 
-            def save(self, recording_id: str, **kwargs):
-                value = {
-                    "recording_id": recording_id,
-                    "set_id": kwargs["set_id"],
-                    "version": kwargs["version"],
-                    "origin": kwargs["origin"],
-                    "source": kwargs["source"],
-                    "producer": kwargs["producer"],
-                    "event_sets": kwargs["event_sets"],
-                    "content": {"frames": kwargs["frames"]},
-                    "content_sha256": hashlib.sha256(
-                        json.dumps(kwargs, sort_keys=True).encode()
-                    ).hexdigest(),
-                }
-                self.values[(recording_id, kwargs["set_id"], kwargs["version"])] = value
-                return value
+        from dokodetector_backend.detection_set_store import DetectionSetStore
 
+        class RecordingFolders:
+            def get(self, recording_id: str):
+                assert recording_id == CALIBRATION_RECORDING
+                return SimpleNamespace(media={"sha256": source.manifest.source.video_sha256})
+
+            def recording_path(self, recording_id: str) -> Path:
+                assert recording_id == CALIBRATION_RECORDING
+                return tmp_path / "recording-folder" / recording_id
+
+        class EventSets:
             def get(self, recording_id: str, set_id: str, version: str):
-                return self.values.get((recording_id, set_id, version))
+                if (
+                    isinstance(event_ref, dict)
+                    and recording_id == CALIBRATION_RECORDING
+                    and set_id == event_ref["set_id"]
+                    and version == event_ref["version"]
+                ):
+                    return event_set
+                return None
 
-        detection_sets = DetectionSetFixture()
+        detection_sets = DetectionSetStore(RecordingFolders(), EventSets())
         service.detection_set_store = detection_sets
         source_detection_set = detection_sets.save(
             CALIBRATION_RECORDING,
@@ -417,13 +441,61 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
             event_sets=event_sets,
             frames=detection_frames,
         )
+        input_detection_set_ref = {
+            "set_id": source_detection_set["set_id"],
+            "version": source_detection_set["version"],
+            "content_sha256": source_detection_set["content_sha256"],
+        }
+        selected_data = service._calibration_detection_set_proposal_data(
+            CALIBRATION_RECORDING,
+            source,
+            source_detection_set,
+            proposal_data.calibration,
+            {
+                "source_proposal_revision_id": CALIBRATION_PROPOSAL_REVISION,
+                "input_detection_set_ref": input_detection_set_ref,
+            },
+        )
+        build_calibration_detection_data = service._calibration_detection_set_proposal_data
+
+        def reuse_exact_base_detection_data(
+            selected_recording_id, selected_source, detection_set, selected_calibration, diagnostics
+        ):
+            parsed = TablePlaneCalibration.from_mapping(
+                selected_calibration
+                if isinstance(selected_calibration, dict)
+                else selected_calibration.to_mapping()
+            )
+            if parsed.calibration_digest == proposal_data.calibration_digest:
+                return selected_data
+            return build_calibration_detection_data(
+                selected_recording_id,
+                selected_source,
+                detection_set,
+                selected_calibration,
+                diagnostics,
+            )
+
+        service._calibration_detection_set_proposal_data = reuse_exact_base_detection_data
+        assert edited_geometry_frame_id is not None
+        original_geometry_scene = next(
+            frame.proposal.initialized_scene
+            for frame in proposal_data.frames
+            if frame.frame_id == edited_geometry_frame_id and frame.proposal is not None
+        )
+        selected_geometry_scene = next(
+            frame.proposal.initialized_scene
+            for frame in selected_data.frames
+            if frame.frame_id == edited_geometry_frame_id and frame.proposal is not None
+        )
+        assert selected_geometry_scene != original_geometry_scene
         from doko_operations.card_plane_calibration_refinement import (
             build_calibration_preview,
             exclude_anchors_in_reviewed_ignore_regions,
         )
 
-        frame_scenes = service._frame_scenes(
-            CALIBRATION_RECORDING, CALIBRATION_PROPOSAL_REVISION, proposal_data
+        frame_scenes = service._calibration_detection_set_frame_scenes(
+            CALIBRATION_RECORDING, CALIBRATION_PROPOSAL_REVISION, selected_data
         )
         source_draft = exclude_anchors_in_reviewed_ignore_regions(source_draft, frame_scenes)
         # Use exact planar outlines from the active calibration. The hard snapshot's
@@ -537,13 +609,17 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
 
         # The M4 hard snapshot contains the source and proposal nodes but no migrated
         # maintained visible-card node. Seed that exact canonical node for the apply path.
+
         from table_evidence_analyzer.pipeline_data import VisibleCardData
 
         from dokodetector_backend.calibration_reflow_context import (
             build_calibration_reflow_context,
         )
-        from dokodetector_backend.lineage_draft_projection import project_visible_card_items
+        from dokodetector_backend.lineage_draft_projection import (
+            project_visible_card_items,
+        )
         from dokodetector_backend.pipeline_item_provenance import _items
+        from dokodetector_backend.pipeline_node_reviews import PipelineNodeReviews
         from dokodetector_backend.visible_card_node_draft import (
             VisibleCardNodeDraft,
             VisibleCardNodeDraftItem,
@@ -557,8 +633,21 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
             if isinstance(source.content, VisibleCardData)
             else VisibleCardData.from_mapping(source.content)
         )
+        empty_detection_frame_ids = {
+            frame["frame_id"] for frame in detection_frames if not frame["detections"]
+        }
+        reviewed_frame_id = next(
+            item.event_id
+            for item in visible_data.outcomes
+            if item.event_id in empty_detection_frame_ids
+        )
         visible_items = tuple(
-            VisibleCardNodeDraftItem(outcome.event_id, None, "pending", outcome.to_mapping())
+            VisibleCardNodeDraftItem(
+                item_id=outcome.event_id,
+                base_item_id=None,
+                review_state=("accepted" if outcome.event_id == reviewed_frame_id else "pending"),
+                item=outcome.to_mapping(),
+            )
             for outcome in visible_data.outcomes
         )
         visible_draft = VisibleCardNodeDraft(
@@ -594,9 +683,35 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
             },
             revision_id=str(uuid5(NAMESPACE_URL, f"m8-visible-draft:{CALIBRATION_RECORDING}")),
         )
-
-        frame_scenes = service._frame_scenes(
-            CALIBRATION_RECORDING, CALIBRATION_PROPOSAL_REVISION, proposal_data
+        PipelineNodeReviews(node_store).item(
+            "m8-review-empty-frame",
+            visible_node_id,
+            str(uuid5(NAMESPACE_URL, f"m8-visible-draft:{CALIBRATION_RECORDING}")),
+            reviewed_frame_id,
+            "Keep the reviewed frame decision through calibration reflow?",
+            "accepted",
+            {"kind": "human", "id": "m8-reviewer"},
+            {
+                "frame_sha256": next(
+                    outcome.frame_identity.image_sha256
+                    for outcome in visible_data.outcomes
+                    if outcome.event_id == reviewed_frame_id and outcome.frame_identity is not None
+                ),
+                "policy": "frame/v1",
+            },
+        )
+        assert (
+            next(
+                item.review_state
+                for item in service._current_node_draft(
+                    CALIBRATION_RECORDING, CALIBRATION_PROPOSAL_REVISION
+                ).items
+                if item.item_id == reviewed_frame_id
+            )
+            == "accepted"
+        )
+        frame_scenes = service._calibration_detection_set_frame_scenes(
+            CALIBRATION_RECORDING, CALIBRATION_PROPOSAL_REVISION, selected_data
         )
         effective_draft = exclude_anchors_in_reviewed_ignore_regions(
             CalibrationDraft.from_mapping(persisted_draft), frame_scenes
@@ -616,11 +731,7 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
                 "draft_id": DRAFT_ID,
                 "expected_revision": persisted_draft["revision"],
                 "preview_digest": preview_digest,
-                "input_detection_set_ref": {
-                    "set_id": source_detection_set["set_id"],
-                    "version": source_detection_set["version"],
-                    "content_sha256": source_detection_set["content_sha256"],
-                },
+                "input_detection_set_ref": input_detection_set_ref,
                 "operator_id": "m8-operator",
                 "confirm_affected": True,
             },
@@ -642,6 +753,31 @@ def test_calibration_apply_has_timing_and_published_readback(tmp_path: Path) -> 
             "content_sha256": source_detection_set["content_sha256"],
         }
         assert reflow_set["content"] == source_detection_set["content"]
+        reopened_store = DetectionSetStore(RecordingFolders(), EventSets())
+        reopened_set = reopened_store.get(
+            CALIBRATION_RECORDING,
+            result["detection_set_ref"]["set_id"],
+            result["detection_set_ref"]["version"],
+        )
+        assert reopened_set is not None
+        assert reopened_set["content_sha256"] == result["detection_set_ref"]["content_sha256"]
+        assert reopened_set["content"] == source_detection_set["content"]
+        _, _, applied_proposal_data = service._proposal(
+            CALIBRATION_RECORDING, result["proposal_revision_id"]
+        )
+        applied_geometry_scene = next(
+            frame.proposal.initialized_scene
+            for frame in applied_proposal_data.frames
+            if frame.frame_id == edited_geometry_frame_id and frame.proposal is not None
+        )
+        assert applied_geometry_scene != original_geometry_scene
+        current_visible_draft = service._current_node_draft(
+            CALIBRATION_RECORDING, result["proposal_revision_id"]
+        )
+        preserved_review = next(
+            item for item in current_visible_draft.items if item.item_id == reviewed_frame_id
+        )
+        assert preserved_review.review_state in {"accepted", "affected"}
         calibration = client.get(
             f"/api/recordings/{CALIBRATION_RECORDING}/pipeline/calibrations/"
             f"{result['calibration_revision_id']}"
